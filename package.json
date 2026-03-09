@@ -1,0 +1,14 @@
+{
+  "name": "vinculum",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter @vinculum/graph dev",
+    "build": "bun run --filter @vinculum/graph build",
+    "lint": "bun run --filter @vinculum/graph lint",
+    "typecheck": "bun run --filter @vinculum/graph typecheck"
+  }
+}
