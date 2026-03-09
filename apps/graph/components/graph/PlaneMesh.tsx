@@ -52,11 +52,11 @@ function PlaneMeshComponent({ object, isSelected }: PlaneMeshProps) {
       <meshStandardMaterial
         color={object.color}
         emissive={object.color}
-        emissiveIntensity={isSelected ? 0.14 : 0.03}
+        emissiveIntensity={isSelected ? 0.2 : 0.08}
         roughness={0.4}
         metalness={0.05}
         transparent
-        opacity={isSelected ? 0.84 : 0.68}
+        opacity={isSelected ? 0.9 : 0.76}
         wireframe={object.appearance.wireframe}
         side={THREE.DoubleSide}
       />

@@ -60,7 +60,7 @@ function ParametricCurveComponent({
 
   useEffect(() => {
     material.color.set(object.color);
-    material.opacity = isSelected ? 1 : 0.78;
+    material.opacity = isSelected ? 1 : 0.9;
     material.needsUpdate = true;
   }, [isSelected, material, object.color]);
 

@@ -54,10 +54,10 @@ export default function ExpressionRow({
   }, [object]);
 
   const rowClassName = cn(
-    "relative overflow-hidden rounded-xl border bg-card/80 p-2.5 transition-colors",
+    "relative overflow-hidden rounded-lg border bg-card p-2.5 transition-colors",
     isSelected
-      ? "border-primary/70 bg-primary/[0.08] ring-1 ring-primary/35"
-      : "border-border/80 hover:border-primary/35 hover:bg-accent/30",
+      ? "border-primary/70 ring-2 ring-primary/25"
+      : "border-border/80 hover:border-primary/35",
     validation.error && "border-destructive/60"
   );
 
@@ -110,12 +110,14 @@ export default function ExpressionRow({
       aria-label="Expression row"
     >
       <span
-        className="pointer-events-none absolute inset-y-0 left-0 w-1"
+        className="pointer-events-none absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: object.color }}
       />
 
       <div className="mb-2 flex items-center gap-2 pl-1">
-        <span className="w-5 shrink-0 text-center font-mono text-xs text-muted-foreground">{rowIndex + 1}</span>
+        <span className="w-5 shrink-0 text-center font-mono text-xs text-muted-foreground">
+          {rowIndex + 1}
+        </span>
 
         <Button
           type="button"
@@ -198,19 +200,24 @@ export default function ExpressionRow({
       </div>
 
       {object.kind === "surface" ? (
-        <Input
-          ref={(node) => registerInputRef(object.id, node)}
-          type="text"
-          value={object.equation}
-          onFocus={() => onSelect(object.id)}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => updateSurfaceEquation(object.id, event.target.value)}
-          onKeyDown={handlePrimaryKeyDown}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="sin(x) * cos(y)"
-          className="h-12 border-border/80 bg-background/90 font-mono text-[2rem] leading-none tracking-tight"
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-muted-foreground">
+            z=
+          </span>
+          <Input
+            ref={(node) => registerInputRef(object.id, node)}
+            type="text"
+            value={object.equation}
+            onFocus={() => onSelect(object.id)}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => updateSurfaceEquation(object.id, event.target.value)}
+            onKeyDown={handlePrimaryKeyDown}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="sin(x) * cos(y)"
+            className="h-12 border-border/80 bg-background/95 pl-10 font-mono text-[1.8rem] leading-none tracking-tight"
+          />
+        </div>
       ) : null}
 
       {object.kind === "parametricCurve" ? (
@@ -243,19 +250,24 @@ export default function ExpressionRow({
       ) : null}
 
       {object.kind === "plane" ? (
-        <Input
-          ref={(node) => registerInputRef(object.id, node)}
-          type="text"
-          value={object.equation}
-          onFocus={() => onSelect(object.id)}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => updatePlaneEquation(object.id, event.target.value)}
-          onKeyDown={handlePrimaryKeyDown}
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="ax + by + cz + d = 0"
-          className="h-11 border-border/80 bg-background/90 font-mono text-sm"
-        />
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            plane
+          </span>
+          <Input
+            ref={(node) => registerInputRef(object.id, node)}
+            type="text"
+            value={object.equation}
+            onFocus={() => onSelect(object.id)}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => updatePlaneEquation(object.id, event.target.value)}
+            onKeyDown={handlePrimaryKeyDown}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="ax + by + cz + d = 0"
+            className="h-11 border-border/80 bg-background/95 pl-[4.5rem] font-mono text-sm"
+          />
+        </div>
       ) : null}
 
       {validation.error ? (

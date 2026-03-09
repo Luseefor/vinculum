@@ -21,17 +21,23 @@ export default function AddExpressionButton() {
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
 
   const addObject = () => {
+    let createdId = "";
+
     if (graphType === "parametricCurve") {
-      addParametricCurve();
-      return;
+      createdId = addParametricCurve();
+    } else if (graphType === "plane") {
+      createdId = addPlaneObject();
+    } else {
+      createdId = addSurfaceObject();
     }
 
-    if (graphType === "plane") {
-      addPlaneObject();
-      return;
+    if (createdId && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("vinculum:focus-expression", {
+          detail: { id: createdId }
+        })
+      );
     }
-
-    addSurfaceObject();
   };
 
   return (

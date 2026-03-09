@@ -111,7 +111,7 @@ export default function GraphCanvas() {
     : { position: DEFAULT_3D_CAMERA_POSITION, fov: 48, near: 0.1, far: 500 };
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full cursor-grab active:cursor-grabbing">
       <Canvas key={viewportMode} camera={cameraProps} orthographic={is2DMode} dpr={[1, 2]}>
         <color attach="background" args={[scenePalette.background]} />
         <ambientLight intensity={sceneTheme === "dark" ? 0.42 : 0.62} />
@@ -136,9 +136,9 @@ export default function GraphCanvas() {
           enablePan
           enableRotate={!is2DMode}
           screenSpacePanning
-          zoomToCursor
+          zoomToCursor={!is2DMode}
           dampingFactor={0.08}
-          panSpeed={0.9}
+          panSpeed={is2DMode ? 1.2 : 0.9}
           rotateSpeed={0.72}
           zoomSpeed={0.88}
           minDistance={0.4}
@@ -162,6 +162,10 @@ export default function GraphCanvas() {
           onChange={dispatchGraphInteractionEvent}
         />
       </Canvas>
+
+      <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border border-border/80 bg-card/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+        {is2DMode ? "Drag to pan · Scroll to zoom" : "Drag to rotate · Right-drag to pan"}
+      </div>
     </div>
   );
 }

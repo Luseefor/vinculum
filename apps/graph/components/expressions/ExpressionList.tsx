@@ -7,6 +7,10 @@ import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionFocusDirection, ExpressionRemoveReason } from "@/types/graphUi";
 import ExpressionRow from "./ExpressionRow";
 
+interface FocusExpressionEventDetail {
+  id?: string;
+}
+
 export default function ExpressionList() {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
@@ -54,6 +58,23 @@ export default function ExpressionList() {
       window.cancelAnimationFrame(frameId);
     };
   }, [focusInputById, objects, pendingFocusId]);
+
+  useEffect(() => {
+    const handleFocusRequest = (event: Event) => {
+      const customEvent = event as CustomEvent<FocusExpressionEventDetail>;
+      const targetId = customEvent.detail?.id;
+      if (!targetId) {
+        return;
+      }
+
+      setPendingFocusId(targetId);
+    };
+
+    window.addEventListener("vinculum:focus-expression", handleFocusRequest);
+    return () => {
+      window.removeEventListener("vinculum:focus-expression", handleFocusRequest);
+    };
+  }, []);
 
   const focusAdjacentInput = useCallback(
     (currentId: string, direction: ExpressionFocusDirection) => {
