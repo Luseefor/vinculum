@@ -2,8 +2,8 @@
 
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
-import type { Mesh, ShaderMaterial } from "three";
 import { Color, DoubleSide, Vector2, Vector3 } from "three";
+import type { Mesh, ShaderMaterial } from "three";
 import { useAdaptiveGrid } from "@/hooks/useAdaptiveGrid";
 
 const VERTEX_SHADER = `
@@ -44,10 +44,10 @@ void main() {
   float minorMasked = minor * (1.0 - major);
 
   float radialDistance = distance(vWorldPosition.xz, uCameraPosition.xz);
-  float fade = 1.0 - smoothstep(uFadeDistance * 0.2, uFadeDistance, radialDistance);
+  float fade = 1.0 - smoothstep(uFadeDistance * 0.22, uFadeDistance, radialDistance);
 
   vec3 color = (uMinorColor * minorMasked) + (uMajorColor * major);
-  float alpha = ((minorMasked * 0.48) + (major * 0.92)) * fade;
+  float alpha = ((minorMasked * 0.52) + (major * 0.92)) * fade;
 
   if (alpha <= 0.002) {
     discard;
@@ -57,7 +57,22 @@ void main() {
 }
 `;
 
-export default function InfiniteGrid() {
+interface InfiniteGridProps {
+  theme: "light" | "dark";
+}
+
+const GRID_THEME_COLORS = {
+  dark: {
+    minor: "#1f2937",
+    major: "#334155"
+  },
+  light: {
+    minor: "#d5deeb",
+    major: "#aab8ce"
+  }
+} as const;
+
+export default function InfiniteGrid({ theme }: InfiniteGridProps) {
   const meshRef = useRef<Mesh | null>(null);
   const materialRef = useRef<ShaderMaterial | null>(null);
 
@@ -70,10 +85,10 @@ export default function InfiniteGrid() {
       uFadeDistance: { value: fadeDistance },
       uGridOffset: { value: new Vector2(gridOffset[0], gridOffset[1]) },
       uCameraPosition: { value: new Vector3() },
-      uMinorColor: { value: new Color("#1f2937") },
-      uMajorColor: { value: new Color("#334155") }
+      uMinorColor: { value: new Color(GRID_THEME_COLORS[theme].minor) },
+      uMajorColor: { value: new Color(GRID_THEME_COLORS[theme].major) }
     }),
-    []
+    [theme]
   );
 
   useEffect(() => {
@@ -88,6 +103,16 @@ export default function InfiniteGrid() {
     // Offset keeps shader coordinates numerically stable and can map to a future world-origin shift.
     material.uniforms.uGridOffset.value.set(gridOffset[0], gridOffset[1]);
   }, [fadeDistance, gridOffset, majorStep, minorStep]);
+
+  useEffect(() => {
+    const material = materialRef.current;
+    if (!material) {
+      return;
+    }
+
+    material.uniforms.uMinorColor.value.set(GRID_THEME_COLORS[theme].minor);
+    material.uniforms.uMajorColor.value.set(GRID_THEME_COLORS[theme].major);
+  }, [theme]);
 
   useFrame(({ camera }) => {
     const mesh = meshRef.current;

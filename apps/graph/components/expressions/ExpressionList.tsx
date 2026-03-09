@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
-import { ui } from "@/components/ui/styles";
+import { Card } from "@/components/ui/card";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionFocusDirection, ExpressionRemoveReason } from "@/types/graphUi";
 import ExpressionRow from "./ExpressionRow";
@@ -53,7 +53,7 @@ export default function ExpressionList() {
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [focusInputById, pendingFocusId, objects]);
+  }, [focusInputById, objects, pendingFocusId]);
 
   const focusAdjacentInput = useCallback(
     (currentId: string, direction: ExpressionFocusDirection) => {
@@ -115,14 +115,14 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <div className={ui.panelMuted + " border-dashed px-3 py-4 text-center text-xs text-slate-500"}>
+      <Card className="border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
         No expressions yet. Add one to start graphing.
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {objects.map((object: GraphObject, index) => (
         <ExpressionRow
           key={object.id}

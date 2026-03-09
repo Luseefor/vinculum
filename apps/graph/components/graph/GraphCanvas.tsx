@@ -2,8 +2,9 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef } from "react";
 import type { GraphObject } from "@vinculum/scene/types";
+import { useTheme } from "next-themes";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { MOUSE, TOUCH } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { dispatchGraphInteractionEvent, useAdaptiveResolution } from "@/hooks/useAdaptiveResolution";
@@ -19,9 +20,21 @@ const DEFAULT_3D_CAMERA_POSITION: [number, number, number] = [8, 7, 8];
 const DEFAULT_2D_CAMERA_POSITION: [number, number, number] = [0, 40, 0.001];
 const DEFAULT_TARGET: [number, number, number] = [0, 0, 0];
 
+type SceneTheme = "light" | "dark";
+
+interface ScenePalette {
+  background: string;
+  hemisphereSky: string;
+  hemisphereGround: string;
+  directionalPrimary: string;
+  directionalSecondary: string;
+}
+
 export default function GraphCanvas() {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const didMountRef = useRef(false);
+
+  const { resolvedTheme } = useTheme();
 
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
@@ -30,6 +43,27 @@ export default function GraphCanvas() {
 
   const { resolutionMultiplier, isInteractive } = useAdaptiveResolution();
   const is2DMode = viewportMode === "2d";
+  const sceneTheme: SceneTheme = resolvedTheme === "light" ? "light" : "dark";
+
+  const scenePalette = useMemo<ScenePalette>(
+    () =>
+      sceneTheme === "light"
+        ? {
+            background: "#f8fafc",
+            hemisphereSky: "#ffffff",
+            hemisphereGround: "#dbe5f2",
+            directionalPrimary: "#ffffff",
+            directionalSecondary: "#d4dfec"
+          }
+        : {
+            background: "#020617",
+            hemisphereSky: "#cbd5e1",
+            hemisphereGround: "#020617",
+            directionalPrimary: "#f8fafc",
+            directionalSecondary: "#93a4bc"
+          },
+    [sceneTheme]
+  );
 
   const visibleObjects = useMemo(() => objects.filter((object) => object.visible), [objects]);
 
@@ -78,16 +112,20 @@ export default function GraphCanvas() {
 
   return (
     <div className="h-full w-full">
-      <Canvas key={viewportMode} camera={cameraProps} orthographic={is2DMode}>
-        <color attach="background" args={["#020617"]} />
-        <ambientLight intensity={0.38} />
-        <hemisphereLight intensity={0.24} groundColor="#020617" color="#cbd5e1" />
-        <directionalLight intensity={0.95} position={[8, 10, 6]} />
-        <directionalLight intensity={0.32} position={[-6, 4, -8]} />
+      <Canvas key={viewportMode} camera={cameraProps} orthographic={is2DMode} dpr={[1, 2]}>
+        <color attach="background" args={[scenePalette.background]} />
+        <ambientLight intensity={sceneTheme === "dark" ? 0.42 : 0.62} />
+        <hemisphereLight
+          intensity={sceneTheme === "dark" ? 0.24 : 0.2}
+          color={scenePalette.hemisphereSky}
+          groundColor={scenePalette.hemisphereGround}
+        />
+        <directionalLight intensity={sceneTheme === "dark" ? 0.95 : 0.85} position={[8, 10, 6]} color={scenePalette.directionalPrimary} />
+        <directionalLight intensity={sceneTheme === "dark" ? 0.32 : 0.24} position={[-6, 4, -8]} color={scenePalette.directionalSecondary} />
 
-        <InfiniteGrid />
-        <AxesHelper viewportMode={viewportMode} />
-        <AxisLabels viewportMode={viewportMode} />
+        <InfiniteGrid theme={sceneTheme} />
+        <AxesHelper viewportMode={viewportMode} theme={sceneTheme} />
+        <AxisLabels viewportMode={viewportMode} theme={sceneTheme} />
 
         {renderedObjects}
 
@@ -101,8 +139,12 @@ export default function GraphCanvas() {
           zoomToCursor
           dampingFactor={0.08}
           panSpeed={0.9}
+          rotateSpeed={0.72}
+          zoomSpeed={0.88}
           minDistance={0.4}
           maxDistance={300}
+          minZoom={8}
+          maxZoom={240}
           minPolarAngle={is2DMode ? 0 : 0.04}
           maxPolarAngle={is2DMode ? 0 : Math.PI - 0.04}
           target={DEFAULT_TARGET}

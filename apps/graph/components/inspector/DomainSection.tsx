@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
-import { ui } from "@/components/ui/styles";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useGraphStore } from "@/store/graphStore";
 
 type DomainField = keyof SurfaceDomain;
-
 type DomainDraft = Record<DomainField, string>;
 
 interface DomainSectionProps {
@@ -75,55 +75,61 @@ export default function DomainSection({ object }: DomainSectionProps) {
   };
 
   return (
-    <section className={ui.panel + " p-3"}>
-      <h4 className={ui.sectionTitle}>Domain</h4>
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Domain</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-0">
+        <div className="grid grid-cols-2 gap-2">
+          {DOMAIN_FIELDS.map((field) => (
+            <DomainInput
+              key={field.key}
+              label={field.label}
+              value={domainDraft[field.key]}
+              onChange={(value) => setDomainDraft((previous) => ({ ...previous, [field.key]: value }))}
+              onCommit={() => commitDomainField(field.key)}
+              onReset={() =>
+                setDomainDraft((previous) => ({
+                  ...previous,
+                  [field.key]: String(object.domain[field.key])
+                }))
+              }
+            />
+          ))}
+        </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {DOMAIN_FIELDS.map((field) => (
-          <DomainInput
-            key={field.key}
-            label={field.label}
-            value={domainDraft[field.key]}
-            onChange={(value) => setDomainDraft((previous) => ({ ...previous, [field.key]: value }))}
-            onCommit={() => commitDomainField(field.key)}
-            onReset={() =>
-              setDomainDraft((previous) => ({
-                ...previous,
-                [field.key]: String(object.domain[field.key])
-              }))
-            }
+        <div>
+          <label
+            htmlFor="resolution-input"
+            className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            Resolution
+          </label>
+          <Input
+            id="resolution-input"
+            value={resolutionDraft}
+            onChange={(event) => setResolutionDraft(event.target.value)}
+            onBlur={commitResolution}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitResolution();
+                event.currentTarget.blur();
+              }
+
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setResolutionDraft(String(object.resolution));
+                event.currentTarget.blur();
+              }
+            }}
+            inputMode="numeric"
+            className="h-9 border-border/80 bg-background/90"
           />
-        ))}
-      </div>
-
-      <div className="mt-3">
-        <label htmlFor="resolution-input" className={ui.fieldLabel}>
-          Resolution
-        </label>
-        <input
-          id="resolution-input"
-          value={resolutionDraft}
-          onChange={(event) => setResolutionDraft(event.target.value)}
-          onBlur={commitResolution}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commitResolution();
-              event.currentTarget.blur();
-            }
-
-            if (event.key === "Escape") {
-              event.preventDefault();
-              setResolutionDraft(String(object.resolution));
-              event.currentTarget.blur();
-            }
-          }}
-          inputMode="numeric"
-          className={ui.inputBase}
-        />
-        <p className="mt-1 text-[11px] text-slate-500">Higher values increase mesh detail and render cost.</p>
-      </div>
-    </section>
+          <p className="mt-1 text-xs text-muted-foreground">Higher values increase mesh detail and render cost.</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -138,8 +144,10 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className={ui.fieldLabel}>{label}</span>
-      <input
+      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </span>
+      <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onCommit}
@@ -157,7 +165,7 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className={ui.inputBase}
+        className="h-9 border-border/80 bg-background/90"
       />
     </label>
   );

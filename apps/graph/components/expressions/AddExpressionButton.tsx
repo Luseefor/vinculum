@@ -1,13 +1,15 @@
 "use client";
 
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { GraphObjectKind } from "@vinculum/scene/types";
-import { ui, cx } from "@/components/ui/styles";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useGraphStore } from "@/store/graphStore";
 
 const ADD_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
   { label: "Surface", value: "surface" },
-  { label: "Curve", value: "parametricCurve" },
+  { label: "Parametric Curve", value: "parametricCurve" },
   { label: "Plane", value: "plane" }
 ];
 
@@ -34,10 +36,10 @@ export default function AddExpressionButton() {
 
   return (
     <div className="flex items-center gap-2">
-      <select
+      <NativeSelect
         value={graphType}
         onChange={(event) => setGraphType(event.target.value as GraphObjectKind)}
-        className={cx(ui.selectBase, "h-9 min-w-0 flex-1 uppercase tracking-wide")}
+        className="h-10 flex-1 border-border/80 bg-background/90 text-[11px] font-semibold uppercase tracking-[0.14em]"
         aria-label="Graph type to add"
       >
         {ADD_TYPE_OPTIONS.map((option) => (
@@ -45,15 +47,12 @@ export default function AddExpressionButton() {
             {option.label}
           </option>
         ))}
-      </select>
+      </NativeSelect>
 
-      <button
-        type="button"
-        onClick={addObject}
-        className={cx(ui.buttonBase, ui.buttonSubtle, "h-9 shrink-0 px-3 text-sm")}
-      >
+      <Button type="button" variant="outline" onClick={addObject} className="h-10 gap-1.5 px-3">
+        <Plus className="h-4 w-4" />
         Add
-      </button>
+      </Button>
     </div>
   );
 }

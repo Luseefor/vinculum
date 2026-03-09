@@ -1,7 +1,10 @@
 "use client";
 
+import { Check, Copy, Download, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { ui, cx } from "@/components/ui/styles";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { useGraphStore } from "@/store/graphStore";
 
@@ -81,31 +84,35 @@ export default function SceneImportExportDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_20px_80px_rgba(2,6,23,0.75)]">
-        <div className="flex items-start justify-between border-b border-slate-800/90 px-4 py-3">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          closeSceneDialog();
+        }
+      }}
+    >
+      <div className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl">
+        <div className="flex items-start justify-between border-b px-4 py-3">
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">
+            <h3 className="text-sm font-semibold tracking-tight">
               {isExportMode ? "Export Scene JSON" : "Import Scene JSON"}
             </h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               {isExportMode
-                ? "Scene document is serializable and versioned for future tooling."
+                ? "Scene JSON is versioned and stable for tooling workflows."
                 : "Paste a scene document. Validation runs before replacing the current scene."}
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={closeSceneDialog}
-            className={cx(ui.buttonBase, ui.buttonSubtle, "px-2 py-1")}
-          >
-            Close
-          </button>
+          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={closeSceneDialog}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close dialog</span>
+          </Button>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
-          <textarea
+          <Textarea
             value={dialogState.jsonText}
             onChange={(event) => {
               setSceneDialogDraft(event.target.value);
@@ -115,13 +122,13 @@ export default function SceneImportExportDialog() {
             }}
             readOnly={isExportMode}
             spellCheck={false}
-            className={ui.textarea}
+            className="min-h-[360px] resize-none border-border/80 bg-background/85 font-mono text-xs leading-6"
           />
 
           {importErrors.length > 0 ? (
-            <div className="rounded-md border border-amber-700/50 bg-amber-950/25 px-3 py-2.5">
-              <p className="text-xs font-semibold text-amber-200">Import validation errors</p>
-              <ul className="mt-1.5 space-y-1 text-xs text-amber-100/90">
+            <div className="rounded-md border border-destructive/45 bg-destructive/10 px-3 py-2">
+              <p className="text-xs font-semibold text-destructive">Import validation errors</p>
+              <ul className="mt-1.5 space-y-1 text-xs text-destructive/90">
                 {importErrors.map((error, index) => (
                   <li key={`${error}-${index}`}>• {error}</li>
                 ))}
@@ -129,13 +136,13 @@ export default function SceneImportExportDialog() {
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+          <div className="flex items-center justify-between gap-2 border-t pt-3">
             <p
-              className={cx(
+              className={cn(
                 "text-xs",
-                copyFeedback === "copied" && "text-emerald-300",
-                copyFeedback === "failed" && "text-amber-300",
-                copyFeedback === "idle" && "text-slate-500"
+                copyFeedback === "copied" && "text-emerald-600 dark:text-emerald-400",
+                copyFeedback === "failed" && "text-destructive",
+                copyFeedback === "idle" && "text-muted-foreground"
               )}
             >
               {isExportMode
@@ -143,37 +150,27 @@ export default function SceneImportExportDialog() {
                   ? "JSON copied to clipboard."
                   : copyFeedback === "failed"
                     ? "Clipboard access failed."
-                    : "Exported JSON is pretty-printed and versioned."
+                    : "Exported JSON is pretty-printed and ready to save."
                 : "Import replaces the current scene if validation passes."}
             </p>
 
             <div className="flex items-center gap-2">
               {isExportMode ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleCopyJson}
-                    className={cx(ui.buttonBase, ui.buttonSubtle)}
-                  >
+                  <Button type="button" variant="outline" className="h-8 gap-1.5" onClick={handleCopyJson}>
+                    {copyFeedback === "copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     Copy JSON
-                  </button>
+                  </Button>
 
-                  <button
-                    type="button"
-                    onClick={handleDownloadJson}
-                    className={cx(ui.buttonBase, ui.buttonSubtle)}
-                  >
-                    Download .json
-                  </button>
+                  <Button type="button" variant="outline" className="h-8 gap-1.5" onClick={handleDownloadJson}>
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleImportScene}
-                  className={cx(ui.buttonBase, ui.buttonPrimary)}
-                >
+                <Button type="button" className="h-8" onClick={handleImportScene}>
                   Validate and Import
-                </button>
+                </Button>
               )}
             </div>
           </div>

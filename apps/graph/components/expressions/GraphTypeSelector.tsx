@@ -1,7 +1,7 @@
 "use client";
 
 import type { GraphObjectKind } from "@vinculum/scene/types";
-import { ui, cx } from "@/components/ui/styles";
+import { NativeSelect } from "@/components/ui/native-select";
 
 interface GraphTypeSelectorProps {
   value: GraphObjectKind;
@@ -16,10 +16,10 @@ const GRAPH_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
 
 export default function GraphTypeSelector({ value, onChange }: GraphTypeSelectorProps) {
   return (
-    <select
+    <NativeSelect
       value={value}
       onChange={(event) => onChange(event.target.value as GraphObjectKind)}
-      className={cx(ui.selectBase, "px-1.5 py-0.5 text-[10px] uppercase tracking-wide")}
+      className="h-8 w-[136px] border-border/80 bg-background/90 px-2 text-[11px] font-semibold uppercase tracking-[0.12em]"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (
@@ -27,6 +27,6 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
           {option.label}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }

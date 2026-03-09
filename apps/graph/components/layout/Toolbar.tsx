@@ -1,6 +1,11 @@
 "use client";
 
-import { ui, cx } from "@/components/ui/styles";
+import { Camera, Download, FilePlus2, Layers2, Upload } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { useGraphStore } from "@/store/graphStore";
 
 export default function Toolbar() {
@@ -12,84 +17,98 @@ export default function Toolbar() {
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-slate-800/90 bg-slate-950/95 px-3.5">
+    <header className="flex h-12 items-center justify-between border-b bg-card/95 px-3 backdrop-blur">
       <div className="flex items-center gap-3">
-        <h1 className="text-sm font-semibold tracking-wide text-slate-100">Vinculum Graph</h1>
-        <span className={ui.badge}>
-          {objectCount} object{objectCount === 1 ? "" : "s"}
-        </span>
+        <div className="flex items-center gap-2">
+          <Layers2 className="h-4 w-4 text-muted-foreground" />
+          <h1 className="text-sm font-semibold tracking-tight">Vinculum Graph</h1>
+        </div>
+        <Badge variant="outline" className="text-[11px] font-medium text-muted-foreground">
+          {objectCount} expression{objectCount === 1 ? "" : "s"}
+        </Badge>
       </div>
 
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border border-slate-800/90 bg-slate-900/35 p-1">
-          <button
+        <div className="flex items-center rounded-md border bg-background p-0.5">
+          <Button
             type="button"
+            size="sm"
+            variant={viewportMode === "2d" ? "default" : "ghost"}
+            className={cn("h-7 px-2 text-[11px] font-semibold", viewportMode === "2d" && "shadow-sm")}
             onClick={() => setViewportMode("2d")}
-            className={cx(
-              ui.buttonBase,
-              viewportMode === "2d" ? ui.buttonPrimary : ui.buttonSubtle,
-              "px-2 py-1"
-            )}
             aria-pressed={viewportMode === "2d"}
           >
             2D
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            variant={viewportMode === "3d" ? "default" : "ghost"}
+            className={cn("h-7 px-2 text-[11px] font-semibold", viewportMode === "3d" && "shadow-sm")}
             onClick={() => setViewportMode("3d")}
-            className={cx(
-              ui.buttonBase,
-              viewportMode === "3d" ? ui.buttonPrimary : ui.buttonSubtle,
-              "px-2 py-1"
-            )}
             aria-pressed={viewportMode === "3d"}
           >
             3D
-          </button>
+          </Button>
         </div>
 
-        <div className="flex items-center gap-1 rounded-md border border-slate-800/90 bg-slate-900/35 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              if (objectCount > 0) {
-                const confirmed = window.confirm("Create a new scene and discard current objects?");
-                if (!confirmed) {
-                  return;
-                }
-              }
+        <Separator orientation="vertical" className="h-6" />
 
-              resetScene();
-            }}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            New Scene
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openSceneDialog("export")}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            Export JSON
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openSceneDialog("import")}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            Import JSON
-          </button>
-        </div>
-
-        <button
+        <Button
           type="button"
-          onClick={requestCameraReset}
-          className={cx(ui.buttonBase, ui.buttonSubtle)}
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5"
+          onClick={() => {
+            if (objectCount > 0) {
+              const confirmed = window.confirm("Create a new scene and discard current expressions?");
+              if (!confirmed) {
+                return;
+              }
+            }
+
+            resetScene();
+          }}
         >
+          <FilePlus2 className="h-3.5 w-3.5" />
+          New Scene
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5"
+          onClick={() => openSceneDialog("export")}
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5"
+          onClick={() => openSceneDialog("import")}
+        >
+          <Upload className="h-3.5 w-3.5" />
+          Import
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5"
+          onClick={requestCameraReset}
+        >
+          <Camera className="h-3.5 w-3.5" />
           Reset View
-        </button>
+        </Button>
+
+        <Separator orientation="vertical" className="h-6" />
+        <ThemeToggle />
       </div>
     </header>
   );

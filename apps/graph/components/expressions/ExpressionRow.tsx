@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
-import { ui, cx } from "@/components/ui/styles";
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { Eye, EyeOff, Settings2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionRowProps, ExpressionValidationState } from "@/types/graphUi";
@@ -34,6 +37,8 @@ export default function ExpressionRow({
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
 
+  const colorInputRef = useRef<HTMLInputElement | null>(null);
+
   const validation = useMemo<ExpressionValidationState>(() => {
     if (object.kind === "surface") {
       return { error: compileSurfaceExpression(object.equation).error };
@@ -48,12 +53,12 @@ export default function ExpressionRow({
     return { error: compilePlaneEquation(object.equation).error };
   }, [object]);
 
-  const rowClassName = cx(
-    "relative overflow-hidden rounded-md border bg-slate-900/55 px-2 py-2 transition",
+  const rowClassName = cn(
+    "relative overflow-hidden rounded-xl border bg-card/80 p-2.5 transition-colors",
     isSelected
-      ? "border-sky-500/50 bg-slate-900/80 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
-      : "border-slate-800/90 hover:border-slate-700/90",
-    validation.error && "border-amber-700/70"
+      ? "border-primary/70 bg-primary/[0.08] ring-1 ring-primary/35"
+      : "border-border/80 hover:border-primary/35 hover:bg-accent/30",
+    validation.error && "border-destructive/60"
   );
 
   const handlePrimaryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -105,25 +110,38 @@ export default function ExpressionRow({
       aria-label="Expression row"
     >
       <span
-        className={cx(
-          "pointer-events-none absolute inset-y-0 left-0 w-1 transition-opacity",
-          isSelected ? "opacity-100" : "opacity-65"
-        )}
+        className="pointer-events-none absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: object.color }}
       />
 
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className="w-6 shrink-0 text-center font-mono text-[11px] text-slate-500">
-          {rowIndex + 1}
-        </span>
+      <div className="mb-2 flex items-center gap-2 pl-1">
+        <span className="w-5 shrink-0 text-center font-mono text-xs text-muted-foreground">{rowIndex + 1}</span>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 p-0"
+          onClick={(event) => {
+            event.stopPropagation();
+            colorInputRef.current?.click();
+          }}
+          title="Expression color"
+        >
+          <span
+            className="h-4 w-4 rounded-sm border border-foreground/20"
+            style={{ backgroundColor: object.color }}
+          />
+        </Button>
 
         <input
+          ref={colorInputRef}
           type="color"
           aria-label="Expression color"
           value={object.color}
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className={ui.colorInput}
+          className="sr-only"
         />
 
         <GraphTypeSelector
@@ -134,47 +152,53 @@ export default function ExpressionRow({
         />
 
         <div className="ml-auto flex items-center gap-1">
-          <button
+          <Button
             type="button"
+            variant={object.visible ? "secondary" : "outline"}
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               toggleObjectVisibility(object.id);
             }}
-            className={cx(ui.tinyControl, object.visible ? "text-slate-300" : "text-slate-500")}
-            title={object.visible ? "Hide graph" : "Show graph"}
+            className="h-8 px-2"
             aria-pressed={object.visible}
+            title={object.visible ? "Hide graph" : "Show graph"}
           >
-            {object.visible ? "On" : "Off"}
-          </button>
+            {object.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className={ui.tinyControl}
-            title="Edit settings in inspector"
+            className="h-8 px-2"
+            title="Open inspector"
           >
-            Edit
-          </button>
+            <Settings2 className="h-4 w-4" />
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className={cx(ui.tinyControl, ui.buttonDanger)}
-            title="Remove expression"
+            className="h-8 px-2 text-muted-foreground hover:text-destructive"
+            title="Delete expression"
           >
-            Del
-          </button>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {object.kind === "surface" ? (
-        <input
+        <Input
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
           value={object.equation}
@@ -184,15 +208,15 @@ export default function ExpressionRow({
           onKeyDown={handlePrimaryKeyDown}
           spellCheck={false}
           autoComplete="off"
-          placeholder="z = sin(x) * cos(y)"
-          className={ui.inputMono}
+          placeholder="sin(x) * cos(y)"
+          className="h-12 border-border/80 bg-background/90 font-mono text-[2rem] leading-none tracking-tight"
         />
       ) : null}
 
       {object.kind === "parametricCurve" ? (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label className={ui.fieldLabelCompact}>x(t)</label>
-          <input
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">x(t)</label>
+          <Input
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
             value={object.xExpr}
@@ -202,7 +226,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className={ui.inputMonoCompact}
+            className="h-9 border-border/80 bg-background/85 font-mono text-xs"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -219,7 +243,7 @@ export default function ExpressionRow({
       ) : null}
 
       {object.kind === "plane" ? (
-        <input
+        <Input
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
           value={object.equation}
@@ -230,15 +254,12 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="ax + by + cz + d = 0"
-          className={ui.inputMono}
+          className="h-11 border-border/80 bg-background/90 font-mono text-sm"
         />
       ) : null}
 
       {validation.error ? (
-        <p
-          className="mt-2 rounded border border-amber-800/40 bg-amber-950/25 px-2 py-1 text-[11px] text-amber-200"
-          title={validation.error}
-        >
+        <p className="mt-2 rounded-md border border-destructive/45 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
           {validation.error}
         </p>
       ) : null}
@@ -257,8 +278,8 @@ interface ParametricInputProps {
 function ParametricInput({ label, value, onFocus, onClick, onChange }: ParametricInputProps) {
   return (
     <>
-      <label className={ui.fieldLabelCompact}>{label}</label>
-      <input
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</label>
+      <Input
         type="text"
         value={value}
         onFocus={onFocus}
@@ -266,7 +287,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className={ui.inputMonoCompact}
+        className="h-9 border-border/80 bg-background/85 font-mono text-xs"
       />
     </>
   );

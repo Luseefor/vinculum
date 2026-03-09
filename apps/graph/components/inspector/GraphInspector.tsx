@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { GraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
-import { ui } from "@/components/ui/styles";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGraphStore } from "@/store/graphStore";
 import AppearanceSection from "./AppearanceSection";
 import DomainSection from "./DomainSection";
@@ -18,43 +18,53 @@ export default function GraphInspector() {
 
   if (!selectedObject) {
     return (
-      <section
-        id="graph-inspector"
-        className={ui.panelMuted + " border-dashed px-3 py-4 text-xs text-slate-500"}
-      >
-        Select an expression row to inspect graph settings.
-      </section>
+      <Card id="graph-inspector" className="border-dashed bg-muted/20">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Select an expression to inspect graph settings.
+        </CardContent>
+      </Card>
     );
   }
 
+  const selectedIndex = objects.findIndex((object) => object.id === selectedObject.id);
+  const selectedTitle = selectedIndex >= 0 ? `Expression ${selectedIndex + 1}` : "Selected Expression";
+
   if (selectedObject.kind !== "surface") {
     return (
-      <section id="graph-inspector" className={ui.panel + " px-3 py-3"}>
-        <p className={ui.sectionTitle}>Inspector</p>
-        <p className="mt-1 text-sm font-medium text-slate-200">
-          {selectedObject.kind === "parametricCurve" ? "Parametric Curve" : "Plane"}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Detailed inspector controls are currently available for surface graphs. Row-level editing for
-          this type is active.
-        </p>
-      </section>
+      <Card id="graph-inspector">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</CardTitle>
+          <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
+            <span
+              className="h-2.5 w-2.5 rounded-full border border-foreground/20"
+              style={{ backgroundColor: selectedObject.color }}
+            />
+            {selectedTitle}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0 text-xs text-muted-foreground">
+          Detailed inspector controls are currently available for surface graphs.
+        </CardContent>
+      </Card>
     );
   }
 
   const selectedSurfaceObject: SurfaceGraphObject = selectedObject;
-  const selectedIndex = objects.findIndex((object) => object.id === selectedSurfaceObject.id);
-  const selectedTitle = selectedIndex >= 0 ? `Expression ${selectedIndex + 1}` : "Selected Expression";
 
   return (
     <section id="graph-inspector" className="space-y-2.5">
-      <div className={ui.panel + " px-3 py-2.5"}>
-        <p className={ui.sectionTitle}>Inspector</p>
-        <div className="mt-1.5 flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full ring-1 ring-slate-700" style={{ backgroundColor: selectedSurfaceObject.color }} />
-          <p className="text-sm font-medium text-slate-200">{selectedTitle}</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</CardTitle>
+          <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
+            <span
+              className="h-2.5 w-2.5 rounded-full border border-foreground/20"
+              style={{ backgroundColor: selectedSurfaceObject.color }}
+            />
+            {selectedTitle}
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <DomainSection object={selectedSurfaceObject} />
       <AppearanceSection object={selectedSurfaceObject} />
