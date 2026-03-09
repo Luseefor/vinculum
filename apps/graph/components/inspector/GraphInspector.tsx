@@ -18,7 +18,7 @@ export default function GraphInspector() {
 
   if (!selectedObject) {
     return (
-      <Card id="graph-inspector" className="border-dashed bg-muted/20">
+      <Card id="graph-inspector" className="rounded-xl border-border/80 bg-card">
         <CardContent className="p-4 text-sm text-muted-foreground">
           Select an expression to inspect graph settings.
         </CardContent>
@@ -31,19 +31,19 @@ export default function GraphInspector() {
 
   if (selectedObject.kind !== "surface") {
     return (
-      <Card id="graph-inspector">
+      <Card id="graph-inspector" className="rounded-xl border-border/80 bg-card">
         <CardHeader className="pb-2">
-          <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</CardTitle>
+          <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Inspector</CardTitle>
           <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
             <span
-              className="h-2.5 w-2.5 rounded-full border border-foreground/20"
+              className="h-3 w-3 rounded-full border border-foreground/20"
               style={{ backgroundColor: selectedObject.color }}
             />
             {selectedTitle}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0 text-xs text-muted-foreground">
-          Detailed inspector controls are currently available for surface graphs.
+        <CardContent className="pt-0 text-[0.95rem] text-muted-foreground">
+          Detailed controls are currently available for surface graphs.
         </CardContent>
       </Card>
     );
@@ -53,12 +53,12 @@ export default function GraphInspector() {
 
   return (
     <section id="graph-inspector" className="space-y-2.5">
-      <Card>
+      <Card className="rounded-xl border-border/80 bg-card">
         <CardHeader className="pb-2">
-          <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Inspector</CardTitle>
+          <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Inspector</CardTitle>
           <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
             <span
-              className="h-2.5 w-2.5 rounded-full border border-foreground/20"
+              className="h-3 w-3 rounded-full border border-foreground/20"
               style={{ backgroundColor: selectedSurfaceObject.color }}
             />
             {selectedTitle}

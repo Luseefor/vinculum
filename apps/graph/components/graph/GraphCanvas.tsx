@@ -136,7 +136,7 @@ export default function GraphCanvas() {
           enablePan
           enableRotate={!is2DMode}
           screenSpacePanning
-          zoomToCursor={!is2DMode}
+          zoomToCursor
           dampingFactor={0.08}
           panSpeed={is2DMode ? 1.2 : 0.9}
           rotateSpeed={0.72}
@@ -162,10 +162,6 @@ export default function GraphCanvas() {
           onChange={dispatchGraphInteractionEvent}
         />
       </Canvas>
-
-      <div className="pointer-events-none absolute bottom-2 right-2 rounded-md border border-border/80 bg-card/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
-        {is2DMode ? "Drag to pan · Scroll to zoom" : "Drag to rotate · Right-drag to pan"}
-      </div>
     </div>
   );
 }

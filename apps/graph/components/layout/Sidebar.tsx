@@ -5,11 +5,11 @@ import { Separator } from "@/components/ui/separator";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-full w-[390px] shrink-0 flex-col border-r bg-card/70">
-      <div className="border-b px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Expressions</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Build scenes with surfaces, parametric curves, and planes.
+    <aside className="flex h-full w-[430px] shrink-0 flex-col border-r border-border/80 bg-card">
+      <div className="border-b border-border/80 px-4 py-3">
+        <p className="text-[0.78rem] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Expressions</p>
+        <p className="mt-1.5 text-[1.05rem] leading-relaxed text-muted-foreground">
+          Build mixed scenes with surfaces, parametric curves, and planes.
         </p>
       </div>
 
@@ -18,7 +18,7 @@ export default function Sidebar() {
           <ExpressionList />
         </div>
 
-        <div className="border-t px-3 py-2.5">
+        <div className="border-t border-border/80 px-3 py-2.5">
           <AddExpressionButton />
         </div>
       </div>

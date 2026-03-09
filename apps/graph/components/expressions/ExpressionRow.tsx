@@ -54,11 +54,11 @@ export default function ExpressionRow({
   }, [object]);
 
   const rowClassName = cn(
-    "relative overflow-hidden rounded-lg border bg-card p-2.5 transition-colors",
+    "relative overflow-hidden rounded-xl border bg-card p-2.5 transition-colors",
     isSelected
-      ? "border-primary/70 ring-2 ring-primary/25"
-      : "border-border/80 hover:border-primary/35",
-    validation.error && "border-destructive/60"
+      ? "border-primary/80 bg-primary/[0.09] ring-1 ring-primary/45"
+      : "border-border/80 hover:border-primary/40",
+    validation.error && "border-destructive/70"
   );
 
   const handlePrimaryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -115,15 +115,13 @@ export default function ExpressionRow({
       />
 
       <div className="mb-2 flex items-center gap-2 pl-1">
-        <span className="w-5 shrink-0 text-center font-mono text-xs text-muted-foreground">
-          {rowIndex + 1}
-        </span>
+        <span className="w-6 shrink-0 text-center font-mono text-[1.02rem] text-muted-foreground">{rowIndex + 1}</span>
 
         <Button
           type="button"
           variant="outline"
           size="icon"
-          className="h-8 w-8 p-0"
+          className="h-9 w-9 rounded-lg border-border/80 p-0"
           onClick={(event) => {
             event.stopPropagation();
             colorInputRef.current?.click();
@@ -131,7 +129,7 @@ export default function ExpressionRow({
           title="Expression color"
         >
           <span
-            className="h-4 w-4 rounded-sm border border-foreground/20"
+            className="h-5 w-5 rounded-[4px] border border-foreground/20"
             style={{ backgroundColor: object.color }}
           />
         </Button>
@@ -153,7 +151,7 @@ export default function ExpressionRow({
           }}
         />
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1.5">
           <Button
             type="button"
             variant={object.visible ? "secondary" : "outline"}
@@ -162,11 +160,12 @@ export default function ExpressionRow({
               event.stopPropagation();
               toggleObjectVisibility(object.id);
             }}
-            className="h-8 px-2"
+            className="h-9 min-w-[3.1rem] rounded-lg border-border/80 px-2 text-[0.92rem] font-semibold"
             aria-pressed={object.visible}
             title={object.visible ? "Hide graph" : "Show graph"}
           >
-            {object.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            {object.visible ? <Eye className="mr-1 h-3.5 w-3.5" /> : <EyeOff className="mr-1 h-3.5 w-3.5" />}
+            {object.visible ? "ON" : "OFF"}
           </Button>
 
           <Button
@@ -177,10 +176,11 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="h-8 px-2"
+            className="h-9 rounded-lg border-border/80 px-2.5 text-[0.9rem]"
             title="Open inspector"
           >
-            <Settings2 className="h-4 w-4" />
+            <Settings2 className="mr-1 h-3.5 w-3.5" />
+            EDIT
           </Button>
 
           <Button
@@ -191,33 +191,29 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="h-8 px-2 text-muted-foreground hover:text-destructive"
+            className="h-9 rounded-lg border-border/80 px-2.5 text-[0.9rem] text-muted-foreground hover:text-destructive"
             title="Delete expression"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="mr-1 h-3.5 w-3.5" />
+            DEL
           </Button>
         </div>
       </div>
 
       {object.kind === "surface" ? (
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-muted-foreground">
-            z=
-          </span>
-          <Input
-            ref={(node) => registerInputRef(object.id, node)}
-            type="text"
-            value={object.equation}
-            onFocus={() => onSelect(object.id)}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => updateSurfaceEquation(object.id, event.target.value)}
-            onKeyDown={handlePrimaryKeyDown}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="sin(x) * cos(y)"
-            className="h-12 border-border/80 bg-background/95 pl-10 font-mono text-[1.8rem] leading-none tracking-tight"
-          />
-        </div>
+        <Input
+          ref={(node) => registerInputRef(object.id, node)}
+          type="text"
+          value={object.equation}
+          onFocus={() => onSelect(object.id)}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => updateSurfaceEquation(object.id, event.target.value)}
+          onKeyDown={handlePrimaryKeyDown}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="sin(x) * cos(y)"
+          className="h-14 rounded-lg border-border/80 bg-background/95 px-4 font-mono text-[1.85rem] leading-none tracking-tight"
+        />
       ) : null}
 
       {object.kind === "parametricCurve" ? (
@@ -233,7 +229,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className="h-9 border-border/80 bg-background/85 font-mono text-xs"
+            className="h-9 rounded-lg border-border/80 bg-background/95 font-mono text-xs"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -250,28 +246,23 @@ export default function ExpressionRow({
       ) : null}
 
       {object.kind === "plane" ? (
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            plane
-          </span>
-          <Input
-            ref={(node) => registerInputRef(object.id, node)}
-            type="text"
-            value={object.equation}
-            onFocus={() => onSelect(object.id)}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => updatePlaneEquation(object.id, event.target.value)}
-            onKeyDown={handlePrimaryKeyDown}
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="ax + by + cz + d = 0"
-            className="h-11 border-border/80 bg-background/95 pl-[4.5rem] font-mono text-sm"
-          />
-        </div>
+        <Input
+          ref={(node) => registerInputRef(object.id, node)}
+          type="text"
+          value={object.equation}
+          onFocus={() => onSelect(object.id)}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => updatePlaneEquation(object.id, event.target.value)}
+          onKeyDown={handlePrimaryKeyDown}
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="ax + by + cz + d = 0"
+          className="h-12 rounded-lg border-border/80 bg-background/95 px-4 font-mono text-[1.25rem] leading-none"
+        />
       ) : null}
 
       {validation.error ? (
-        <p className="mt-2 rounded-md border border-destructive/45 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+        <p className="mt-2 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
           {validation.error}
         </p>
       ) : null}
@@ -299,7 +290,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className="h-9 border-border/80 bg-background/85 font-mono text-xs"
+        className="h-9 rounded-lg border-border/80 bg-background/95 font-mono text-xs"
       />
     </>
   );

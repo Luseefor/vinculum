@@ -9,8 +9,8 @@ export default function HomePage() {
       <Toolbar />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 bg-muted/25 p-2.5">
-          <div className="h-full overflow-hidden rounded-xl border bg-background shadow-sm">
+        <main className="min-w-0 flex-1 bg-background p-2">
+          <div className="h-full overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
             <GraphCanvas />
           </div>
         </main>

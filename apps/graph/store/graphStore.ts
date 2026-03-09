@@ -593,7 +593,7 @@ function createInitialSceneDocument(): SceneDocument {
 function createInitialUiState(selectedObjectId: string | null): GraphUiState {
   return {
     selectedObjectId,
-    viewportMode: "3d",
+    viewportMode: "2d",
     sceneDialog: {
       isOpen: false,
       mode: "export",

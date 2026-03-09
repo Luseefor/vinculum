@@ -75,9 +75,9 @@ export default function DomainSection({ object }: DomainSectionProps) {
   };
 
   return (
-    <Card>
+    <Card className="rounded-xl border-border/80 bg-card">
       <CardHeader className="pb-2">
-        <CardTitle className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Domain</CardTitle>
+        <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Domain</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
         <div className="grid grid-cols-2 gap-2">
@@ -101,7 +101,7 @@ export default function DomainSection({ object }: DomainSectionProps) {
         <div>
           <label
             htmlFor="resolution-input"
-            className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+            className="mb-1 block text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
           >
             Resolution
           </label>
@@ -124,9 +124,9 @@ export default function DomainSection({ object }: DomainSectionProps) {
               }
             }}
             inputMode="numeric"
-            className="h-9 border-border/80 bg-background/90"
+            className="h-11 rounded-lg border-border/80 bg-background/95 text-[1.15rem]"
           />
-          <p className="mt-1 text-xs text-muted-foreground">Higher values increase mesh detail and render cost.</p>
+          <p className="mt-1 text-[0.95rem] text-muted-foreground">Higher values increase mesh detail and render cost.</p>
         </div>
       </CardContent>
     </Card>
@@ -144,9 +144,7 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </span>
+      <span className="mb-1 block text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -165,7 +163,7 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className="h-9 border-border/80 bg-background/90"
+        className="h-11 rounded-lg border-border/80 bg-background/95 text-[1.15rem]"
       />
     </label>
   );
