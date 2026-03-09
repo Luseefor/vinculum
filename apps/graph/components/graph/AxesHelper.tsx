@@ -2,11 +2,16 @@
 
 import { useEffect, useMemo } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
+import type { ViewportMode } from "@/types/graphUi";
 
 const AXIS_EXTENT = 120;
 
-export default function AxesHelper() {
-  const geometry = useMemo(() => createAxisGeometry(AXIS_EXTENT), []);
+interface AxesHelperProps {
+  viewportMode: ViewportMode;
+}
+
+export default function AxesHelper({ viewportMode }: AxesHelperProps) {
+  const geometry = useMemo(() => createAxisGeometry(AXIS_EXTENT, viewportMode), [viewportMode]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
 
@@ -23,15 +28,22 @@ export default function AxesHelper() {
   );
 }
 
-function createAxisGeometry(extent: number): BufferGeometry {
-  const segments = [
+function createAxisGeometry(extent: number, mode: ViewportMode): BufferGeometry {
+  const segments: Array<{
+    from: [number, number, number];
+    to: [number, number, number];
+    color: [number, number, number];
+  }> = [
     { from: [-extent, 0, 0], to: [0, 0, 0], color: [0.17, 0.2, 0.27] },
     { from: [0, 0, 0], to: [extent, 0, 0], color: [0.62, 0.37, 0.37] },
-    { from: [0, -extent, 0], to: [0, 0, 0], color: [0.17, 0.2, 0.27] },
-    { from: [0, 0, 0], to: [0, extent, 0], color: [0.4, 0.56, 0.4] },
     { from: [0, 0, -extent], to: [0, 0, 0], color: [0.17, 0.2, 0.27] },
     { from: [0, 0, 0], to: [0, 0, extent], color: [0.38, 0.5, 0.66] }
-  ] as const;
+  ];
+
+  if (mode === "3d") {
+    segments.splice(2, 0, { from: [0, -extent, 0], to: [0, 0, 0], color: [0.17, 0.2, 0.27] });
+    segments.splice(3, 0, { from: [0, 0, 0], to: [0, extent, 0], color: [0.4, 0.56, 0.4] });
+  }
 
   const positions: number[] = [];
   const colors: number[] = [];

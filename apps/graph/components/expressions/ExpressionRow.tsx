@@ -16,6 +16,7 @@ const PARAMETRIC_FIELDS = [
 ];
 
 export default function ExpressionRow({
+  rowIndex,
   object,
   isSelected,
   canRemoveWithBackspace,
@@ -48,7 +49,7 @@ export default function ExpressionRow({
   }, [object]);
 
   const rowClassName = cx(
-    "rounded-md border bg-slate-900/55 px-2 py-2 transition",
+    "relative overflow-hidden rounded-md border bg-slate-900/55 px-2 py-2 transition",
     isSelected
       ? "border-sky-500/50 bg-slate-900/80 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
       : "border-slate-800/90 hover:border-slate-700/90",
@@ -103,7 +104,19 @@ export default function ExpressionRow({
       tabIndex={-1}
       aria-label="Expression row"
     >
+      <span
+        className={cx(
+          "pointer-events-none absolute inset-y-0 left-0 w-1 transition-opacity",
+          isSelected ? "opacity-100" : "opacity-65"
+        )}
+        style={{ backgroundColor: object.color }}
+      />
+
       <div className="mb-2 flex items-center gap-1.5">
+        <span className="w-6 shrink-0 text-center font-mono text-[11px] text-slate-500">
+          {rowIndex + 1}
+        </span>
+
         <input
           type="color"
           aria-label="Expression color"
@@ -131,7 +144,7 @@ export default function ExpressionRow({
             title={object.visible ? "Hide graph" : "Show graph"}
             aria-pressed={object.visible}
           >
-            {object.visible ? "Visible" : "Hidden"}
+            {object.visible ? "On" : "Off"}
           </button>
 
           <button
@@ -143,7 +156,7 @@ export default function ExpressionRow({
             className={ui.tinyControl}
             title="Edit settings in inspector"
           >
-            Inspect
+            Edit
           </button>
 
           <button
@@ -155,7 +168,7 @@ export default function ExpressionRow({
             className={cx(ui.tinyControl, ui.buttonDanger)}
             title="Remove expression"
           >
-            Remove
+            Del
           </button>
         </div>
       </div>

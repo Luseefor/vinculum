@@ -5,6 +5,8 @@ import { useGraphStore } from "@/store/graphStore";
 
 export default function Toolbar() {
   const objectCount = useGraphStore((state) => state.scene.objects.length);
+  const viewportMode = useGraphStore((state) => state.ui.viewportMode);
+  const setViewportMode = useGraphStore((state) => state.setViewportMode);
   const resetScene = useGraphStore((state) => state.resetScene);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
@@ -19,6 +21,33 @@ export default function Toolbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 rounded-md border border-slate-800/90 bg-slate-900/35 p-1">
+          <button
+            type="button"
+            onClick={() => setViewportMode("2d")}
+            className={cx(
+              ui.buttonBase,
+              viewportMode === "2d" ? ui.buttonPrimary : ui.buttonSubtle,
+              "px-2 py-1"
+            )}
+            aria-pressed={viewportMode === "2d"}
+          >
+            2D
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewportMode("3d")}
+            className={cx(
+              ui.buttonBase,
+              viewportMode === "3d" ? ui.buttonPrimary : ui.buttonSubtle,
+              "px-2 py-1"
+            )}
+            aria-pressed={viewportMode === "3d"}
+          >
+            3D
+          </button>
+        </div>
+
         <div className="flex items-center gap-1 rounded-md border border-slate-800/90 bg-slate-900/35 p-1">
           <button
             type="button"

@@ -2,6 +2,7 @@ import type { GraphObject } from "@vinculum/scene/types";
 
 export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
+export type ViewportMode = "2d" | "3d";
 
 export type SceneDialogMode = "import" | "export";
 
@@ -14,6 +15,7 @@ export interface SceneDialogState {
 
 export interface GraphUiState {
   selectedObjectId: string | null;
+  viewportMode: ViewportMode;
   sceneDialog: SceneDialogState;
 }
 
@@ -22,6 +24,7 @@ export interface ExpressionValidationState {
 }
 
 export interface ExpressionRowProps {
+  rowIndex: number;
   object: GraphObject;
   isSelected: boolean;
   canRemoveWithBackspace: boolean;

@@ -18,7 +18,7 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
-import type { GraphUiState, SceneDialogMode } from "@/types/graphUi";
+import type { GraphUiState, SceneDialogMode, ViewportMode } from "@/types/graphUi";
 
 type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -50,6 +50,7 @@ interface GraphStoreState {
   closeSceneDialog: () => void;
   setSceneDialogDraft: (jsonText: string) => void;
   setSceneDialogError: (error: string | null) => void;
+  setViewportMode: (mode: ViewportMode) => void;
   requestCameraReset: () => void;
 }
 
@@ -493,6 +494,22 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
+  setViewportMode: (mode) => {
+    set((state) => {
+      if (state.ui.viewportMode === mode) {
+        return state;
+      }
+
+      return {
+        ui: {
+          ...state.ui,
+          viewportMode: mode
+        },
+        cameraResetVersion: state.cameraResetVersion + 1
+      };
+    });
+  },
+
   requestCameraReset: () => {
     set((state) => ({ cameraResetVersion: state.cameraResetVersion + 1 }));
   }
@@ -576,6 +593,7 @@ function createInitialSceneDocument(): SceneDocument {
 function createInitialUiState(selectedObjectId: string | null): GraphUiState {
   return {
     selectedObjectId,
+    viewportMode: "3d",
     sceneDialog: {
       isOpen: false,
       mode: "export",

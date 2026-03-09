@@ -8,11 +8,12 @@ import { sampleSurface } from "@/lib/math/sampleSurface";
 
 interface SurfaceMeshProps {
   object: SurfaceGraphObject;
+  isSelected: boolean;
   resolutionMultiplier: number;
   isInteractive: boolean;
 }
 
-function SurfaceMeshComponent({ object, resolutionMultiplier, isInteractive }: SurfaceMeshProps) {
+function SurfaceMeshComponent({ object, isSelected, resolutionMultiplier, isInteractive }: SurfaceMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
 
   const adaptiveResolution = useMemo(() => {
@@ -69,8 +70,12 @@ function SurfaceMeshComponent({ object, resolutionMultiplier, isInteractive }: S
     <mesh geometry={geometry} visible={visible}>
       <meshStandardMaterial
         color={object.color}
-        roughness={0.35}
-        metalness={0.08}
+        emissive={object.color}
+        emissiveIntensity={isSelected ? 0.18 : 0.04}
+        roughness={0.3}
+        metalness={0.06}
+        transparent={!object.appearance.wireframe}
+        opacity={isSelected ? 0.95 : 0.82}
         wireframe={object.appearance.wireframe}
       />
     </mesh>

@@ -8,13 +8,26 @@ import { sampleCurve } from "@/lib/math/sampleCurve";
 
 interface ParametricCurveProps {
   object: ParametricCurveObject;
+  isSelected: boolean;
   resolutionMultiplier: number;
   isInteractive: boolean;
 }
 
-function ParametricCurveComponent({ object, resolutionMultiplier, isInteractive }: ParametricCurveProps) {
+function ParametricCurveComponent({
+  object,
+  isSelected,
+  resolutionMultiplier,
+  isInteractive
+}: ParametricCurveProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
-  const material = useMemo(() => new THREE.LineBasicMaterial({ color: object.color }), []);
+  const material = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: object.color,
+        transparent: true
+      }),
+    []
+  );
   const line = useMemo(() => new THREE.Line(geometry, material), [geometry, material]);
 
   const adaptiveSamples = useMemo(() => {
@@ -47,8 +60,9 @@ function ParametricCurveComponent({ object, resolutionMultiplier, isInteractive 
 
   useEffect(() => {
     material.color.set(object.color);
+    material.opacity = isSelected ? 1 : 0.78;
     material.needsUpdate = true;
-  }, [material, object.color]);
+  }, [isSelected, material, object.color]);
 
   useEffect(() => {
     if (!sampled || sampled.positions.length === 0) {

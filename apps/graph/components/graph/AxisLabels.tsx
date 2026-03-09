@@ -1,10 +1,24 @@
 "use client";
 
 import { Html } from "@react-three/drei";
+import type { ViewportMode } from "@/types/graphUi";
 
 const LABEL_DISTANCE = 6;
 
-export default function AxisLabels() {
+interface AxisLabelsProps {
+  viewportMode: ViewportMode;
+}
+
+export default function AxisLabels({ viewportMode }: AxisLabelsProps) {
+  if (viewportMode === "2d") {
+    return (
+      <group>
+        <AxisLabel position={[LABEL_DISTANCE, 0, 0]} text="X" />
+        <AxisLabel position={[0, 0, LABEL_DISTANCE]} text="Y" />
+      </group>
+    );
+  }
+
   return (
     <group>
       <AxisLabel position={[LABEL_DISTANCE, 0, 0]} text="X" />

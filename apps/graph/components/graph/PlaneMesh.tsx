@@ -7,9 +7,10 @@ import { compilePlaneEquation, samplePlane } from "@/lib/math/samplePlane";
 
 interface PlaneMeshProps {
   object: PlaneGraphObject;
+  isSelected: boolean;
 }
 
-function PlaneMeshComponent({ object }: PlaneMeshProps) {
+function PlaneMeshComponent({ object, isSelected }: PlaneMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
 
   const sampled = useMemo(() => {
@@ -50,10 +51,12 @@ function PlaneMeshComponent({ object }: PlaneMeshProps) {
     <mesh geometry={geometry} visible={visible}>
       <meshStandardMaterial
         color={object.color}
+        emissive={object.color}
+        emissiveIntensity={isSelected ? 0.14 : 0.03}
         roughness={0.4}
         metalness={0.05}
         transparent
-        opacity={0.78}
+        opacity={isSelected ? 0.84 : 0.68}
         wireframe={object.appearance.wireframe}
         side={THREE.DoubleSide}
       />

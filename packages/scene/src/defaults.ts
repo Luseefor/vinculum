@@ -7,7 +7,7 @@ import type {
   SurfaceGraphObject
 } from "./types";
 
-export const defaultGraphPalette = ["#3b82f6", "#06b6d4", "#f59e0b", "#fb7185", "#22c55e"];
+export const defaultGraphPalette = ["#2d70b3", "#388c46", "#c74440", "#6042a6", "#fa7e19"];
 
 export function pickDefaultGraphColor(index = 0): string {
   const safeIndex = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;

@@ -123,9 +123,10 @@ export default function ExpressionList() {
 
   return (
     <div className="space-y-2">
-      {objects.map((object: GraphObject) => (
+      {objects.map((object: GraphObject, index) => (
         <ExpressionRow
           key={object.id}
+          rowIndex={index}
           object={object}
           isSelected={object.id === selectedObjectId}
           canRemoveWithBackspace={objects.length > 1}
