@@ -20,7 +20,7 @@ export function ThemeToggle() {
       type="button"
       variant="ghost"
       size="icon"
-      className="h-8 w-8"
+      className="skeuo-pill h-8 w-8 rounded-lg"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label="Toggle theme"
     >

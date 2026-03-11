@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-full w-[430px] shrink-0 flex-col border-r border-border/80 bg-[linear-gradient(180deg,hsl(var(--card)/0.98)_0%,hsl(var(--background)/0.92)_100%)]">
+    <aside className="skeuo-sidebar flex h-full w-[430px] shrink-0 flex-col border-r border-border/80">
       <div className="border-b border-border/70 px-4 py-3">
         <div className="skeuo-panel px-4 py-3">
           <p className="text-[0.74rem] font-semibold uppercase tracking-[0.32em] text-muted-foreground">Expressions</p>
@@ -25,7 +25,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <Separator />
+      <Separator className="bg-border/70" />
 
       <div className="max-h-[45%] overflow-y-auto px-3 py-3">
         <GraphInspector />
