@@ -19,7 +19,7 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
     <NativeSelect
       value={value}
       onChange={(event) => onChange(event.target.value as GraphObjectKind)}
-      className="h-9 w-[146px] rounded-lg border-border/80 bg-background/95 px-3 text-[0.94rem] font-semibold tracking-[0.08em]"
+      className="skeuo-inset h-9 w-[146px] px-3 text-[0.85rem] font-semibold tracking-[0.08em]"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (

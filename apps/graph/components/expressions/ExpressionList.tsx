@@ -136,7 +136,7 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <Card className="border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+      <Card className="skeuo-panel border-dashed p-4 text-center text-xs text-muted-foreground">
         No expressions yet. Add one to start graphing.
       </Card>
     );

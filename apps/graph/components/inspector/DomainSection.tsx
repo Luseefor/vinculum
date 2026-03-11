@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dial } from "@/components/ui/dial";
 import { Input } from "@/components/ui/input";
 import { useGraphStore } from "@/store/graphStore";
 
@@ -19,6 +20,9 @@ const DOMAIN_FIELDS: Array<{ key: DomainField; label: string }> = [
   { key: "yMin", label: "yMin" },
   { key: "yMax", label: "yMax" }
 ];
+
+const MIN_RESOLUTION = 8;
+const MAX_RESOLUTION = 220;
 
 export default function DomainSection({ object }: DomainSectionProps) {
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
@@ -62,22 +66,22 @@ export default function DomainSection({ object }: DomainSectionProps) {
     }));
   };
 
-  const commitResolution = () => {
+  const commitResolutionDraft = () => {
     const parsedValue = Number(resolutionDraft);
     if (!Number.isFinite(parsedValue)) {
       setResolutionDraft(String(object.resolution));
       return;
     }
 
-    const safeResolution = Math.max(2, Math.floor(parsedValue));
+    const safeResolution = clampResolution(parsedValue);
     updateSurfaceResolution(object.id, safeResolution);
     setResolutionDraft(String(safeResolution));
   };
 
   return (
-    <Card className="rounded-xl border-border/80 bg-card">
+    <Card className="skeuo-panel">
       <CardHeader className="pb-2">
-        <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Domain</CardTitle>
+        <CardTitle className="text-[0.74rem] uppercase tracking-[0.3em] text-muted-foreground">Domain</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">
         <div className="grid grid-cols-2 gap-2">
@@ -98,35 +102,45 @@ export default function DomainSection({ object }: DomainSectionProps) {
           ))}
         </div>
 
-        <div>
-          <label
-            htmlFor="resolution-input"
-            className="mb-1 block text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
-          >
-            Resolution
-          </label>
-          <Input
-            id="resolution-input"
-            value={resolutionDraft}
-            onChange={(event) => setResolutionDraft(event.target.value)}
-            onBlur={commitResolution}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commitResolution();
-                event.currentTarget.blur();
-              }
+        <div className="skeuo-inset flex items-center justify-between px-3 py-2.5">
+          <div className="pr-3">
+            <p className="text-[0.74rem] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Resolution</p>
+            <Input
+              id="resolution-input"
+              value={resolutionDraft}
+              onChange={(event) => setResolutionDraft(event.target.value)}
+              onBlur={commitResolutionDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitResolutionDraft();
+                  event.currentTarget.blur();
+                }
 
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setResolutionDraft(String(object.resolution));
-                event.currentTarget.blur();
-              }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setResolutionDraft(String(object.resolution));
+                  event.currentTarget.blur();
+                }
+              }}
+              inputMode="numeric"
+              className="mt-2 h-10 border-border/85 bg-background/95 text-base"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Higher values increase mesh detail and render cost.</p>
+          </div>
+
+          <Dial
+            label="Resolution"
+            value={clampResolution(object.resolution)}
+            min={MIN_RESOLUTION}
+            max={MAX_RESOLUTION}
+            step={2}
+            onChange={(nextValue) => {
+              const safeResolution = clampResolution(nextValue);
+              updateSurfaceResolution(object.id, safeResolution);
+              setResolutionDraft(String(safeResolution));
             }}
-            inputMode="numeric"
-            className="h-11 rounded-lg border-border/80 bg-background/95 text-[1.15rem]"
           />
-          <p className="mt-1 text-[0.95rem] text-muted-foreground">Higher values increase mesh detail and render cost.</p>
         </div>
       </CardContent>
     </Card>
@@ -144,7 +158,7 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+      <span className="mb-1 block text-[0.74rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -163,8 +177,13 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className="h-11 rounded-lg border-border/80 bg-background/95 text-[1.15rem]"
+        className="skeuo-inset h-10 text-base"
       />
     </label>
   );
+}
+
+function clampResolution(value: number): number {
+  const safeValue = Number.isFinite(value) ? Math.floor(value) : MIN_RESOLUTION;
+  return Math.min(MAX_RESOLUTION, Math.max(MIN_RESOLUTION, safeValue));
 }

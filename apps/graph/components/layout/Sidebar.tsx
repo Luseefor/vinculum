@@ -5,12 +5,14 @@ import { Separator } from "@/components/ui/separator";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-full w-[430px] shrink-0 flex-col border-r border-border/80 bg-card">
-      <div className="border-b border-border/80 px-4 py-3">
-        <p className="text-[0.78rem] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Expressions</p>
-        <p className="mt-1.5 text-[1.05rem] leading-relaxed text-muted-foreground">
-          Build mixed scenes with surfaces, parametric curves, and planes.
-        </p>
+    <aside className="flex h-full w-[430px] shrink-0 flex-col border-r border-border/80 bg-[linear-gradient(180deg,hsl(var(--card)/0.98)_0%,hsl(var(--background)/0.92)_100%)]">
+      <div className="border-b border-border/70 px-4 py-3">
+        <div className="skeuo-panel px-4 py-3">
+          <p className="text-[0.74rem] font-semibold uppercase tracking-[0.32em] text-muted-foreground">Expressions</p>
+          <p className="mt-1.5 text-[1.02rem] leading-relaxed text-muted-foreground">
+            Build mixed scenes with surfaces, parametric curves, and planes.
+          </p>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -18,7 +20,7 @@ export default function Sidebar() {
           <ExpressionList />
         </div>
 
-        <div className="border-t border-border/80 px-3 py-2.5">
+        <div className="border-t border-border/70 px-3 py-2.5">
           <AddExpressionButton />
         </div>
       </div>

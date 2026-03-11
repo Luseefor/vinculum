@@ -18,7 +18,7 @@ export default function GraphInspector() {
 
   if (!selectedObject) {
     return (
-      <Card id="graph-inspector" className="rounded-xl border-border/80 bg-card">
+      <Card id="graph-inspector" className="skeuo-panel">
         <CardContent className="p-4 text-sm text-muted-foreground">
           Select an expression to inspect graph settings.
         </CardContent>
@@ -31,9 +31,9 @@ export default function GraphInspector() {
 
   if (selectedObject.kind !== "surface") {
     return (
-      <Card id="graph-inspector" className="rounded-xl border-border/80 bg-card">
+      <Card id="graph-inspector" className="skeuo-panel">
         <CardHeader className="pb-2">
-          <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Inspector</CardTitle>
+          <CardTitle className="text-[0.74rem] uppercase tracking-[0.3em] text-muted-foreground">Inspector</CardTitle>
           <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
             <span
               className="h-3 w-3 rounded-full border border-foreground/20"
@@ -42,7 +42,7 @@ export default function GraphInspector() {
             {selectedTitle}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-0 text-[0.95rem] text-muted-foreground">
+        <CardContent className="pt-0 text-[0.92rem] text-muted-foreground">
           Detailed controls are currently available for surface graphs.
         </CardContent>
       </Card>
@@ -53,9 +53,9 @@ export default function GraphInspector() {
 
   return (
     <section id="graph-inspector" className="space-y-2.5">
-      <Card className="rounded-xl border-border/80 bg-card">
+      <Card className="skeuo-panel">
         <CardHeader className="pb-2">
-          <CardTitle className="text-[0.78rem] uppercase tracking-[0.28em] text-muted-foreground">Inspector</CardTitle>
+          <CardTitle className="text-[0.74rem] uppercase tracking-[0.3em] text-muted-foreground">Inspector</CardTitle>
           <CardDescription className="flex items-center gap-2 text-base font-medium text-foreground">
             <span
               className="h-3 w-3 rounded-full border border-foreground/20"

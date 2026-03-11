@@ -3,7 +3,6 @@
 import { useMemo, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
 import { Eye, EyeOff, Settings2, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
@@ -54,10 +53,8 @@ export default function ExpressionRow({
   }, [object]);
 
   const rowClassName = cn(
-    "relative overflow-hidden rounded-xl border bg-card p-2.5 transition-colors",
-    isSelected
-      ? "border-primary/80 bg-primary/[0.09] ring-1 ring-primary/45"
-      : "border-border/80 hover:border-primary/40",
+    "skeuo-panel relative overflow-hidden p-2.5 transition-colors",
+    isSelected ? "border-primary/80 ring-1 ring-primary/40" : "hover:border-primary/45",
     validation.error && "border-destructive/70"
   );
 
@@ -117,11 +114,9 @@ export default function ExpressionRow({
       <div className="mb-2 flex items-center gap-2 pl-1">
         <span className="w-6 shrink-0 text-center font-mono text-[1.02rem] text-muted-foreground">{rowIndex + 1}</span>
 
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 rounded-lg border-border/80 p-0"
+          className="skeuo-radio flex h-9 w-9 items-center justify-center"
           onClick={(event) => {
             event.stopPropagation();
             colorInputRef.current?.click();
@@ -129,10 +124,10 @@ export default function ExpressionRow({
           title="Expression color"
         >
           <span
-            className="h-5 w-5 rounded-[4px] border border-foreground/20"
+            className="h-5 w-5 rounded-[4px] border border-foreground/25 shadow-[inset_0_1px_1px_hsl(var(--foreground)/0.18)]"
             style={{ backgroundColor: object.color }}
           />
-        </Button>
+        </button>
 
         <input
           ref={colorInputRef}
@@ -152,51 +147,48 @@ export default function ExpressionRow({
         />
 
         <div className="ml-auto flex items-center gap-1.5">
-          <Button
+          <button
             type="button"
-            variant={object.visible ? "secondary" : "outline"}
-            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               toggleObjectVisibility(object.id);
             }}
-            className="h-9 min-w-[3.1rem] rounded-lg border-border/80 px-2 text-[0.92rem] font-semibold"
+            className={cn(
+              "skeuo-pill flex h-9 min-w-[3.4rem] items-center justify-center gap-1.5 px-2 text-[0.8rem] font-semibold tracking-wide",
+              object.visible ? "text-foreground" : "text-muted-foreground"
+            )}
             aria-pressed={object.visible}
             title={object.visible ? "Hide graph" : "Show graph"}
           >
-            {object.visible ? <Eye className="mr-1 h-3.5 w-3.5" /> : <EyeOff className="mr-1 h-3.5 w-3.5" />}
+            {object.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
             {object.visible ? "ON" : "OFF"}
-          </Button>
+          </button>
 
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="h-9 rounded-lg border-border/80 px-2.5 text-[0.9rem]"
+            className="skeuo-pill flex h-9 items-center gap-1 px-2.5 text-[0.8rem] font-semibold tracking-wide"
             title="Open inspector"
           >
-            <Settings2 className="mr-1 h-3.5 w-3.5" />
+            <Settings2 className="h-3.5 w-3.5" />
             EDIT
-          </Button>
+          </button>
 
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="h-9 rounded-lg border-border/80 px-2.5 text-[0.9rem] text-muted-foreground hover:text-destructive"
+            className="skeuo-pill flex h-9 items-center gap-1 px-2.5 text-[0.8rem] font-semibold tracking-wide text-muted-foreground hover:text-destructive"
             title="Delete expression"
           >
-            <Trash2 className="mr-1 h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5" />
             DEL
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -212,7 +204,7 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="sin(x) * cos(y)"
-          className="h-14 rounded-lg border-border/80 bg-background/95 px-4 font-mono text-[1.85rem] leading-none tracking-tight"
+          className="skeuo-inset h-14 px-4 font-mono text-[1.7rem] leading-none tracking-tight"
         />
       ) : null}
 
@@ -229,7 +221,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className="h-9 rounded-lg border-border/80 bg-background/95 font-mono text-xs"
+            className="skeuo-inset h-10 font-mono text-sm"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -257,7 +249,7 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="ax + by + cz + d = 0"
-          className="h-12 rounded-lg border-border/80 bg-background/95 px-4 font-mono text-[1.25rem] leading-none"
+          className="skeuo-inset h-12 px-4 font-mono text-[1.12rem] leading-none"
         />
       ) : null}
 
@@ -290,7 +282,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className="h-9 rounded-lg border-border/80 bg-background/95 font-mono text-xs"
+        className="skeuo-inset h-10 font-mono text-sm"
       />
     </>
   );
