@@ -16,7 +16,12 @@ interface SurfaceMeshProps {
 
 function SurfaceMeshComponent({ object, isSelected, resolutionMultiplier, isInteractive }: SurfaceMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
-  const is2DMode = useGraphStore((state) => state.ui.viewportMode === "2d");
+  const viewportMode = useGraphStore((state) => state.ui.viewportMode);
+  const surface2DRenderMode = useGraphStore((state) => state.ui.surface2DRenderMode);
+
+  const is2DMode = viewportMode === "2d";
+  const useOutlineMaterialIn2D = is2DMode && surface2DRenderMode === "outline";
+  const useFillMaterialIn2D = is2DMode && surface2DRenderMode === "fill";
 
   const adaptiveResolution = useMemo(() => {
     const baseResolution = Math.max(2, Math.floor(object.resolution));
@@ -61,7 +66,7 @@ function SurfaceMeshComponent({ object, isSelected, resolutionMultiplier, isInte
 
     updateFloat32Attribute(geometry, "position", sampled.positions, 3);
     updateIndexAttribute(geometry, sampled.indices);
-    if (is2DMode && heightColors) {
+    if (useFillMaterialIn2D && heightColors) {
       updateFloat32Attribute(geometry, "color", heightColors, 3);
     } else {
       geometry.deleteAttribute("color");
@@ -71,7 +76,7 @@ function SurfaceMeshComponent({ object, isSelected, resolutionMultiplier, isInte
 
     const drawCount = geometry.getIndex()?.count ?? 0;
     geometry.setDrawRange(0, drawCount);
-  }, [geometry, heightColors, is2DMode, sampled]);
+  }, [geometry, heightColors, sampled, useFillMaterialIn2D]);
 
   useEffect(() => {
     return () => {
@@ -85,14 +90,14 @@ function SurfaceMeshComponent({ object, isSelected, resolutionMultiplier, isInte
     <mesh geometry={geometry} visible={visible}>
       <meshStandardMaterial
         color={object.color}
-        vertexColors={is2DMode}
+        vertexColors={useFillMaterialIn2D}
         emissive={object.color}
-        emissiveIntensity={is2DMode ? 0.04 : isSelected ? 0.2 : 0.08}
-        roughness={is2DMode ? 0.62 : 0.34}
+        emissiveIntensity={useOutlineMaterialIn2D ? 0 : is2DMode ? 0.04 : isSelected ? 0.2 : 0.08}
+        roughness={useOutlineMaterialIn2D ? 0.85 : is2DMode ? 0.62 : 0.34}
         metalness={0.03}
-        transparent
-        opacity={is2DMode ? 0.9 : isSelected ? 0.96 : 0.84}
-        wireframe={object.appearance.wireframe}
+        transparent={!useOutlineMaterialIn2D}
+        opacity={useOutlineMaterialIn2D ? 1 : is2DMode ? 0.9 : isSelected ? 0.96 : 0.84}
+        wireframe={is2DMode ? useOutlineMaterialIn2D : object.appearance.wireframe}
         side={THREE.DoubleSide}
       />
     </mesh>

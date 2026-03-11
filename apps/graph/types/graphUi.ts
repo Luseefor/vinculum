@@ -3,6 +3,7 @@ import type { GraphObject } from "@vinculum/scene/types";
 export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
 export type ViewportMode = "2d" | "3d";
+export type Surface2DRenderMode = "fill" | "outline";
 
 export type SceneDialogMode = "import" | "export";
 
@@ -16,6 +17,7 @@ export interface SceneDialogState {
 export interface GraphUiState {
   selectedObjectId: string | null;
   viewportMode: ViewportMode;
+  surface2DRenderMode: Surface2DRenderMode;
   sceneDialog: SceneDialogState;
 }
 

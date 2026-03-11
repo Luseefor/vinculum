@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo } from "react";
 import type { PlaneGraphObject } from "@vinculum/scene/types";
 import * as THREE from "three";
 import { compilePlaneEquation, samplePlane } from "@/lib/math/samplePlane";
+import { useGraphStore } from "@/store/graphStore";
 
 interface PlaneMeshProps {
   object: PlaneGraphObject;
@@ -12,6 +13,10 @@ interface PlaneMeshProps {
 
 function PlaneMeshComponent({ object, isSelected }: PlaneMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const viewportMode = useGraphStore((state) => state.ui.viewportMode);
+  const surface2DRenderMode = useGraphStore((state) => state.ui.surface2DRenderMode);
+
+  const useOutlineMaterialIn2D = viewportMode === "2d" && surface2DRenderMode === "outline";
 
   const sampled = useMemo(() => {
     const compiled = compilePlaneEquation(object.equation);
@@ -52,12 +57,12 @@ function PlaneMeshComponent({ object, isSelected }: PlaneMeshProps) {
       <meshStandardMaterial
         color={object.color}
         emissive={object.color}
-        emissiveIntensity={isSelected ? 0.2 : 0.08}
-        roughness={0.4}
+        emissiveIntensity={useOutlineMaterialIn2D ? 0 : isSelected ? 0.2 : 0.08}
+        roughness={useOutlineMaterialIn2D ? 0.88 : 0.4}
         metalness={0.05}
-        transparent
-        opacity={isSelected ? 0.9 : 0.76}
-        wireframe={object.appearance.wireframe}
+        transparent={!useOutlineMaterialIn2D}
+        opacity={useOutlineMaterialIn2D ? 1 : isSelected ? 0.9 : 0.76}
+        wireframe={viewportMode === "2d" ? useOutlineMaterialIn2D : object.appearance.wireframe}
         side={THREE.DoubleSide}
       />
     </mesh>

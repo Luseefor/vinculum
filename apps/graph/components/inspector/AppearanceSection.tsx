@@ -10,8 +10,12 @@ interface AppearanceSectionProps {
 }
 
 export default function AppearanceSection({ object }: AppearanceSectionProps) {
+  const viewportMode = useGraphStore((state) => state.ui.viewportMode);
+  const surface2DRenderMode = useGraphStore((state) => state.ui.surface2DRenderMode);
+
   const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
   const toggleSurfaceWireframe = useGraphStore((state) => state.toggleSurfaceWireframe);
+  const setSurface2DRenderMode = useGraphStore((state) => state.setSurface2DRenderMode);
 
   const isWireframe = object.appearance.wireframe;
 
@@ -80,6 +84,45 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
             </button>
           </div>
         </div>
+
+        {viewportMode === "2d" ? (
+          <div className="skeuo-inset px-2.5 py-2">
+            <p className="text-[0.74rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              2D Surface Render
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSurface2DRenderMode("fill")}
+                className={cn(
+                  "skeuo-pill flex items-center gap-2 px-3 py-2 text-[0.82rem] font-semibold tracking-wide",
+                  surface2DRenderMode === "fill" && "ring-1 ring-primary/45"
+                )}
+                aria-pressed={surface2DRenderMode === "fill"}
+              >
+                <span className="skeuo-radio flex h-4 w-4 items-center justify-center">
+                  {surface2DRenderMode === "fill" ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+                </span>
+                Fill
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSurface2DRenderMode("outline")}
+                className={cn(
+                  "skeuo-pill flex items-center gap-2 px-3 py-2 text-[0.82rem] font-semibold tracking-wide",
+                  surface2DRenderMode === "outline" && "ring-1 ring-primary/45"
+                )}
+                aria-pressed={surface2DRenderMode === "outline"}
+              >
+                <span className="skeuo-radio flex h-4 w-4 items-center justify-center">
+                  {surface2DRenderMode === "outline" ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+                </span>
+                Outline
+              </button>
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
