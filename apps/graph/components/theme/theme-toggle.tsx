@@ -18,9 +18,9 @@ export function ThemeToggle() {
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       size="icon"
-      className="skeuo-pill h-8 w-8 rounded-lg"
+      className="h-8 w-8 rounded-md border-input"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label="Toggle theme"
     >

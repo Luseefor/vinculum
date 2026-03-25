@@ -136,14 +136,14 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <Card className="skeuo-panel border-dashed p-4 text-center text-xs text-muted-foreground">
+      <Card className="rounded-md border-dashed p-4 text-center text-xs text-muted-foreground">
         No expressions yet. Add one to start graphing.
       </Card>
     );
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-1.5">
       {objects.map((object: GraphObject, index) => (
         <ExpressionRow
           key={object.id}
