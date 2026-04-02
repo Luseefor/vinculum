@@ -4,6 +4,7 @@ export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
 
 export type SceneDialogMode = "import" | "export";
+export type GraphMode = "2d" | "3d";
 
 export interface SceneDialogState {
   isOpen: boolean;
@@ -12,9 +13,17 @@ export interface SceneDialogState {
   error: string | null;
 }
 
+export interface Viewport2D {
+  centerX: number;
+  centerY: number;
+  scale: number; // pixels per unit
+}
+
 export interface GraphUiState {
   selectedObjectId: string | null;
   sceneDialog: SceneDialogState;
+  graphMode: GraphMode;
+  viewport2d: Viewport2D;
 }
 
 export interface ExpressionValidationState {

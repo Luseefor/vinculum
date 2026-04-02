@@ -18,7 +18,7 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
-import type { GraphUiState, SceneDialogMode } from "@/types/graphUi";
+import type { GraphMode, GraphUiState, SceneDialogMode, Viewport2D } from "@/types/graphUi";
 
 type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -51,6 +51,9 @@ interface GraphStoreState {
   setSceneDialogDraft: (jsonText: string) => void;
   setSceneDialogError: (error: string | null) => void;
   requestCameraReset: () => void;
+  setGraphMode: (mode: GraphMode) => void;
+  updateViewport2D: (viewport: Partial<Viewport2D>) => void;
+  resetViewport2D: () => void;
 }
 
 const initialScene = createInitialSceneDocument();
@@ -495,6 +498,36 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
 
   requestCameraReset: () => {
     set((state) => ({ cameraResetVersion: state.cameraResetVersion + 1 }));
+  },
+
+  setGraphMode: (mode) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        graphMode: mode
+      }
+    }));
+  },
+
+  updateViewport2D: (viewport) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        viewport2d: {
+          ...state.ui.viewport2d,
+          ...viewport
+        }
+      }
+    }));
+  },
+
+  resetViewport2D: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        viewport2d: createDefaultViewport2D()
+      }
+    }));
   }
 }));
 
@@ -573,6 +606,14 @@ function createInitialSceneDocument(): SceneDocument {
   });
 }
 
+function createDefaultViewport2D(): Viewport2D {
+  return {
+    centerX: 0,
+    centerY: 0,
+    scale: 50 // 50 pixels per unit
+  };
+}
+
 function createInitialUiState(selectedObjectId: string | null): GraphUiState {
   return {
     selectedObjectId,
@@ -581,7 +622,9 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
       mode: "export",
       jsonText: "",
       error: null
-    }
+    },
+    graphMode: "2d",
+    viewport2d: createDefaultViewport2D()
   };
 }
 

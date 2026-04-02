@@ -7,14 +7,52 @@ export default function Toolbar() {
   const resetScene = useGraphStore((state) => state.resetScene);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
+  const graphMode = useGraphStore((state) => state.ui.graphMode);
+  const setGraphMode = useGraphStore((state) => state.setGraphMode);
+  const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+
+  const handleResetView = () => {
+    if (graphMode === "2d") {
+      resetViewport2D();
+    } else {
+      requestCameraReset();
+    }
+  };
 
   return (
     <header className="flex h-10 items-center justify-between px-3 border-b border-[var(--border-subtle)] bg-[var(--surface-raised)]">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600" />
           <h1 className="text-xs font-semibold tracking-tight">Vinculum</h1>
         </div>
+        
+        {/* Mode Toggle */}
+        <div className="flex items-center bg-[var(--surface-bg)] rounded-md p-0.5 border border-[var(--border-subtle)]">
+          <button
+            type="button"
+            onClick={() => setGraphMode("2d")}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${
+              graphMode === "2d"
+                ? "bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-sm"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            2D
+          </button>
+          <button
+            type="button"
+            onClick={() => setGraphMode("3d")}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-all ${
+              graphMode === "3d"
+                ? "bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-sm"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            3D
+          </button>
+        </div>
+        
         <span className="text-[10px] text-[var(--text-tertiary)]">
           {objectCount} {objectCount === 1 ? "object" : "objects"}
         </span>
@@ -46,7 +84,7 @@ export default function Toolbar() {
         
         <div className="w-px h-4 bg-[var(--border-subtle)] mx-0.5" />
         
-        <button type="button" onClick={requestCameraReset} className="btn">
+        <button type="button" onClick={handleResetView} className="btn">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
             <path d="M21 3v5h-5" />
