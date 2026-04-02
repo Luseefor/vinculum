@@ -158,16 +158,26 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     }
   }, [mathToScreen]);
 
-  // Parse and evaluate a 2D expression
+  // Parse and evaluate a 2D expression (returns y for given x)
   const evaluateExpression = useCallback((expr: string, x: number): number | null => {
     try {
-      // Replace z= with nothing for surface equations
-      let cleanExpr = expr.replace(/^z\s*=\s*/i, "").trim();
+      let cleanExpr = expr.trim();
       
-      // For 2D, we evaluate with y=0 to get z=f(x)
-      // Or we treat it as y=f(x) directly
+      // Handle different expression formats
+      // y = f(x) -> f(x)
+      // z = f(x) -> f(x) (treat z as y for 2D)
+      // f(x) -> f(x)
+      cleanExpr = cleanExpr.replace(/^[yz]\s*=\s*/i, "").trim();
+      
+      // Handle vertical lines: x = constant
+      const verticalMatch = cleanExpr.match(/^x\s*=\s*([\d.-]+)$/);
+      if (verticalMatch) {
+        // Return a very large/small value to draw a vertical line
+        return null; // We'll handle these separately
+      }
+      
       const compiled = compile(cleanExpr);
-      const result = compiled.evaluate({ x, y: 0, t: 0 });
+      const result = compiled.evaluate({ x, y: 0, t: x, pi: Math.PI, e: Math.E });
       
       if (typeof result === "number" && isFinite(result)) {
         return result;
@@ -178,11 +188,31 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     }
   }, []);
 
+  // Check if expression is a vertical line (x = constant)
+  const parseVerticalLine = useCallback((expr: string): number | null => {
+    const match = expr.trim().match(/^x\s*=\s*([\d.eE+-]+)$/);
+    if (match) {
+      const val = parseFloat(match[1]);
+      return isFinite(val) ? val : null;
+    }
+    return null;
+  }, []);
+
+  // Check if expression is a horizontal line (y = constant)
+  const parseHorizontalLine = useCallback((expr: string): number | null => {
+    const match = expr.trim().match(/^[yz]\s*=\s*([\d.eE+-]+)$/);
+    if (match) {
+      const val = parseFloat(match[1]);
+      return isFinite(val) ? val : null;
+    }
+    return null;
+  }, []);
+
   // Draw a single graph object
   const drawGraph = useCallback((obj: GraphObject, dc: DrawContext) => {
     if (!obj.visible) return;
     
-    const { ctx, width, scale, centerX } = dc;
+    const { ctx, width, height, scale, centerX, centerY } = dc;
     
     // Get the expression based on object kind
     let expr = "";
@@ -200,6 +230,26 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     ctx.lineJoin = "round";
     ctx.beginPath();
     
+    // Check for vertical line (x = constant)
+    const verticalX = parseVerticalLine(expr);
+    if (verticalX !== null) {
+      const screen = mathToScreen(verticalX, 0, dc);
+      ctx.moveTo(screen.x, 0);
+      ctx.lineTo(screen.x, height);
+      ctx.stroke();
+      return;
+    }
+    
+    // Check for horizontal line (y = constant or just a number)
+    const horizontalY = parseHorizontalLine(expr);
+    if (horizontalY !== null) {
+      const screen = mathToScreen(0, horizontalY, dc);
+      ctx.moveTo(0, screen.y);
+      ctx.lineTo(width, screen.y);
+      ctx.stroke();
+      return;
+    }
+    
     const minX = centerX - width / (2 * scale);
     const maxX = centerX + width / (2 * scale);
     const step = (maxX - minX) / (width * 0.5); // ~2 pixels per sample
@@ -216,12 +266,19 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         continue;
       }
       
-      // Check for discontinuity
+      // Check for discontinuity (asymptotes)
       if (lastY !== null && Math.abs(y - lastY) > 50 / scale) {
         isFirst = true;
       }
       
       const screen = mathToScreen(x, y, dc);
+      
+      // Skip points that are way off screen (optimization)
+      if (screen.y < -1000 || screen.y > height + 1000) {
+        isFirst = true;
+        lastY = y;
+        continue;
+      }
       
       if (isFirst) {
         ctx.moveTo(screen.x, screen.y);
@@ -234,7 +291,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     }
     
     ctx.stroke();
-  }, [evaluateExpression, mathToScreen]);
+  }, [evaluateExpression, parseVerticalLine, parseHorizontalLine, mathToScreen]);
 
   // Main draw function
   const draw = useCallback(() => {

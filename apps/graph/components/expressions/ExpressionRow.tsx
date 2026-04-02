@@ -26,6 +26,7 @@ export default function ExpressionRow({
   onRemove,
   onOpenInspector
 }: ExpressionRowProps) {
+  const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
@@ -186,7 +187,7 @@ export default function ExpressionRow({
           onKeyDown={handlePrimaryKeyDown}
           spellCheck={false}
           autoComplete="off"
-          placeholder="z = sin(x) * cos(y)"
+          placeholder={graphMode === "2d" ? "y = x^2" : "z = sin(x) * cos(y)"}
           className="input text-[11px] py-1.5"
         />
       )}
