@@ -90,24 +90,24 @@ export default function ExpressionRow({
   return (
     <div
       className={cx(
-        "panel px-3 py-2.5 cursor-pointer transition-all duration-150",
-        isSelected && "ring-1 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--surface-bg)]",
-        validation.error && "ring-1 ring-amber-500/50"
+        "panel px-2.5 py-2 cursor-pointer transition-all duration-100",
+        isSelected && "ring-1 ring-[var(--accent)]/60",
+        validation.error && "ring-1 ring-amber-500/40"
       )}
       onClick={() => onSelect(object.id)}
       role="button"
       tabIndex={-1}
       aria-label="Expression row"
     >
-      {/* Header row with color, type, and actions */}
-      <div className="flex items-center gap-2 mb-2">
+      {/* Header row */}
+      <div className="flex items-center gap-1.5 mb-1.5">
         <input
           type="color"
           aria-label="Expression color"
           value={object.color}
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch"
+          className="color-swatch w-5 h-5"
         />
 
         <GraphTypeSelector
@@ -115,7 +115,7 @@ export default function ExpressionRow({
           onChange={(nextKind) => setObjectKind(object.id, nextKind)}
         />
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center">
           <button
             type="button"
             onClick={(event) => {
@@ -123,24 +123,21 @@ export default function ExpressionRow({
               toggleObjectVisibility(object.id);
             }}
             className={cx(
-              "w-6 h-6 flex items-center justify-center rounded transition-colors",
+              "w-5 h-5 flex items-center justify-center rounded transition-colors",
               object.visible 
-                ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]" 
-                : "text-[var(--text-tertiary)] opacity-50"
+                ? "text-[var(--text-secondary)]" 
+                : "text-[var(--text-tertiary)] opacity-40"
             )}
             title={object.visible ? "Hide" : "Show"}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               {object.visible ? (
                 <>
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </>
               ) : (
-                <>
-                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </>
+                <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M1 1l22 22" />
               )}
             </svg>
           </button>
@@ -151,12 +148,12 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
             title="Inspect"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
             </svg>
           </button>
 
@@ -166,10 +163,10 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-red-400 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-red-400 transition-colors"
             title="Remove"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -190,13 +187,13 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="z = sin(x) * cos(y)"
-          className="input"
+          className="input text-[11px] py-1.5"
         />
       )}
 
       {object.kind === "parametricCurve" && (
-        <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label className="text-[10px] font-medium text-[var(--text-tertiary)]">x(t)</label>
+        <div className="grid grid-cols-[auto,1fr] items-center gap-x-1.5 gap-y-1">
+          <label className="text-[9px] font-medium text-[var(--text-tertiary)]">x(t)</label>
           <input
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -207,7 +204,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className="input text-xs py-1.5"
+            className="input text-[10px] py-1"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -235,12 +232,12 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="ax + by + cz + d = 0"
-          className="input"
+          className="input text-[11px] py-1.5"
         />
       )}
 
       {validation.error && (
-        <p className="mt-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-[11px] text-amber-400">
+        <p className="mt-1.5 px-1.5 py-1 rounded bg-amber-500/10 text-[9px] text-amber-400 truncate">
           {validation.error}
         </p>
       )}
@@ -259,7 +256,7 @@ interface ParametricInputProps {
 function ParametricInput({ label, value, onFocus, onClick, onChange }: ParametricInputProps) {
   return (
     <>
-      <label className="text-[10px] font-medium text-[var(--text-tertiary)]">{label}</label>
+      <label className="text-[9px] font-medium text-[var(--text-tertiary)]">{label}</label>
       <input
         type="text"
         value={value}
@@ -268,7 +265,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className="input text-xs py-1.5"
+        className="input text-[10px] py-1"
       />
     </>
   );

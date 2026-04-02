@@ -74,12 +74,12 @@ export default function DomainSection({ object }: DomainSectionProps) {
   };
 
   return (
-    <section className="panel p-4">
-      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-3">
+    <section className="panel p-3">
+      <h4 className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
         Domain
       </h4>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {DOMAIN_FIELDS.map((field) => (
           <DomainInput
             key={field.key}
@@ -97,8 +97,8 @@ export default function DomainSection({ object }: DomainSectionProps) {
         ))}
       </div>
 
-      <div className="mt-4">
-        <label htmlFor="resolution-input" className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5">
+      <div className="mt-2">
+        <label htmlFor="resolution-input" className="block text-[9px] font-medium text-[var(--text-secondary)] mb-1">
           Resolution
         </label>
         <input
@@ -120,11 +120,8 @@ export default function DomainSection({ object }: DomainSectionProps) {
             }
           }}
           inputMode="numeric"
-          className="input"
+          className="input text-[10px] py-1"
         />
-        <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)]">
-          Higher values increase detail
-        </p>
       </div>
     </section>
   );
@@ -141,7 +138,7 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5">{label}</span>
+      <span className="block text-[9px] font-medium text-[var(--text-secondary)] mb-1">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -160,7 +157,7 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className="input"
+        className="input text-[10px] py-1"
       />
     </label>
   );

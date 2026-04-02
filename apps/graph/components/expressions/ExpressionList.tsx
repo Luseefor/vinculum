@@ -114,15 +114,14 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <div className="panel-inset px-4 py-6 text-center">
-        <p className="text-xs text-[var(--text-tertiary)]">No expressions yet</p>
-        <p className="mt-1 text-[11px] text-[var(--text-tertiary)] opacity-60">Add one to start graphing</p>
+      <div className="panel-inset px-3 py-4 text-center">
+        <p className="text-[10px] text-[var(--text-tertiary)]">No expressions</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {objects.map((object: GraphObject) => (
         <ExpressionRow
           key={object.id}
