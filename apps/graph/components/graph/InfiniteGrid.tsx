@@ -47,7 +47,7 @@ void main() {
   float fade = 1.0 - smoothstep(uFadeDistance * 0.2, uFadeDistance, radialDistance);
 
   vec3 color = (uMinorColor * minorMasked) + (uMajorColor * major);
-  float alpha = ((minorMasked * 0.48) + (major * 0.92)) * fade;
+  float alpha = ((minorMasked * 0.35) + (major * 0.65)) * fade;
 
   if (alpha <= 0.002) {
     discard;
@@ -70,8 +70,8 @@ export default function InfiniteGrid() {
       uFadeDistance: { value: fadeDistance },
       uGridOffset: { value: new Vector2(gridOffset[0], gridOffset[1]) },
       uCameraPosition: { value: new Vector3() },
-      uMinorColor: { value: new Color("#1f2937") },
-      uMajorColor: { value: new Color("#334155") }
+      uMinorColor: { value: new Color("#252528") },
+      uMajorColor: { value: new Color("#3a3a40") }
     }),
     []
   );

@@ -58,13 +58,14 @@ export default function GraphCanvas() {
   }, [cameraResetVersion]);
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full rounded-xl overflow-hidden">
       <Canvas camera={{ position: DEFAULT_CAMERA_POSITION, fov: 48, near: 0.1, far: 500 }}>
-        <color attach="background" args={["#020617"]} />
-        <ambientLight intensity={0.38} />
-        <hemisphereLight intensity={0.24} groundColor="#020617" color="#cbd5e1" />
-        <directionalLight intensity={0.95} position={[8, 10, 6]} />
-        <directionalLight intensity={0.32} position={[-6, 4, -8]} />
+        <color attach="background" args={["#131316"]} />
+        <fog attach="fog" args={["#131316", 30, 80]} />
+        <ambientLight intensity={0.4} />
+        <hemisphereLight intensity={0.3} groundColor="#131316" color="#e0e0e5" />
+        <directionalLight intensity={1.0} position={[8, 10, 6]} castShadow />
+        <directionalLight intensity={0.25} position={[-6, 4, -8]} />
 
         <InfiniteGrid />
         <AxesHelper />
