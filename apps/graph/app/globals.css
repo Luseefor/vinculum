@@ -5,17 +5,17 @@
 :root {
   color-scheme: dark;
   --surface-bg: #1a1a1e;
-  --surface-raised: #242428;
-  --surface-overlay: #2a2a2f;
+  --surface-raised: #232327;
+  --surface-overlay: #2c2c31;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
   --text-primary: #f5f5f7;
   --text-secondary: #a1a1a6;
   --text-tertiary: #6e6e73;
   --accent: #0a84ff;
-  --accent-soft: rgba(10, 132, 255, 0.15);
-  --inset-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --drop-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --accent-soft: rgba(10, 132, 255, 0.12);
+  --inset-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --drop-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 * {
@@ -23,7 +23,7 @@
 }
 
 body {
-  background: linear-gradient(135deg, #18181b 0%, #1a1a1e 50%, #161618 100%);
+  background: #161618;
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -35,8 +35,8 @@ body {
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 *::-webkit-scrollbar-track {
@@ -44,29 +44,27 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background-clip: padding-box;
-  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Skeuomorphic panel styling */
+/* Panel styling */
 .panel {
-  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface-bg) 100%);
+  background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: var(--inset-shadow), var(--drop-shadow);
 }
 
 .panel-inset {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(0, 0, 0, 0.3);
-  border-radius: 8px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Button styles */
@@ -74,52 +72,54 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 12px;
-  font-size: 12px;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-primary);
-  background: linear-gradient(180deg, var(--surface-overlay) 0%, var(--surface-raised) 100%);
+  background: var(--surface-overlay);
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  box-shadow: var(--inset-shadow), 0 1px 2px rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  box-shadow: var(--inset-shadow), 0 1px 2px rgba(0, 0, 0, 0.15);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
+  user-select: none;
 }
 
 .btn:hover {
-  background: linear-gradient(180deg, #333338 0%, var(--surface-overlay) 100%);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: #363640;
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .btn:active {
-  background: var(--surface-bg);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-  transform: translateY(1px);
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  transform: scale(0.98);
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #1a8cff 0%, var(--accent) 100%);
+  background: var(--accent);
   border-color: rgba(0, 100, 220, 0.5);
+  color: white;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(180deg, #3399ff 0%, #1a8cff 100%);
+  background: #1a8cff;
 }
 
 /* Input styles */
 .input {
   width: 100%;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: 7px 9px;
+  font-size: 12px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .input::placeholder {
@@ -128,18 +128,18 @@ body {
 
 .input:focus {
   border-color: var(--accent);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25), 0 0 0 3px var(--accent-soft);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 2px var(--accent-soft);
 }
 
 /* Color swatch */
 .color-swatch {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .color-swatch::-webkit-color-swatch-wrapper {
@@ -148,5 +148,15 @@ body {
 
 .color-swatch::-webkit-color-swatch {
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
+}
+
+/* Animation classes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s ease-out;
 }
