@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export const GRAPH_INTERACTION_EVENT = "vinculum:graph-interaction";
-const INTERACTION_DEBOUNCE_MS = 300;
-const INTERACTIVE_RESOLUTION_MULTIPLIER = 0.5;
+const INTERACTION_DEBOUNCE_MS = 150;
 
 export function dispatchGraphInteractionEvent(): void {
   if (typeof window === "undefined") {
@@ -40,23 +39,10 @@ export function useAdaptiveResolution() {
       markInteractive();
     };
 
-    const handleTyping = (event: Event) => {
-      const target = event.target;
-      if (!isTextInputElement(target)) {
-        return;
-      }
-
-      markInteractive();
-    };
-
     window.addEventListener(GRAPH_INTERACTION_EVENT, handleGlobalInteraction);
-    document.addEventListener("keydown", handleTyping, true);
-    document.addEventListener("input", handleTyping, true);
 
     return () => {
       window.removeEventListener(GRAPH_INTERACTION_EVENT, handleGlobalInteraction);
-      document.removeEventListener("keydown", handleTyping, true);
-      document.removeEventListener("input", handleTyping, true);
 
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
@@ -64,13 +50,9 @@ export function useAdaptiveResolution() {
     };
   }, []);
 
-  const resolutionMultiplier = useMemo(
-    () => (isInteractive ? INTERACTIVE_RESOLUTION_MULTIPLIER : 1),
-    [isInteractive]
-  );
-
+  // Disabled adaptive resolution - always render at full quality to prevent flickering
   return {
-    resolutionMultiplier,
+    resolutionMultiplier: 1,
     isInteractive
   };
 }
