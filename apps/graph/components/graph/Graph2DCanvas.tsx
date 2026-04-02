@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import type { GraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
-import { parse, compile } from "mathjs";
+import { compile } from "mathjs";
 
 interface Graph2DCanvasProps {
   className?: string;
@@ -18,6 +18,11 @@ interface DrawContext {
   scale: number;
 }
 
+interface MousePosition {
+  screen: { x: number; y: number };
+  math: { x: number; y: number };
+}
+
 export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,13 +33,14 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState<MousePosition | null>(null);
 
   // Convert screen coordinates to math coordinates
-  const screenToMath = useCallback((screenX: number, screenY: number, dc: DrawContext) => {
-    const mathX = (screenX - dc.width / 2) / dc.scale + dc.centerX;
-    const mathY = -(screenY - dc.height / 2) / dc.scale + dc.centerY;
+  const screenToMath = useCallback((screenX: number, screenY: number, width: number, height: number) => {
+    const mathX = (screenX - width / 2) / viewport.scale + viewport.centerX;
+    const mathY = -(screenY - height / 2) / viewport.scale + viewport.centerY;
     return { x: mathX, y: mathY };
-  }, []);
+  }, [viewport]);
 
   // Convert math coordinates to screen coordinates
   const mathToScreen = useCallback((mathX: number, mathY: number, dc: DrawContext) => {
@@ -283,17 +289,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     
-    const dc: DrawContext = {
-      ctx: null as any,
-      width: rect.width,
-      height: rect.height,
-      centerX: viewport.centerX,
-      centerY: viewport.centerY,
-      scale: viewport.scale
-    };
-    
     // Get mouse position in math coordinates before zoom
-    const mathPos = screenToMath(mouseX, mouseY, dc);
+    const mathPos = screenToMath(mouseX, mouseY, rect.width, rect.height);
     
     // Calculate new scale
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
@@ -318,6 +315,19 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
+    
+    setMousePos({
+      screen: { x: screenX, y: screenY },
+      math: mathCoords
+    });
+    
     if (!isDragging.current) return;
     
     const dx = e.clientX - lastMouse.current.x;
@@ -329,11 +339,17 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       centerX: viewport.centerX - dx / viewport.scale,
       centerY: viewport.centerY + dy / viewport.scale
     });
-  }, [viewport, updateViewport2D]);
+  }, [viewport, updateViewport2D, screenToMath]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
+  }, []);
+
+  // Handle mouse leave
+  const handleMouseLeave = useCallback(() => {
+    isDragging.current = false;
+    setMousePos(null);
   }, []);
 
   // Set up canvas and event listeners
@@ -363,7 +379,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   return (
     <div 
       ref={containerRef}
-      className={`w-full h-full ${className}`}
+      className={`relative w-full h-full ${className}`}
       style={{ touchAction: "none" }}
     >
       <canvas
@@ -372,8 +388,44 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
       />
+      
+      {/* Coordinate display */}
+      {mousePos && (
+        <div 
+          className="absolute pointer-events-none px-2 py-1 rounded text-[10px] font-mono bg-[var(--surface-overlay)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shadow-lg"
+          style={{
+            left: Math.min(mousePos.screen.x + 12, (containerRef.current?.clientWidth || 0) - 100),
+            top: mousePos.screen.y + 12,
+          }}
+        >
+          ({formatCoord(mousePos.math.x)}, {formatCoord(mousePos.math.y)})
+        </div>
+      )}
+      
+      {/* Zoom controls */}
+      <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => updateViewport2D({ scale: Math.min(1000, viewport.scale * 1.25) })}
+          className="w-7 h-7 flex items-center justify-center rounded bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => updateViewport2D({ scale: Math.max(1, viewport.scale * 0.8) })}
+          className="w-7 h-7 flex items-center justify-center rounded bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -385,4 +437,12 @@ function formatNumber(n: number): string {
   }
   // Remove trailing zeros
   return parseFloat(n.toPrecision(4)).toString();
+}
+
+function formatCoord(n: number): string {
+  if (Math.abs(n) < 1e-10) return "0";
+  if (Math.abs(n) >= 100 || Math.abs(n) < 0.01) {
+    return n.toExponential(2);
+  }
+  return n.toFixed(2);
 }
