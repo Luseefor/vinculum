@@ -80,8 +80,8 @@ export default function GraphCanvas() {
           dampingFactor={0.08}
           minDistance={1.5}
           maxDistance={300}
-          minPolarAngle={0.04}
-          maxPolarAngle={Math.PI - 0.04}
+          minPolarAngle={0}
+          maxPolarAngle={Math.PI}
           target={[0, 0, 0]}
           onStart={dispatchGraphInteractionEvent}
           onChange={dispatchGraphInteractionEvent}

@@ -72,6 +72,7 @@ function SurfaceMeshComponent({ object, resolutionMultiplier, isInteractive }: S
         roughness={0.35}
         metalness={0.08}
         wireframe={object.appearance.wireframe}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );

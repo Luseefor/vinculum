@@ -9,6 +9,8 @@ export default function Toolbar() {
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
+  const viewport2d = useGraphStore((state) => state.ui.viewport2d);
+  const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
 
   const handleResetView = () => {
@@ -56,6 +58,55 @@ export default function Toolbar() {
         <span className="text-[10px] text-[var(--text-tertiary)]">
           {objectCount} {objectCount === 1 ? "object" : "objects"}
         </span>
+
+        {graphMode === "2d" && (
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] text-[var(--text-tertiary)]">X</label>
+            <input
+              type="number"
+              step="0.5"
+              value={Number(viewport2d.centerX.toFixed(2))}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (Number.isFinite(next)) {
+                  updateViewport2D({ centerX: next });
+                }
+              }}
+              className="w-16 h-6 px-1.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] text-[10px] text-[var(--text-secondary)]"
+              aria-label="2D axis center X"
+            />
+            <label className="text-[10px] text-[var(--text-tertiary)]">Y</label>
+            <input
+              type="number"
+              step="0.5"
+              value={Number(viewport2d.centerY.toFixed(2))}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (Number.isFinite(next)) {
+                  updateViewport2D({ centerY: next });
+                }
+              }}
+              className="w-16 h-6 px-1.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] text-[10px] text-[var(--text-secondary)]"
+              aria-label="2D axis center Y"
+            />
+            <label className="text-[10px] text-[var(--text-tertiary)]">Scale</label>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              value={Math.round(viewport2d.scale)}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (Number.isFinite(next)) {
+                  updateViewport2D({ scale: Math.max(1, Math.min(1000, next)) });
+                }
+              }}
+              className="w-16 h-6 px-1.5 rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] text-[10px] text-[var(--text-secondary)]"
+              aria-label="2D axis scale"
+            />
+          </div>
+        )}
       </div>
 
       <nav className="flex items-center gap-1">

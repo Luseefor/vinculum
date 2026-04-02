@@ -19,11 +19,17 @@ export interface Viewport2D {
   scale: number; // pixels per unit
 }
 
+export interface Viewport2DFrame {
+  width: number;
+  height: number;
+}
+
 export interface GraphUiState {
   selectedObjectId: string | null;
   sceneDialog: SceneDialogState;
   graphMode: GraphMode;
   viewport2d: Viewport2D;
+  viewport2dFrame: Viewport2DFrame;
 }
 
 export interface ExpressionValidationState {

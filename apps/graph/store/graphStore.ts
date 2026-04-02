@@ -18,7 +18,7 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
-import type { GraphMode, GraphUiState, SceneDialogMode, Viewport2D } from "@/types/graphUi";
+import type { GraphMode, GraphUiState, SceneDialogMode, Viewport2D, Viewport2DFrame } from "@/types/graphUi";
 
 type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -53,6 +53,7 @@ interface GraphStoreState {
   requestCameraReset: () => void;
   setGraphMode: (mode: GraphMode) => void;
   updateViewport2D: (viewport: Partial<Viewport2D>) => void;
+  setViewport2DFrame: (frame: Viewport2DFrame) => void;
   resetViewport2D: () => void;
 }
 
@@ -521,6 +522,18 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
+  setViewport2DFrame: (frame) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        viewport2dFrame: {
+          width: Math.max(0, Math.floor(frame.width)),
+          height: Math.max(0, Math.floor(frame.height))
+        }
+      }
+    }));
+  },
+
   resetViewport2D: () => {
     set((state) => ({
       ui: {
@@ -624,7 +637,11 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
       error: null
     },
     graphMode: "2d",
-    viewport2d: createDefaultViewport2D()
+    viewport2d: createDefaultViewport2D(),
+    viewport2dFrame: {
+      width: 0,
+      height: 0
+    }
   };
 }
 

@@ -30,6 +30,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const objects = useGraphStore((state) => state.scene.objects);
   const viewport = useGraphStore((state) => state.ui.viewport2d);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
+  const setViewport2DFrame = useGraphStore((state) => state.setViewport2DFrame);
   
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -428,10 +429,18 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
   // Handle window resize
   useEffect(() => {
-    const handleResize = () => draw();
+    const handleResize = () => {
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setViewport2DFrame({ width: rect.width, height: rect.height });
+      }
+      draw();
+    };
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [draw]);
+  }, [draw, setViewport2DFrame]);
 
   return (
     <div 
@@ -441,6 +450,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     >
       <canvas
         ref={canvasRef}
+        data-graph2d-canvas="true"
         className="w-full h-full cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -482,6 +492,12 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
         </button>
+      </div>
+
+      <div className="absolute bottom-3 left-3 px-2 py-1 rounded text-[10px] font-mono bg-[var(--surface-overlay)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shadow-lg">
+        X: [{formatCoord(viewport.centerX - (containerRef.current?.clientWidth ?? 0) / (2 * viewport.scale))}, {formatCoord(viewport.centerX + (containerRef.current?.clientWidth ?? 0) / (2 * viewport.scale))}]
+        {" · "}
+        Y: [{formatCoord(viewport.centerY - (containerRef.current?.clientHeight ?? 0) / (2 * viewport.scale))}, {formatCoord(viewport.centerY + (containerRef.current?.clientHeight ?? 0) / (2 * viewport.scale))}]
       </div>
     </div>
   );
