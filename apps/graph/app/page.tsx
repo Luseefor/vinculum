@@ -1,5 +1,6 @@
 import GraphCanvas from "@/components/graph/GraphCanvas";
 import Sidebar from "@/components/layout/Sidebar";
+import StatusBar from "@/components/layout/StatusBar";
 import Toolbar from "@/components/layout/Toolbar";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
 
@@ -15,6 +16,7 @@ export default function HomePage() {
           </div>
         </main>
       </div>
+      <StatusBar />
       <SceneImportExportDialog />
     </div>
   );
