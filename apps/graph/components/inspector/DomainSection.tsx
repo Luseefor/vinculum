@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
-import { ui } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 
 type DomainField = keyof SurfaceDomain;
@@ -14,10 +13,10 @@ interface DomainSectionProps {
 }
 
 const DOMAIN_FIELDS: Array<{ key: DomainField; label: string }> = [
-  { key: "xMin", label: "xMin" },
-  { key: "xMax", label: "xMax" },
-  { key: "yMin", label: "yMin" },
-  { key: "yMax", label: "yMax" }
+  { key: "xMin", label: "X min" },
+  { key: "xMax", label: "X max" },
+  { key: "yMin", label: "Y min" },
+  { key: "yMax", label: "Y max" }
 ];
 
 export default function DomainSection({ object }: DomainSectionProps) {
@@ -75,10 +74,12 @@ export default function DomainSection({ object }: DomainSectionProps) {
   };
 
   return (
-    <section className={ui.panel + " p-3"}>
-      <h4 className={ui.sectionTitle}>Domain</h4>
+    <section className="panel p-4">
+      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-3">
+        Domain
+      </h4>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {DOMAIN_FIELDS.map((field) => (
           <DomainInput
             key={field.key}
@@ -96,8 +97,8 @@ export default function DomainSection({ object }: DomainSectionProps) {
         ))}
       </div>
 
-      <div className="mt-3">
-        <label htmlFor="resolution-input" className={ui.fieldLabel}>
+      <div className="mt-4">
+        <label htmlFor="resolution-input" className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5">
           Resolution
         </label>
         <input
@@ -119,9 +120,11 @@ export default function DomainSection({ object }: DomainSectionProps) {
             }
           }}
           inputMode="numeric"
-          className={ui.inputBase}
+          className="input"
         />
-        <p className="mt-1 text-[11px] text-slate-500">Higher values increase mesh detail and render cost.</p>
+        <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)]">
+          Higher values increase detail
+        </p>
       </div>
     </section>
   );
@@ -138,7 +141,7 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className={ui.fieldLabel}>{label}</span>
+      <span className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -157,7 +160,7 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className={ui.inputBase}
+        className="input"
       />
     </label>
   );

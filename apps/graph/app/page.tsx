@@ -5,12 +5,12 @@ import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog"
 
 export default function HomePage() {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+    <div className="flex h-screen flex-col overflow-hidden">
       <Toolbar />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 p-2">
-          <div className="h-full overflow-hidden rounded-md border border-slate-800/80 bg-slate-950/80">
+        <main className="min-w-0 flex-1 p-3">
+          <div className="panel h-full overflow-hidden">
             <GraphCanvas />
           </div>
         </main>

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
-import { ui } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionFocusDirection, ExpressionRemoveReason } from "@/types/graphUi";
 import ExpressionRow from "./ExpressionRow";
@@ -115,8 +114,9 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <div className={ui.panelMuted + " border-dashed px-3 py-4 text-center text-xs text-slate-500"}>
-        No expressions yet. Add one to start graphing.
+      <div className="panel-inset px-4 py-6 text-center">
+        <p className="text-xs text-[var(--text-tertiary)]">No expressions yet</p>
+        <p className="mt-1 text-[11px] text-[var(--text-tertiary)] opacity-60">Add one to start graphing</p>
       </div>
     );
   }

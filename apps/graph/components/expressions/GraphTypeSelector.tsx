@@ -1,7 +1,6 @@
 "use client";
 
 import type { GraphObjectKind } from "@vinculum/scene/types";
-import { ui, cx } from "@/components/ui/styles";
 
 interface GraphTypeSelectorProps {
   value: GraphObjectKind;
@@ -19,7 +18,8 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
     <select
       value={value}
       onChange={(event) => onChange(event.target.value as GraphObjectKind)}
-      className={cx(ui.selectBase, "px-1.5 py-0.5 text-[10px] uppercase tracking-wide")}
+      onClick={(e) => e.stopPropagation()}
+      className="input py-0.5 px-1.5 text-[10px] w-auto cursor-pointer"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (

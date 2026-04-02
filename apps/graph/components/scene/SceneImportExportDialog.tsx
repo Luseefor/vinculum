@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ui, cx } from "@/components/ui/styles";
+import { cx } from "@/components/ui/styles";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { useGraphStore } from "@/store/graphStore";
 
@@ -81,30 +81,38 @@ export default function SceneImportExportDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950 shadow-[0_20px_80px_rgba(2,6,23,0.75)]">
-        <div className="flex items-start justify-between border-b border-slate-800/90 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+      <div
+        className="panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
           <div>
-            <h3 className="text-sm font-semibold text-slate-100">
-              {isExportMode ? "Export Scene JSON" : "Import Scene JSON"}
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+              {isExportMode ? "Export Scene" : "Import Scene"}
             </h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
               {isExportMode
-                ? "Scene document is serializable and versioned for future tooling."
-                : "Paste a scene document. Validation runs before replacing the current scene."}
+                ? "Copy or download your scene as JSON"
+                : "Paste a scene JSON to replace current scene"}
             </p>
           </div>
 
           <button
             type="button"
             onClick={closeSceneDialog}
-            className={cx(ui.buttonBase, ui.buttonSubtle, "px-2 py-1")}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-white/5 transition-colors"
           >
-            Close
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        {/* Content */}
+        <div className="flex-1 min-h-0 p-5 overflow-y-auto">
           <textarea
             value={dialogState.jsonText}
             onChange={(event) => {
@@ -115,67 +123,70 @@ export default function SceneImportExportDialog() {
             }}
             readOnly={isExportMode}
             spellCheck={false}
-            className={ui.textarea}
+            className="input h-80 resize-none font-mono text-xs leading-relaxed"
           />
 
-          {importErrors.length > 0 ? (
-            <div className="rounded-md border border-amber-700/50 bg-amber-950/25 px-3 py-2.5">
-              <p className="text-xs font-semibold text-amber-200">Import validation errors</p>
-              <ul className="mt-1.5 space-y-1 text-xs text-amber-100/90">
+          {importErrors.length > 0 && (
+            <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+              <p className="text-xs font-semibold text-amber-400">Validation errors</p>
+              <ul className="mt-2 space-y-1 text-[11px] text-amber-300/80">
                 {importErrors.map((error, index) => (
                   <li key={`${error}-${index}`}>• {error}</li>
                 ))}
               </ul>
             </div>
-          ) : null}
+          )}
+        </div>
 
-          <div className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-            <p
-              className={cx(
-                "text-xs",
-                copyFeedback === "copied" && "text-emerald-300",
-                copyFeedback === "failed" && "text-amber-300",
-                copyFeedback === "idle" && "text-slate-500"
-              )}
-            >
-              {isExportMode
-                ? copyFeedback === "copied"
-                  ? "JSON copied to clipboard."
-                  : copyFeedback === "failed"
-                    ? "Clipboard access failed."
-                    : "Exported JSON is pretty-printed and versioned."
-                : "Import replaces the current scene if validation passes."}
-            </p>
+        {/* Footer */}
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--border-subtle)]">
+          <p
+            className={cx(
+              "text-[11px]",
+              copyFeedback === "copied" && "text-emerald-400",
+              copyFeedback === "failed" && "text-amber-400",
+              copyFeedback === "idle" && "text-[var(--text-tertiary)]"
+            )}
+          >
+            {isExportMode
+              ? copyFeedback === "copied"
+                ? "Copied to clipboard"
+                : copyFeedback === "failed"
+                  ? "Failed to copy"
+                  : "JSON is versioned and portable"
+              : "This will replace your current scene"}
+          </p>
 
-            <div className="flex items-center gap-2">
-              {isExportMode ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCopyJson}
-                    className={cx(ui.buttonBase, ui.buttonSubtle)}
-                  >
-                    Copy JSON
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDownloadJson}
-                    className={cx(ui.buttonBase, ui.buttonSubtle)}
-                  >
-                    Download .json
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleImportScene}
-                  className={cx(ui.buttonBase, ui.buttonPrimary)}
-                >
-                  Validate and Import
+          <div className="flex items-center gap-2">
+            {isExportMode ? (
+              <>
+                <button type="button" onClick={handleCopyJson} className="btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                  Copy
                 </button>
-              )}
-            </div>
+
+                <button type="button" onClick={handleDownloadJson} className="btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Download
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={handleImportScene} className="btn btn-primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="16 16 12 12 8 16" />
+                  <line x1="12" y1="12" x2="12" y2="21" />
+                  <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
+                </svg>
+                Import
+              </button>
+            )}
           </div>
         </div>
       </div>

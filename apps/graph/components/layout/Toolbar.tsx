@@ -1,6 +1,5 @@
 "use client";
 
-import { ui, cx } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 
 export default function Toolbar() {
@@ -10,58 +9,39 @@ export default function Toolbar() {
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-slate-800/90 bg-slate-950/95 px-3.5">
+    <header className="flex h-11 items-center justify-between px-4 border-b border-[var(--border-subtle)] bg-[var(--surface-raised)]/80 backdrop-blur-sm">
       <div className="flex items-center gap-3">
-        <h1 className="text-sm font-semibold tracking-wide text-slate-100">Vinculum Graph</h1>
-        <span className={ui.badge}>
-          {objectCount} object{objectCount === 1 ? "" : "s"}
+        <h1 className="text-sm font-semibold tracking-tight">Vinculum</h1>
+        <span className="text-[11px] text-[var(--text-tertiary)] bg-black/20 px-2 py-0.5 rounded">
+          {objectCount} {objectCount === 1 ? "object" : "objects"}
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border border-slate-800/90 bg-slate-900/35 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              if (objectCount > 0) {
-                const confirmed = window.confirm("Create a new scene and discard current objects?");
-                if (!confirmed) {
-                  return;
-                }
-              }
-
-              resetScene();
-            }}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            New Scene
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openSceneDialog("export")}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            Export JSON
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openSceneDialog("import")}
-            className={cx(ui.buttonBase, ui.buttonSubtle)}
-          >
-            Import JSON
-          </button>
-        </div>
-
+      <nav className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={requestCameraReset}
-          className={cx(ui.buttonBase, ui.buttonSubtle)}
+          onClick={() => {
+            if (objectCount > 0) {
+              const confirmed = window.confirm("Create a new scene and discard current objects?");
+              if (!confirmed) return;
+            }
+            resetScene();
+          }}
+          className="btn"
         >
+          New
+        </button>
+        <button type="button" onClick={() => openSceneDialog("export")} className="btn">
+          Export
+        </button>
+        <button type="button" onClick={() => openSceneDialog("import")} className="btn">
+          Import
+        </button>
+        <div className="w-px h-5 bg-[var(--border-subtle)] mx-1" />
+        <button type="button" onClick={requestCameraReset} className="btn">
           Reset View
         </button>
-      </div>
+      </nav>
     </header>
   );
 }

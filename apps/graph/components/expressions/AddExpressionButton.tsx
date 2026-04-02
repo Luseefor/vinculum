@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { GraphObjectKind } from "@vinculum/scene/types";
-import { ui, cx } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 
 const ADD_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
@@ -37,7 +36,7 @@ export default function AddExpressionButton() {
       <select
         value={graphType}
         onChange={(event) => setGraphType(event.target.value as GraphObjectKind)}
-        className={cx(ui.selectBase, "h-9 min-w-0 flex-1 uppercase tracking-wide")}
+        className="input flex-1 py-2 text-xs cursor-pointer"
         aria-label="Graph type to add"
       >
         {ADD_TYPE_OPTIONS.map((option) => (
@@ -47,11 +46,11 @@ export default function AddExpressionButton() {
         ))}
       </select>
 
-      <button
-        type="button"
-        onClick={addObject}
-        className={cx(ui.buttonBase, ui.buttonSubtle, "h-9 shrink-0 px-3 text-sm")}
-      >
+      <button type="button" onClick={addObject} className="btn px-4 py-2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
         Add
       </button>
     </div>

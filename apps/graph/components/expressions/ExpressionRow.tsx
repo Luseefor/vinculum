@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
-import { ui, cx } from "@/components/ui/styles";
+import { cx } from "@/components/ui/styles";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
@@ -47,14 +47,6 @@ export default function ExpressionRow({
     return { error: compilePlaneEquation(object.equation).error };
   }, [object]);
 
-  const rowClassName = cx(
-    "rounded-md border bg-slate-900/55 px-2 py-2 transition",
-    isSelected
-      ? "border-sky-500/50 bg-slate-900/80 shadow-[0_0_0_1px_rgba(14,165,233,0.24)]"
-      : "border-slate-800/90 hover:border-slate-700/90",
-    validation.error && "border-amber-700/70"
-  );
-
   const handlePrimaryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const selectionStart = input.selectionStart ?? 0;
@@ -97,27 +89,30 @@ export default function ExpressionRow({
 
   return (
     <div
-      className={rowClassName}
+      className={cx(
+        "panel px-3 py-2.5 cursor-pointer transition-all duration-150",
+        isSelected && "ring-1 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--surface-bg)]",
+        validation.error && "ring-1 ring-amber-500/50"
+      )}
       onClick={() => onSelect(object.id)}
       role="button"
       tabIndex={-1}
       aria-label="Expression row"
     >
-      <div className="mb-2 flex items-center gap-1.5">
+      {/* Header row with color, type, and actions */}
+      <div className="flex items-center gap-2 mb-2">
         <input
           type="color"
           aria-label="Expression color"
           value={object.color}
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className={ui.colorInput}
+          className="color-swatch"
         />
 
         <GraphTypeSelector
           value={object.kind}
-          onChange={(nextKind) => {
-            setObjectKind(object.id, nextKind);
-          }}
+          onChange={(nextKind) => setObjectKind(object.id, nextKind)}
         />
 
         <div className="ml-auto flex items-center gap-1">
@@ -127,11 +122,27 @@ export default function ExpressionRow({
               event.stopPropagation();
               toggleObjectVisibility(object.id);
             }}
-            className={cx(ui.tinyControl, object.visible ? "text-slate-300" : "text-slate-500")}
-            title={object.visible ? "Hide graph" : "Show graph"}
-            aria-pressed={object.visible}
+            className={cx(
+              "w-6 h-6 flex items-center justify-center rounded transition-colors",
+              object.visible 
+                ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]" 
+                : "text-[var(--text-tertiary)] opacity-50"
+            )}
+            title={object.visible ? "Hide" : "Show"}
           >
-            {object.visible ? "Visible" : "Hidden"}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {object.visible ? (
+                <>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </>
+              ) : (
+                <>
+                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </>
+              )}
+            </svg>
           </button>
 
           <button
@@ -140,10 +151,13 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className={ui.tinyControl}
-            title="Edit settings in inspector"
+            className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            title="Inspect"
           >
-            Inspect
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+            </svg>
           </button>
 
           <button
@@ -152,15 +166,19 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className={cx(ui.tinyControl, ui.buttonDanger)}
-            title="Remove expression"
+            className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-red-400 transition-colors"
+            title="Remove"
           >
-            Remove
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
       </div>
 
-      {object.kind === "surface" ? (
+      {/* Expression input */}
+      {object.kind === "surface" && (
         <input
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -172,13 +190,13 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="z = sin(x) * cos(y)"
-          className={ui.inputMono}
+          className="input"
         />
-      ) : null}
+      )}
 
-      {object.kind === "parametricCurve" ? (
+      {object.kind === "parametricCurve" && (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label className={ui.fieldLabelCompact}>x(t)</label>
+          <label className="text-[10px] font-medium text-[var(--text-tertiary)]">x(t)</label>
           <input
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -189,7 +207,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className={ui.inputMonoCompact}
+            className="input text-xs py-1.5"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -203,9 +221,9 @@ export default function ExpressionRow({
             />
           ))}
         </div>
-      ) : null}
+      )}
 
-      {object.kind === "plane" ? (
+      {object.kind === "plane" && (
         <input
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -217,18 +235,15 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="ax + by + cz + d = 0"
-          className={ui.inputMono}
+          className="input"
         />
-      ) : null}
+      )}
 
-      {validation.error ? (
-        <p
-          className="mt-2 rounded border border-amber-800/40 bg-amber-950/25 px-2 py-1 text-[11px] text-amber-200"
-          title={validation.error}
-        >
+      {validation.error && (
+        <p className="mt-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-[11px] text-amber-400">
           {validation.error}
         </p>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -244,7 +259,7 @@ interface ParametricInputProps {
 function ParametricInput({ label, value, onFocus, onClick, onChange }: ParametricInputProps) {
   return (
     <>
-      <label className={ui.fieldLabelCompact}>{label}</label>
+      <label className="text-[10px] font-medium text-[var(--text-tertiary)]">{label}</label>
       <input
         type="text"
         value={value}
@@ -253,7 +268,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className={ui.inputMonoCompact}
+        className="input text-xs py-1.5"
       />
     </>
   );
