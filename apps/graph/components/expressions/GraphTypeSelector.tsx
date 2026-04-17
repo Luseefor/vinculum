@@ -19,7 +19,7 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
       value={value}
       onChange={(event) => onChange(event.target.value as GraphObjectKind)}
       onClick={(e) => e.stopPropagation()}
-      className="input py-0.5 px-1.5 text-[10px] w-auto cursor-pointer"
+      className="h-7 w-auto cursor-pointer rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] px-2 text-[11px] font-medium text-[var(--text-secondary)]"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (

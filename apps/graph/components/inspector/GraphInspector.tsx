@@ -17,20 +17,24 @@ export default function GraphInspector() {
 
   if (!selectedObject) {
     return (
-      <section id="graph-inspector" className="panel-inset px-3 py-4 text-center">
-        <p className="text-[10px] text-[var(--text-tertiary)]">Select to inspect</p>
+      <section
+        id="graph-inspector"
+        className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-5 text-center"
+      >
+        <p className="text-[12px] font-medium text-[var(--text-secondary)]">No selection</p>
+        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Select an object to edit its properties.</p>
       </section>
     );
   }
 
   if (selectedObject.kind !== "surface") {
     return (
-      <section id="graph-inspector" className="panel px-3 py-2.5">
-        <h3 className="text-[10px] font-semibold text-[var(--text-primary)]">
-          {selectedObject.kind === "parametricCurve" ? "Curve" : "Plane"}
+      <section id="graph-inspector" className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-4">
+        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">
+          {selectedObject.kind === "parametricCurve" ? "Curve" : "Plane"} selected
         </h3>
-        <p className="mt-1 text-[9px] text-[var(--text-tertiary)] leading-relaxed">
-          Inspector available for surfaces
+        <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+          Advanced controls are available for surfaces in this panel.
         </p>
       </section>
     );
@@ -41,14 +45,14 @@ export default function GraphInspector() {
   const selectedTitle = selectedIndex >= 0 ? `#${selectedIndex + 1}` : "";
 
   return (
-    <section id="graph-inspector" className="space-y-1.5">
-      <div className="panel px-3 py-2">
-        <div className="flex items-center gap-1.5">
+    <section id="graph-inspector" className="space-y-2">
+      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3">
+        <div className="flex items-center gap-2">
           <span
-            className="w-2.5 h-2.5 rounded-full"
+            className="h-2.5 w-2.5 rounded-full"
             style={{ backgroundColor: selectedSurfaceObject.color }}
           />
-          <h3 className="text-[10px] font-semibold text-[var(--text-primary)]">
+          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">
             Surface {selectedTitle}
           </h3>
         </div>

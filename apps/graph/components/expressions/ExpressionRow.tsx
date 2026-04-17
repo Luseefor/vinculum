@@ -27,6 +27,7 @@ export default function ExpressionRow({
   onOpenInspector
 }: ExpressionRowProps) {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
+  const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
@@ -47,6 +48,8 @@ export default function ExpressionRow({
 
     return { error: compilePlaneEquation(object.equation).error };
   }, [object]);
+
+  const placeholder2d = axis2dPair === "yz" ? "z = y^2" : axis2dPair === "xz" ? "z = x^2" : "y = x^2";
 
   const handlePrimaryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
@@ -91,9 +94,9 @@ export default function ExpressionRow({
   return (
     <div
       className={cx(
-        "panel px-2.5 py-2 cursor-pointer transition-all duration-100",
-        isSelected && "ring-1 ring-[var(--accent)]/60",
-        validation.error && "ring-1 ring-amber-500/40"
+        "group cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-3 transition-all duration-150",
+        isSelected && "border-[var(--accent)]/55 bg-[color-mix(in_srgb,var(--surface-raised)_85%,var(--accent-soft)_15%)] shadow-[0_0_0_1px_var(--accent-soft)]",
+        validation.error && "border-amber-500/45"
       )}
       onClick={() => onSelect(object.id)}
       role="button"
@@ -101,14 +104,14 @@ export default function ExpressionRow({
       aria-label="Expression row"
     >
       {/* Header row */}
-      <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="mb-2 flex items-center gap-2">
         <input
           type="color"
           aria-label="Expression color"
           value={object.color}
           onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch w-5 h-5"
+          className="color-swatch h-5 w-5 rounded-md"
         />
 
         <GraphTypeSelector
@@ -116,7 +119,7 @@ export default function ExpressionRow({
           onChange={(nextKind) => setObjectKind(object.id, nextKind)}
         />
 
-        <div className="ml-auto flex items-center">
+        <div className="ml-auto flex items-center gap-0.5">
           <button
             type="button"
             onClick={(event) => {
@@ -124,10 +127,10 @@ export default function ExpressionRow({
               toggleObjectVisibility(object.id);
             }}
             className={cx(
-              "w-5 h-5 flex items-center justify-center rounded transition-colors",
+              "flex h-6 w-6 items-center justify-center rounded-md transition-colors",
               object.visible 
-                ? "text-[var(--text-secondary)]" 
-                : "text-[var(--text-tertiary)] opacity-40"
+                ? "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                : "text-[var(--text-tertiary)] opacity-40 hover:bg-[var(--surface-muted)]"
             )}
             title={object.visible ? "Hide" : "Show"}
           >
@@ -149,7 +152,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             title="Inspect"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -164,7 +167,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-tertiary)] hover:text-red-400 transition-colors"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-red-500/10 hover:text-red-400"
             title="Remove"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -187,14 +190,14 @@ export default function ExpressionRow({
           onKeyDown={handlePrimaryKeyDown}
           spellCheck={false}
           autoComplete="off"
-          placeholder={graphMode === "2d" ? "y = x^2" : "z = sin(x) * cos(y)"}
-          className="input text-[11px] py-1.5"
+          placeholder={graphMode === "2d" ? placeholder2d : "z = sin(x) * cos(y)"}
+          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
         />
       )}
 
       {object.kind === "parametricCurve" && (
-        <div className="grid grid-cols-[auto,1fr] items-center gap-x-1.5 gap-y-1">
-          <label className="text-[9px] font-medium text-[var(--text-tertiary)]">x(t)</label>
+        <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
+          <label className="text-[10px] font-medium text-[var(--text-tertiary)]">x(t)</label>
           <input
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -205,7 +208,7 @@ export default function ExpressionRow({
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className="input text-[10px] py-1"
+            className="input h-8 rounded-md border-[var(--border-strong)] bg-[var(--surface-inset)] px-2.5 text-[11px]"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -233,12 +236,12 @@ export default function ExpressionRow({
           spellCheck={false}
           autoComplete="off"
           placeholder="ax + by + cz + d = 0"
-          className="input text-[11px] py-1.5"
+          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
         />
       )}
 
       {validation.error && (
-        <p className="mt-1.5 px-1.5 py-1 rounded bg-amber-500/10 text-[9px] text-amber-400 truncate">
+        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-[10px] text-amber-400">
           {validation.error}
         </p>
       )}
@@ -257,7 +260,7 @@ interface ParametricInputProps {
 function ParametricInput({ label, value, onFocus, onClick, onChange }: ParametricInputProps) {
   return (
     <>
-      <label className="text-[9px] font-medium text-[var(--text-tertiary)]">{label}</label>
+      <label className="text-[10px] font-medium text-[var(--text-tertiary)]">{label}</label>
       <input
         type="text"
         value={value}
@@ -266,7 +269,7 @@ function ParametricInput({ label, value, onFocus, onClick, onChange }: Parametri
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className="input text-[10px] py-1"
+        className="input h-8 rounded-md border-[var(--border-strong)] bg-[var(--surface-inset)] px-2.5 text-[11px]"
       />
     </>
   );

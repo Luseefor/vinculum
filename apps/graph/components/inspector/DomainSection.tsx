@@ -2,11 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
+import {
+  MAX_SURFACE_RESOLUTION,
+  MIN_SURFACE_RESOLUTION,
+  normalizeSurfaceResolution
+} from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
 
 type DomainField = keyof SurfaceDomain;
 
 type DomainDraft = Record<DomainField, string>;
+type DomainAxis = "x" | "y";
 
 interface DomainSectionProps {
   object: SurfaceGraphObject;
@@ -54,6 +60,27 @@ export default function DomainSection({ object }: DomainSectionProps) {
       return;
     }
 
+    const axis = field.startsWith("x") ? "x" : "y";
+    const counterpart = getCounterpartField(axis, field);
+    const counterpartRaw = domainDraft[counterpart];
+    const counterpartValue = Number(counterpartRaw);
+    if (Number.isFinite(counterpartValue)) {
+      if (field.endsWith("Min") && parsedValue >= counterpartValue) {
+        setDomainDraft((previous) => ({
+          ...previous,
+          [field]: String(object.domain[field])
+        }));
+        return;
+      }
+      if (field.endsWith("Max") && parsedValue <= counterpartValue) {
+        setDomainDraft((previous) => ({
+          ...previous,
+          [field]: String(object.domain[field])
+        }));
+        return;
+      }
+    }
+
     updateSurfaceDomain(object.id, { [field]: parsedValue } as Partial<SurfaceDomain>);
     setDomainDraft((previous) => ({
       ...previous,
@@ -68,18 +95,18 @@ export default function DomainSection({ object }: DomainSectionProps) {
       return;
     }
 
-    const safeResolution = Math.max(2, Math.floor(parsedValue));
+    const safeResolution = normalizeSurfaceResolution(parsedValue);
     updateSurfaceResolution(object.id, safeResolution);
     setResolutionDraft(String(safeResolution));
   };
 
   return (
-    <section className="panel p-3">
-      <h4 className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+      <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
         Domain
       </h4>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         {DOMAIN_FIELDS.map((field) => (
           <DomainInput
             key={field.key}
@@ -97,9 +124,12 @@ export default function DomainSection({ object }: DomainSectionProps) {
         ))}
       </div>
 
-      <div className="mt-2">
-        <label htmlFor="resolution-input" className="block text-[9px] font-medium text-[var(--text-secondary)] mb-1">
-          Resolution
+      <div className="mt-3">
+        <label
+          htmlFor="resolution-input"
+          className="mb-1.5 block text-[10px] font-medium text-[var(--text-secondary)]"
+        >
+          Resolution ({MIN_SURFACE_RESOLUTION}-{MAX_SURFACE_RESOLUTION})
         </label>
         <input
           id="resolution-input"
@@ -120,7 +150,9 @@ export default function DomainSection({ object }: DomainSectionProps) {
             }
           }}
           inputMode="numeric"
-          className="input text-[10px] py-1"
+          min={MIN_SURFACE_RESOLUTION}
+          max={MAX_SURFACE_RESOLUTION}
+          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
         />
       </div>
     </section>
@@ -138,7 +170,7 @@ interface DomainInputProps {
 function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
   return (
     <label className="block">
-      <span className="block text-[9px] font-medium text-[var(--text-secondary)] mb-1">{label}</span>
+      <span className="mb-1 block text-[10px] font-medium text-[var(--text-secondary)]">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -157,8 +189,15 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className="input text-[10px] py-1"
+        className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
       />
     </label>
   );
+}
+
+function getCounterpartField(axis: DomainAxis, field: DomainField): DomainField {
+  if (axis === "x") {
+    return field === "xMin" ? "xMax" : "xMin";
+  }
+  return field === "yMin" ? "yMax" : "yMin";
 }

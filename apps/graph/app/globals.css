@@ -4,9 +4,14 @@
 
 :root {
   color-scheme: dark;
+  --surface-canvas: #131316;
   --surface-bg: #1a1a1e;
   --surface-raised: #232327;
   --surface-overlay: #2c2c31;
+  --surface-inset: rgba(0, 0, 0, 0.2);
+  --surface-muted: rgba(0, 0, 0, 0.25);
+  --surface-selection: rgba(255, 255, 255, 0.05);
+  --surface-backdrop: rgba(0, 0, 0, 0.6);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
   --text-primary: #f5f5f7;
@@ -16,6 +21,85 @@
   --accent-soft: rgba(10, 132, 255, 0.12);
   --inset-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   --drop-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 3px 8px rgba(0, 0, 0, 0.2);
+  --btn-hover: #363640;
+  --btn-primary-hover: #1a8cff;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+  --grid-minor: #252528;
+  --grid-major: #3a3a40;
+  --axis-line: #6a6a75;
+  --axis-label: #8a8a95;
+  --axis-origin: #64748b;
+  --axis-negative-rgb: 0.17, 0.2, 0.27;
+  --axis-x-positive-rgb: 0.62, 0.37, 0.37;
+  --axis-y-positive-rgb: 0.4, 0.56, 0.4;
+  --axis-z-positive-rgb: 0.38, 0.5, 0.66;
+  --scene-hemi-ground: #131316;
+  --scene-hemi-sky: #e0e0e5;
+  --scene-ambient-intensity: 0.4;
+  --scene-hemi-intensity: 0.3;
+  --scene-key-intensity: 1;
+  --scene-fill-intensity: 0.25;
+  --scene-fog-near: 120;
+  --scene-fog-far: 8000;
+  --scene-surface-roughness: 0.35;
+  --scene-surface-metalness: 0.08;
+  --scene-plane-roughness: 0.4;
+  --scene-plane-metalness: 0.05;
+  --scene-plane-opacity: 0.78;
+  --axis-label-border: rgba(51, 65, 85, 0.7);
+  --axis-label-bg: rgba(2, 6, 23, 0.85);
+  --axis-label-text: #e2e8f0;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --surface-canvas: #f5f7fb;
+  --surface-bg: #edf0f6;
+  --surface-raised: #ffffff;
+  --surface-overlay: #f7f9fd;
+  --surface-inset: rgba(15, 23, 42, 0.05);
+  --surface-muted: rgba(15, 23, 42, 0.08);
+  --surface-selection: rgba(15, 23, 42, 0.06);
+  --surface-backdrop: rgba(15, 23, 42, 0.35);
+  --border-subtle: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.16);
+  --inset-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --drop-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), 0 6px 16px rgba(15, 23, 42, 0.08);
+  --btn-hover: #edf2ff;
+  --btn-primary-hover: #1d4ed8;
+  --scrollbar-thumb: rgba(100, 116, 139, 0.4);
+  --scrollbar-thumb-hover: rgba(71, 85, 105, 0.55);
+  --grid-minor: #dce2ee;
+  --grid-major: #bcc7dc;
+  --axis-line: #62738e;
+  --axis-label: #435670;
+  --axis-origin: #64748b;
+  --axis-negative-rgb: 0.45, 0.5, 0.58;
+  --axis-x-positive-rgb: 0.82, 0.36, 0.36;
+  --axis-y-positive-rgb: 0.29, 0.62, 0.41;
+  --axis-z-positive-rgb: 0.29, 0.48, 0.82;
+  --scene-hemi-ground: #dce2ee;
+  --scene-hemi-sky: #f8fafc;
+  --scene-ambient-intensity: 0.6;
+  --scene-hemi-intensity: 0.5;
+  --scene-key-intensity: 1.15;
+  --scene-fill-intensity: 0.35;
+  --scene-fog-near: 100;
+  --scene-fog-far: 6000;
+  --scene-surface-roughness: 0.5;
+  --scene-surface-metalness: 0.03;
+  --scene-plane-roughness: 0.52;
+  --scene-plane-metalness: 0.02;
+  --scene-plane-opacity: 0.72;
+  --axis-label-border: rgba(148, 163, 184, 0.9);
+  --axis-label-bg: rgba(255, 255, 255, 0.9);
+  --axis-label-text: #334155;
 }
 
 * {
@@ -23,11 +107,12 @@
 }
 
 body {
-  background: #161618;
+  background: var(--surface-bg);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
 }
 
 *::selection {
@@ -45,26 +130,26 @@ body {
 
 *::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--scrollbar-thumb);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 /* Panel styling */
 .panel {
   background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  box-shadow: var(--inset-shadow), var(--drop-shadow);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 60%, var(--text-secondary) 40%);
+  border-radius: 12px;
+  box-shadow: var(--inset-shadow), var(--drop-shadow), 0 0 0 1px color-mix(in srgb, var(--surface-overlay) 45%, transparent);
 }
 
 .panel-inset {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  background: var(--surface-inset);
+  border: 1px solid var(--surface-muted);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 /* Button styles */
@@ -78,8 +163,8 @@ body {
   font-weight: 500;
   color: var(--text-primary);
   background: var(--surface-overlay);
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 80%, var(--text-secondary) 20%);
+  border-radius: 8px;
   box-shadow: var(--inset-shadow), 0 1px 2px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.12s ease;
@@ -87,8 +172,8 @@ body {
 }
 
 .btn:hover {
-  background: #363640;
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--btn-hover);
+  border-color: color-mix(in srgb, var(--accent) 20%, var(--border-strong) 80%);
 }
 
 .btn:active {
@@ -104,7 +189,20 @@ body {
 }
 
 .btn-primary:hover {
-  background: #1a8cff;
+  background: var(--btn-primary-hover);
+}
+
+.control-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, var(--text-secondary) 30%);
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1;
 }
 
 /* Input styles */
@@ -114,9 +212,9 @@ body {
   font-size: 12px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-subtle);
-  border-radius: 5px;
+  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 75%, var(--text-secondary) 25%);
+  border-radius: 8px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
   outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
@@ -129,6 +227,14 @@ body {
 .input:focus {
   border-color: var(--accent);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15), 0 0 0 2px var(--accent-soft);
+}
+
+canvas[data-graph2d-canvas] {
+  image-rendering: auto;
+}
+
+.graph-focus-ring {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* Color swatch */
