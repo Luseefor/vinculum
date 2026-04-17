@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo } from "react";
 import type { PlaneGraphObject } from "@vinculum/scene/types";
 import * as THREE from "three";
 import { compilePlaneEquation, samplePlane } from "@/lib/math/samplePlane";
+import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 
 interface PlaneMeshProps {
   object: PlaneGraphObject;
@@ -11,6 +12,7 @@ interface PlaneMeshProps {
 
 function PlaneMeshComponent({ object }: PlaneMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const resolvedTheme = useResolvedTheme();
 
   const sampled = useMemo(() => {
     const compiled = compilePlaneEquation(object.equation);
@@ -45,18 +47,31 @@ function PlaneMeshComponent({ object }: PlaneMeshProps) {
   }, [geometry]);
 
   const visible = sampled !== null && sampled.indices.length > 0;
+  const planeOpacity = resolvedTheme === "dark" ? 0.62 : 0.56;
 
   return (
-    <mesh geometry={geometry} visible={visible}>
-      <meshStandardMaterial
+    <mesh geometry={geometry} visible={visible} castShadow={false} receiveShadow={false}>
+      <meshBasicMaterial
         color={object.color}
-        roughness={0.4}
-        metalness={0.05}
         transparent
-        opacity={0.78}
+        opacity={planeOpacity}
         wireframe={object.appearance.wireframe}
         side={THREE.DoubleSide}
+        toneMapped={false}
+        polygonOffset
+        polygonOffsetFactor={1}
+        polygonOffsetUnits={1}
       />
+      {!object.appearance.wireframe && (
+        <lineSegments geometry={geometry} renderOrder={5}>
+          <lineBasicMaterial
+            color={resolvedTheme === "dark" ? "#f8fafc" : "#0f172a"}
+            transparent
+            opacity={resolvedTheme === "dark" ? 0.2 : 0.18}
+            depthWrite={false}
+          />
+        </lineSegments>
+      )}
     </mesh>
   );
 }
