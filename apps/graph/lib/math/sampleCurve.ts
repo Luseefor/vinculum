@@ -15,15 +15,21 @@ const DEFAULT_CLAMP_COORDINATE = 10_000;
 
 export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveOptions): SampledCurve {
   const samples = Math.max(2, Math.floor(options.samples));
-  const tMin = Number.isFinite(options.tMin) ? options.tMin : -1;
-  const tMax = Number.isFinite(options.tMax) ? options.tMax : 1;
+  const rawTMin = Number.isFinite(options.tMin) ? options.tMin : -1;
+  const rawTMax = Number.isFinite(options.tMax) ? options.tMax : 1;
+  let tMin = Math.min(rawTMin, rawTMax);
+  let tMax = Math.max(rawTMin, rawTMax);
+  if (Math.abs(tMax - tMin) < 1e-10) {
+    tMin = -1;
+    tMax = 1;
+  }
   const clampCoordinate = Math.max(1, options.clampCoordinate ?? DEFAULT_CLAMP_COORDINATE);
 
   const positions = new Float32Array(samples * 3);
   let previousPoint: [number, number, number] = [0, 0, 0];
 
   for (let index = 0; index < samples; index += 1) {
-    const t = samples === 1 ? tMin : lerp(tMin, tMax, index / (samples - 1));
+    const t = lerp(tMin, tMax, index / (samples - 1));
     const [x, y, z] = evaluate(t);
 
     const point = sanitizePoint([x, y, z], previousPoint, clampCoordinate);

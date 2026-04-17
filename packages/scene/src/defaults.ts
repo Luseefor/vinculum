@@ -21,8 +21,15 @@ export const defaultSurfaceDomain: SurfaceDomain = {
   yMax: 5
 };
 
+export const MIN_SURFACE_RESOLUTION = 2;
+export const MAX_SURFACE_RESOLUTION = 128;
 export const defaultSurfaceResolution = 80;
 export const defaultSurfaceEquation = "sin(x) * cos(y)";
+
+export function normalizeSurfaceResolution(value: number): number {
+  const normalized = Math.floor(value);
+  return Math.min(MAX_SURFACE_RESOLUTION, Math.max(MIN_SURFACE_RESOLUTION, normalized));
+}
 
 export const defaultCurveExpressions = {
   xExpr: "cos(t)",
@@ -100,7 +107,7 @@ export function createDefaultSurfaceGraph(options: CreateDefaultSurfaceGraphOpti
       yMin: baseDomain.yMin,
       yMax: baseDomain.yMax
     },
-    resolution: Math.max(2, Math.floor(options.resolution ?? defaultSurfaceResolution)),
+    resolution: normalizeSurfaceResolution(options.resolution ?? defaultSurfaceResolution),
     appearance: {
       ...defaultSurfaceAppearance,
       ...options.appearance

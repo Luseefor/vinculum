@@ -5,6 +5,8 @@ import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import * as THREE from "three";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 import { sampleSurface } from "@/lib/math/sampleSurface";
+import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
+import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 
 interface SurfaceMeshProps {
   object: SurfaceGraphObject;
@@ -14,6 +16,7 @@ interface SurfaceMeshProps {
 
 function SurfaceMeshComponent({ object, resolutionMultiplier, isInteractive }: SurfaceMeshProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
+  const resolvedTheme = useResolvedTheme();
 
   const adaptiveResolution = useMemo(() => {
     const baseResolution = Math.max(2, Math.floor(object.resolution));
@@ -64,17 +67,33 @@ function SurfaceMeshComponent({ object, resolutionMultiplier, isInteractive }: S
   }, [geometry]);
 
   const visible = sampled !== null && sampled.indices.length > 0;
+  const tokens = useMemo(() => getGraphThemeTokens(resolvedTheme), [resolvedTheme]);
 
   return (
-    <mesh geometry={geometry} visible={visible}>
-      <meshStandardMaterial
-        color={object.color}
-        roughness={0.35}
-        metalness={0.08}
-        wireframe={object.appearance.wireframe}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group visible={visible}>
+      <mesh geometry={geometry} castShadow receiveShadow>
+        <meshStandardMaterial
+          color={object.color}
+          roughness={tokens.sceneSurfaceRoughness}
+          metalness={tokens.sceneSurfaceMetalness}
+          wireframe={object.appearance.wireframe}
+          side={THREE.DoubleSide}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
+        />
+      </mesh>
+      {!object.appearance.wireframe && (
+        <lineSegments geometry={geometry} renderOrder={5}>
+          <lineBasicMaterial
+            color={resolvedTheme === "dark" ? "#f8fafc" : "#0f172a"}
+            transparent
+            opacity={resolvedTheme === "dark" ? 0.1 : 0.12}
+            depthWrite={false}
+          />
+        </lineSegments>
+      )}
+    </group>
   );
 }
 
@@ -99,11 +118,12 @@ function updateFloat32Attribute(
   geometry.setAttribute(key, new THREE.BufferAttribute(data, itemSize));
 }
 
-function updateIndexAttribute(geometry: THREE.BufferGeometry, data: Uint32Array) {
+function updateIndexAttribute(geometry: THREE.BufferGeometry, data: Uint16Array | Uint32Array) {
   const existing = geometry.getIndex();
   if (
     existing instanceof THREE.BufferAttribute &&
-    existing.array instanceof Uint32Array &&
+    (existing.array instanceof Uint16Array || existing.array instanceof Uint32Array) &&
+    existing.array.constructor === data.constructor &&
     existing.array.length === data.length
   ) {
     existing.array.set(data);

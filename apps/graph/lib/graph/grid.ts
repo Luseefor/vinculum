@@ -8,7 +8,7 @@ const NICE_STEP_MULTIPLIERS = [1, 2, 5];
 
 export function getNiceGridStep(distance: number): number {
   const safeDistance = Math.max(1e-6, Math.abs(distance));
-  const targetStep = safeDistance / 12;
+  const targetStep = Math.max(1e-6, safeDistance / 12);
 
   const exponent = Math.floor(Math.log10(targetStep));
   const base = Math.pow(10, exponent);

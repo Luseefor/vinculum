@@ -90,7 +90,10 @@ function evaluateAxis(expression: CompiledMathExpression | null, t: number): num
     const value = expression.evaluate({ t });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
-  } catch {
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("Parametric axis evaluation failed", { t, error });
+    }
     return Number.NaN;
   }
 }

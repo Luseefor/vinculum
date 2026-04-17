@@ -14,7 +14,15 @@ interface ParametricCurveProps {
 
 function ParametricCurveComponent({ object, resolutionMultiplier, isInteractive }: ParametricCurveProps) {
   const geometry = useMemo(() => new THREE.BufferGeometry(), []);
-  const material = useMemo(() => new THREE.LineBasicMaterial({ color: object.color }), []);
+  const material = useMemo(
+    () =>
+      new THREE.LineBasicMaterial({
+        color: object.color,
+        transparent: true,
+        opacity: 0.95
+      }),
+    []
+  );
   const line = useMemo(() => new THREE.Line(geometry, material), [geometry, material]);
 
   const adaptiveSamples = useMemo(() => {

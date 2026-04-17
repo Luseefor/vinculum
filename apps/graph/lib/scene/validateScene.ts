@@ -1,4 +1,9 @@
 import type { GraphObject, GraphObjectKind, ParametricCurveObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import {
+  MAX_SURFACE_RESOLUTION,
+  MIN_SURFACE_RESOLUTION,
+  normalizeSurfaceResolution
+} from "@vinculum/scene/defaults";
 import { createSceneDocument, DEFAULT_SCENE_NAME, SCENE_DOCUMENT_VERSION, type SceneDocument } from "./sceneSchema";
 
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
@@ -104,7 +109,13 @@ function parseSurfaceGraphObject(
   const yMin = parseFiniteNumber(rawObject.domain.yMin, `${domainPath}.yMin`, errors);
   const yMax = parseFiniteNumber(rawObject.domain.yMax, `${domainPath}.yMax`, errors);
 
-  const resolution = parseInteger(rawObject.resolution, `objects[${objectIndex}].resolution`, errors, 2);
+  const resolution = parseInteger(
+    rawObject.resolution,
+    `objects[${objectIndex}].resolution`,
+    errors,
+    MIN_SURFACE_RESOLUTION,
+    MAX_SURFACE_RESOLUTION
+  );
 
   const appearancePath = `objects[${objectIndex}].appearance`;
   if (!isRecord(rawObject.appearance)) {
@@ -130,7 +141,7 @@ function parseSurfaceGraphObject(
       yMin,
       yMax
     },
-    resolution,
+    resolution: normalizeSurfaceResolution(resolution),
     appearance: {
       wireframe
     }
@@ -283,7 +294,13 @@ function parseFiniteNumber(value: unknown, path: string, errors: string[]): numb
   return value;
 }
 
-function parseInteger(value: unknown, path: string, errors: string[], min: number): number | null {
+function parseInteger(
+  value: unknown,
+  path: string,
+  errors: string[],
+  min: number,
+  max = Number.POSITIVE_INFINITY
+): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     errors.push(`${path} must be a finite number.`);
     return null;
@@ -292,6 +309,11 @@ function parseInteger(value: unknown, path: string, errors: string[], min: numbe
   const normalized = Math.floor(value);
   if (normalized < min) {
     errors.push(`${path} must be >= ${min}.`);
+    return null;
+  }
+
+  if (normalized > max) {
+    errors.push(`${path} must be <= ${max}.`);
     return null;
   }
 

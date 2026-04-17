@@ -7,6 +7,7 @@ import type {
   SurfaceDomain,
   SurfaceGraphObject
 } from "@vinculum/scene/types";
+import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import type { SceneCommand } from "@/lib/scene/commands";
 import { serializeScene } from "@/lib/scene/serializeScene";
@@ -18,7 +19,19 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
-import type { GraphMode, GraphUiState, SceneDialogMode, Viewport2D, Viewport2DFrame } from "@/types/graphUi";
+import {
+  DEFAULT_VIEWPORT_SCALE,
+  sanitizeViewportPatch
+} from "@/lib/graph/viewport";
+import { loadStoredThemeMode, persistThemeMode } from "@/lib/theme/themeStorage";
+import type {
+  Axis2DPair,
+  GraphMode,
+  GraphUiState,
+  SceneDialogMode,
+  Viewport2D,
+  Viewport2DFrame
+} from "@/types/graphUi";
 
 type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -52,6 +65,10 @@ interface GraphStoreState {
   setSceneDialogError: (error: string | null) => void;
   requestCameraReset: () => void;
   setGraphMode: (mode: GraphMode) => void;
+  setAxis2DPair: (pair: Axis2DPair) => void;
+  setThemeMode: (mode: GraphUiState["themeMode"]) => void;
+  hydrateThemeMode: () => void;
+  cycleThemeMode: () => void;
   updateViewport2D: (viewport: Partial<Viewport2D>) => void;
   setViewport2DFrame: (frame: Viewport2DFrame) => void;
   resetViewport2D: () => void;
@@ -328,7 +345,7 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
       return;
     }
 
-    const safeResolution = Math.max(2, Math.floor(resolution));
+    const safeResolution = normalizeSurfaceResolution(resolution);
 
     set((state) => {
       const object = findObjectById(state.scene.objects, id);
@@ -510,16 +527,73 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
-  updateViewport2D: (viewport) => {
+  setAxis2DPair: (pair) => {
     set((state) => ({
       ui: {
         ...state.ui,
-        viewport2d: {
-          ...state.ui.viewport2d,
-          ...viewport
-        }
+        axis2dPair: pair
       }
     }));
+  },
+
+  setThemeMode: (mode) => {
+    persistThemeMode(mode);
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        themeMode: mode
+      }
+    }));
+  },
+
+  hydrateThemeMode: () => {
+    const mode = loadStoredThemeMode();
+    set((state) => {
+      if (state.ui.themeMode === mode) {
+        return state;
+      }
+
+      return {
+        ui: {
+          ...state.ui,
+          themeMode: mode
+        }
+      };
+    });
+  },
+
+  cycleThemeMode: () => {
+    set((state) => {
+      const nextThemeMode = getNextThemeMode(state.ui.themeMode);
+      persistThemeMode(nextThemeMode);
+
+      return {
+        ui: {
+          ...state.ui,
+          themeMode: nextThemeMode
+        }
+      };
+    });
+  },
+
+  updateViewport2D: (viewport) => {
+    set((state) => {
+      const nextViewport = sanitizeViewportPatch(state.ui.viewport2d, viewport);
+      if (
+        nextViewport.centerX === state.ui.viewport2d.centerX &&
+        nextViewport.centerY === state.ui.viewport2d.centerY &&
+        nextViewport.scale === state.ui.viewport2d.scale
+      ) {
+        return state;
+      }
+
+      return {
+        ui: {
+          ...state.ui,
+          viewport2d: nextViewport
+        }
+      };
+    });
   },
 
   setViewport2DFrame: (frame) => {
@@ -623,7 +697,7 @@ function createDefaultViewport2D(): Viewport2D {
   return {
     centerX: 0,
     centerY: 0,
-    scale: 50 // 50 pixels per unit
+    scale: DEFAULT_VIEWPORT_SCALE
   };
 }
 
@@ -637,6 +711,8 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
       error: null
     },
     graphMode: "2d",
+    themeMode: "system",
+    axis2dPair: "xy",
     viewport2d: createDefaultViewport2D(),
     viewport2dFrame: {
       width: 0,
@@ -716,6 +792,18 @@ function sanitizePartialDomain(partialDomain: Partial<SurfaceDomain>): Partial<S
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function getNextThemeMode(current: GraphUiState["themeMode"]): GraphUiState["themeMode"] {
+  if (current === "system") {
+    return "light";
+  }
+
+  if (current === "light") {
+    return "dark";
+  }
+
+  return "system";
 }
 
 export function isSurfaceGraphObject(object: GraphObject): object is SurfaceGraphObject {

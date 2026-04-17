@@ -66,8 +66,11 @@ export default function SceneImportExportDialog() {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = exportFileName;
+    anchor.rel = "noopener";
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
   };
 
   const handleImportScene = () => {
@@ -81,7 +84,7 @@ export default function SceneImportExportDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-backdrop)] backdrop-blur-sm p-6">
       <div
         className="panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -99,11 +102,11 @@ export default function SceneImportExportDialog() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={closeSceneDialog}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-white/5 transition-colors"
-          >
+            <button
+              type="button"
+              onClick={closeSceneDialog}
+              className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-selection)] transition-colors"
+            >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />

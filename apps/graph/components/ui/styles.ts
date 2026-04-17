@@ -26,7 +26,7 @@ export const ui = {
   buttonPrimary: "btn-primary",
   
   // Misc
-  badge: "px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] bg-black/20 rounded-md",
+  badge: "px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--surface-muted)] rounded-md",
   tinyControl: "btn text-[10px] px-2 py-0.5 uppercase tracking-wide",
   colorInput: "color-swatch",
   textarea: "input h-[360px] resize-none font-mono text-xs leading-relaxed"

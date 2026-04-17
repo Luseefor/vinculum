@@ -1,4 +1,5 @@
 import type { SurfaceDomain } from "@vinculum/scene/types";
+import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import type { SurfaceEvaluator } from "./compileExpression";
 
 interface SampleSurfaceOptions {
@@ -10,13 +11,14 @@ interface SampleSurfaceOptions {
 
 export interface SampledSurfaceMesh {
   positions: Float32Array;
-  indices: Uint32Array;
+  indices: Uint16Array;
 }
 
 const DEFAULT_CLAMP_HEIGHT = 10_000;
+const MAX_SURFACE_POSITION_BUFFER_BYTES = 2_000_000;
 
 export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurfaceOptions): SampledSurfaceMesh {
-  const resolution = Math.max(2, Math.floor(options.resolution));
+  const resolution = normalizeSurfaceResolution(options.resolution);
   const invalidHeight = options.invalidHeight ?? 0;
   const clampHeight = Math.max(1, options.clampHeight ?? DEFAULT_CLAMP_HEIGHT);
 
@@ -27,6 +29,16 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
   const stride = resolution + 1;
   const vertexCount = stride * stride;
+  const estimatedPositionBytes = vertexCount * 3 * Float32Array.BYTES_PER_ELEMENT;
+  if (estimatedPositionBytes > MAX_SURFACE_POSITION_BUFFER_BYTES) {
+    const boundedResolution = Math.max(
+      2,
+      Math.floor(Math.sqrt(MAX_SURFACE_POSITION_BUFFER_BYTES / (3 * Float32Array.BYTES_PER_ELEMENT))) - 1
+    );
+    throw new Error(
+      `Surface resolution ${resolution} exceeds memory budget. Use ${Math.min(resolution, boundedResolution)} or lower.`
+    );
+  }
   const positions = new Float32Array(vertexCount * 3);
   const validVertices = new Uint8Array(vertexCount);
 
@@ -75,7 +87,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
   return {
     positions,
-    indices: new Uint32Array(indices)
+    indices: new Uint16Array(indices)
   };
 }
 

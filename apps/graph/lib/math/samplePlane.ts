@@ -22,6 +22,7 @@ export interface SampledPlaneMesh {
 }
 
 const MAX_ERROR_LENGTH = 92;
+const LINEARITY_TOLERANCE = 1e-6;
 
 export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
   const normalized = normalizePlaneEquation(equation);
@@ -73,7 +74,7 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
     coefficients.c * 0.5 +
     coefficients.d;
 
-  if (!Number.isFinite(linearityCheck) || Math.abs(linearityCheck - expected) > 1e-4) {
+  if (!Number.isFinite(linearityCheck) || Math.abs(linearityCheck - expected) > LINEARITY_TOLERANCE) {
     return {
       coefficients: null,
       error: "Equation must be linear in x, y, z."

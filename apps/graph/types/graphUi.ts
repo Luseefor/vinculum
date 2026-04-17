@@ -5,6 +5,8 @@ export type ExpressionRemoveReason = "button" | "keyboard";
 
 export type SceneDialogMode = "import" | "export";
 export type GraphMode = "2d" | "3d";
+export type ThemeMode = "system" | "light" | "dark";
+export type Axis2DPair = "xy" | "yz" | "xz";
 
 export interface SceneDialogState {
   isOpen: boolean;
@@ -28,6 +30,8 @@ export interface GraphUiState {
   selectedObjectId: string | null;
   sceneDialog: SceneDialogState;
   graphMode: GraphMode;
+  themeMode: ThemeMode;
+  axis2dPair: Axis2DPair;
   viewport2d: Viewport2D;
   viewport2dFrame: Viewport2DFrame;
 }
