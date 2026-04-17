@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
-import { useGraphStore } from "@/store/graphStore";
-import type { GraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { compile } from "mathjs";
+import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
+import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
+import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
+import { useGraphStore } from "@/store/graphStore";
+import type { Axis2DPair } from "@/types/graphUi";
+import type { PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
 
 interface Graph2DCanvasProps {
   className?: string;
@@ -20,300 +24,467 @@ interface DrawContext {
 
 interface MousePosition {
   screen: { x: number; y: number };
-  math: { x: number; y: number };
+  math: { horizontal: number; vertical: number };
 }
+
+type AxisVariable = "x" | "y" | "z";
+
+interface AxisPairSpec {
+  horizontal: AxisVariable;
+  vertical: AxisVariable;
+  horizontalLabel: "X" | "Y" | "Z";
+  verticalLabel: "X" | "Y" | "Z";
+}
+
+interface CompiledMathExpression {
+  evaluate: (scope: Record<string, number>) => unknown;
+}
+
+interface RenderableGraph {
+  id: string;
+  color: string;
+  verticalLineValue: number | null;
+  horizontalLineValue: number | null;
+  evaluate: ((horizontalValue: number) => number | null) | null;
+}
+
+const GRID_TARGET_SPACING_PX = 60;
+const MIN_GRID_SPACING_UNITS = 1e-8;
+const MAX_GRID_LINE_COUNT = 2000;
+const MAX_GRID_LABEL_COUNT = 320;
+const CURVE_MIN_SAMPLES = 384;
+const CURVE_MAX_SAMPLES = 8192;
+const CURVE_VERTICAL_BREAK_MIN_PX = 56;
+const CURVE_VERTICAL_BREAK_VIEWPORT_FACTOR = 0.9;
+const CURVE_EDGE_OVERSCAN_PX = 96;
+const VISIBLE_Y_PADDING_MIN_PX = 1200;
+const VISIBLE_Y_PADDING_VIEWPORT_FACTOR = 2;
+const GRID_EDGE_OVERSCAN_LINES = 2;
+const ZOOM_IN_FACTOR = 1.12;
+const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
+const CURSOR_TOOLTIP_OFFSET_PX = 12;
+const CURSOR_TOOLTIP_WIDTH_PX = 140;
+const VIEWPORT_BADGE_HEIGHT_PX = 28;
 
 export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+  const resolvedTheme = useResolvedTheme();
+
   const objects = useGraphStore((state) => state.scene.objects);
   const viewport = useGraphStore((state) => state.ui.viewport2d);
+  const viewportFrame = useGraphStore((state) => state.ui.viewport2dFrame);
+  const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const setViewport2DFrame = useGraphStore((state) => state.setViewport2DFrame);
-  
+  const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+  const axisPair = useMemo(() => getAxisPairSpec(axis2dPair), [axis2dPair]);
+
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState<MousePosition | null>(null);
 
-  // Convert screen coordinates to math coordinates
-  const screenToMath = useCallback((screenX: number, screenY: number, width: number, height: number) => {
-    const mathX = (screenX - width / 2) / viewport.scale + viewport.centerX;
-    const mathY = -(screenY - height / 2) / viewport.scale + viewport.centerY;
-    return { x: mathX, y: mathY };
-  }, [viewport]);
+  const palette = useMemo(() => {
+    const tokens = getGraphThemeTokens(resolvedTheme);
+    return {
+      background: tokens.surfaceCanvas,
+      gridMinor: tokens.gridMinor,
+      gridMajor: tokens.gridMajor,
+      axis: tokens.axisLine,
+      axisLabel: tokens.axisLabel
+    };
+  }, [resolvedTheme]);
 
-  // Convert math coordinates to screen coordinates
+  const screenToMath = useCallback(
+    (screenX: number, screenY: number, width: number, height: number) => {
+      const horizontal = (screenX - width / 2) / viewport.scale + viewport.centerX;
+      const vertical = -(screenY - height / 2) / viewport.scale + viewport.centerY;
+      return { horizontal, vertical };
+    },
+    [viewport.centerX, viewport.centerY, viewport.scale]
+  );
+
   const mathToScreen = useCallback((mathX: number, mathY: number, dc: DrawContext) => {
     const screenX = (mathX - dc.centerX) * dc.scale + dc.width / 2;
     const screenY = -(mathY - dc.centerY) * dc.scale + dc.height / 2;
     return { x: screenX, y: screenY };
   }, []);
 
-  // Draw the coordinate grid
-  const drawGrid = useCallback((dc: DrawContext) => {
-    const { ctx, width, height, centerX, centerY, scale } = dc;
-    
-    // Calculate visible range
-    const minX = centerX - width / (2 * scale);
-    const maxX = centerX + width / (2 * scale);
-    const minY = centerY - height / (2 * scale);
-    const maxY = centerY + height / (2 * scale);
-    
-    // Determine grid spacing based on zoom level
-    const targetSpacing = 60; // pixels between grid lines
-    const rawSpacing = targetSpacing / scale;
-    const magnitude = Math.pow(10, Math.floor(Math.log10(rawSpacing)));
-    const normalized = rawSpacing / magnitude;
-    
-    let gridSpacing: number;
-    if (normalized < 2) gridSpacing = magnitude;
-    else if (normalized < 5) gridSpacing = 2 * magnitude;
-    else gridSpacing = 5 * magnitude;
-    
-    // Minor grid
-    ctx.strokeStyle = "#252528";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    
-    const minorSpacing = gridSpacing / 5;
-    for (let x = Math.floor(minX / minorSpacing) * minorSpacing; x <= maxX; x += minorSpacing) {
-      const screen = mathToScreen(x, 0, dc);
-      ctx.moveTo(screen.x, 0);
-      ctx.lineTo(screen.x, height);
-    }
-    for (let y = Math.floor(minY / minorSpacing) * minorSpacing; y <= maxY; y += minorSpacing) {
-      const screen = mathToScreen(0, y, dc);
-      ctx.moveTo(0, screen.y);
-      ctx.lineTo(width, screen.y);
-    }
-    ctx.stroke();
-    
-    // Major grid
-    ctx.strokeStyle = "#3a3a40";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    
-    for (let x = Math.floor(minX / gridSpacing) * gridSpacing; x <= maxX; x += gridSpacing) {
-      const screen = mathToScreen(x, 0, dc);
-      ctx.moveTo(screen.x, 0);
-      ctx.lineTo(screen.x, height);
-    }
-    for (let y = Math.floor(minY / gridSpacing) * gridSpacing; y <= maxY; y += gridSpacing) {
-      const screen = mathToScreen(0, y, dc);
-      ctx.moveTo(0, screen.y);
-      ctx.lineTo(width, screen.y);
-    }
-    ctx.stroke();
-    
-    // Axes
-    ctx.strokeStyle = "#6a6a75";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    
-    // X axis
-    const yAxisScreen = mathToScreen(0, 0, dc);
-    if (yAxisScreen.y >= 0 && yAxisScreen.y <= height) {
-      ctx.moveTo(0, yAxisScreen.y);
-      ctx.lineTo(width, yAxisScreen.y);
-    }
-    
-    // Y axis
-    const xAxisScreen = mathToScreen(0, 0, dc);
-    if (xAxisScreen.x >= 0 && xAxisScreen.x <= width) {
-      ctx.moveTo(xAxisScreen.x, 0);
-      ctx.lineTo(xAxisScreen.x, height);
-    }
-    ctx.stroke();
-    
-    // Axis labels
-    ctx.fillStyle = "#8a8a95";
-    ctx.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    
-    // X axis labels
-    for (let x = Math.floor(minX / gridSpacing) * gridSpacing; x <= maxX; x += gridSpacing) {
-      if (Math.abs(x) < 1e-10) continue; // Skip 0
-      const screen = mathToScreen(x, 0, dc);
-      const labelY = Math.min(Math.max(yAxisScreen.y + 4, 4), height - 14);
-      ctx.fillText(formatNumber(x), screen.x, labelY);
-    }
-    
-    // Y axis labels
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    for (let y = Math.floor(minY / gridSpacing) * gridSpacing; y <= maxY; y += gridSpacing) {
-      if (Math.abs(y) < 1e-10) continue; // Skip 0
-      const screen = mathToScreen(0, y, dc);
-      const labelX = Math.min(Math.max(xAxisScreen.x - 4, 30), width - 4);
-      ctx.fillText(formatNumber(y), labelX, screen.y);
-    }
-    
-    // Origin label
-    ctx.textAlign = "right";
-    ctx.textBaseline = "top";
-    if (xAxisScreen.x > 20 && xAxisScreen.x < width - 20 &&
-        yAxisScreen.y > 20 && yAxisScreen.y < height - 20) {
-      ctx.fillText("0", xAxisScreen.x - 4, yAxisScreen.y + 4);
-    }
-  }, [mathToScreen]);
+  const drawGrid = useCallback(
+    (dc: DrawContext) => {
+      const { ctx, width, height, centerX, centerY, scale } = dc;
+      const minX = centerX - width / (2 * scale);
+      const maxX = centerX + width / (2 * scale);
+      const minY = centerY - height / (2 * scale);
+      const maxY = centerY + height / (2 * scale);
 
-  // Parse and evaluate a 2D expression (returns y for given x)
-  const evaluateExpression = useCallback((expr: string, x: number): number | null => {
-    try {
-      let cleanExpr = expr.trim();
-      
-      // Handle different expression formats
-      // y = f(x) -> f(x)
-      // z = f(x) -> f(x) (treat z as y for 2D)
-      // f(x) -> f(x)
-      cleanExpr = cleanExpr.replace(/^[yz]\s*=\s*/i, "").trim();
-      
-      // Handle vertical lines: x = constant
-      const verticalMatch = cleanExpr.match(/^x\s*=\s*([\d.-]+)$/);
-      if (verticalMatch) {
-        // Return a very large/small value to draw a vertical line
-        return null; // We'll handle these separately
-      }
-      
-      const compiled = compile(cleanExpr);
-      const result = compiled.evaluate({ x, y: 0, t: x, pi: Math.PI, e: Math.E });
-      
-      if (typeof result === "number" && isFinite(result)) {
-        return result;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }, []);
+      const safeRawSpacing = Math.max(MIN_GRID_SPACING_UNITS, GRID_TARGET_SPACING_PX / scale);
+      const magnitude = Math.pow(10, Math.floor(Math.log10(safeRawSpacing)));
+      const normalized = safeRawSpacing / magnitude;
 
-  // Check if expression is a vertical line (x = constant)
-  const parseVerticalLine = useCallback((expr: string): number | null => {
-    const match = expr.trim().match(/^x\s*=\s*([\d.eE+-]+)$/);
-    if (match) {
-      const val = parseFloat(match[1]);
-      return isFinite(val) ? val : null;
-    }
-    return null;
-  }, []);
-
-  // Check if expression is a horizontal line (y = constant)
-  const parseHorizontalLine = useCallback((expr: string): number | null => {
-    const match = expr.trim().match(/^[yz]\s*=\s*([\d.eE+-]+)$/);
-    if (match) {
-      const val = parseFloat(match[1]);
-      return isFinite(val) ? val : null;
-    }
-    return null;
-  }, []);
-
-  // Draw a single graph object
-  const drawGraph = useCallback((obj: GraphObject, dc: DrawContext) => {
-    if (!obj.visible) return;
-    
-    const { ctx, width, height, scale, centerX, centerY } = dc;
-    
-    // Get the expression based on object kind
-    let expr = "";
-    if (obj.kind === "surface") {
-      expr = (obj as SurfaceGraphObject).equation;
-    } else if (obj.kind === "plane") {
-      expr = (obj as any).equation || "";
-    }
-    
-    if (!expr) return;
-    
-    ctx.strokeStyle = obj.color;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    
-    // Check for vertical line (x = constant)
-    const verticalX = parseVerticalLine(expr);
-    if (verticalX !== null) {
-      const screen = mathToScreen(verticalX, 0, dc);
-      ctx.moveTo(screen.x, 0);
-      ctx.lineTo(screen.x, height);
-      ctx.stroke();
-      return;
-    }
-    
-    // Check for horizontal line (y = constant or just a number)
-    const horizontalY = parseHorizontalLine(expr);
-    if (horizontalY !== null) {
-      const screen = mathToScreen(0, horizontalY, dc);
-      ctx.moveTo(0, screen.y);
-      ctx.lineTo(width, screen.y);
-      ctx.stroke();
-      return;
-    }
-    
-    const minX = centerX - width / (2 * scale);
-    const maxX = centerX + width / (2 * scale);
-    const step = (maxX - minX) / (width * 0.5); // ~2 pixels per sample
-    
-    let isFirst = true;
-    let lastY: number | null = null;
-    
-    for (let x = minX; x <= maxX; x += step) {
-      const y = evaluateExpression(expr, x);
-      
-      if (y === null) {
-        isFirst = true;
-        lastY = null;
-        continue;
-      }
-      
-      // Check for discontinuity (asymptotes)
-      if (lastY !== null && Math.abs(y - lastY) > 50 / scale) {
-        isFirst = true;
-      }
-      
-      const screen = mathToScreen(x, y, dc);
-      
-      // Skip points that are way off screen (optimization)
-      if (screen.y < -1000 || screen.y > height + 1000) {
-        isFirst = true;
-        lastY = y;
-        continue;
-      }
-      
-      if (isFirst) {
-        ctx.moveTo(screen.x, screen.y);
-        isFirst = false;
+      let gridSpacing: number;
+      if (normalized < 2) {
+        gridSpacing = magnitude;
+      } else if (normalized < 5) {
+        gridSpacing = 2 * magnitude;
       } else {
-        ctx.lineTo(screen.x, screen.y);
+        gridSpacing = 5 * magnitude;
       }
-      
-      lastY = y;
-    }
-    
-    ctx.stroke();
-  }, [evaluateExpression, parseVerticalLine, parseHorizontalLine, mathToScreen]);
 
-  // Main draw function
+      const minorSpacing = Math.max(MIN_GRID_SPACING_UNITS, gridSpacing / 5);
+      const minorOverscan = minorSpacing * GRID_EDGE_OVERSCAN_LINES;
+      const majorOverscan = gridSpacing * GRID_EDGE_OVERSCAN_LINES;
+      const colors = palette;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      ctx.clip();
+
+      ctx.strokeStyle = colors.gridMinor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const minorXSeries = buildGridSeries(
+        minX - minorOverscan,
+        maxX + minorOverscan,
+        minorSpacing,
+        MAX_GRID_LINE_COUNT
+      );
+      if (minorXSeries) {
+        for (let i = 0; i < minorXSeries.count; i += 1) {
+          const x = minorXSeries.start + minorXSeries.step * i;
+          const screen = mathToScreen(x, 0, dc);
+          const alignedX = alignToPixel(screen.x);
+          ctx.moveTo(alignedX, 0);
+          ctx.lineTo(alignedX, height);
+        }
+      }
+      const minorYSeries = buildGridSeries(
+        minY - minorOverscan,
+        maxY + minorOverscan,
+        minorSpacing,
+        MAX_GRID_LINE_COUNT
+      );
+      if (minorYSeries) {
+        for (let i = 0; i < minorYSeries.count; i += 1) {
+          const y = minorYSeries.start + minorYSeries.step * i;
+          const screen = mathToScreen(0, y, dc);
+          const alignedY = alignToPixel(screen.y);
+          ctx.moveTo(0, alignedY);
+          ctx.lineTo(width, alignedY);
+        }
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = colors.gridMajor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const majorXSeries = buildGridSeries(
+        minX - majorOverscan,
+        maxX + majorOverscan,
+        gridSpacing,
+        MAX_GRID_LINE_COUNT
+      );
+      if (majorXSeries) {
+        for (let i = 0; i < majorXSeries.count; i += 1) {
+          const x = majorXSeries.start + majorXSeries.step * i;
+          const screen = mathToScreen(x, 0, dc);
+          const alignedX = alignToPixel(screen.x);
+          ctx.moveTo(alignedX, 0);
+          ctx.lineTo(alignedX, height);
+        }
+      }
+      const majorYSeries = buildGridSeries(
+        minY - majorOverscan,
+        maxY + majorOverscan,
+        gridSpacing,
+        MAX_GRID_LINE_COUNT
+      );
+      if (majorYSeries) {
+        for (let i = 0; i < majorYSeries.count; i += 1) {
+          const y = majorYSeries.start + majorYSeries.step * i;
+          const screen = mathToScreen(0, y, dc);
+          const alignedY = alignToPixel(screen.y);
+          ctx.moveTo(0, alignedY);
+          ctx.lineTo(width, alignedY);
+        }
+      }
+      ctx.stroke();
+
+      ctx.strokeStyle = colors.axis;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const originScreen = mathToScreen(0, 0, dc);
+      const alignedOriginY = alignToPixel(originScreen.y);
+      const alignedOriginX = alignToPixel(originScreen.x);
+      if (originScreen.y >= 0 && originScreen.y <= height) {
+        ctx.moveTo(0, alignedOriginY);
+        ctx.lineTo(width, alignedOriginY);
+      }
+      if (originScreen.x >= 0 && originScreen.x <= width) {
+        ctx.moveTo(alignedOriginX, 0);
+        ctx.lineTo(alignedOriginX, height);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = colors.axisLabel;
+      ctx.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const xLabelSeries = buildGridSeries(minX, maxX, gridSpacing, MAX_GRID_LABEL_COUNT);
+      if (xLabelSeries) {
+        for (let i = 0; i < xLabelSeries.count; i += 1) {
+          const x = xLabelSeries.start + xLabelSeries.step * i;
+          if (Math.abs(x) < 1e-10) {
+            continue;
+          }
+          const screen = mathToScreen(x, 0, dc);
+          const labelY = Math.min(Math.max(originScreen.y + 4, 4), height - 14);
+          ctx.fillText(formatNumber(x), screen.x, labelY);
+        }
+      }
+
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      const yLabelSeries = buildGridSeries(minY, maxY, gridSpacing, MAX_GRID_LABEL_COUNT);
+      if (yLabelSeries) {
+        for (let i = 0; i < yLabelSeries.count; i += 1) {
+          const y = yLabelSeries.start + yLabelSeries.step * i;
+          if (Math.abs(y) < 1e-10) {
+            continue;
+          }
+          const screen = mathToScreen(0, y, dc);
+          const labelX = Math.min(Math.max(originScreen.x - 4, 30), width - 4);
+          ctx.fillText(formatNumber(y), labelX, screen.y);
+        }
+      }
+    },
+    [mathToScreen, palette]
+  );
+
+  const renderableGraphs = useMemo<RenderableGraph[]>(() => {
+    const graphs: RenderableGraph[] = [];
+
+    for (const obj of objects) {
+      if (!obj.visible) {
+        continue;
+      }
+
+      let expr = "";
+      if (obj.kind === "surface") {
+        expr = (obj as SurfaceGraphObject).equation;
+      } else if (obj.kind === "plane") {
+        expr = (obj as PlaneGraphObject).equation;
+      } else {
+        continue;
+      }
+
+      const trimmed = expr.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      const horizontal = escapeRegExp(axisPair.horizontal);
+      const vertical = escapeRegExp(axisPair.vertical);
+
+      const verticalLineMatch = trimmed.match(new RegExp(`^${horizontal}\\s*=\\s*([\\d.eE+-]+)$`, "i"));
+      if (verticalLineMatch) {
+        const value = Number(verticalLineMatch[1]);
+        if (Number.isFinite(value)) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: value,
+            horizontalLineValue: null,
+            evaluate: null
+          });
+        }
+        continue;
+      }
+
+      const horizontalLineMatch = trimmed.match(new RegExp(`^${vertical}\\s*=\\s*([\\d.eE+-]+)$`, "i"));
+      if (horizontalLineMatch) {
+        const value = Number(horizontalLineMatch[1]);
+        if (Number.isFinite(value)) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: null,
+            horizontalLineValue: value,
+            evaluate: null
+          });
+        }
+        continue;
+      }
+
+      const directValue = Number(trimmed);
+      if (Number.isFinite(directValue)) {
+        graphs.push({
+          id: obj.id,
+          color: obj.color,
+          verticalLineValue: null,
+          horizontalLineValue: directValue,
+          evaluate: null
+        });
+        continue;
+      }
+
+      const dependentPattern = new RegExp(`^${vertical}\\s*=\\s*`, "i");
+      const cleanExpr = trimmed.replace(dependentPattern, "").trim();
+      let compiled: CompiledMathExpression;
+      try {
+        compiled = compile(cleanExpr) as CompiledMathExpression;
+      } catch {
+        continue;
+      }
+
+      graphs.push({
+        id: obj.id,
+        color: obj.color,
+        verticalLineValue: null,
+        horizontalLineValue: null,
+        evaluate: (horizontalValue: number) => {
+          try {
+            const scope: Record<string, number> = {
+              x: 0,
+              y: 0,
+              z: 0,
+              t: horizontalValue,
+              pi: Math.PI,
+              e: Math.E
+            };
+            scope[axisPair.horizontal] = horizontalValue;
+            const result = compiled.evaluate(scope);
+            const numeric = typeof result === "number" ? result : Number(result);
+            return Number.isFinite(numeric) ? numeric : null;
+          } catch {
+            return null;
+          }
+        }
+      });
+    }
+
+    return graphs;
+  }, [axisPair.horizontal, axisPair.vertical, objects]);
+
+  const drawGraph = useCallback(
+    (graph: RenderableGraph, dc: DrawContext) => {
+      const { ctx, width, height, scale, centerX } = dc;
+      const edgeOverscanUnits = CURVE_EDGE_OVERSCAN_PX / scale;
+      const verticalBreakPx = Math.max(
+        CURVE_VERTICAL_BREAK_MIN_PX,
+        height * CURVE_VERTICAL_BREAK_VIEWPORT_FACTOR
+      );
+      const verticalPaddingPx = Math.max(
+        VISIBLE_Y_PADDING_MIN_PX,
+        height * VISIBLE_Y_PADDING_VIEWPORT_FACTOR
+      );
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      ctx.clip();
+      ctx.strokeStyle = graph.color;
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+
+      if (graph.verticalLineValue !== null) {
+        const screen = mathToScreen(graph.verticalLineValue, 0, dc);
+        const alignedX = alignToPixel(screen.x);
+        ctx.moveTo(alignedX, 0);
+        ctx.lineTo(alignedX, height);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (graph.horizontalLineValue !== null) {
+        const screen = mathToScreen(0, graph.horizontalLineValue, dc);
+        const alignedY = alignToPixel(screen.y);
+        ctx.moveTo(0, alignedY);
+        ctx.lineTo(width, alignedY);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (!graph.evaluate) {
+        ctx.restore();
+        return;
+      }
+
+      const minHorizontal = centerX - width / (2 * scale) - edgeOverscanUnits;
+      const maxHorizontal = centerX + width / (2 * scale) + edgeOverscanUnits;
+      const sampleCount = clamp(
+        Math.round((width + CURVE_EDGE_OVERSCAN_PX * 2) * 1.15),
+        CURVE_MIN_SAMPLES,
+        CURVE_MAX_SAMPLES
+      );
+      const horizontalSpan = maxHorizontal - minHorizontal;
+
+      let isFirst = true;
+      let lastScreenY: number | null = null;
+
+      for (let index = 0; index <= sampleCount; index += 1) {
+        const horizontal = minHorizontal + horizontalSpan * (index / sampleCount);
+        const vertical = graph.evaluate(horizontal);
+        if (vertical === null) {
+          isFirst = true;
+          lastScreenY = null;
+          continue;
+        }
+
+        const screen = mathToScreen(horizontal, vertical, dc);
+        if (screen.y < -verticalPaddingPx || screen.y > height + verticalPaddingPx) {
+          isFirst = true;
+          lastScreenY = null;
+          continue;
+        }
+
+        if (lastScreenY !== null && Math.abs(screen.y - lastScreenY) > verticalBreakPx) {
+          isFirst = true;
+        }
+
+        if (isFirst) {
+          ctx.moveTo(screen.x, screen.y);
+          isFirst = false;
+        } else {
+          ctx.lineTo(screen.x, screen.y);
+        }
+
+        lastScreenY = screen.y;
+      }
+
+      ctx.stroke();
+      ctx.restore();
+    },
+    [mathToScreen]
+  );
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
-    
+    if (!canvas || !container) {
+      return;
+    }
+
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    
-    // Handle high DPI displays
+    if (!ctx) {
+      console.error("Graph 2D renderer: failed to get 2D context");
+      return;
+    }
+
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
-    
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
-    
-    ctx.scale(dpr, dpr);
-    
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const dc: DrawContext = {
       ctx,
       width: rect.width,
@@ -322,112 +493,131 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       centerY: viewport.centerY,
       scale: viewport.scale
     };
-    
-    // Clear canvas
-    ctx.fillStyle = "#131316";
+
+    ctx.fillStyle = palette.background;
     ctx.fillRect(0, 0, dc.width, dc.height);
-    
-    // Draw grid
     drawGrid(dc);
-    
-    // Draw all visible graphs
-    for (const obj of objects) {
-      drawGraph(obj, dc);
+
+    for (const graph of renderableGraphs) {
+      drawGraph(graph, dc);
     }
-  }, [viewport, objects, drawGrid, drawGraph]);
+  }, [drawGraph, drawGrid, palette.background, renderableGraphs, viewport.centerX, viewport.centerY, viewport.scale]);
 
-  // Handle mouse wheel zoom
-  const handleWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    
-    // Get mouse position in math coordinates before zoom
-    const mathPos = screenToMath(mouseX, mouseY, rect.width, rect.height);
-    
-    // Calculate new scale
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(1, Math.min(1000, viewport.scale * zoomFactor));
-    
-    // Calculate new center to keep mouse position fixed
-    const newCenterX = mathPos.x - (mouseX - rect.width / 2) / newScale;
-    const newCenterY = mathPos.y + (mouseY - rect.height / 2) / newScale;
-    
-    updateViewport2D({
-      scale: newScale,
-      centerX: newCenterX,
-      centerY: newCenterY
-    });
-  }, [viewport, screenToMath, updateViewport2D]);
+  const zoomAtScreenPoint = useCallback(
+    (mouseX: number, mouseY: number, factor: number, width: number, height: number) => {
+      const mathPos = screenToMath(mouseX, mouseY, width, height);
+      const newScale = clamp(viewport.scale * factor, MIN_VIEWPORT_SCALE, MAX_VIEWPORT_SCALE);
+      const newCenterX = mathPos.horizontal - (mouseX - width / 2) / newScale;
+      const newCenterY = mathPos.vertical + (mouseY - height / 2) / newScale;
 
-  // Handle mouse down
+      updateViewport2D({
+        scale: newScale,
+        centerX: newCenterX,
+        centerY: newCenterY
+      });
+    },
+    [screenToMath, updateViewport2D, viewport.scale]
+  );
+
+  const handleWheel = useCallback(
+    (e: WheelEvent) => {
+      e.preventDefault();
+
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      zoomAtScreenPoint(
+        mouseX,
+        mouseY,
+        e.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR,
+        rect.width,
+        rect.height
+      );
+    },
+    [zoomAtScreenPoint]
+  );
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     isDragging.current = true;
     lastMouse.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  // Handle mouse move
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
-    const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
-    
-    setMousePos({
-      screen: { x: screenX, y: screenY },
-      math: mathCoords
-    });
-    
-    if (!isDragging.current) return;
-    
-    const dx = e.clientX - lastMouse.current.x;
-    const dy = e.clientY - lastMouse.current.y;
-    
-    lastMouse.current = { x: e.clientX, y: e.clientY };
-    
-    updateViewport2D({
-      centerX: viewport.centerX - dx / viewport.scale,
-      centerY: viewport.centerY + dy / viewport.scale
-    });
-  }, [viewport, updateViewport2D, screenToMath]);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
 
-  // Handle mouse up
+      const rect = canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
+
+      setMousePos({
+        screen: { x: screenX, y: screenY },
+        math: mathCoords
+      });
+
+      if (!isDragging.current) {
+        return;
+      }
+
+      const dx = e.clientX - lastMouse.current.x;
+      const dy = e.clientY - lastMouse.current.y;
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+
+      updateViewport2D({
+        centerX: viewport.centerX - dx / viewport.scale,
+        centerY: viewport.centerY + dy / viewport.scale
+      });
+    },
+    [screenToMath, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
+  );
+
   const handleMouseUp = useCallback(() => {
     isDragging.current = false;
   }, []);
 
-  // Handle mouse leave
   const handleMouseLeave = useCallback(() => {
     isDragging.current = false;
     setMousePos(null);
   }, []);
 
-  // Set up canvas and event listeners
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+      const rect = canvas.getBoundingClientRect();
+      zoomAtScreenPoint(e.clientX - rect.left, e.clientY - rect.top, 1.5, rect.width, rect.height);
+    },
+    [zoomAtScreenPoint]
+  );
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    
+    if (!canvas) {
+      return;
+    }
+
     canvas.addEventListener("wheel", handleWheel, { passive: false });
-    
     return () => {
       canvas.removeEventListener("wheel", handleWheel);
     };
   }, [handleWheel]);
 
-  // Redraw on viewport or objects change
   useEffect(() => {
-    draw();
+    const frame = window.requestAnimationFrame(draw);
+    return () => window.cancelAnimationFrame(frame);
   }, [draw]);
 
-  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
       const container = containerRef.current;
@@ -437,85 +627,203 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       }
       draw();
     };
+
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [draw, setViewport2DFrame]);
 
+  const viewportRange = useMemo(() => {
+    const width = viewportFrame.width;
+    const height = viewportFrame.height;
+    const halfWidthUnits = width / (2 * viewport.scale);
+    const halfHeightUnits = height / (2 * viewport.scale);
+
+    return {
+      horizontalMin: viewport.centerX - halfWidthUnits,
+      horizontalMax: viewport.centerX + halfWidthUnits,
+      verticalMin: viewport.centerY - halfHeightUnits,
+      verticalMax: viewport.centerY + halfHeightUnits
+    };
+  }, [viewport.centerX, viewport.centerY, viewport.scale, viewportFrame.height, viewportFrame.width]);
+
   return (
-    <div 
+    <div
       ref={containerRef}
-      className={`relative w-full h-full ${className}`}
+      className={`relative h-full w-full ${className}`}
       style={{ touchAction: "none" }}
     >
       <canvas
         ref={canvasRef}
         data-graph2d-canvas="true"
-        className="w-full h-full cursor-grab active:cursor-grabbing"
+        className="h-full w-full cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
+        onDoubleClick={handleDoubleClick}
       />
-      
-      {/* Coordinate display */}
+
       {mousePos && (
-        <div 
-          className="absolute pointer-events-none px-2 py-1 rounded text-[10px] font-mono bg-[var(--surface-overlay)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shadow-lg"
+        <div
+          className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg"
           style={{
-            left: Math.min(mousePos.screen.x + 12, (containerRef.current?.clientWidth || 0) - 100),
-            top: mousePos.screen.y + 12,
+            left: Math.min(
+              mousePos.screen.x + CURSOR_TOOLTIP_OFFSET_PX,
+              (containerRef.current?.clientWidth || 0) - CURSOR_TOOLTIP_WIDTH_PX
+            ),
+            top: Math.min(
+              mousePos.screen.y + CURSOR_TOOLTIP_OFFSET_PX,
+              (containerRef.current?.clientHeight || 0) - VIEWPORT_BADGE_HEIGHT_PX
+            )
           }}
         >
-          ({formatCoord(mousePos.math.x)}, {formatCoord(mousePos.math.y)})
+          ({axisPair.horizontalLabel}: {formatCoord(mousePos.math.horizontal)}, {axisPair.verticalLabel}:{" "}
+          {formatCoord(mousePos.math.vertical)})
         </div>
       )}
-      
-      {/* Zoom controls */}
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+
+      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
         <button
           type="button"
-          onClick={() => updateViewport2D({ scale: Math.min(1000, viewport.scale * 1.25) })}
-          className="w-7 h-7 flex items-center justify-center rounded bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] transition-colors"
+          onClick={() => updateViewport2D({ scale: viewport.scale * 1.25 })}
+          className="h-7 w-7 rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+          title="Zoom in"
+          aria-label="Zoom in"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <span className="text-xs font-semibold">+</span>
         </button>
         <button
           type="button"
-          onClick={() => updateViewport2D({ scale: Math.max(1, viewport.scale * 0.8) })}
-          className="w-7 h-7 flex items-center justify-center rounded bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] transition-colors"
+          onClick={() => updateViewport2D({ scale: viewport.scale * 0.8 })}
+          className="h-7 w-7 rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+          title="Zoom out"
+          aria-label="Zoom out"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <span className="text-xs font-semibold">−</span>
+        </button>
+        <button
+          type="button"
+          onClick={resetViewport2D}
+          className="rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+          title="Reset view"
+          aria-label="Reset 2D view"
+        >
+          Reset
         </button>
       </div>
 
-      <div className="absolute bottom-3 left-3 px-2 py-1 rounded text-[10px] font-mono bg-[var(--surface-overlay)] border border-[var(--border-subtle)] text-[var(--text-secondary)] shadow-lg">
-        X: [{formatCoord(viewport.centerX - (containerRef.current?.clientWidth ?? 0) / (2 * viewport.scale))}, {formatCoord(viewport.centerX + (containerRef.current?.clientWidth ?? 0) / (2 * viewport.scale))}]
+      <div className="absolute bottom-3 left-3 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
+        {axisPair.horizontalLabel}: [{formatCoord(viewportRange.horizontalMin)}, {formatCoord(viewportRange.horizontalMax)}]
         {" · "}
-        Y: [{formatCoord(viewport.centerY - (containerRef.current?.clientHeight ?? 0) / (2 * viewport.scale))}, {formatCoord(viewport.centerY + (containerRef.current?.clientHeight ?? 0) / (2 * viewport.scale))}]
+        {axisPair.verticalLabel}: [{formatCoord(viewportRange.verticalMin)}, {formatCoord(viewportRange.verticalMax)}]
       </div>
     </div>
   );
 }
 
+function getAxisPairSpec(pair: Axis2DPair): AxisPairSpec {
+  if (pair === "yz") {
+    return {
+      horizontal: "y",
+      vertical: "z",
+      horizontalLabel: "Y",
+      verticalLabel: "Z"
+    };
+  }
+
+  if (pair === "xz") {
+    return {
+      horizontal: "x",
+      vertical: "z",
+      horizontalLabel: "X",
+      verticalLabel: "Z"
+    };
+  }
+
+  return {
+    horizontal: "x",
+    vertical: "y",
+    horizontalLabel: "X",
+    verticalLabel: "Y"
+  };
+}
+
 function formatNumber(n: number): string {
-  if (Math.abs(n) < 1e-10) return "0";
+  if (Math.abs(n) < 1e-10) {
+    return "0";
+  }
   if (Math.abs(n) >= 1000 || Math.abs(n) < 0.001) {
     return n.toExponential(1);
   }
-  // Remove trailing zeros
-  return parseFloat(n.toPrecision(4)).toString();
+  return n.toLocaleString("en-US", {
+    maximumFractionDigits: 4,
+    minimumFractionDigits: 0
+  });
 }
 
 function formatCoord(n: number): string {
-  if (Math.abs(n) < 1e-10) return "0";
+  if (Math.abs(n) < 1e-10) {
+    return "0";
+  }
   if (Math.abs(n) >= 100 || Math.abs(n) < 0.01) {
     return n.toExponential(2);
   }
   return n.toFixed(2);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function alignToPixel(value: number): number {
+  return Math.round(value) + 0.5;
+}
+
+interface GridSeries {
+  start: number;
+  step: number;
+  count: number;
+}
+
+function buildGridSeries(min: number, max: number, baseStep: number, maxCount: number): GridSeries | null {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(baseStep) || baseStep <= 0) {
+    return null;
+  }
+
+  const span = max - min;
+  if (!Number.isFinite(span) || span < 0) {
+    return null;
+  }
+
+  const roughCount = span / baseStep + 1;
+  if (!Number.isFinite(roughCount) || roughCount <= 0) {
+    return null;
+  }
+
+  const stride = Math.max(1, Math.ceil(roughCount / maxCount));
+  const step = baseStep * stride;
+  if (!Number.isFinite(step) || step <= 0) {
+    return null;
+  }
+
+  const start = Math.floor(min / step) * step;
+  if (!Number.isFinite(start)) {
+    return null;
+  }
+
+  const count = Math.min(maxCount, Math.max(0, Math.floor((max - start) / step) + 1));
+  if (!Number.isFinite(count) || count <= 0) {
+    return null;
+  }
+
+  return {
+    start,
+    step,
+    count
+  };
 }
