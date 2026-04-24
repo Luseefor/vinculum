@@ -42,15 +42,8 @@ export default function AddObjectMenu() {
               addPlaneObject();
               addConsoleEvent("Created plane from Add menu");
             }
-          },
-          { label: "Sphere", disabled: true },
-          { label: "Cylinder", disabled: true },
-          { label: "Box", disabled: true }
+          }
         ]
-      },
-      {
-        title: "Analysis",
-        items: [{ label: "Slice Plane", disabled: true }, { label: "Projection", disabled: true }]
       }
     ],
     [addConsoleEvent, addParametricCurve, addPlaneObject, addSurfaceObject]
@@ -84,9 +77,8 @@ export default function AddObjectMenu() {
                   <button
                     key={item.label}
                     type="button"
-                    disabled={item.disabled}
                     onClick={() => {
-                      if (item.disabled || !item.onClick) {
+                      if (!item.onClick) {
                         return;
                       }
                       item.onClick();
@@ -94,13 +86,10 @@ export default function AddObjectMenu() {
                     }}
                     className={[
                       "w-full rounded-md px-2 py-1.5 text-left text-[11px]",
-                      item.disabled
-                        ? "cursor-not-allowed text-[var(--text-muted)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+                      "text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
                     ].join(" ")}
                   >
                     {item.label}
-                    {item.disabled ? <span className="ml-2 text-[10px] text-[var(--text-muted)]">Coming soon</span> : null}
                   </button>
                 ))}
               </div>
