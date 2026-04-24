@@ -164,6 +164,12 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No matching commands.</p>
           ) : null}
         </div>
+        <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-3 py-2 text-[10px] text-[var(--text-tertiary)]">
+          <span>
+            {filtered.length} match{filtered.length === 1 ? "" : "es"}
+          </span>
+          <span>↑/↓ Navigate · Enter Run · Esc Close</span>
+        </div>
       </div>
     </div>
   );
