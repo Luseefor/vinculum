@@ -36,6 +36,7 @@ export default function EditorShell() {
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
+  const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -287,6 +288,11 @@ export default function EditorShell() {
         setCanvas3dTool("draw");
         return;
       }
+      if (key === "x") {
+        setSnapEnabled(!snapEnabled);
+        addConsoleEvent(`Snap ${!snapEnabled ? "enabled" : "disabled"}`);
+        return;
+      }
       if (key === "p" || key === "c") {
         setCanvas2dTool("probe");
         setCanvas3dTool("probe");
@@ -314,10 +320,12 @@ export default function EditorShell() {
     resetViewport2D,
     runRedo,
     runUndo,
+    snapEnabled,
     selectedObjectId,
     setGraphMode,
     setCanvas2dTool,
     setCanvas3dTool,
+    setSnapEnabled,
     setViewportMode
   ]);
 
