@@ -59,7 +59,7 @@ export default function StatusBar() {
           </>
         )}
         <span className="hidden rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 py-0.5 text-[var(--text-secondary)] min-[700px]:inline">
-          Hotkeys: 1/2/3/4 views · V pan · P probe · S sketch · Cmd/Ctrl+K or Cmd/Ctrl+Shift+P palette
+          Hotkeys: 1/2/3/4 views · V pan · P probe · S sketch · X snap · Cmd/Ctrl+K or Cmd/Ctrl+Shift+P palette
         </span>
       </div>
     </footer>
