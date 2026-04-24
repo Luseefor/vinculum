@@ -1,6 +1,7 @@
 "use client";
 
 import type { GraphObjectKind } from "@vinculum/scene/types";
+import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 
 interface GraphTypeSelectorProps {
   value: GraphObjectKind;
@@ -17,9 +18,14 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
   return (
     <select
       value={value}
-      onChange={(event) => onChange(event.target.value as GraphObjectKind)}
+      onChange={(event) => {
+        const kind = parseGraphObjectKind(event.target.value);
+        if (kind) {
+          onChange(kind);
+        }
+      }}
       onClick={(e) => e.stopPropagation()}
-      className="h-7 w-auto cursor-pointer rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] px-2 text-[11px] font-medium text-[var(--text-secondary)]"
+      className="h-7 w-auto cursor-pointer rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)]"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (
