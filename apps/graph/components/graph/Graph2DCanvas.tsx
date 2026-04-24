@@ -2,12 +2,14 @@
 
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { compile } from "mathjs";
+import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { sampleCurve } from "@/lib/math/sampleCurve";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
-import type { PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { ParametricCurveObject } from "@vinculum/scene/types";
 
 interface Graph2DCanvasProps {
   className?: string;
@@ -46,6 +48,7 @@ interface RenderableGraph {
   verticalLineValue: number | null;
   horizontalLineValue: number | null;
   evaluate: ((horizontalValue: number) => number | null) | null;
+  polylineHV: Float64Array | null;
 }
 
 const GRID_TARGET_SPACING_PX = 60;
@@ -54,11 +57,16 @@ const MAX_GRID_LINE_COUNT = 2000;
 const MAX_GRID_LABEL_COUNT = 320;
 const CURVE_MIN_SAMPLES = 384;
 const CURVE_MAX_SAMPLES = 8192;
+/** When consecutive samples jump farther than this (screen px), start a new stroke segment (asymptotes / branches). */
 const CURVE_VERTICAL_BREAK_MIN_PX = 56;
 const CURVE_VERTICAL_BREAK_VIEWPORT_FACTOR = 0.9;
 const CURVE_EDGE_OVERSCAN_PX = 96;
-const VISIBLE_Y_PADDING_MIN_PX = 1200;
-const VISIBLE_Y_PADDING_VIEWPORT_FACTOR = 2;
+/**
+ * Vertical off-screen padding (px): samples farther than this above/below the viewport are treated as discontinuities
+ * (used together with height * CURVE_OFFSCREEN_VERTICAL_PAD_VIEWPORT_FACTOR).
+ */
+const CURVE_OFFSCREEN_VERTICAL_PAD_MIN_PX = 1200;
+const CURVE_OFFSCREEN_VERTICAL_PAD_VIEWPORT_FACTOR = 2;
 const GRID_EDGE_OVERSCAN_LINES = 2;
 const ZOOM_IN_FACTOR = 1.12;
 const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
@@ -82,6 +90,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+  const activePointerId = useRef<number | null>(null);
   const [mousePos, setMousePos] = useState<MousePosition | null>(null);
 
   const palette = useMemo(() => {
@@ -271,11 +280,26 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         continue;
       }
 
+      if (obj.kind === "parametricCurve") {
+        const polylineHV = buildParametricPolylineHV(obj, axisPair.horizontal, axisPair.vertical);
+        if (polylineHV) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: null,
+            horizontalLineValue: null,
+            evaluate: null,
+            polylineHV
+          });
+        }
+        continue;
+      }
+
       let expr = "";
       if (obj.kind === "surface") {
-        expr = (obj as SurfaceGraphObject).equation;
+        expr = obj.equation;
       } else if (obj.kind === "plane") {
-        expr = (obj as PlaneGraphObject).equation;
+        expr = obj.equation;
       } else {
         continue;
       }
@@ -297,7 +321,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
             color: obj.color,
             verticalLineValue: value,
             horizontalLineValue: null,
-            evaluate: null
+            evaluate: null,
+            polylineHV: null
           });
         }
         continue;
@@ -312,7 +337,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
             color: obj.color,
             verticalLineValue: null,
             horizontalLineValue: value,
-            evaluate: null
+            evaluate: null,
+            polylineHV: null
           });
         }
         continue;
@@ -325,17 +351,16 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
           color: obj.color,
           verticalLineValue: null,
           horizontalLineValue: directValue,
-          evaluate: null
+          evaluate: null,
+          polylineHV: null
         });
         continue;
       }
 
       const dependentPattern = new RegExp(`^${vertical}\\s*=\\s*`, "i");
       const cleanExpr = trimmed.replace(dependentPattern, "").trim();
-      let compiled: CompiledMathExpression;
-      try {
-        compiled = compile(cleanExpr) as CompiledMathExpression;
-      } catch {
+      const compiled = tryCompileMathExpression(cleanExpr);
+      if (!compiled) {
         continue;
       }
 
@@ -344,6 +369,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         color: obj.color,
         verticalLineValue: null,
         horizontalLineValue: null,
+        polylineHV: null,
         evaluate: (horizontalValue: number) => {
           try {
             const scope: Record<string, number> = {
@@ -377,8 +403,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         height * CURVE_VERTICAL_BREAK_VIEWPORT_FACTOR
       );
       const verticalPaddingPx = Math.max(
-        VISIBLE_Y_PADDING_MIN_PX,
-        height * VISIBLE_Y_PADDING_VIEWPORT_FACTOR
+        CURVE_OFFSCREEN_VERTICAL_PAD_MIN_PX,
+        height * CURVE_OFFSCREEN_VERTICAL_PAD_VIEWPORT_FACTOR
       );
 
       ctx.save();
@@ -406,6 +432,46 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         const alignedY = alignToPixel(screen.y);
         ctx.moveTo(0, alignedY);
         ctx.lineTo(width, alignedY);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (graph.polylineHV && graph.polylineHV.length >= 4) {
+        const pts = graph.polylineHV;
+        let isFirst = true;
+        let lastScreenY: number | null = null;
+
+        for (let i = 0; i < pts.length; i += 2) {
+          const h = pts[i];
+          const v = pts[i + 1];
+          if (!Number.isFinite(h) || !Number.isFinite(v)) {
+            isFirst = true;
+            lastScreenY = null;
+            continue;
+          }
+
+          const screen = mathToScreen(h, v, dc);
+          if (screen.y < -verticalPaddingPx || screen.y > height + verticalPaddingPx) {
+            isFirst = true;
+            lastScreenY = null;
+            continue;
+          }
+
+          if (lastScreenY !== null && Math.abs(screen.y - lastScreenY) > verticalBreakPx) {
+            isFirst = true;
+          }
+
+          if (isFirst) {
+            ctx.moveTo(screen.x, screen.y);
+            isFirst = false;
+          } else {
+            ctx.lineTo(screen.x, screen.y);
+          }
+
+          lastScreenY = screen.y;
+        }
+
         ctx.stroke();
         ctx.restore();
         return;
@@ -473,7 +539,6 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-      console.error("Graph 2D renderer: failed to get 2D context");
       return;
     }
 
@@ -542,21 +607,27 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     [zoomAtScreenPoint]
   );
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
     isDragging.current = true;
-    lastMouse.current = { x: e.clientX, y: e.clientY };
+    lastMouse.current = { x: event.clientX, y: event.clientY };
+    activePointerId.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
   }, []);
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
       }
 
       const rect = canvas.getBoundingClientRect();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
       const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
 
       setMousePos({
@@ -564,13 +635,13 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         math: mathCoords
       });
 
-      if (!isDragging.current) {
+      if (!isDragging.current || event.pointerId !== activePointerId.current) {
         return;
       }
 
-      const dx = e.clientX - lastMouse.current.x;
-      const dy = e.clientY - lastMouse.current.y;
-      lastMouse.current = { x: e.clientX, y: e.clientY };
+      const dx = event.clientX - lastMouse.current.x;
+      const dy = event.clientY - lastMouse.current.y;
+      lastMouse.current = { x: event.clientX, y: event.clientY };
 
       updateViewport2D({
         centerX: viewport.centerX - dx / viewport.scale,
@@ -580,23 +651,45 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     [screenToMath, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointerId.current !== event.pointerId) {
+      return;
+    }
+
     isDragging.current = false;
+    activePointerId.current = null;
+
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer may already be released (e.g. touch cancelled by OS).
+    }
   }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    isDragging.current = false;
+  const handlePointerLeave = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     setMousePos(null);
+    if (activePointerId.current === event.pointerId) {
+      isDragging.current = false;
+      activePointerId.current = null;
+    }
+  }, []);
+
+  const handlePointerCancel = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointerId.current === event.pointerId) {
+      isDragging.current = false;
+      activePointerId.current = null;
+    }
   }, []);
 
   const handleDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
       }
+
       const rect = canvas.getBoundingClientRect();
-      zoomAtScreenPoint(e.clientX - rect.left, e.clientY - rect.top, 1.5, rect.width, rect.height);
+      zoomAtScreenPoint(event.clientX - rect.left, event.clientY - rect.top, 1.5, rect.width, rect.height);
     },
     [zoomAtScreenPoint]
   );
@@ -648,19 +741,16 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   }, [viewport.centerX, viewport.centerY, viewport.scale, viewportFrame.height, viewportFrame.width]);
 
   return (
-    <div
-      ref={containerRef}
-      className={`relative h-full w-full ${className}`}
-      style={{ touchAction: "none" }}
-    >
+    <div ref={containerRef} className={`relative h-full w-full ${className}`}>
       <canvas
         ref={canvasRef}
         data-graph2d-canvas="true"
-        className="h-full w-full cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
+        onPointerCancel={handlePointerCancel}
         onDoubleClick={handleDoubleClick}
       />
 
@@ -720,6 +810,78 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       </div>
     </div>
   );
+}
+
+function isCompiledMathExpression(value: unknown): value is CompiledMathExpression {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return "evaluate" in value && typeof (value as { evaluate?: unknown }).evaluate === "function";
+}
+
+function tryCompileMathExpression(expr: string): CompiledMathExpression | null {
+  const trimmed = expr.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const node = compile(trimmed);
+    return isCompiledMathExpression(node) ? node : null;
+  } catch {
+    return null;
+  }
+}
+
+function axisComponentIndex(axis: AxisVariable): 0 | 1 | 2 {
+  if (axis === "x") {
+    return 0;
+  }
+
+  if (axis === "y") {
+    return 1;
+  }
+
+  return 2;
+}
+
+function buildParametricPolylineHV(
+  obj: ParametricCurveObject,
+  horizontal: AxisVariable,
+  vertical: AxisVariable
+): Float64Array | null {
+  const compiled = compileParametricExpressions(obj.xExpr, obj.yExpr, obj.zExpr);
+  if (compiled.error) {
+    return null;
+  }
+
+  let sampled;
+  try {
+    sampled = sampleCurve(compiled.evaluator, {
+      tMin: obj.tMin,
+      tMax: obj.tMax,
+      samples: obj.samples,
+      clampCoordinate: 10_000
+    });
+  } catch {
+    return null;
+  }
+
+  const hi = axisComponentIndex(horizontal);
+  const vi = axisComponentIndex(vertical);
+  const pointCount = sampled.positions.length / 3;
+  if (pointCount < 2) {
+    return null;
+  }
+
+  const poly = new Float64Array(pointCount * 2);
+  for (let i = 0; i < pointCount; i += 1) {
+    poly[i * 2] = sampled.positions[i * 3 + hi];
+    poly[i * 2 + 1] = sampled.positions[i * 3 + vi];
+  }
+
+  return poly;
 }
 
 function getAxisPairSpec(pair: Axis2DPair): AxisPairSpec {

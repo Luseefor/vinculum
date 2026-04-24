@@ -18,10 +18,8 @@ export default function HomePage() {
       <Toolbar />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 p-3">
-          <div className="h-full overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-canvas)] shadow-[0_10px_36px_rgba(0,0,0,0.22)]">
-            {graphMode === "2d" ? <Graph2DCanvas /> : <GraphCanvas />}
-          </div>
+        <main className="min-w-0 flex-1 border-l border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
+          {graphMode === "2d" ? <Graph2DCanvas key="graph-2d" /> : <GraphCanvas key="graph-3d" />}
         </main>
       </div>
       <StatusBar />

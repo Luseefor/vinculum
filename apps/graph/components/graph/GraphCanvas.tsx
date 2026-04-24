@@ -68,7 +68,7 @@ export default function GraphCanvas() {
   }, [cameraResetVersion]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl">
+    <div className="relative h-full w-full overflow-hidden">
       <Canvas
         shadows={hasSurfaceObjects}
         camera={{ position: DEFAULT_CAMERA_POSITION, fov: 48, near: 0.1, far: CAMERA_FAR_PLANE }}
