@@ -114,6 +114,18 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
               type="button"
               role="option"
               aria-selected={filtered[activeIndex]?.id === command.id}
+              onMouseEnter={() => {
+                const nextIndex = filtered.findIndex((item) => item.id === command.id);
+                if (nextIndex >= 0) {
+                  setActiveIndex(nextIndex);
+                }
+              }}
+              onFocus={() => {
+                const nextIndex = filtered.findIndex((item) => item.id === command.id);
+                if (nextIndex >= 0) {
+                  setActiveIndex(nextIndex);
+                }
+              }}
               onClick={() => {
                 onRunCommand(command.id);
                 onClose();
