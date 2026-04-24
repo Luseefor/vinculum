@@ -4,6 +4,7 @@ import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBou
 import BottomPanel from "@/components/editor/BottomPanel";
 import CommandPalette from "@/components/editor/CommandPalette";
 import ContextMenu from "@/components/editor/ContextMenu";
+import FloatingToolHUD from "@/components/editor/FloatingToolHUD";
 import LeftObjectBrowser from "@/components/editor/LeftObjectBrowser";
 import RightInspector from "@/components/editor/RightInspector";
 import StatusBar from "@/components/editor/StatusBar";
@@ -24,6 +25,12 @@ export default function EditorShell() {
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
+  const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
+  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
+  const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
+  const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
+  const removeObject = useGraphStore((state) => state.removeObject);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -85,15 +92,56 @@ export default function EditorShell() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandPaletteOpen(true);
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        return;
       }
       if (event.key === "Escape") {
         setCommandPaletteOpen(false);
         setContextMenu((state) => ({ ...state, open: false }));
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "v" || key === "h") {
+        setCanvas2dTool("pan");
+        setCanvas3dTool("pan");
+        return;
+      }
+      if (key === "s") {
+        setCanvas2dTool("draw");
+        setCanvas3dTool("draw");
+        return;
+      }
+      if (key === "p" || key === "c") {
+        setCanvas2dTool("probe");
+        setCanvas3dTool("probe");
+        return;
+      }
+      if ((event.key === "Delete" || event.key === "Backspace") && selectedObjectId) {
+        removeObject(selectedObjectId);
+        return;
+      }
+      if (key === "f") {
+        if (graphMode === "2d") {
+          resetViewport2D();
+        } else {
+          requestCameraReset();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [
+    graphMode,
+    removeObject,
+    requestCameraReset,
+    resetViewport2D,
+    selectedObjectId,
+    setCanvas2dTool,
+    setCanvas3dTool
+  ]);
 
   return (
     <div
@@ -124,6 +172,11 @@ export default function EditorShell() {
       <div className="flex min-h-0 flex-1">
         {!leftCollapsed ? <LeftObjectBrowser width={leftWidth} /> : null}
         <main className="relative min-w-0 flex-1 bg-[var(--surface-canvas)]">
+          <FloatingToolHUD
+            modeLabel={effectiveViewportMode.toUpperCase()}
+            toolLabel={(graphMode === "2d" ? canvas2dTool : canvas3dTool).toUpperCase()}
+            selectedId={selectedObjectId}
+          />
           <div className="absolute right-3 top-3 z-20 lg:hidden">
             <Button size="sm" variant="secondary" onClick={() => setInspectorOpen(true)}>
               Inspector
