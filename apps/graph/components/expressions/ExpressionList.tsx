@@ -114,7 +114,7 @@ export default function ExpressionList() {
 
   if (objects.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-6 text-center">
+      <div className="mx-2 border border-dashed border-[var(--border-subtle)] px-4 py-6 text-center">
         <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects yet</p>
         <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Create one from the add controls above.</p>
       </div>
@@ -122,7 +122,7 @@ export default function ExpressionList() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="divide-y divide-[var(--border-subtle)]">
       {objects.map((object: GraphObject) => (
         <ExpressionRow
           key={object.id}

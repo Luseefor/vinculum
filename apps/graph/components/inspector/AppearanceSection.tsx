@@ -13,12 +13,12 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
   const toggleSurfaceWireframe = useGraphStore((state) => state.toggleSurfaceWireframe);
 
   return (
-    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+    <section className="pt-3">
       <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
         Appearance
       </h4>
 
-      <div className="flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2.5">
+      <div className="flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2.5">
         <input
           type="color"
           aria-label="Surface color"
@@ -32,18 +32,17 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
         </div>
       </div>
 
-      <div className="mt-2 flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-inset)] px-3 py-2.5">
+      <div className="mt-2 flex items-center justify-between border border-[var(--border-subtle)] px-3 py-2.5">
         <p className="text-[12px] font-medium text-[var(--text-primary)]">Wireframe</p>
         <button
           type="button"
           onClick={() => toggleSurfaceWireframe(object.id)}
           aria-pressed={object.appearance.wireframe}
-           className={cx(
-              "relative h-5 w-10 rounded-full transition-colors",
-              object.appearance.wireframe
-                ? "bg-[var(--accent)]"
-                : "bg-[color-mix(in_srgb,var(--surface-muted)_80%,var(--border-subtle)_20%)]"
-            )}
+          aria-label={object.appearance.wireframe ? "Disable wireframe" : "Enable wireframe"}
+          className={cx(
+            "relative h-5 w-10 rounded-full transition-colors",
+            object.appearance.wireframe ? "border border-transparent bg-[var(--accent)]" : "toggle-track-muted"
+          )}
         >
           <span
             className={cx(

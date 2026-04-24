@@ -81,7 +81,7 @@ export default function DomainSection({ object }: DomainSectionProps) {
       }
     }
 
-    updateSurfaceDomain(object.id, { [field]: parsedValue } as Partial<SurfaceDomain>);
+    updateSurfaceDomain(object.id, surfaceDomainFieldPatch(field, parsedValue));
     setDomainDraft((previous) => ({
       ...previous,
       [field]: String(parsedValue)
@@ -100,8 +100,17 @@ export default function DomainSection({ object }: DomainSectionProps) {
     setResolutionDraft(String(safeResolution));
   };
 
+  const sliderResolution = useMemo(() => {
+    const parsedValue = Number(resolutionDraft);
+    if (!Number.isFinite(parsedValue)) {
+      return object.resolution;
+    }
+
+    return normalizeSurfaceResolution(parsedValue);
+  }, [object.resolution, resolutionDraft]);
+
   return (
-    <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+    <section className="border-b border-[var(--border-subtle)] py-3">
       <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
         Domain
       </h4>
@@ -125,35 +134,58 @@ export default function DomainSection({ object }: DomainSectionProps) {
       </div>
 
       <div className="mt-3">
-        <label
-          htmlFor="resolution-input"
-          className="mb-1.5 block text-[10px] font-medium text-[var(--text-secondary)]"
-        >
-          Resolution ({MIN_SURFACE_RESOLUTION}-{MAX_SURFACE_RESOLUTION})
-        </label>
-        <input
-          id="resolution-input"
-          value={resolutionDraft}
-          onChange={(event) => setResolutionDraft(event.target.value)}
-          onBlur={commitResolution}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              commitResolution();
-              event.currentTarget.blur();
-            }
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <label htmlFor="resolution-input" className="text-[10px] font-medium text-[var(--text-secondary)]">
+            Resolution ({MIN_SURFACE_RESOLUTION}-{MAX_SURFACE_RESOLUTION})
+          </label>
+          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{sliderResolution}</span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="flex h-9 items-center rounded-sm border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3">
+            <input
+              type="range"
+              min={MIN_SURFACE_RESOLUTION}
+              max={MAX_SURFACE_RESOLUTION}
+              step={1}
+              value={sliderResolution}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (!Number.isFinite(next)) {
+                  return;
+                }
 
-            if (event.key === "Escape") {
-              event.preventDefault();
-              setResolutionDraft(String(object.resolution));
-              event.currentTarget.blur();
-            }
-          }}
-          inputMode="numeric"
-          min={MIN_SURFACE_RESOLUTION}
-          max={MAX_SURFACE_RESOLUTION}
-          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
-        />
+                const safeResolution = normalizeSurfaceResolution(next);
+                updateSurfaceResolution(object.id, safeResolution);
+                setResolutionDraft(String(safeResolution));
+              }}
+              className="resolution-slider"
+              aria-label="Surface resolution slider"
+            />
+          </div>
+          <input
+            id="resolution-input"
+            value={resolutionDraft}
+            onChange={(event) => setResolutionDraft(event.target.value)}
+            onBlur={commitResolution}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitResolution();
+                event.currentTarget.blur();
+              }
+
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setResolutionDraft(String(object.resolution));
+                event.currentTarget.blur();
+              }
+            }}
+            inputMode="numeric"
+            min={MIN_SURFACE_RESOLUTION}
+            max={MAX_SURFACE_RESOLUTION}
+            className="input h-9 w-[4.25rem] rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 text-center text-[12px]"
+          />
+        </div>
       </div>
     </section>
   );
@@ -189,10 +221,25 @@ function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputP
           }
         }}
         inputMode="decimal"
-        className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
+        className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
       />
     </label>
   );
+}
+
+function surfaceDomainFieldPatch(field: DomainField, value: number): Partial<SurfaceDomain> {
+  switch (field) {
+    case "xMin":
+      return { xMin: value };
+    case "xMax":
+      return { xMax: value };
+    case "yMin":
+      return { yMin: value };
+    case "yMax":
+      return { yMax: value };
+    default:
+      return {};
+  }
 }
 
 function getCounterpartField(axis: DomainAxis, field: DomainField): DomainField {

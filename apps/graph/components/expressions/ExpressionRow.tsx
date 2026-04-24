@@ -50,6 +50,16 @@ export default function ExpressionRow({
   }, [object]);
 
   const placeholder2d = axis2dPair === "yz" ? "z = y^2" : axis2dPair === "xz" ? "z = x^2" : "y = x^2";
+  const inputIdBase = `expr-${object.id}`;
+
+  const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, select, textarea, option, label")) {
+      return;
+    }
+
+    onSelect(object.id);
+  };
 
   const handlePrimaryKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
@@ -94,24 +104,21 @@ export default function ExpressionRow({
   return (
     <div
       className={cx(
-        "group cursor-pointer rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-3 transition-all duration-150",
-        isSelected && "border-[var(--accent)]/55 bg-[color-mix(in_srgb,var(--surface-raised)_85%,var(--accent-soft)_15%)] shadow-[0_0_0_1px_var(--accent-soft)]",
-        validation.error && "border-amber-500/45"
+        "group px-3 py-3 transition-colors",
+        isSelected && "expr-row--selected shadow-[inset_2px_0_0_var(--accent)]",
+        !isSelected && "expr-row--hoverable",
+        validation.error && "shadow-[inset_2px_0_0_rgb(245_158_11_/_0.65)]"
       )}
-      onClick={() => onSelect(object.id)}
-      role="button"
-      tabIndex={-1}
-      aria-label="Expression row"
+      onClick={handleRowClick}
+      aria-label={`${object.kind} expression row`}
     >
-      {/* Header row */}
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2.5 flex items-center gap-2">
         <input
           type="color"
           aria-label="Expression color"
           value={object.color}
-          onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch h-5 w-5 rounded-md"
+          className="color-swatch h-5 w-5 shrink-0 rounded-md"
         />
 
         <GraphTypeSelector
@@ -128,11 +135,12 @@ export default function ExpressionRow({
             }}
             className={cx(
               "flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-              object.visible 
+              object.visible
                 ? "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                 : "text-[var(--text-tertiary)] opacity-40 hover:bg-[var(--surface-muted)]"
             )}
             title={object.visible ? "Hide" : "Show"}
+            aria-label={object.visible ? "Hide expression from graph" : "Show expression on graph"}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               {object.visible ? (
@@ -154,6 +162,7 @@ export default function ExpressionRow({
             }}
             className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             title="Inspect"
+            aria-label="Open inspector for this expression"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="12" cy="12" r="3" />
@@ -169,6 +178,7 @@ export default function ExpressionRow({
             }}
             className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-red-500/10 hover:text-red-400"
             title="Remove"
+            aria-label="Remove expression"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -178,46 +188,49 @@ export default function ExpressionRow({
         </div>
       </div>
 
-      {/* Expression input */}
       {object.kind === "surface" && (
         <input
+          id={`${inputIdBase}-equation`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
           value={object.equation}
           onFocus={() => onSelect(object.id)}
-          onClick={(event) => event.stopPropagation()}
           onChange={(event) => updateSurfaceEquation(object.id, event.target.value)}
           onKeyDown={handlePrimaryKeyDown}
           spellCheck={false}
           autoComplete="off"
+          aria-label="Surface equation"
           placeholder={graphMode === "2d" ? placeholder2d : "z = sin(x) * cos(y)"}
-          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
+          className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
         />
       )}
 
       {object.kind === "parametricCurve" && (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label className="text-[10px] font-medium text-[var(--text-tertiary)]">x(t)</label>
+          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[10px] font-medium text-[var(--text-tertiary)]">
+            x(t)
+          </label>
           <input
+            id={`${inputIdBase}-xExpr`}
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
             value={object.xExpr}
             onFocus={() => onSelect(object.id)}
-            onClick={(event) => event.stopPropagation()}
             onChange={(event) => updateParametricExpression(object.id, "xExpr", event.target.value)}
             onKeyDown={handlePrimaryKeyDown}
             spellCheck={false}
             autoComplete="off"
-            className="input h-8 rounded-md border-[var(--border-strong)] bg-[var(--surface-inset)] px-2.5 text-[11px]"
+            aria-label="Parametric x expression"
+            className="input h-8 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[11px]"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
             <ParametricInput
               key={entry.field}
+              id={`${inputIdBase}-${entry.field}`}
               label={entry.label}
               value={object[entry.field]}
               onFocus={() => onSelect(object.id)}
-              onClick={(event) => event.stopPropagation()}
               onChange={(event) => updateParametricExpression(object.id, entry.field, event.target.value)}
             />
           ))}
@@ -226,17 +239,18 @@ export default function ExpressionRow({
 
       {object.kind === "plane" && (
         <input
+          id={`${inputIdBase}-plane`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
           value={object.equation}
           onFocus={() => onSelect(object.id)}
-          onClick={(event) => event.stopPropagation()}
           onChange={(event) => updatePlaneEquation(object.id, event.target.value)}
           onKeyDown={handlePrimaryKeyDown}
           spellCheck={false}
           autoComplete="off"
+          aria-label="Plane equation"
           placeholder="ax + by + cz + d = 0"
-          className="input h-9 rounded-lg border-[var(--border-strong)] bg-[var(--surface-inset)] px-3 text-[12px]"
+          className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
         />
       )}
 
@@ -250,26 +264,29 @@ export default function ExpressionRow({
 }
 
 interface ParametricInputProps {
+  id: string;
   label: string;
   value: string;
   onFocus: () => void;
-  onClick: (event: MouseEvent<HTMLInputElement>) => void;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }
 
-function ParametricInput({ label, value, onFocus, onClick, onChange }: ParametricInputProps) {
+function ParametricInput({ id, label, value, onFocus, onChange }: ParametricInputProps) {
   return (
     <>
-      <label className="text-[10px] font-medium text-[var(--text-tertiary)]">{label}</label>
+      <label htmlFor={id} className="text-[10px] font-medium text-[var(--text-tertiary)]">
+        {label}
+      </label>
       <input
+        id={id}
         type="text"
         value={value}
         onFocus={onFocus}
-        onClick={onClick}
         onChange={onChange}
         spellCheck={false}
         autoComplete="off"
-        className="input h-8 rounded-md border-[var(--border-strong)] bg-[var(--surface-inset)] px-2.5 text-[11px]"
+        aria-label={`Parametric ${label}`}
+        className="input h-8 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[11px]"
       />
     </>
   );
