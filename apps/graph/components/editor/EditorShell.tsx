@@ -2,6 +2,8 @@
 
 import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBoundary";
 import BottomPanel from "@/components/editor/BottomPanel";
+import CommandPalette from "@/components/editor/CommandPalette";
+import ContextMenu from "@/components/editor/ContextMenu";
 import LeftObjectBrowser from "@/components/editor/LeftObjectBrowser";
 import RightInspector from "@/components/editor/RightInspector";
 import StatusBar from "@/components/editor/StatusBar";
@@ -15,11 +17,22 @@ import Viewport3D from "@/components/viewport/Viewport3D";
 import ViewportHost from "@/components/viewport/ViewportHost";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
+  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
+  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const setGraphMode = useGraphStore((state) => state.setGraphMode);
+  const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+  const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ open: boolean; x: number; y: number }>({
+    open: false,
+    x: 0,
+    y: 0
+  });
   const leftCollapsed = useEditorStore((state) => state.leftPanelCollapsed);
   const rightCollapsed = useEditorStore((state) => state.rightPanelCollapsed);
   const leftWidth = useEditorStore((state) => state.leftPanelWidth);
@@ -32,8 +45,68 @@ export default function EditorShell() {
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
 
+  const runCommand = useCallback(
+    (commandId: string) => {
+      if (commandId === "add-surface") {
+        addSurfaceObject();
+        return;
+      }
+      if (commandId === "add-curve") {
+        addParametricCurve();
+        return;
+      }
+      if (commandId === "toggle-2d") {
+        setGraphMode("2d");
+        setViewportMode("2d");
+        return;
+      }
+      if (commandId === "toggle-3d") {
+        setGraphMode("3d");
+        setViewportMode("3d");
+        return;
+      }
+      if (commandId === "switch-split") {
+        setViewportMode("split");
+        return;
+      }
+      if (commandId === "reset-view") {
+        if (graphMode === "2d") {
+          resetViewport2D();
+        } else {
+          requestCameraReset();
+        }
+      }
+    },
+    [addParametricCurve, addSurfaceObject, graphMode, requestCameraReset, resetViewport2D, setGraphMode, setViewportMode]
+  );
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+      if (event.key === "Escape") {
+        setCommandPaletteOpen(false);
+        setContextMenu((state) => ({ ...state, open: false }));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--surface-bg)]">
+    <div
+      className="flex h-screen flex-col overflow-hidden bg-[var(--surface-bg)]"
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setContextMenu({
+          open: true,
+          x: event.clientX,
+          y: event.clientY
+        });
+      }}
+    >
       <ThemeSync />
       <TopToolbar
         onOpenInspector={() => setInspectorOpen(true)}
@@ -72,6 +145,17 @@ export default function EditorShell() {
       <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
         <RightInspector width={rightWidth} />
       </Sheet>
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onRunCommand={runCommand}
+      />
+      <ContextMenu
+        open={contextMenu.open}
+        x={contextMenu.x}
+        y={contextMenu.y}
+        onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
+      />
     </div>
   );
 }
