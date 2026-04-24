@@ -29,6 +29,7 @@ export default function EditorShell() {
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
@@ -52,6 +53,11 @@ export default function EditorShell() {
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
+  const selectedLabel = selectedObjectId ? selectedObjectId.slice(0, 8) : "None";
+  const primaryToolLabel = canvas2dTool.toUpperCase();
+  const secondaryToolLabel = canvas3dTool.toUpperCase();
+  const zoomLabel = graphMode === "2d" ? `Zoom ${Math.round(viewport2d.scale)}%` : "Perspective";
+  const snapLabel = "Grid";
 
   const runCommand = useCallback(
     (commandId: string) => {
@@ -203,6 +209,11 @@ export default function EditorShell() {
               mode={effectiveViewportMode}
               viewport2d={<Viewport2D key="graph-2d" />}
               viewport3d={<Viewport3D key="graph-3d" />}
+              selectedLabel={selectedLabel}
+              primaryToolLabel={primaryToolLabel}
+              secondaryToolLabel={secondaryToolLabel}
+              zoomLabel={zoomLabel}
+              snapLabel={snapLabel}
             />
           </GraphViewportErrorBoundary>
         </main>
