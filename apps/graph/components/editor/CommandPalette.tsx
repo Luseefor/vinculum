@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface CommandPaletteProps {
@@ -25,6 +25,7 @@ const COMMANDS = [
 
 export default function CommandPalette({ open, onClose, onRunCommand }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -33,6 +34,10 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
     }
     return COMMANDS.filter((command) => command.label.toLowerCase().includes(q));
   }, [query]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, open]);
 
   if (!open) {
     return null;
@@ -49,6 +54,27 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveIndex((index) => Math.min(index + 1, Math.max(0, filtered.length - 1)));
+                return;
+              }
+              if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((index) => Math.max(index - 1, 0));
+                return;
+              }
+              if (event.key === "Enter") {
+                event.preventDefault();
+                const command = filtered[activeIndex];
+                if (!command) {
+                  return;
+                }
+                onRunCommand(command.id);
+                onClose();
+              }
+            }}
             placeholder="Type a command…"
             className="h-9"
             aria-label="Command search"
@@ -63,7 +89,10 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 onRunCommand(command.id);
                 onClose();
               }}
-              className="w-full rounded-md px-2 py-2 text-left text-[12px] text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+              className={[
+                "w-full rounded-md px-2 py-2 text-left text-[12px] text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
+                filtered[activeIndex]?.id === command.id ? "bg-[var(--surface-overlay)] text-[var(--text-primary)]" : ""
+              ].join(" ")}
             >
               {command.label}
             </button>
