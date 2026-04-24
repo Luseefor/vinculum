@@ -85,6 +85,8 @@ interface GraphStoreState {
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
   setSketchExtendFraction: (fraction: number) => void;
   setSketchAutoCreate: (enabled: boolean) => void;
+  setSnapEnabled: (enabled: boolean) => void;
+  setSnapStep: (step: number) => void;
   applySceneSnapshot: (snapshot: SceneSnapshot) => void;
   addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[]) => string;
   addSketchedParametricFromStroke3d: (stroke: { x: number; y: number; z: number }[]) => string;
@@ -473,6 +475,8 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         probePinnedWorld: null,
         sketchExtendFraction: 0.15,
         sketchAutoCreate: true,
+        snapEnabled: true,
+        snapStep: 0.25,
         sceneDialog: {
           ...state.ui.sceneDialog,
           isOpen: false,
@@ -722,6 +726,27 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
+  setSnapEnabled: (enabled) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        snapEnabled: enabled
+      }
+    }));
+  },
+
+  setSnapStep: (step) => {
+    if (!Number.isFinite(step)) {
+      return;
+    }
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        snapStep: Math.min(100, Math.max(0.0001, step))
+      }
+    }));
+  },
+
   applySceneSnapshot: (snapshot) => {
     set((state) => ({
       scene: {
@@ -952,7 +977,9 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
     probePinnedMath: null,
     probePinnedWorld: null,
     sketchExtendFraction: 0.15,
-    sketchAutoCreate: true
+    sketchAutoCreate: true,
+    snapEnabled: true,
+    snapStep: 0.25
   };
 }
 

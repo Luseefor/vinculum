@@ -49,6 +49,10 @@ export interface GraphUiState {
   sketchExtendFraction: number;
   /** When true, sketch strokes create curves immediately; when false, user confirms from preview card. */
   sketchAutoCreate: boolean;
+  /** Enables coordinate snapping for probe/sketch interactions. */
+  snapEnabled: boolean;
+  /** Snap grid spacing in math units for probe/sketch interactions. */
+  snapStep: number;
 }
 
 export interface ExpressionValidationState {

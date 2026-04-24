@@ -59,6 +59,10 @@ export default function Toolbar({
   const sketchAutoCreate = useGraphStore((state) => state.ui.sketchAutoCreate);
   const setSketchExtendFraction = useGraphStore((state) => state.setSketchExtendFraction);
   const setSketchAutoCreate = useGraphStore((state) => state.setSketchAutoCreate);
+  const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
+  const snapStep = useGraphStore((state) => state.ui.snapStep);
+  const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
+  const setSnapStep = useGraphStore((state) => state.setSnapStep);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const probePinnedWorld = useGraphStore((state) => state.ui.probePinnedWorld);
@@ -247,6 +251,30 @@ export default function Toolbar({
                   Clear pin
                 </Button>
               )}
+              <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                <input
+                  type="checkbox"
+                  checked={snapEnabled}
+                  onChange={(event) => setSnapEnabled(event.target.checked)}
+                  aria-label="Enable snapping"
+                />
+                Snap
+              </label>
+              <Input
+                type="number"
+                min={0.0001}
+                step={0.05}
+                value={snapStep}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) {
+                    setSnapStep(next);
+                  }
+                }}
+                className="h-6 w-16 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
+                aria-label="Snap step"
+                title="Snap grid step in math units"
+              />
             </div>
           )}
 
@@ -317,6 +345,30 @@ export default function Toolbar({
                   Clear pin
                 </Button>
               )}
+              <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                <input
+                  type="checkbox"
+                  checked={snapEnabled}
+                  onChange={(event) => setSnapEnabled(event.target.checked)}
+                  aria-label="Enable snapping"
+                />
+                Snap
+              </label>
+              <Input
+                type="number"
+                min={0.0001}
+                step={0.05}
+                value={snapStep}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) {
+                    setSnapStep(next);
+                  }
+                }}
+                className="h-6 w-16 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
+                aria-label="Snap step"
+                title="Snap grid step in world units"
+              />
             </div>
           )}
 

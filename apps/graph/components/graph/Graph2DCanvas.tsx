@@ -99,6 +99,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const viewportFrame = useGraphStore((state) => state.ui.viewport2dFrame);
   const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
+  const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
+  const snapStep = useGraphStore((state) => state.ui.snapStep);
   const probePinnedMath = useGraphStore((state) => state.ui.probePinnedMath);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const setViewport2DFrame = useGraphStore((state) => state.setViewport2DFrame);
@@ -145,6 +147,19 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     const screenY = -(mathY - dc.centerY) * dc.scale + dc.height / 2;
     return { x: screenX, y: screenY };
   }, []);
+
+  const snapMathPoint = useCallback(
+    (point: { horizontal: number; vertical: number }) => {
+      if (!snapEnabled || !Number.isFinite(snapStep) || snapStep <= 0) {
+        return point;
+      }
+      return {
+        horizontal: snapToStep(point.horizontal, snapStep),
+        vertical: snapToStep(point.vertical, snapStep)
+      };
+    },
+    [snapEnabled, snapStep]
+  );
 
   const drawGrid = useCallback(
     (dc: DrawContext) => {
@@ -703,7 +718,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const rect = canvas.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
-      const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
+      const rawMath = screenToMath(screenX, screenY, rect.width, rect.height);
+      const mathCoords = snapMathPoint(rawMath);
 
       if (canvas2dTool === "probe") {
         setProbePinnedMath({
@@ -729,7 +745,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       activePointerId.current = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [canvas2dTool, screenToMath, setProbePinnedMath]
+    [canvas2dTool, screenToMath, setProbePinnedMath, snapMathPoint]
   );
 
   const handlePointerMove = useCallback(
@@ -742,7 +758,10 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const rect = canvas.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
-      const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
+      const rawMath = screenToMath(screenX, screenY, rect.width, rect.height);
+      const snappedMath = snapMathPoint(rawMath);
+      const mathCoords =
+        snapEnabled && (canvas2dTool === "probe" || canvas2dTool === "draw") ? snappedMath : rawMath;
 
       setMousePos({
         screen: { x: screenX, y: screenY },
@@ -779,7 +798,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         centerY: viewport.centerY + moveDy / viewport.scale
       });
     },
-    [canvas2dTool, screenToMath, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
+    [canvas2dTool, screenToMath, snapEnabled, snapMathPoint, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
   const handlePointerUp = useCallback(
@@ -1245,5 +1264,9 @@ function clamp(value: number, min: number, max: number): number {
 
 function alignToPixel(value: number): number {
   return Math.round(value) + 0.5;
+}
+
+function snapToStep(value: number, step: number): number {
+  return Math.round(value / step) * step;
 }
 

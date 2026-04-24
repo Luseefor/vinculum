@@ -12,6 +12,8 @@ export default function StatusBar() {
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
+  const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
+  const snapStep = useGraphStore((state) => state.ui.snapStep);
 
   return (
     <footer className="flex min-h-8 flex-col gap-1 border-t border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-1.5 text-[10px] text-[var(--text-tertiary)] sm:h-8 sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:py-0">
@@ -32,6 +34,9 @@ export default function StatusBar() {
             Scale: {formatScale(viewport2d.scale)} px/unit
           </span>
         )}
+        <span className="shrink-0 rounded border border-[var(--border-subtle)] px-1.5 py-0.5">
+          Snap: {snapEnabled ? `On (${snapStep})` : "Off"}
+        </span>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:max-w-[55%] sm:justify-end">
         {graphMode === "3d" ? (

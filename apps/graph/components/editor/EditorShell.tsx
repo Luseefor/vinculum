@@ -34,6 +34,8 @@ export default function EditorShell() {
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
+  const snapStep = useGraphStore((state) => state.ui.snapStep);
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -74,7 +76,7 @@ export default function EditorShell() {
   const primaryToolLabel = canvas2dTool.toUpperCase();
   const secondaryToolLabel = canvas3dTool.toUpperCase();
   const zoomLabel = graphMode === "2d" ? `Zoom ${Math.round(viewport2d.scale)}%` : "Perspective";
-  const snapLabel = "Grid";
+  const snapLabel = snapEnabled ? `On (${snapStep})` : "Off";
 
   const runUndo = useCallback(() => {
     const current = getCurrentSceneSnapshot();
