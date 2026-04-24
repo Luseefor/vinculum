@@ -11,6 +11,7 @@ interface ContextMenuProps {
   hasSelection: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  snapEnabled: boolean;
   currentMode: "2d" | "3d" | "split" | "quad";
 }
 
@@ -20,8 +21,9 @@ function buildItems({
   hasSelection,
   canUndo,
   canRedo,
+  snapEnabled,
   currentMode
-}: Pick<ContextMenuProps, "hasSelection" | "canUndo" | "canRedo" | "currentMode">): ContextItem[] {
+}: Pick<ContextMenuProps, "hasSelection" | "canUndo" | "canRedo" | "snapEnabled" | "currentMode">): ContextItem[] {
   return [
     { id: "add-surface", label: "Add Surface" },
     { id: "add-curve", label: "Add Parametric Curve" },
@@ -42,6 +44,7 @@ function buildItems({
     { id: "separator-2", label: "", disabled: true },
     { id: "undo", label: "Undo", disabled: !canUndo },
     { id: "redo", label: "Redo", disabled: !canRedo },
+    { id: "toggle-snap", label: `Snap: ${snapEnabled ? "On" : "Off"}` },
     { id: "reset-view", label: "Reset View" },
     { id: "delete-selected", label: hasSelection ? "Delete Selected" : "Delete Selected (None)", disabled: !hasSelection }
   ];
@@ -56,6 +59,7 @@ export default function ContextMenu({
   hasSelection,
   canUndo,
   canRedo,
+  snapEnabled,
   currentMode
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -77,12 +81,12 @@ export default function ContextMenu({
     const clampedY = Math.min(Math.max(y, PADDING), Math.max(PADDING, viewportHeight - menuHeight - PADDING));
 
     setPosition({ x: clampedX, y: clampedY });
-  }, [open, x, y, hasSelection, canUndo, canRedo, currentMode]);
+  }, [open, x, y, hasSelection, canUndo, canRedo, snapEnabled, currentMode]);
 
   if (!open) {
     return null;
   }
-  const items = buildItems({ hasSelection, canUndo, canRedo, currentMode });
+  const items = buildItems({ hasSelection, canUndo, canRedo, snapEnabled, currentMode });
 
   return (
     <div className="fixed inset-0 z-[65]" onClick={onClose}>

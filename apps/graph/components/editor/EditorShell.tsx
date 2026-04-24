@@ -140,6 +140,11 @@ export default function EditorShell() {
         addConsoleEvent("Switched viewport to Quad");
         return;
       }
+      if (commandId === "toggle-snap") {
+        setSnapEnabled(!snapEnabled);
+        addConsoleEvent(`Snap ${!snapEnabled ? "enabled" : "disabled"}`);
+        return;
+      }
       if (commandId === "undo") {
         runUndo();
         return;
@@ -196,7 +201,9 @@ export default function EditorShell() {
       runRedo,
       runUndo,
       resetViewport2D,
+      snapEnabled,
       setGraphMode,
+      setSnapEnabled,
       setViewportMode
     ]
   );
@@ -402,6 +409,7 @@ export default function EditorShell() {
         hasSelection={Boolean(selectedObjectId)}
         canUndo={canUndo}
         canRedo={canRedo}
+        snapEnabled={snapEnabled}
         currentMode={effectiveViewportMode}
         onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
       />
