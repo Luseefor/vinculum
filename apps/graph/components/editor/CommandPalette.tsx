@@ -57,12 +57,22 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             onKeyDown={(event) => {
               if (event.key === "ArrowDown") {
                 event.preventDefault();
-                setActiveIndex((index) => Math.min(index + 1, Math.max(0, filtered.length - 1)));
+                setActiveIndex((index) => {
+                  if (filtered.length === 0) {
+                    return 0;
+                  }
+                  return (index + 1) % filtered.length;
+                });
                 return;
               }
               if (event.key === "ArrowUp") {
                 event.preventDefault();
-                setActiveIndex((index) => Math.max(index - 1, 0));
+                setActiveIndex((index) => {
+                  if (filtered.length === 0) {
+                    return 0;
+                  }
+                  return (index - 1 + filtered.length) % filtered.length;
+                });
                 return;
               }
               if (event.key === "Enter") {
