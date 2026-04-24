@@ -15,6 +15,7 @@ const COMMANDS = [
   { id: "toggle-2d", label: "Switch to 2D" },
   { id: "toggle-3d", label: "Switch to 3D" },
   { id: "switch-split", label: "Switch to Split View" },
+  { id: "switch-quad", label: "Switch to Quad View" },
   { id: "reset-view", label: "Reset View" },
   { id: "undo", label: "Undo" },
   { id: "redo", label: "Redo" },

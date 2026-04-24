@@ -32,6 +32,11 @@ function buildItems({
       label: currentMode === "split" ? "Split Active" : "Switch to Split View",
       disabled: currentMode === "split"
     },
+    {
+      id: "switch-quad",
+      label: currentMode === "quad" ? "Quad Active" : "Switch to Quad View",
+      disabled: currentMode === "quad"
+    },
     { id: "separator-2", label: "", disabled: true },
     { id: "undo", label: "Undo", disabled: !canUndo },
     { id: "redo", label: "Redo", disabled: !canRedo },

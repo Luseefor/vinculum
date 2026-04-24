@@ -131,6 +131,11 @@ export default function EditorShell() {
         addConsoleEvent("Switched viewport to Split");
         return;
       }
+      if (commandId === "switch-quad") {
+        setViewportMode("quad");
+        addConsoleEvent("Switched viewport to Quad");
+        return;
+      }
       if (commandId === "undo") {
         runUndo();
         return;
