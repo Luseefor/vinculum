@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBoundary";
 import BottomPanel from "@/components/editor/BottomPanel";
 import LeftObjectBrowser from "@/components/editor/LeftObjectBrowser";
@@ -12,19 +11,11 @@ import ThemeSync from "@/components/theme/ThemeSync";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import Viewport2D from "@/components/viewport/Viewport2D";
+import Viewport3D from "@/components/viewport/Viewport3D";
 import ViewportHost from "@/components/viewport/ViewportHost";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useState } from "react";
-
-const Graph3DCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-[11px] text-[var(--text-tertiary)]">
-      Loading 3D view…
-    </div>
-  )
-});
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -69,7 +60,7 @@ export default function EditorShell() {
             <ViewportHost
               mode={effectiveViewportMode}
               viewport2d={<Viewport2D key="graph-2d" />}
-              viewport3d={<Graph3DCanvas key="graph-3d" />}
+              viewport3d={<Viewport3D key="graph-3d" />}
             />
           </GraphViewportErrorBoundary>
         </main>
