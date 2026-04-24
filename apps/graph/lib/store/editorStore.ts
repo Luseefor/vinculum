@@ -4,6 +4,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BottomPanelTab, ViewportMode } from "@/lib/types/ui";
 
+interface EditorParameter {
+  id: string;
+  value: number;
+  min: number;
+  max: number;
+}
+
 interface EditorStoreState {
   viewportMode: ViewportMode;
   leftPanelCollapsed: boolean;
@@ -13,6 +20,8 @@ interface EditorStoreState {
   rightPanelWidth: number;
   bottomPanelHeight: number;
   bottomPanelTab: BottomPanelTab;
+  parameters: EditorParameter[];
+  consoleEvents: string[];
   setViewportMode: (mode: ViewportMode) => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
@@ -21,6 +30,8 @@ interface EditorStoreState {
   setRightPanelWidth: (width: number) => void;
   setBottomPanelHeight: (height: number) => void;
   setBottomPanelTab: (tab: BottomPanelTab) => void;
+  setParameterValue: (id: string, value: number) => void;
+  addConsoleEvent: (message: string) => void;
 }
 
 export const useEditorStore = create<EditorStoreState>()(
@@ -34,6 +45,11 @@ export const useEditorStore = create<EditorStoreState>()(
       rightPanelWidth: 320,
       bottomPanelHeight: 180,
       bottomPanelTab: "parameters",
+      parameters: [
+        { id: "r", value: 2.5, min: 0.1, max: 12 },
+        { id: "h", value: 3.0, min: 0.1, max: 20 }
+      ],
+      consoleEvents: [],
       setViewportMode: (mode) => set({ viewportMode: mode }),
       toggleLeftPanel: () => set((state) => ({ leftPanelCollapsed: !state.leftPanelCollapsed })),
       toggleRightPanel: () => set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
@@ -41,7 +57,22 @@ export const useEditorStore = create<EditorStoreState>()(
       setLeftPanelWidth: (width) => set({ leftPanelWidth: clamp(width, 224, 480) }),
       setRightPanelWidth: (width) => set({ rightPanelWidth: clamp(width, 260, 540) }),
       setBottomPanelHeight: (height) => set({ bottomPanelHeight: clamp(height, 120, 360) }),
-      setBottomPanelTab: (tab) => set({ bottomPanelTab: tab })
+      setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
+      setParameterValue: (id, value) =>
+        set((state) => ({
+          parameters: state.parameters.map((parameter) =>
+            parameter.id === id
+              ? {
+                  ...parameter,
+                  value: clamp(value, parameter.min, parameter.max)
+                }
+              : parameter
+          )
+        })),
+      addConsoleEvent: (message) =>
+        set((state) => ({
+          consoleEvents: [message, ...state.consoleEvents].slice(0, 80)
+        }))
     }),
     {
       name: "vinculum-editor-layout"

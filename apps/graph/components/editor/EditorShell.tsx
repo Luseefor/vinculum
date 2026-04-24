@@ -50,30 +50,36 @@ export default function EditorShell() {
   const setRightPanelWidth = useEditorStore((state) => state.setRightPanelWidth);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
+  const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
 
   const runCommand = useCallback(
     (commandId: string) => {
       if (commandId === "add-surface") {
         addSurfaceObject();
+        addConsoleEvent("Created surface object");
         return;
       }
       if (commandId === "add-curve") {
         addParametricCurve();
+        addConsoleEvent("Created parametric curve");
         return;
       }
       if (commandId === "toggle-2d") {
         setGraphMode("2d");
         setViewportMode("2d");
+        addConsoleEvent("Switched viewport to 2D");
         return;
       }
       if (commandId === "toggle-3d") {
         setGraphMode("3d");
         setViewportMode("3d");
+        addConsoleEvent("Switched viewport to 3D");
         return;
       }
       if (commandId === "switch-split") {
         setViewportMode("split");
+        addConsoleEvent("Switched viewport to Split");
         return;
       }
       if (commandId === "reset-view") {
@@ -82,9 +88,19 @@ export default function EditorShell() {
         } else {
           requestCameraReset();
         }
+        addConsoleEvent("Reset active viewport camera");
       }
     },
-    [addParametricCurve, addSurfaceObject, graphMode, requestCameraReset, resetViewport2D, setGraphMode, setViewportMode]
+    [
+      addConsoleEvent,
+      addParametricCurve,
+      addSurfaceObject,
+      graphMode,
+      requestCameraReset,
+      resetViewport2D,
+      setGraphMode,
+      setViewportMode
+    ]
   );
 
   useEffect(() => {
