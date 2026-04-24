@@ -64,6 +64,7 @@ export default function EditorShell() {
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
   const undoHistory = useHistoryStore((state) => state.undo);
   const redoHistory = useHistoryStore((state) => state.redo);
+  const clearHistory = useHistoryStore((state) => state.clear);
   const canUndo = useHistoryStore((state) => state.past.length > 0);
   const canRedo = useHistoryStore((state) => state.future.length > 0);
   const prevSnapshotRef = useRef(getCurrentSceneSnapshot());
@@ -402,6 +403,7 @@ export default function EditorShell() {
           const text = await file.text();
           const parsed = deserializeScene(text);
           if (parsed.valid && parsed.normalizedScene) {
+            clearHistory();
             replaceSceneDocument(parsed.normalizedScene);
             addConsoleEvent("Imported scene JSON");
           } else {

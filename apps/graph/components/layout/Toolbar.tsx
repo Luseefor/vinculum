@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/components/ui/styles";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
+import { useHistoryStore } from "@/lib/store/historyStore";
 import { useGraphStore } from "@/store/graphStore";
 import type { Canvas2DTool, Canvas3DTool } from "@/types/graphUi";
 
@@ -37,6 +38,7 @@ export default function Toolbar({
   const [newSceneOpen, setNewSceneOpen] = useState(false);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const resetScene = useGraphStore((state) => state.resetScene);
+  const clearHistory = useHistoryStore((state) => state.clear);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -73,6 +75,7 @@ export default function Toolbar({
 
   const handleRequestNewScene = () => {
     if (objectCount === 0) {
+      clearHistory();
       resetScene();
       return;
     }
@@ -81,6 +84,7 @@ export default function Toolbar({
   };
 
   const handleConfirmNewScene = () => {
+    clearHistory();
     resetScene();
     setNewSceneOpen(false);
   };
