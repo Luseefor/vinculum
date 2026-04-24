@@ -4,6 +4,7 @@ import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { compile } from "mathjs";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { sampleCurve } from "@/lib/math/sampleCurve";
+import { buildGridSeries } from "@/components/viewport/Grid2D";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
@@ -73,6 +74,8 @@ const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
 const CURSOR_TOOLTIP_OFFSET_PX = 12;
 const CURSOR_TOOLTIP_WIDTH_PX = 140;
 const VIEWPORT_BADGE_HEIGHT_PX = 28;
+const SKETCH_SAMPLE_MIN_SCREEN_PX = 2.25;
+const SKETCH_MIN_POINTS_TO_FIT = 4;
 
 export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,15 +86,23 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const viewport = useGraphStore((state) => state.ui.viewport2d);
   const viewportFrame = useGraphStore((state) => state.ui.viewport2dFrame);
   const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
+  const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
+  const probePinnedMath = useGraphStore((state) => state.ui.probePinnedMath);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const setViewport2DFrame = useGraphStore((state) => state.setViewport2DFrame);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+  const setProbePinnedMath = useGraphStore((state) => state.setProbePinnedMath);
+  const addSketchedParametricFromStroke = useGraphStore((state) => state.addSketchedParametricFromStroke);
   const axisPair = useMemo(() => getAxisPairSpec(axis2dPair), [axis2dPair]);
 
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const activePointerId = useRef<number | null>(null);
+  const isSketching = useRef(false);
+  const lastSketchScreen = useRef<{ x: number; y: number } | null>(null);
+  const sketchAccumRef = useRef<{ horizontal: number; vertical: number }[]>([]);
   const [mousePos, setMousePos] = useState<MousePosition | null>(null);
+  const [sketchDraft, setSketchDraft] = useState<{ horizontal: number; vertical: number }[] | null>(null);
 
   const palette = useMemo(() => {
     const tokens = getGraphThemeTokens(resolvedTheme);
@@ -100,7 +111,9 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       gridMinor: tokens.gridMinor,
       gridMajor: tokens.gridMajor,
       axis: tokens.axisLine,
-      axisLabel: tokens.axisLabel
+      axisLabel: tokens.axisLabel,
+      probe: resolvedTheme === "dark" ? "#f472b6" : "#db2777",
+      sketch: resolvedTheme === "dark" ? "#38bdf8" : "#0284c7"
     };
   }, [resolvedTheme]);
 
@@ -566,7 +579,62 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     for (const graph of renderableGraphs) {
       drawGraph(graph, dc);
     }
-  }, [drawGraph, drawGrid, palette.background, renderableGraphs, viewport.centerX, viewport.centerY, viewport.scale]);
+
+    if (canvas2dTool === "probe" && mousePos) {
+      const cursorScreen = mathToScreen(mousePos.math.horizontal, mousePos.math.vertical, dc);
+      drawScreenCrosshair(ctx, dc.width, dc.height, cursorScreen.x, cursorScreen.y, palette.probe, 1, [5, 5]);
+    }
+
+    if (probePinnedMath) {
+      const pinnedScreen = mathToScreen(probePinnedMath.horizontal, probePinnedMath.vertical, dc);
+      drawScreenCrosshair(ctx, dc.width, dc.height, pinnedScreen.x, pinnedScreen.y, palette.probe, 2, []);
+      ctx.save();
+      ctx.fillStyle = palette.probe;
+      ctx.beginPath();
+      ctx.arc(alignToPixel(pinnedScreen.x), alignToPixel(pinnedScreen.y), 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (sketchDraft && sketchDraft.length >= 2) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, dc.width, dc.height);
+      ctx.clip();
+      ctx.strokeStyle = palette.sketch;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      for (let i = 0; i < sketchDraft.length; i += 1) {
+        const p = sketchDraft[i];
+        const s = mathToScreen(p.horizontal, p.vertical, dc);
+        if (i === 0) {
+          ctx.moveTo(s.x, s.y);
+        } else {
+          ctx.lineTo(s.x, s.y);
+        }
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+  }, [
+    canvas2dTool,
+    drawGraph,
+    drawGrid,
+    mathToScreen,
+    mousePos,
+    palette.background,
+    palette.probe,
+    palette.sketch,
+    probePinnedMath,
+    renderableGraphs,
+    sketchDraft,
+    viewport.centerX,
+    viewport.centerY,
+    viewport.scale
+  ]);
 
   const zoomAtScreenPoint = useCallback(
     (mouseX: number, mouseY: number, factor: number, width: number, height: number) => {
@@ -607,16 +675,48 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     [zoomAtScreenPoint]
   );
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (event.pointerType === "mouse" && event.button !== 0) {
-      return;
-    }
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+      }
 
-    isDragging.current = true;
-    lastMouse.current = { x: event.clientX, y: event.clientY };
-    activePointerId.current = event.pointerId;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }, []);
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
+      const mathCoords = screenToMath(screenX, screenY, rect.width, rect.height);
+
+      if (canvas2dTool === "probe") {
+        setProbePinnedMath({
+          horizontal: mathCoords.horizontal,
+          vertical: mathCoords.vertical
+        });
+        return;
+      }
+
+      if (canvas2dTool === "draw") {
+        isSketching.current = true;
+        lastSketchScreen.current = { x: screenX, y: screenY };
+        activePointerId.current = event.pointerId;
+        const first = { horizontal: mathCoords.horizontal, vertical: mathCoords.vertical };
+        sketchAccumRef.current = [first];
+        setSketchDraft([first]);
+        event.currentTarget.setPointerCapture(event.pointerId);
+        return;
+      }
+
+      isDragging.current = true;
+      lastMouse.current = { x: event.clientX, y: event.clientY };
+      activePointerId.current = event.pointerId;
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [canvas2dTool, screenToMath, setProbePinnedMath]
+  );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -635,36 +735,78 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         math: mathCoords
       });
 
+      if (
+        canvas2dTool === "draw" &&
+        isSketching.current &&
+        event.pointerId === activePointerId.current &&
+        lastSketchScreen.current
+      ) {
+        const dx = screenX - lastSketchScreen.current.x;
+        const dy = screenY - lastSketchScreen.current.y;
+        if (Math.hypot(dx, dy) >= SKETCH_SAMPLE_MIN_SCREEN_PX) {
+          lastSketchScreen.current = { x: screenX, y: screenY };
+          const point = { horizontal: mathCoords.horizontal, vertical: mathCoords.vertical };
+          sketchAccumRef.current = [...sketchAccumRef.current, point];
+          setSketchDraft([...sketchAccumRef.current]);
+        }
+        return;
+      }
+
       if (!isDragging.current || event.pointerId !== activePointerId.current) {
         return;
       }
 
-      const dx = event.clientX - lastMouse.current.x;
-      const dy = event.clientY - lastMouse.current.y;
+      const moveDx = event.clientX - lastMouse.current.x;
+      const moveDy = event.clientY - lastMouse.current.y;
       lastMouse.current = { x: event.clientX, y: event.clientY };
 
       updateViewport2D({
-        centerX: viewport.centerX - dx / viewport.scale,
-        centerY: viewport.centerY + dy / viewport.scale
+        centerX: viewport.centerX - moveDx / viewport.scale,
+        centerY: viewport.centerY + moveDy / viewport.scale
       });
     },
-    [screenToMath, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
+    [canvas2dTool, screenToMath, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
-  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (activePointerId.current !== event.pointerId) {
-      return;
-    }
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (activePointerId.current !== event.pointerId) {
+        return;
+      }
 
-    isDragging.current = false;
-    activePointerId.current = null;
+      if (canvas2dTool === "draw" && isSketching.current) {
+        isSketching.current = false;
+        lastSketchScreen.current = null;
+        activePointerId.current = null;
 
-    try {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    } catch {
-      // Pointer may already be released (e.g. touch cancelled by OS).
-    }
-  }, []);
+        const stroke = sketchAccumRef.current;
+        sketchAccumRef.current = [];
+        setSketchDraft(null);
+
+        if (stroke.length >= SKETCH_MIN_POINTS_TO_FIT) {
+          addSketchedParametricFromStroke(stroke);
+        }
+
+        try {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        } catch {
+          // Pointer may already be released (e.g. touch cancelled by OS).
+        }
+
+        return;
+      }
+
+      isDragging.current = false;
+      activePointerId.current = null;
+
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer may already be released (e.g. touch cancelled by OS).
+      }
+    },
+    [addSketchedParametricFromStroke, canvas2dTool]
+  );
 
   const handlePointerLeave = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     setMousePos(null);
@@ -677,12 +819,20 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const handlePointerCancel = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
     if (activePointerId.current === event.pointerId) {
       isDragging.current = false;
+      isSketching.current = false;
+      lastSketchScreen.current = null;
       activePointerId.current = null;
+      sketchAccumRef.current = [];
+      setSketchDraft(null);
     }
   }, []);
 
   const handleDoubleClick = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (canvas2dTool === "draw") {
+        return;
+      }
+
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
@@ -691,7 +841,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const rect = canvas.getBoundingClientRect();
       zoomAtScreenPoint(event.clientX - rect.left, event.clientY - rect.top, 1.5, rect.width, rect.height);
     },
-    [zoomAtScreenPoint]
+    [canvas2dTool, zoomAtScreenPoint]
   );
 
   useEffect(() => {
@@ -726,6 +876,34 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, [draw, setViewport2DFrame]);
 
+  useEffect(() => {
+    if (canvas2dTool !== "draw") {
+      isSketching.current = false;
+      lastSketchScreen.current = null;
+      sketchAccumRef.current = [];
+      setSketchDraft(null);
+    }
+  }, [canvas2dTool]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setProbePinnedMath(null);
+      if (canvas2dTool === "draw") {
+        isSketching.current = false;
+        lastSketchScreen.current = null;
+        sketchAccumRef.current = [];
+        setSketchDraft(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canvas2dTool, setProbePinnedMath]);
+
   const viewportRange = useMemo(() => {
     const width = viewportFrame.width;
     const height = viewportFrame.height;
@@ -740,12 +918,15 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     };
   }, [viewport.centerX, viewport.centerY, viewport.scale, viewportFrame.height, viewportFrame.width]);
 
+  const canvasCursorClass =
+    canvas2dTool === "pan" ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-crosshair touch-none";
+
   return (
     <div ref={containerRef} className={`relative h-full w-full ${className}`}>
       <canvas
         ref={canvasRef}
         data-graph2d-canvas="true"
-        className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+        className={`h-full w-full ${canvasCursorClass}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -768,8 +949,9 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
             )
           }}
         >
-          ({axisPair.horizontalLabel}: {formatCoord(mousePos.math.horizontal)}, {axisPair.verticalLabel}:{" "}
-          {formatCoord(mousePos.math.vertical)})
+          ({axisPair.horizontalLabel}:{" "}
+          {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.horizontal)},{" "}
+          {axisPair.verticalLabel}: {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.vertical)})
         </div>
       )}
 
@@ -803,13 +985,58 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         </button>
       </div>
 
-      <div className="absolute bottom-3 left-3 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
-        {axisPair.horizontalLabel}: [{formatCoord(viewportRange.horizontalMin)}, {formatCoord(viewportRange.horizontalMax)}]
-        {" · "}
-        {axisPair.verticalLabel}: [{formatCoord(viewportRange.verticalMin)}, {formatCoord(viewportRange.verticalMax)}]
+      <div className="absolute bottom-3 left-3 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
+        {mousePos && (
+          <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
+            <span className="text-[var(--text-tertiary)]">Cursor </span>
+            {axisPair.horizontalLabel}: {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.horizontal)}
+            {" · "}
+            {axisPair.verticalLabel}: {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.vertical)}
+          </div>
+        )}
+        {probePinnedMath && (
+          <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
+            <span className="text-[var(--text-tertiary)]">Pinned </span>
+            {axisPair.horizontalLabel}: {formatProbeCoord(probePinnedMath.horizontal)} · {axisPair.verticalLabel}:{" "}
+            {formatProbeCoord(probePinnedMath.vertical)}
+          </div>
+        )}
+        <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
+          {axisPair.horizontalLabel}: [{formatCoord(viewportRange.horizontalMin)}, {formatCoord(viewportRange.horizontalMax)}]
+          {" · "}
+          {axisPair.verticalLabel}: [{formatCoord(viewportRange.verticalMin)}, {formatCoord(viewportRange.verticalMax)}]
+        </div>
       </div>
     </div>
   );
+}
+
+function drawScreenCrosshair(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  sx: number,
+  sy: number,
+  color: string,
+  lineWidth: number,
+  dash: number[]
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.clip();
+  ctx.setLineDash(dash);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  const ax = alignToPixel(sx);
+  const ay = alignToPixel(sy);
+  ctx.beginPath();
+  ctx.moveTo(ax, 0);
+  ctx.lineTo(ax, height);
+  ctx.moveTo(0, ay);
+  ctx.lineTo(width, ay);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function isCompiledMathExpression(value: unknown): value is CompiledMathExpression {
@@ -934,6 +1161,19 @@ function formatCoord(n: number): string {
   return n.toFixed(2);
 }
 
+function formatProbeCoord(n: number): string {
+  if (!Number.isFinite(n)) {
+    return "NaN";
+  }
+  if (Math.abs(n) < 1e-12) {
+    return "0";
+  }
+  if (Math.abs(n) >= 1e4 || Math.abs(n) < 1e-4) {
+    return n.toExponential(8);
+  }
+  return n.toFixed(6);
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -946,46 +1186,3 @@ function alignToPixel(value: number): number {
   return Math.round(value) + 0.5;
 }
 
-interface GridSeries {
-  start: number;
-  step: number;
-  count: number;
-}
-
-function buildGridSeries(min: number, max: number, baseStep: number, maxCount: number): GridSeries | null {
-  if (!Number.isFinite(min) || !Number.isFinite(max) || !Number.isFinite(baseStep) || baseStep <= 0) {
-    return null;
-  }
-
-  const span = max - min;
-  if (!Number.isFinite(span) || span < 0) {
-    return null;
-  }
-
-  const roughCount = span / baseStep + 1;
-  if (!Number.isFinite(roughCount) || roughCount <= 0) {
-    return null;
-  }
-
-  const stride = Math.max(1, Math.ceil(roughCount / maxCount));
-  const step = baseStep * stride;
-  if (!Number.isFinite(step) || step <= 0) {
-    return null;
-  }
-
-  const start = Math.floor(min / step) * step;
-  if (!Number.isFinite(start)) {
-    return null;
-  }
-
-  const count = Math.min(maxCount, Math.max(0, Math.floor((max - start) / step) + 1));
-  if (!Number.isFinite(count) || count <= 0) {
-    return null;
-  }
-
-  return {
-    start,
-    step,
-    count
-  };
-}
