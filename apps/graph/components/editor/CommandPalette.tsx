@@ -90,6 +90,16 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 event.preventDefault();
                 setQuery("");
                 onClose();
+                return;
+              }
+              if (event.key === "Home") {
+                event.preventDefault();
+                setActiveIndex(0);
+                return;
+              }
+              if (event.key === "End") {
+                event.preventDefault();
+                setActiveIndex(Math.max(0, filtered.length - 1));
               }
             }}
             placeholder="Type a command…"
@@ -97,11 +107,13 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             aria-label="Command search"
           />
         </div>
-        <div className="max-h-[50vh] overflow-y-auto p-2">
+        <div className="max-h-[50vh] overflow-y-auto p-2" role="listbox" aria-label="Commands">
           {filtered.map((command) => (
             <button
               key={command.id}
               type="button"
+              role="option"
+              aria-selected={filtered[activeIndex]?.id === command.id}
               onClick={() => {
                 onRunCommand(command.id);
                 onClose();
