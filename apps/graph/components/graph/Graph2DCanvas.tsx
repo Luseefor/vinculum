@@ -3,6 +3,11 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { compile } from "mathjs";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import {
+  fitParametricSketch,
+  formatPolynomialExpression,
+  type FitParametricSketchResult
+} from "@/lib/math/fitParametricSketch";
 import { sampleCurve } from "@/lib/math/sampleCurve";
 import { buildGridSeries } from "@/components/viewport/Grid2D";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
@@ -28,6 +33,13 @@ interface DrawContext {
 interface MousePosition {
   screen: { x: number; y: number };
   math: { horizontal: number; vertical: number };
+}
+
+interface SketchFitPreview {
+  stroke: { horizontal: number; vertical: number }[];
+  fit: FitParametricSketchResult;
+  horizontalExpr: string;
+  verticalExpr: string;
 }
 
 type AxisVariable = "x" | "y" | "z";
@@ -93,6 +105,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const setProbePinnedMath = useGraphStore((state) => state.setProbePinnedMath);
   const addSketchedParametricFromStroke = useGraphStore((state) => state.addSketchedParametricFromStroke);
+  const sketchAutoCreate = useGraphStore((state) => state.ui.sketchAutoCreate);
   const axisPair = useMemo(() => getAxisPairSpec(axis2dPair), [axis2dPair]);
 
   const isDragging = useRef(false);
@@ -103,6 +116,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
   const sketchAccumRef = useRef<{ horizontal: number; vertical: number }[]>([]);
   const [mousePos, setMousePos] = useState<MousePosition | null>(null);
   const [sketchDraft, setSketchDraft] = useState<{ horizontal: number; vertical: number }[] | null>(null);
+  const [sketchFitPreview, setSketchFitPreview] = useState<SketchFitPreview | null>(null);
 
   const palette = useMemo(() => {
     const tokens = getGraphThemeTokens(resolvedTheme);
@@ -784,7 +798,19 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         setSketchDraft(null);
 
         if (stroke.length >= SKETCH_MIN_POINTS_TO_FIT) {
-          addSketchedParametricFromStroke(stroke);
+          if (sketchAutoCreate) {
+            addSketchedParametricFromStroke(stroke);
+          } else {
+            const fit = fitParametricSketch(stroke);
+            if (fit) {
+              setSketchFitPreview({
+                stroke,
+                fit,
+                horizontalExpr: formatPolynomialExpression(fit.horizontalCoeffs, "t"),
+                verticalExpr: formatPolynomialExpression(fit.verticalCoeffs, "t")
+              });
+            }
+          }
         }
 
         try {
@@ -805,7 +831,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         // Pointer may already be released (e.g. touch cancelled by OS).
       }
     },
-    [addSketchedParametricFromStroke, canvas2dTool]
+    [addSketchedParametricFromStroke, canvas2dTool, sketchAutoCreate]
   );
 
   const handlePointerLeave = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -882,6 +908,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       lastSketchScreen.current = null;
       sketchAccumRef.current = [];
       setSketchDraft(null);
+      setSketchFitPreview(null);
     }
   }, [canvas2dTool]);
 
@@ -897,6 +924,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         lastSketchScreen.current = null;
         sketchAccumRef.current = [];
         setSketchDraft(null);
+        setSketchFitPreview(null);
       }
     };
 
@@ -986,6 +1014,39 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       </div>
 
       <div className="absolute bottom-3 left-3 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
+        {sketchFitPreview && (
+          <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
+            <p className="mb-1 text-[var(--text-primary)]">Sketch fit preview</p>
+            <p>
+              {axisPair.horizontalLabel}(t): {sketchFitPreview.horizontalExpr}
+            </p>
+            <p>
+              {axisPair.verticalLabel}(t): {sketchFitPreview.verticalExpr}
+            </p>
+            <p className="mt-1 text-[var(--text-tertiary)]">
+              degree {sketchFitPreview.fit.degree} · max error {formatCoord(sketchFitPreview.fit.maxError)}
+            </p>
+            <div className="mt-2 flex items-center gap-1.5">
+              <button
+                type="button"
+                className="rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-primary)] hover:bg-[var(--surface-bg)]"
+                onClick={() => {
+                  addSketchedParametricFromStroke(sketchFitPreview.stroke);
+                  setSketchFitPreview(null);
+                }}
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                className="rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-secondary)] hover:bg-[var(--surface-bg)]"
+                onClick={() => setSketchFitPreview(null)}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
         {mousePos && (
           <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
             <span className="text-[var(--text-tertiary)]">Cursor </span>

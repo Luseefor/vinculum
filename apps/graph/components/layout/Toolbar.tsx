@@ -1,13 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { cx } from "@/components/ui/styles";
 import NewSceneDialog from "@/components/layout/NewSceneDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/components/ui/styles";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
+import type { Canvas2DTool, Canvas3DTool } from "@/types/graphUi";
 
-export default function Toolbar() {
+interface ToolbarProps {
+  onOpenInspector?: () => void;
+  leftCollapsed?: boolean;
+  rightCollapsed?: boolean;
+  onToggleLeftPanel?: () => void;
+  onToggleRightPanel?: () => void;
+  onDecreaseLeftWidth?: () => void;
+  onIncreaseLeftWidth?: () => void;
+  onDecreaseRightWidth?: () => void;
+  onIncreaseRightWidth?: () => void;
+}
+
+export default function Toolbar({
+  onOpenInspector,
+  leftCollapsed = false,
+  rightCollapsed = false,
+  onToggleLeftPanel,
+  onToggleRightPanel,
+  onDecreaseLeftWidth,
+  onIncreaseLeftWidth,
+  onDecreaseRightWidth,
+  onIncreaseRightWidth
+}: ToolbarProps) {
   const [newSceneOpen, setNewSceneOpen] = useState(false);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const resetScene = useGraphStore((state) => state.resetScene);
@@ -23,6 +49,18 @@ export default function Toolbar() {
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+  const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
+  const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
+  const probePinnedMath = useGraphStore((state) => state.ui.probePinnedMath);
+  const setProbePinnedMath = useGraphStore((state) => state.setProbePinnedMath);
+  const sketchExtendFraction = useGraphStore((state) => state.ui.sketchExtendFraction);
+  const sketchAutoCreate = useGraphStore((state) => state.ui.sketchAutoCreate);
+  const setSketchExtendFraction = useGraphStore((state) => state.setSketchExtendFraction);
+  const setSketchAutoCreate = useGraphStore((state) => state.setSketchAutoCreate);
+  const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
+  const probePinnedWorld = useGraphStore((state) => state.ui.probePinnedWorld);
+  const setProbePinnedWorld = useGraphStore((state) => state.setProbePinnedWorld);
   const resolvedTheme = useResolvedTheme();
 
   const handleResetView = () => {
@@ -54,26 +92,26 @@ export default function Toolbar() {
         onConfirm={handleConfirmNewScene}
         onCancel={() => setNewSceneOpen(false)}
       />
-      <header className="relative z-40 flex min-h-11 flex-col gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2 lg:h-11 lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:py-0">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-          <div className="flex shrink-0 items-center gap-1.5">
+      <header className="relative z-40 flex min-h-12 flex-col gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
             <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600" />
-            <h1 className="text-xs font-semibold tracking-tight">Vinculum</h1>
+            <h1 className="text-xs font-semibold tracking-[0.08em]">Vinculum</h1>
           </div>
 
           <div
             role="group"
             aria-label="Graph mode"
-            className="toolbar-mode-rail flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--border-subtle)] p-0.5"
+            className="flex shrink-0 items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1"
           >
             <button
               type="button"
               onClick={() => setGraphMode("2d")}
               aria-pressed={graphMode === "2d"}
-              className={cx(
-                "h-6 w-9 cursor-pointer rounded-full text-[10px] font-semibold transition-colors",
+              className={cn(
+                "h-6 w-10 cursor-pointer rounded-md text-[10px] font-semibold transition-colors",
                 graphMode === "2d"
-                  ? "border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-[0_1px_2px_rgba(15,23,42,0.2)]"
+                  ? "bg-[var(--accent)] text-white"
                   : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
               )}
             >
@@ -83,10 +121,10 @@ export default function Toolbar() {
               type="button"
               onClick={() => setGraphMode("3d")}
               aria-pressed={graphMode === "3d"}
-              className={cx(
-                "h-6 w-9 cursor-pointer rounded-full text-[10px] font-semibold transition-colors",
+              className={cn(
+                "h-6 w-10 cursor-pointer rounded-md text-[10px] font-semibold transition-colors",
                 graphMode === "3d"
-                  ? "border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-[0_1px_2px_rgba(15,23,42,0.2)]"
+                  ? "bg-[var(--accent)] text-white"
                   : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
               )}
             >
@@ -94,12 +132,12 @@ export default function Toolbar() {
             </button>
           </div>
 
-          <span className="shrink-0 text-[10px] text-[var(--text-tertiary)]">
+          <span className="shrink-0 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-tertiary)]">
             {objectCount} {objectCount === 1 ? "object" : "objects"}
           </span>
 
           {graphMode === "2d" && (
-            <div className="flex flex-wrap items-center gap-1.5 border-l border-[var(--border-subtle)] pl-2">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
               <label className="text-[10px] text-[var(--text-tertiary)]">Axes</label>
               <select
                 value={axis2dPair}
@@ -109,7 +147,7 @@ export default function Toolbar() {
                     setAxis2DPair(pair);
                   }
                 }}
-                className="h-6 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
+                className="h-6 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
                 aria-label="2D axis pair"
               >
                 <option value="xy">X / Y</option>
@@ -129,13 +167,156 @@ export default function Toolbar() {
                     updateViewport2D({ scale: next });
                   }
                 }}
-                className="h-6 w-16 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
+                className="h-6 w-16 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
                 aria-label="2D axis scale"
               />
+
+              <div
+                role="group"
+                aria-label="2D canvas tools"
+                className="flex flex-wrap items-center gap-0.5 rounded border border-[var(--border-subtle)] p-0.5"
+              >
+                {(
+                  [
+                    { id: "pan", label: "Pan" },
+                    { id: "probe", label: "Probe" },
+                    { id: "draw", label: "Sketch" }
+                  ] as { id: Canvas2DTool; label: string }[]
+                ).map((tool) => (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    aria-pressed={canvas2dTool === tool.id}
+                    onClick={() => setCanvas2dTool(tool.id)}
+                    className={cn(
+                      "h-6 rounded px-2 text-[10px] font-semibold transition-colors",
+                      canvas2dTool === tool.id
+                        ? "bg-[var(--accent)] text-white"
+                        : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
+                    )}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+
+              {canvas2dTool === "draw" && (
+                <>
+                  <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                    Extend
+                    <Input
+                      type="number"
+                      min={0}
+                      max={0.45}
+                      step={0.05}
+                      value={sketchExtendFraction}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        if (Number.isFinite(next)) {
+                          setSketchExtendFraction(next);
+                        }
+                      }}
+                      className="h-6 w-14 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
+                      title="Extrapolate fitted curve in parameter space: t ∈ [−extend, 1 + extend]"
+                      aria-label="Sketch curve extension along parameter"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                    <input
+                      type="checkbox"
+                      checked={sketchAutoCreate}
+                      onChange={(event) => setSketchAutoCreate(event.target.checked)}
+                      aria-label="Auto create sketch fit"
+                    />
+                    Auto create
+                  </label>
+                </>
+              )}
+
+              {probePinnedMath && (
+                <Button
+                  type="button"
+                  onClick={() => setProbePinnedMath(null)}
+                  size="sm"
+                  className="h-6"
+                >
+                  Clear pin
+                </Button>
+              )}
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-1.5 border-l border-[var(--border-subtle)] pl-2">
+          {graphMode === "3d" && (
+            <div
+              data-testid="toolbar-3d-tools"
+              className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1"
+            >
+              <div
+                role="group"
+                aria-label="3D canvas tools"
+                className="flex flex-wrap items-center gap-0.5 rounded border border-[var(--border-subtle)] p-0.5"
+              >
+                {(
+                  [
+                    { id: "pan", label: "Pan" },
+                    { id: "probe", label: "Probe" },
+                    { id: "draw", label: "Sketch" }
+                  ] as { id: Canvas3DTool; label: string }[]
+                ).map((tool) => (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    aria-pressed={canvas3dTool === tool.id}
+                    onClick={() => setCanvas3dTool(tool.id)}
+                    title={`3D tool: ${tool.label}`}
+                    className={cn(
+                      "h-6 rounded px-2 text-[10px] font-semibold transition-colors",
+                      canvas3dTool === tool.id
+                        ? "bg-[var(--accent)] text-white"
+                        : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
+                    )}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+              </div>
+
+              {canvas3dTool === "draw" && (
+                <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                  Extend
+                  <Input
+                    type="number"
+                    min={0}
+                    max={0.45}
+                    step={0.05}
+                    value={sketchExtendFraction}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      if (Number.isFinite(next)) {
+                        setSketchExtendFraction(next);
+                      }
+                    }}
+                    className="h-6 w-14 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
+                    title="Extrapolate fitted 3D curve in parameter space: t ∈ [−extend, 1 + extend]"
+                    aria-label="3D sketch curve extension along parameter"
+                  />
+                </label>
+              )}
+
+              {probePinnedWorld && (
+                <Button
+                  type="button"
+                  onClick={() => setProbePinnedWorld(null)}
+                  size="sm"
+                  className="h-6"
+                >
+                  Clear pin
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
             <select
               value={themeMode}
               onChange={(event) => {
@@ -151,10 +332,11 @@ export default function Toolbar() {
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </select>
-            <button
+            <Button
               type="button"
               onClick={cycleThemeMode}
-              className="btn h-6 px-2"
+              size="sm"
+              className="h-6"
               title={`Theme: ${themeMode} (${resolvedTheme})`}
               aria-label={`Cycle theme mode, current ${themeMode}`}
             >
@@ -168,27 +350,59 @@ export default function Toolbar() {
                   <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
                 </svg>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
         <nav className="flex flex-wrap items-center gap-1 lg:shrink-0 lg:justify-end">
-          <button type="button" onClick={handleRequestNewScene} className="btn">
+          {onToggleLeftPanel ? (
+            <Button type="button" variant="secondary" onClick={onToggleLeftPanel} aria-label="Toggle left sidebar">
+              {leftCollapsed ? "Show left" : "Hide left"}
+            </Button>
+          ) : null}
+          {!leftCollapsed && onDecreaseLeftWidth && onIncreaseLeftWidth ? (
+            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1">
+              <span className="px-1 text-[10px] text-[var(--text-tertiary)]">Left</span>
+              <Button type="button" size="sm" variant="ghost" onClick={onDecreaseLeftWidth} aria-label="Decrease left sidebar width">
+                -
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={onIncreaseLeftWidth} aria-label="Increase left sidebar width">
+                +
+              </Button>
+            </div>
+          ) : null}
+          {onToggleRightPanel ? (
+            <Button type="button" variant="secondary" onClick={onToggleRightPanel} aria-label="Toggle right sidebar">
+              {rightCollapsed ? "Show right" : "Hide right"}
+            </Button>
+          ) : null}
+          {!rightCollapsed && onDecreaseRightWidth && onIncreaseRightWidth ? (
+            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1">
+              <span className="px-1 text-[10px] text-[var(--text-tertiary)]">Right</span>
+              <Button type="button" size="sm" variant="ghost" onClick={onDecreaseRightWidth} aria-label="Decrease right sidebar width">
+                -
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={onIncreaseRightWidth} aria-label="Increase right sidebar width">
+                +
+              </Button>
+            </div>
+          ) : null}
+          <Button type="button" onClick={handleRequestNewScene}>
             New
-          </button>
+          </Button>
 
-          <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
+          <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-          <button type="button" onClick={() => openSceneDialog("import")} className="btn">
+          <Button type="button" onClick={() => openSceneDialog("import")}>
             Import
-          </button>
-          <button type="button" onClick={() => openSceneDialog("export")} className="btn">
+          </Button>
+          <Button type="button" onClick={() => openSceneDialog("export")}>
             Export
-          </button>
+          </Button>
 
-          <div className="mx-0.5 h-4 w-px bg-[var(--border-subtle)]" />
+          <Separator orientation="vertical" className="mx-0.5 h-5" />
 
-          <button type="button" onClick={handleResetView} className="btn">
+          <Button type="button" onClick={handleResetView}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
               <path d="M21 3v5h-5" />
@@ -196,7 +410,12 @@ export default function Toolbar() {
               <path d="M8 16H3v5" />
             </svg>
             Reset
-          </button>
+          </Button>
+          {onOpenInspector ? (
+            <Button type="button" className="lg:hidden" onClick={onOpenInspector}>
+              Inspector
+            </Button>
+          ) : null}
         </nav>
       </header>
     </>

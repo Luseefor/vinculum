@@ -26,12 +26,18 @@ import {
 import { loadStoredThemeMode, persistThemeMode } from "@/lib/theme/themeStorage";
 import type {
   Axis2DPair,
-  GraphMode,
+  Canvas2DTool,
+  Canvas3DTool,
   GraphUiState,
   SceneDialogMode,
   Viewport2D,
   Viewport2DFrame
 } from "@/types/graphUi";
+import {
+  fitParametricSketch,
+  fitParametricSketch3d,
+  formatPolynomialExpression
+} from "@/lib/math/fitParametricSketch";
 
 type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -64,7 +70,7 @@ interface GraphStoreState {
   setSceneDialogDraft: (jsonText: string) => void;
   setSceneDialogError: (error: string | null) => void;
   requestCameraReset: () => void;
-  setGraphMode: (mode: GraphMode) => void;
+  setGraphMode: (mode: GraphUiState["graphMode"]) => void;
   setAxis2DPair: (pair: Axis2DPair) => void;
   setThemeMode: (mode: GraphUiState["themeMode"]) => void;
   hydrateThemeMode: () => void;
@@ -72,6 +78,14 @@ interface GraphStoreState {
   updateViewport2D: (viewport: Partial<Viewport2D>) => void;
   setViewport2DFrame: (frame: Viewport2DFrame) => void;
   resetViewport2D: () => void;
+  setCanvas2dTool: (tool: Canvas2DTool) => void;
+  setCanvas3dTool: (tool: Canvas3DTool) => void;
+  setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
+  setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
+  setSketchExtendFraction: (fraction: number) => void;
+  setSketchAutoCreate: (enabled: boolean) => void;
+  addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[]) => string;
+  addSketchedParametricFromStroke3d: (stroke: { x: number; y: number; z: number }[]) => string;
 }
 
 const initialScene = createInitialSceneDocument();
@@ -451,6 +465,12 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
       ui: {
         ...state.ui,
         selectedObjectId: defaultScene.objects[0]?.id ?? null,
+        canvas2dTool: "pan",
+        canvas3dTool: "pan",
+        probePinnedMath: null,
+        probePinnedWorld: null,
+        sketchExtendFraction: 0.15,
+        sketchAutoCreate: true,
         sceneDialog: {
           ...state.ui.sceneDialog,
           isOpen: false,
@@ -527,7 +547,16 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
       return {
         ui: {
           ...state.ui,
-          graphMode: mode
+          graphMode: mode,
+          ...(mode === "3d"
+            ? {
+                canvas2dTool: "pan" as const,
+                probePinnedMath: null
+              }
+            : {
+                canvas3dTool: "pan" as const,
+                probePinnedWorld: null
+              })
         },
         cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion
       };
@@ -535,12 +564,18 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
   },
 
   setAxis2DPair: (pair) => {
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        axis2dPair: pair
-      }
-    }));
+    set((state) => {
+      const probePinnedMath = state.ui.probePinnedWorld
+        ? projectWorldTo2dPair(state.ui.probePinnedWorld, pair)
+        : null;
+      return {
+        ui: {
+          ...state.ui,
+          axis2dPair: pair,
+          probePinnedMath
+        }
+      };
+    });
   },
 
   setThemeMode: (mode) => {
@@ -622,6 +657,180 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         viewport2d: createDefaultViewport2D()
       }
     }));
+  },
+
+  setCanvas2dTool: (tool) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        canvas2dTool: tool
+      }
+    }));
+  },
+
+  setCanvas3dTool: (tool) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        canvas3dTool: tool
+      }
+    }));
+  },
+
+  setProbePinnedMath: (point) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        probePinnedMath: point,
+        probePinnedWorld: point ? project2dPairToWorld(point, state.ui.axis2dPair) : null
+      }
+    }));
+  },
+
+  setProbePinnedWorld: (point) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        probePinnedWorld: point,
+        probePinnedMath: point ? projectWorldTo2dPair(point, state.ui.axis2dPair) : null
+      }
+    }));
+  },
+
+  setSketchExtendFraction: (fraction) => {
+    if (!Number.isFinite(fraction)) {
+      return;
+    }
+
+    const clamped = Math.min(0.45, Math.max(0, fraction));
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        sketchExtendFraction: clamped
+      }
+    }));
+  },
+
+  setSketchAutoCreate: (enabled) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        sketchAutoCreate: enabled
+      }
+    }));
+  },
+
+  addSketchedParametricFromStroke: (stroke) => {
+    let createdObjectId = "";
+
+    set((state) => {
+      const fit = fitParametricSketch(stroke);
+      if (!fit) {
+        return state;
+      }
+
+      const pair = state.ui.axis2dPair;
+      const hPoly = formatPolynomialExpression(fit.horizontalCoeffs, "t");
+      const vPoly = formatPolynomialExpression(fit.verticalCoeffs, "t");
+
+      let xExpr = "0";
+      let yExpr = "0";
+      let zExpr = "0";
+
+      if (pair === "xy") {
+        xExpr = hPoly;
+        yExpr = vPoly;
+        zExpr = "0";
+      } else if (pair === "xz") {
+        xExpr = hPoly;
+        zExpr = vPoly;
+        yExpr = "0";
+      } else {
+        yExpr = hPoly;
+        zExpr = vPoly;
+        xExpr = "0";
+      }
+
+      const extend = state.ui.sketchExtendFraction;
+      const tMin = 0 - extend;
+      const tMax = 1 + extend;
+      const samples = Math.min(720, Math.max(160, Math.round(200 + fit.degree * 48)));
+
+      const nextObject = createParametricCurve({
+        colorIndex: state.scene.objects.length,
+        xExpr,
+        yExpr,
+        zExpr,
+        tMin,
+        tMax,
+        samples
+      });
+
+      createdObjectId = nextObject.id;
+
+      const nextScene = applySceneCommand(state.scene, {
+        type: "ADD_OBJECT",
+        payload: {
+          object: nextObject
+        }
+      });
+
+      return {
+        scene: nextScene,
+        ui: {
+          ...state.ui,
+          selectedObjectId: nextObject.id,
+          canvas2dTool: "pan"
+        }
+      };
+    });
+
+    return createdObjectId;
+  },
+
+  addSketchedParametricFromStroke3d: (stroke) => {
+    let createdObjectId = "";
+
+    set((state) => {
+      const fit = fitParametricSketch3d(stroke);
+      if (!fit) {
+        return state;
+      }
+
+      const extend = state.ui.sketchExtendFraction;
+      const tMin = 0 - extend;
+      const tMax = 1 + extend;
+      const samples = Math.min(720, Math.max(160, Math.round(200 + fit.degree * 48)));
+
+      const nextObject = createParametricCurve({
+        colorIndex: state.scene.objects.length,
+        xExpr: formatPolynomialExpression(fit.xCoeffs, "t"),
+        yExpr: formatPolynomialExpression(fit.yCoeffs, "t"),
+        zExpr: formatPolynomialExpression(fit.zCoeffs, "t"),
+        tMin,
+        tMax,
+        samples
+      });
+      createdObjectId = nextObject.id;
+
+      const nextScene = applySceneCommand(state.scene, {
+        type: "ADD_OBJECT",
+        payload: {
+          object: nextObject
+        }
+      });
+
+      return {
+        scene: nextScene,
+        ui: {
+          ...state.ui,
+          selectedObjectId: nextObject.id,
+          canvas3dTool: "pan"
+        }
+      };
+    });
+
+    return createdObjectId;
   }
 }));
 
@@ -690,13 +899,11 @@ function createGraphObject(
 }
 
 function createInitialSceneDocument(): SceneDocument {
-  const initialSurface = createSurfaceGraph({ colorIndex: 0 });
-
   return createSceneDocument({
     metadata: {
       name: DEFAULT_SCENE_NAME
     },
-    objects: [initialSurface]
+    objects: []
   });
 }
 
@@ -724,7 +931,13 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
     viewport2dFrame: {
       width: 0,
       height: 0
-    }
+    },
+    canvas2dTool: "pan",
+    canvas3dTool: "pan",
+    probePinnedMath: null,
+    probePinnedWorld: null,
+    sketchExtendFraction: 0.15,
+    sketchAutoCreate: true
   };
 }
 
@@ -795,6 +1008,32 @@ function sanitizePartialDomain(partialDomain: Partial<SurfaceDomain>): Partial<S
   }
 
   return nextDomain;
+}
+
+function project2dPairToWorld(
+  point: { horizontal: number; vertical: number },
+  pair: Axis2DPair
+): { x: number; y: number; z: number } {
+  if (pair === "xy") {
+    return { x: point.horizontal, y: point.vertical, z: 0 };
+  }
+  if (pair === "xz") {
+    return { x: point.horizontal, y: 0, z: point.vertical };
+  }
+  return { x: 0, y: point.horizontal, z: point.vertical };
+}
+
+function projectWorldTo2dPair(
+  point: { x: number; y: number; z: number },
+  pair: Axis2DPair
+): { horizontal: number; vertical: number } {
+  if (pair === "xy") {
+    return { horizontal: point.x, vertical: point.y };
+  }
+  if (pair === "xz") {
+    return { horizontal: point.x, vertical: point.z };
+  }
+  return { horizontal: point.y, vertical: point.z };
 }
 
 function isFiniteNumber(value: unknown): value is number {
