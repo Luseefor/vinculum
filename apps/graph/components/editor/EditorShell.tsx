@@ -245,6 +245,30 @@ export default function EditorShell() {
       }
 
       const key = event.key.toLowerCase();
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        if (key === "1") {
+          setGraphMode("2d");
+          setViewportMode("2d");
+          addConsoleEvent("Switched viewport to 2D");
+          return;
+        }
+        if (key === "2") {
+          setGraphMode("3d");
+          setViewportMode("3d");
+          addConsoleEvent("Switched viewport to 3D");
+          return;
+        }
+        if (key === "3") {
+          setViewportMode("split");
+          addConsoleEvent("Switched viewport to Split");
+          return;
+        }
+        if (key === "4") {
+          setViewportMode("quad");
+          addConsoleEvent("Switched viewport to Quad");
+          return;
+        }
+      }
       if (key === "v" || key === "h") {
         setCanvas2dTool("pan");
         setCanvas3dTool("pan");
@@ -276,14 +300,17 @@ export default function EditorShell() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     graphMode,
+    addConsoleEvent,
     removeObject,
     requestCameraReset,
     resetViewport2D,
     runRedo,
     runUndo,
     selectedObjectId,
+    setGraphMode,
     setCanvas2dTool,
-    setCanvas3dTool
+    setCanvas3dTool,
+    setViewportMode
   ]);
 
   return (
