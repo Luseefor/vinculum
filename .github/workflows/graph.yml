@@ -36,3 +36,11 @@ jobs:
 
       - name: Unit tests
         run: bun run test
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/graph
+
+      - name: End-to-end tests
+        run: bun run test:e2e
+        working-directory: apps/graph

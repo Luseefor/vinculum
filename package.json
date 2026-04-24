@@ -10,6 +10,7 @@
     "build": "bun run --filter @vinculum/graph build",
     "lint": "bun run --filter @vinculum/graph lint",
     "typecheck": "bun run --filter @vinculum/graph typecheck",
-    "test": "bun run --filter @vinculum/graph test"
+    "test": "bun run --filter @vinculum/graph test",
+    "test:e2e": "bun run --filter @vinculum/graph test:e2e"
   }
 }
