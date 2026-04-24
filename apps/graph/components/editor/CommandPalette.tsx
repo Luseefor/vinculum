@@ -35,6 +35,8 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
     }
     return COMMANDS.filter((command) => command.label.toLowerCase().includes(q));
   }, [query]);
+  const activeCommand = filtered[activeIndex];
+  const activeOptionId = activeCommand ? `command-palette-option-${activeCommand.id}` : undefined;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -126,12 +128,22 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             placeholder="Type a command…"
             className="h-9"
             aria-label="Command search"
+            aria-autocomplete="list"
+            aria-controls="command-palette-listbox"
+            aria-activedescendant={activeOptionId}
           />
         </div>
-        <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-2" role="listbox" aria-label="Commands">
+        <div
+          ref={listRef}
+          id="command-palette-listbox"
+          className="max-h-[50vh] overflow-y-auto p-2"
+          role="listbox"
+          aria-label="Commands"
+        >
           {filtered.map((command) => (
             <button
               key={command.id}
+              id={`command-palette-option-${command.id}`}
               type="button"
               data-command-id={command.id}
               role="option"
