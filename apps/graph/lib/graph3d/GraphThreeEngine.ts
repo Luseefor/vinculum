@@ -201,6 +201,21 @@ export interface GraphThreeEngine {
   dispose: () => void;
 }
 
+export function snapWorldPoint(
+  point: { x: number; y: number; z: number },
+  options: { enabled: boolean; step: number }
+): { x: number; y: number; z: number } {
+  if (!options.enabled || !Number.isFinite(options.step) || options.step <= 0) {
+    return point;
+  }
+  const step = options.step;
+  return {
+    x: Math.round(point.x / step) * step,
+    y: Math.round(point.y / step) * step,
+    z: Math.round(point.z / step) * step
+  };
+}
+
 export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine {
   const scene = new Scene();
   const camera = new PerspectiveCamera(48, 1, 0.1, CAMERA_FAR_PLANE);
@@ -409,15 +424,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const maybeSnapPoint = (point: { x: number; y: number; z: number }): { x: number; y: number; z: number } => {
     const ui = useGraphStore.getState().ui;
-    if (!ui.snapEnabled || !Number.isFinite(ui.snapStep) || ui.snapStep <= 0) {
-      return point;
-    }
-    const step = ui.snapStep;
-    return {
-      x: Math.round(point.x / step) * step,
-      y: Math.round(point.y / step) * step,
-      z: Math.round(point.z / step) * step
-    };
+    return snapWorldPoint(point, { enabled: ui.snapEnabled, step: ui.snapStep });
   };
 
   const pickWorldPointFromEvent = (event: PointerEvent): { x: number; y: number; z: number } | null => {
