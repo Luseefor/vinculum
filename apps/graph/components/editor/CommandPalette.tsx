@@ -41,6 +41,14 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
   }, [query, open]);
 
   useEffect(() => {
+    if (open) {
+      return;
+    }
+    setQuery("");
+    setActiveIndex(0);
+  }, [open]);
+
+  useEffect(() => {
     if (!open) {
       return;
     }
