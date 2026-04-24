@@ -64,6 +64,8 @@ export default function EditorShell() {
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
   const undoHistory = useHistoryStore((state) => state.undo);
   const redoHistory = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStore((state) => state.past.length > 0);
+  const canRedo = useHistoryStore((state) => state.future.length > 0);
   const prevSnapshotRef = useRef(getCurrentSceneSnapshot());
   const historyActionRef = useRef(false);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
@@ -349,6 +351,10 @@ export default function EditorShell() {
         x={contextMenu.x}
         y={contextMenu.y}
         onRunCommand={runCommand}
+        hasSelection={Boolean(selectedObjectId)}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        currentMode={effectiveViewportMode}
         onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
       />
       <input
