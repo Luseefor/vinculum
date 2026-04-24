@@ -519,12 +519,19 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
   },
 
   setGraphMode: (mode) => {
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        graphMode: mode
+    set((state) => {
+      if (state.ui.graphMode === mode) {
+        return state;
       }
-    }));
+
+      return {
+        ui: {
+          ...state.ui,
+          graphMode: mode
+        },
+        cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion
+      };
+    });
   },
 
   setAxis2DPair: (pair) => {
@@ -710,7 +717,7 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
       jsonText: "",
       error: null
     },
-    graphMode: "2d",
+    graphMode: "3d",
     themeMode: "system",
     axis2dPair: "xy",
     viewport2d: createDefaultViewport2D(),
