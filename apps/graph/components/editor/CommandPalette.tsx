@@ -73,6 +73,13 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 }
                 onRunCommand(command.id);
                 onClose();
+                setQuery("");
+                return;
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setQuery("");
+                onClose();
               }
             }}
             placeholder="Type a command…"
