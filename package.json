@@ -9,6 +9,7 @@
     "dev": "bun run --filter @vinculum/graph dev",
     "build": "bun run --filter @vinculum/graph build",
     "lint": "bun run --filter @vinculum/graph lint",
-    "typecheck": "bun run --filter @vinculum/graph typecheck"
+    "typecheck": "bun run --filter @vinculum/graph typecheck",
+    "test": "bun run --filter @vinculum/graph test"
   }
 }

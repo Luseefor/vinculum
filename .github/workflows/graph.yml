@@ -1,0 +1,38 @@
+name: Graph
+
+on:
+  push:
+    paths:
+      - "apps/graph/**"
+      - "packages/scene/**"
+      - "bun.lock"
+      - ".github/workflows/graph.yml"
+  pull_request:
+    paths:
+      - "apps/graph/**"
+      - "packages/scene/**"
+      - "bun.lock"
+      - ".github/workflows/graph.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Unit tests
+        run: bun run test
