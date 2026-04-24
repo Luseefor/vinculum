@@ -21,4 +21,5 @@ Theming relies on custom properties in `:root` and `[data-theme="light"]`. No IE
 
 ## Testing
 
-Automated tests run in **jsdom** (Vitest); they do not exercise layout or `color-mix` parsing in a real browser matrix.
+- **Unit / component:** Vitest with **jsdom** (no WebGL, no real `color-mix` parsing).
+- **Smoke UI:** Playwright (Chromium) against `next dev`; see `e2e/smoke.spec.ts` and `.github/workflows/graph.yml` on CI pushes that touch the graph app.
