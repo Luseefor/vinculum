@@ -26,6 +26,7 @@ export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
   const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
@@ -76,6 +77,11 @@ export default function EditorShell() {
         addConsoleEvent("Created parametric curve");
         return;
       }
+      if (commandId === "add-plane") {
+        addPlaneObject();
+        addConsoleEvent("Created plane object");
+        return;
+      }
       if (commandId === "toggle-2d") {
         setGraphMode("2d");
         setViewportMode("2d");
@@ -91,6 +97,13 @@ export default function EditorShell() {
       if (commandId === "switch-split") {
         setViewportMode("split");
         addConsoleEvent("Switched viewport to Split");
+        return;
+      }
+      if (commandId === "delete-selected") {
+        if (selectedObjectId) {
+          removeObject(selectedObjectId);
+          addConsoleEvent(`Removed object ${selectedObjectId.slice(0, 8)}`);
+        }
         return;
       }
       if (commandId === "reset-view") {
@@ -122,11 +135,14 @@ export default function EditorShell() {
     [
       addConsoleEvent,
       addParametricCurve,
+      addPlaneObject,
       addSurfaceObject,
       graphMode,
+      selectedObjectId,
       scene,
       requestCameraReset,
       replaceSceneDocument,
+      removeObject,
       resetViewport2D,
       setGraphMode,
       setViewportMode
@@ -258,6 +274,7 @@ export default function EditorShell() {
         open={contextMenu.open}
         x={contextMenu.x}
         y={contextMenu.y}
+        onRunCommand={runCommand}
         onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
       />
       <input
