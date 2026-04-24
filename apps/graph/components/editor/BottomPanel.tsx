@@ -22,6 +22,10 @@ export default function BottomPanel() {
   const parameters = useEditorStore((state) => state.parameters);
   const setParameterValue = useEditorStore((state) => state.setParameterValue);
   const consoleEvents = useEditorStore((state) => state.consoleEvents);
+  const animation = useEditorStore((state) => state.animation);
+  const setAnimationPlaying = useEditorStore((state) => state.setAnimationPlaying);
+  const setAnimationSpeed = useEditorStore((state) => state.setAnimationSpeed);
+  const setAnimationRange = useEditorStore((state) => state.setAnimationRange);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const visibleCount = useGraphStore((state) => state.scene.objects.filter((object) => object.visible).length);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
@@ -75,8 +79,53 @@ export default function BottomPanel() {
             </div>
           )}
           {activeTab === "timeline" && (
-            <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
-              Timeline controls are queued for a dedicated animation checkpoint.
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <DiagnosticCard label="Target" value={animation.parameterId ?? "None"} />
+                <DiagnosticCard label="State" value={animation.playing ? "PLAYING" : "PAUSED"} />
+              </div>
+              <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
+                <div className="mb-2 flex items-center gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>
+                    {animation.playing ? "Pause" : "Play"}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setAnimationPlaying(false)}>
+                    Stop
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <label className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Speed</span>
+                    <input
+                      type="range"
+                      min={0.05}
+                      max={8}
+                      step={0.05}
+                      value={animation.speed}
+                      onChange={(event) => setAnimationSpeed(Number(event.target.value))}
+                      className="resolution-slider"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Min</span>
+                    <input
+                      type="number"
+                      value={animation.min}
+                      onChange={(event) => setAnimationRange(Number(event.target.value), animation.max)}
+                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 font-mono text-[11px]"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Max</span>
+                    <input
+                      type="number"
+                      value={animation.max}
+                      onChange={(event) => setAnimationRange(animation.min, Number(event.target.value))}
+                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 font-mono text-[11px]"
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
           )}
           {activeTab === "console" && (
