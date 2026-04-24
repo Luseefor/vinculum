@@ -15,7 +15,9 @@ const COMMANDS = [
   { id: "toggle-2d", label: "Switch to 2D" },
   { id: "toggle-3d", label: "Switch to 3D" },
   { id: "switch-split", label: "Switch to Split View" },
-  { id: "reset-view", label: "Reset View" }
+  { id: "reset-view", label: "Reset View" },
+  { id: "export-scene-json", label: "Export Scene JSON" },
+  { id: "import-scene-json", label: "Import Scene JSON" }
 ];
 
 export default function CommandPalette({ open, onClose, onRunCommand }: CommandPaletteProps) {

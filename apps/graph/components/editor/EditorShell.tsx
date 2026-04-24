@@ -16,9 +16,11 @@ import { Sheet } from "@/components/ui/sheet";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
 import ViewportHost from "@/components/viewport/ViewportHost";
+import { deserializeScene } from "@/lib/scene/deserializeScene";
+import { serializeScene } from "@/lib/scene/serializeScene";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -32,6 +34,8 @@ export default function EditorShell() {
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
+  const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
+  const scene = useGraphStore((state) => state.scene);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -41,6 +45,7 @@ export default function EditorShell() {
     x: 0,
     y: 0
   });
+  const importInputRef = useRef<HTMLInputElement>(null);
   const leftCollapsed = useEditorStore((state) => state.leftPanelCollapsed);
   const rightCollapsed = useEditorStore((state) => state.rightPanelCollapsed);
   const leftWidth = useEditorStore((state) => state.leftPanelWidth);
@@ -95,6 +100,23 @@ export default function EditorShell() {
           requestCameraReset();
         }
         addConsoleEvent("Reset active viewport camera");
+        return;
+      }
+      if (commandId === "export-scene-json") {
+        const json = serializeScene(scene);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "vinculum-scene.json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+        addConsoleEvent("Exported scene JSON");
+        return;
+      }
+      if (commandId === "import-scene-json") {
+        importInputRef.current?.click();
+        addConsoleEvent("Opened scene import picker");
       }
     },
     [
@@ -102,7 +124,9 @@ export default function EditorShell() {
       addParametricCurve,
       addSurfaceObject,
       graphMode,
+      scene,
       requestCameraReset,
+      replaceSceneDocument,
       resetViewport2D,
       setGraphMode,
       setViewportMode
@@ -235,6 +259,27 @@ export default function EditorShell() {
         x={contextMenu.x}
         y={contextMenu.y}
         onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
+      />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) {
+            return;
+          }
+          const text = await file.text();
+          const parsed = deserializeScene(text);
+          if (parsed.valid && parsed.normalizedScene) {
+            replaceSceneDocument(parsed.normalizedScene);
+            addConsoleEvent("Imported scene JSON");
+          } else {
+            addConsoleEvent(`Import failed: ${(parsed.errors ?? ["Unknown error"]).join(", ")}`);
+          }
+          event.currentTarget.value = "";
+        }}
       />
     </div>
   );
