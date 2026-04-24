@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AdvancedTab from "@/components/inspector/AdvancedTab";
 import AnimationTab from "@/components/inspector/AnimationTab";
 import AppearanceTab from "@/components/inspector/AppearanceTab";
 import ConstraintsTab from "@/components/inspector/ConstraintsTab";
@@ -60,12 +61,7 @@ export default function InspectorPanel({ width }: InspectorPanelProps) {
         {tab === "appearance" && <AppearanceTab />}
         {tab === "constraints" && <ConstraintsTab />}
         {tab === "animation" && <AnimationTab />}
-        {tab === "advanced" && (
-          <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 p-3">
-            <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Advanced</h3>
-            <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Diagnostics and object internals land in a later checkpoint.</p>
-          </section>
-        )}
+        {tab === "advanced" && <AdvancedTab />}
       </ScrollArea>
     </aside>
   );
