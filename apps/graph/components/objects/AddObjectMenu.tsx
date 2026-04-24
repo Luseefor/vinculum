@@ -7,10 +7,30 @@ import { useGraphStore } from "@/store/graphStore";
 
 export default function AddObjectMenu() {
   const [open, setOpen] = useState(false);
+  const objects = useGraphStore((state) => state.scene.objects);
+  const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
+  const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
+  const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
+  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
+
+  const selectedObject = useMemo(
+    () => objects.find((object) => object.id === selectedObjectId) ?? null,
+    [objects, selectedObjectId]
+  );
+
+  const createSurfaceTemplate = (equation: string, message: string, domain?: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
+    const id = addSurfaceObject();
+    updateSurfaceEquation(id, equation);
+    if (domain) {
+      updateSurfaceDomain(id, domain);
+    }
+    addConsoleEvent(message);
+  };
 
   const sections = useMemo(
     () => [
@@ -42,11 +62,82 @@ export default function AddObjectMenu() {
               addPlaneObject();
               addConsoleEvent("Created plane from Add menu");
             }
+          },
+          {
+            label: "Sphere Cap",
+            onClick: () => {
+              createSurfaceTemplate(
+                "sqrt(max(0, 9 - x^2 - y^2))",
+                "Created sphere cap surface template",
+                { xMin: -3, xMax: 3, yMin: -3, yMax: 3 }
+              );
+            }
+          },
+          {
+            label: "Cylinder Shell",
+            onClick: () => {
+              createSurfaceTemplate(
+                "sqrt(max(0, 4 - x^2))",
+                "Created cylinder shell surface template",
+                { xMin: -2, xMax: 2, yMin: -6, yMax: 6 }
+              );
+            }
+          },
+          {
+            label: "Box Plateau",
+            onClick: () => {
+              createSurfaceTemplate(
+                "1",
+                "Created box plateau surface template",
+                { xMin: -1, xMax: 1, yMin: -1, yMax: 1 }
+              );
+            }
+          }
+        ]
+      },
+      {
+        title: "Analysis",
+        items: [
+          {
+            label: "Slice Plane",
+            onClick: () => {
+              const id = addPlaneObject();
+              updatePlaneEquation(id, "z = 0");
+              addConsoleEvent("Created slice plane at z=0");
+            }
+          },
+          {
+            label: "Projection",
+            onClick: () => {
+              if (!selectedObject || selectedObject.kind !== "parametricCurve") {
+                addConsoleEvent("Projection requires a selected parametric curve");
+                return;
+              }
+              const id = addParametricCurve();
+              updateParametricExpression(id, "xExpr", selectedObject.xExpr);
+              updateParametricExpression(id, "yExpr", selectedObject.yExpr);
+              updateParametricExpression(id, "zExpr", "0");
+              updateParametricExpression(id, "tMin", selectedObject.tMin);
+              updateParametricExpression(id, "tMax", selectedObject.tMax);
+              updateParametricExpression(id, "samples", selectedObject.samples);
+              addConsoleEvent("Projected selected parametric curve onto z=0");
+            }
           }
         ]
       }
     ],
-    [addConsoleEvent, addParametricCurve, addPlaneObject, addSurfaceObject]
+    [
+      addConsoleEvent,
+      addParametricCurve,
+      addPlaneObject,
+      addSurfaceObject,
+      createSurfaceTemplate,
+      selectedObject,
+      updateParametricExpression,
+      updatePlaneEquation,
+      updateSurfaceDomain,
+      updateSurfaceEquation
+    ]
   );
 
   return (
