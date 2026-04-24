@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
 interface CommandPaletteProps {
@@ -26,6 +26,7 @@ const COMMANDS = [
 export default function CommandPalette({ open, onClose, onRunCommand }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -38,6 +39,18 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
   useEffect(() => {
     setActiveIndex(0);
   }, [query, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const command = filtered[activeIndex];
+    if (!command || !listRef.current) {
+      return;
+    }
+    const target = listRef.current.querySelector<HTMLButtonElement>(`[data-command-id="${command.id}"]`);
+    target?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, filtered, open]);
 
   if (!open) {
     return null;
@@ -107,11 +120,12 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             aria-label="Command search"
           />
         </div>
-        <div className="max-h-[50vh] overflow-y-auto p-2" role="listbox" aria-label="Commands">
+        <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-2" role="listbox" aria-label="Commands">
           {filtered.map((command) => (
             <button
               key={command.id}
               type="button"
+              data-command-id={command.id}
               role="option"
               aria-selected={filtered[activeIndex]?.id === command.id}
               onMouseEnter={() => {
