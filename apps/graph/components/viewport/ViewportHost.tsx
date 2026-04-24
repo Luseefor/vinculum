@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactNode } from "react";
 import SplitViewport from "@/components/viewport/SplitViewport";
 import type { ViewportMode } from "@/lib/types/ui";
 
@@ -53,6 +53,13 @@ export default function ViewportHost({
   zoomLabel,
   snapLabel
 }: ViewportHostProps) {
+  const mountViewport = (node: ReactNode, key: string): ReactNode => {
+    if (isValidElement(node)) {
+      return cloneElement(node, { key });
+    }
+    return node;
+  };
+
   if (mode === "2d") {
     return (
       <Pane
@@ -62,7 +69,7 @@ export default function ViewportHost({
         selectedLabel={selectedLabel}
         snapLabel={snapLabel}
       >
-        {viewport2d}
+        {mountViewport(viewport2d, "single-2d")}
       </Pane>
     );
   }
@@ -76,7 +83,7 @@ export default function ViewportHost({
         selectedLabel={selectedLabel}
         snapLabel={snapLabel}
       >
-        {viewport3d}
+        {mountViewport(viewport3d, "single-3d")}
       </Pane>
     );
   }
@@ -92,7 +99,7 @@ export default function ViewportHost({
             selectedLabel={selectedLabel}
             snapLabel={snapLabel}
           >
-            {viewport2d}
+            {mountViewport(viewport2d, "split-2d")}
           </Pane>
         }
         secondary={
@@ -103,7 +110,7 @@ export default function ViewportHost({
             selectedLabel={selectedLabel}
             snapLabel={snapLabel}
           >
-            {viewport3d}
+            {mountViewport(viewport3d, "split-3d")}
           </Pane>
         }
       />
@@ -120,7 +127,7 @@ export default function ViewportHost({
           selectedLabel={selectedLabel}
           snapLabel={snapLabel}
         >
-          {viewport2d}
+          {mountViewport(viewport2d, "quad-xy")}
         </Pane>
       </div>
       <div className="min-h-0 bg-[var(--surface-canvas)]">
@@ -131,29 +138,29 @@ export default function ViewportHost({
           selectedLabel={selectedLabel}
           snapLabel={snapLabel}
         >
-          {viewport3d}
+          {mountViewport(viewport3d, "quad-perspective")}
         </Pane>
       </div>
       <div className="min-h-0 bg-[var(--surface-canvas)]">
         <Pane
-          title="Front (placeholder)"
+          title="Front (linked)"
           toolLabel={secondaryToolLabel}
           zoomLabel={zoomLabel}
           selectedLabel={selectedLabel}
           snapLabel={snapLabel}
         >
-          <div className="flex h-full items-center justify-center text-[11px] text-[var(--text-tertiary)]">Front view coming soon</div>
+          {mountViewport(viewport3d, "quad-front")}
         </Pane>
       </div>
       <div className="min-h-0 bg-[var(--surface-canvas)]">
         <Pane
-          title="Top (placeholder)"
+          title="Top (linked)"
           toolLabel={secondaryToolLabel}
           zoomLabel={zoomLabel}
           selectedLabel={selectedLabel}
           snapLabel={snapLabel}
         >
-          <div className="flex h-full items-center justify-center text-[11px] text-[var(--text-tertiary)]">Top view coming soon</div>
+          {mountViewport(viewport2d, "quad-top")}
         </Pane>
       </div>
     </div>
