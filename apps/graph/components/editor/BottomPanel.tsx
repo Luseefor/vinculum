@@ -26,6 +26,8 @@ export default function BottomPanel() {
   const setAnimationPlaying = useEditorStore((state) => state.setAnimationPlaying);
   const setAnimationSpeed = useEditorStore((state) => state.setAnimationSpeed);
   const setAnimationRange = useEditorStore((state) => state.setAnimationRange);
+  const setAnimationParameterId = useEditorStore((state) => state.setAnimationParameterId);
+  const toggleAnimationLoop = useEditorStore((state) => state.toggleAnimationLoop);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const visibleCount = useGraphStore((state) => state.scene.objects.filter((object) => object.visible).length);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
@@ -85,6 +87,28 @@ export default function BottomPanel() {
                 <DiagnosticCard label="State" value={animation.playing ? "PLAYING" : "PAUSED"} />
               </div>
               <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
+                <div className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <label className="space-y-1">
+                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Parameter</span>
+                    <select
+                      value={animation.parameterId ?? ""}
+                      onChange={(event) => setAnimationParameterId(event.target.value || null)}
+                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 text-[11px] text-[var(--text-primary)]"
+                    >
+                      <option value="">None</option>
+                      {parameters.map((parameter) => (
+                        <option key={parameter.id} value={parameter.id}>
+                          {parameter.id}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="flex items-end">
+                    <Button type="button" size="sm" variant="ghost" onClick={toggleAnimationLoop}>
+                      Loop: {animation.loop ? "On" : "Off"}
+                    </Button>
+                  </div>
+                </div>
                 <div className="mb-2 flex items-center gap-2">
                   <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>
                     {animation.playing ? "Pause" : "Play"}
