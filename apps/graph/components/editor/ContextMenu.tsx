@@ -60,12 +60,20 @@ export default function ContextMenu({
     return null;
   }
   const items = buildItems({ hasSelection, canUndo, canRedo, currentMode });
+  const MENU_WIDTH = 240;
+  const MENU_HEIGHT_ESTIMATE = 340;
+  const PADDING = 8;
+  const maxX = typeof window === "undefined" ? x : Math.max(PADDING, window.innerWidth - MENU_WIDTH - PADDING);
+  const maxY =
+    typeof window === "undefined" ? y : Math.max(PADDING, window.innerHeight - MENU_HEIGHT_ESTIMATE - PADDING);
+  const clampedX = Math.min(Math.max(x, PADDING), maxX);
+  const clampedY = Math.min(Math.max(y, PADDING), maxY);
 
   return (
     <div className="fixed inset-0 z-[65]" onClick={onClose}>
       <div
-        className="absolute min-w-40 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-1 shadow-[var(--shadow-floating)]"
-        style={{ left: x, top: y }}
+        className="absolute min-w-40 max-w-60 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-1 shadow-[var(--shadow-floating)]"
+        style={{ left: clampedX, top: clampedY }}
         onClick={(event) => event.stopPropagation()}
       >
         {items.map((item) => {
