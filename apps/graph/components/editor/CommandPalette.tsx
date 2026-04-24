@@ -168,7 +168,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
           <span>
             {filtered.length} match{filtered.length === 1 ? "" : "es"}
           </span>
-          <span>↑/↓ Navigate · Enter Run · Esc Close</span>
+          <span>Cmd/Ctrl+K or Cmd/Ctrl+Shift+P · ↑/↓ Navigate · Enter Run · Esc Close</span>
         </div>
       </div>
     </div>
