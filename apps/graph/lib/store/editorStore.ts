@@ -20,6 +20,15 @@ interface EditorConstraint {
   enabled: boolean;
 }
 
+interface EditorAnimationState {
+  parameterId: string | null;
+  min: number;
+  max: number;
+  speed: number;
+  loop: boolean;
+  playing: boolean;
+}
+
 interface EditorStoreState {
   viewportMode: ViewportMode;
   leftPanelCollapsed: boolean;
@@ -32,6 +41,7 @@ interface EditorStoreState {
   parameters: EditorParameter[];
   consoleEvents: string[];
   constraints: EditorConstraint[];
+  animation: EditorAnimationState;
   setViewportMode: (mode: ViewportMode) => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
@@ -45,6 +55,11 @@ interface EditorStoreState {
   addConstraint: (type: EditorConstraintType, objectIds: string[]) => void;
   toggleConstraint: (id: string) => void;
   removeConstraint: (id: string) => void;
+  setAnimationParameterId: (id: string | null) => void;
+  setAnimationRange: (min: number, max: number) => void;
+  setAnimationSpeed: (speed: number) => void;
+  toggleAnimationLoop: () => void;
+  setAnimationPlaying: (playing: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStoreState>()(
@@ -64,6 +79,14 @@ export const useEditorStore = create<EditorStoreState>()(
       ],
       consoleEvents: [],
       constraints: [],
+      animation: {
+        parameterId: "r",
+        min: 0.1,
+        max: 12,
+        speed: 0.8,
+        loop: true,
+        playing: false
+      },
       setViewportMode: (mode) => set({ viewportMode: mode }),
       toggleLeftPanel: () => set((state) => ({ leftPanelCollapsed: !state.leftPanelCollapsed })),
       toggleRightPanel: () => set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
@@ -108,6 +131,42 @@ export const useEditorStore = create<EditorStoreState>()(
       removeConstraint: (id) =>
         set((state) => ({
           constraints: state.constraints.filter((constraint) => constraint.id !== id)
+        })),
+      setAnimationParameterId: (id) =>
+        set((state) => ({
+          animation: {
+            ...state.animation,
+            parameterId: id
+          }
+        })),
+      setAnimationRange: (min, max) =>
+        set((state) => ({
+          animation: {
+            ...state.animation,
+            min: Math.min(min, max),
+            max: Math.max(min, max)
+          }
+        })),
+      setAnimationSpeed: (speed) =>
+        set((state) => ({
+          animation: {
+            ...state.animation,
+            speed: clamp(speed, 0.05, 8)
+          }
+        })),
+      toggleAnimationLoop: () =>
+        set((state) => ({
+          animation: {
+            ...state.animation,
+            loop: !state.animation.loop
+          }
+        })),
+      setAnimationPlaying: (playing) =>
+        set((state) => ({
+          animation: {
+            ...state.animation,
+            playing
+          }
         }))
     }),
     {
