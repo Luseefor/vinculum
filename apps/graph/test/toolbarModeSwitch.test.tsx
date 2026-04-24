@@ -12,7 +12,7 @@ describe("Toolbar mode switch", () => {
   it("switches from 2D to 3D on click", () => {
     render(<Toolbar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "3D" }));
+    fireEvent.click(screen.getByRole("button", { name: "3D", exact: true }));
 
     expect(useGraphStore.getState().ui.graphMode).toBe("3d");
   });
@@ -21,7 +21,7 @@ describe("Toolbar mode switch", () => {
     useGraphStore.getState().setGraphMode("3d");
     render(<Toolbar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "2D" }));
+    fireEvent.click(screen.getByRole("button", { name: "2D", exact: true }));
 
     expect(useGraphStore.getState().ui.graphMode).toBe("2d");
   });
