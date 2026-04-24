@@ -1,5 +1,7 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
+
 interface ContextMenuProps {
   open: boolean;
   x: number;
@@ -56,24 +58,38 @@ export default function ContextMenu({
   canRedo,
   currentMode
 }: ContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x, y });
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const PADDING = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const rect = menuRef.current?.getBoundingClientRect();
+    const menuWidth = rect?.width ?? 240;
+    const menuHeight = rect?.height ?? 340;
+
+    const clampedX = Math.min(Math.max(x, PADDING), Math.max(PADDING, viewportWidth - menuWidth - PADDING));
+    const clampedY = Math.min(Math.max(y, PADDING), Math.max(PADDING, viewportHeight - menuHeight - PADDING));
+
+    setPosition({ x: clampedX, y: clampedY });
+  }, [open, x, y, hasSelection, canUndo, canRedo, currentMode]);
+
   if (!open) {
     return null;
   }
   const items = buildItems({ hasSelection, canUndo, canRedo, currentMode });
-  const MENU_WIDTH = 240;
-  const MENU_HEIGHT_ESTIMATE = 340;
-  const PADDING = 8;
-  const maxX = typeof window === "undefined" ? x : Math.max(PADDING, window.innerWidth - MENU_WIDTH - PADDING);
-  const maxY =
-    typeof window === "undefined" ? y : Math.max(PADDING, window.innerHeight - MENU_HEIGHT_ESTIMATE - PADDING);
-  const clampedX = Math.min(Math.max(x, PADDING), maxX);
-  const clampedY = Math.min(Math.max(y, PADDING), maxY);
 
   return (
     <div className="fixed inset-0 z-[65]" onClick={onClose}>
       <div
+        ref={menuRef}
         className="absolute min-w-40 max-w-60 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-1 shadow-[var(--shadow-floating)]"
-        style={{ left: clampedX, top: clampedY }}
+        style={{ left: position.x, top: position.y }}
         onClick={(event) => event.stopPropagation()}
       >
         {items.map((item) => {
