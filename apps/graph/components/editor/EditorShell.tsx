@@ -18,6 +18,8 @@ import Viewport3D from "@/components/viewport/Viewport3D";
 import ViewportHost from "@/components/viewport/ViewportHost";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { serializeScene } from "@/lib/scene/serializeScene";
+import { getCurrentSceneSnapshot } from "@/lib/store/sceneStore";
+import { useHistoryStore } from "@/lib/store/historyStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,6 +37,7 @@ export default function EditorShell() {
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
+  const applySceneSnapshot = useGraphStore((state) => state.applySceneSnapshot);
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
   const scene = useGraphStore((state) => state.scene);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
@@ -58,12 +61,39 @@ export default function EditorShell() {
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
+  const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
+  const undoHistory = useHistoryStore((state) => state.undo);
+  const redoHistory = useHistoryStore((state) => state.redo);
+  const prevSnapshotRef = useRef(getCurrentSceneSnapshot());
+  const historyActionRef = useRef(false);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
   const selectedLabel = selectedObjectId ? selectedObjectId.slice(0, 8) : "None";
   const primaryToolLabel = canvas2dTool.toUpperCase();
   const secondaryToolLabel = canvas3dTool.toUpperCase();
   const zoomLabel = graphMode === "2d" ? `Zoom ${Math.round(viewport2d.scale)}%` : "Perspective";
   const snapLabel = "Grid";
+
+  const runUndo = useCallback(() => {
+    const current = getCurrentSceneSnapshot();
+    const previous = undoHistory(current);
+    if (!previous) {
+      return;
+    }
+    historyActionRef.current = true;
+    applySceneSnapshot(previous);
+    addConsoleEvent("Undo");
+  }, [addConsoleEvent, applySceneSnapshot, undoHistory]);
+
+  const runRedo = useCallback(() => {
+    const current = getCurrentSceneSnapshot();
+    const next = redoHistory(current);
+    if (!next) {
+      return;
+    }
+    historyActionRef.current = true;
+    applySceneSnapshot(next);
+    addConsoleEvent("Redo");
+  }, [addConsoleEvent, applySceneSnapshot, redoHistory]);
 
   const runCommand = useCallback(
     (commandId: string) => {
@@ -97,6 +127,14 @@ export default function EditorShell() {
       if (commandId === "switch-split") {
         setViewportMode("split");
         addConsoleEvent("Switched viewport to Split");
+        return;
+      }
+      if (commandId === "undo") {
+        runUndo();
+        return;
+      }
+      if (commandId === "redo") {
+        runRedo();
         return;
       }
       if (commandId === "delete-selected") {
@@ -137,17 +175,40 @@ export default function EditorShell() {
       addParametricCurve,
       addPlaneObject,
       addSurfaceObject,
+      applySceneSnapshot,
       graphMode,
       selectedObjectId,
       scene,
       requestCameraReset,
       replaceSceneDocument,
       removeObject,
+      runRedo,
+      runUndo,
       resetViewport2D,
       setGraphMode,
       setViewportMode
     ]
   );
+
+  useEffect(() => {
+    const current = getCurrentSceneSnapshot();
+    const previous = prevSnapshotRef.current;
+    const changed =
+      previous.selection.selectedObjectId !== current.selection.selectedObjectId ||
+      previous.objects !== current.objects;
+
+    if (!changed) {
+      return;
+    }
+
+    if (historyActionRef.current) {
+      historyActionRef.current = false;
+    } else {
+      pushSnapshot(previous);
+    }
+
+    prevSnapshotRef.current = current;
+  }, [pushSnapshot, scene, selectedObjectId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -157,6 +218,17 @@ export default function EditorShell() {
         return;
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          runRedo();
+        } else {
+          runUndo();
+        }
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        runRedo();
         return;
       }
       if (event.key === "Escape") {
@@ -200,6 +272,8 @@ export default function EditorShell() {
     removeObject,
     requestCameraReset,
     resetViewport2D,
+    runRedo,
+    runUndo,
     selectedObjectId,
     setCanvas2dTool,
     setCanvas3dTool

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObject,
   GraphObjectKind,
@@ -84,6 +85,7 @@ interface GraphStoreState {
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
   setSketchExtendFraction: (fraction: number) => void;
   setSketchAutoCreate: (enabled: boolean) => void;
+  applySceneSnapshot: (snapshot: SceneSnapshot) => void;
   addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[]) => string;
   addSketchedParametricFromStroke3d: (stroke: { x: number; y: number; z: number }[]) => string;
 }
@@ -716,6 +718,19 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
       ui: {
         ...state.ui,
         sketchAutoCreate: enabled
+      }
+    }));
+  },
+
+  applySceneSnapshot: (snapshot) => {
+    set((state) => ({
+      scene: {
+        ...state.scene,
+        objects: snapshot.objects
+      },
+      ui: {
+        ...state.ui,
+        selectedObjectId: resolveSelectedObjectId(snapshot.selection.selectedObjectId, snapshot.objects)
       }
     }));
   },
