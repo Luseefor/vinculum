@@ -78,6 +78,8 @@ export default function InfiniteGrid() {
       uMinorColor: { value: new Color(tokens.gridMinor) },
       uMajorColor: { value: new Color(tokens.gridMajor) }
     }),
+    // Uniform bag identity is stable; scalar updates run in the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial snapshot only
     []
   );
 

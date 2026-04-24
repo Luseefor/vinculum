@@ -21,7 +21,7 @@ function ParametricCurveComponent({ object, resolutionMultiplier, isInteractive 
         transparent: true,
         opacity: 0.95
       }),
-    []
+    [object.color]
   );
   const line = useMemo(() => new THREE.Line(geometry, material), [geometry, material]);
 
