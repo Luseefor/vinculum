@@ -1,6 +1,6 @@
 import { compile } from "mathjs";
 
-export type SurfaceEvaluator = (x: number, y: number) => number;
+export type SurfaceEvaluator = (u: number, v: number) => number;
 
 export interface CompiledSurfaceExpression {
   evaluator: SurfaceEvaluator;
@@ -14,14 +14,17 @@ interface CompiledMathExpression {
 const NAN_EVALUATOR: SurfaceEvaluator = () => Number.NaN;
 const MAX_ERROR_LENGTH = 92;
 
-export function compileSurfaceExpression(expression: string): CompiledSurfaceExpression {
-  const trimmedExpression = expression.trim();
+export function compileSurfaceExpression(expression: string, orientation: "x" | "y" | "z" = "z"): CompiledSurfaceExpression {
+  let trimmedExpression = expression.trim();
   if (!trimmedExpression) {
     return {
       evaluator: NAN_EVALUATOR,
       error: "Equation cannot be empty."
     };
   }
+
+  // Strip prefixes like "z =", "y =", "x =", "f(x,y) =", etc.
+  trimmedExpression = trimmedExpression.replace(/^[a-z](\([a-z,\s]*\))?\s*=\s*/i, "");
 
   let compiledExpression: CompiledMathExpression;
   try {
@@ -33,9 +36,35 @@ export function compileSurfaceExpression(expression: string): CompiledSurfaceExp
     };
   }
 
+  const getScope = (u: number, v: number) => {
+    const scope: Record<string, number> = {
+      x: 0,
+      y: 0,
+      z: 0,
+      t: 0,
+      pi: Math.PI,
+      e: Math.E
+    };
+
+    if (orientation === "x") {
+      // x = f(y, z) -> u=y, v=z
+      scope.y = u;
+      scope.z = v;
+    } else if (orientation === "y") {
+      // y = f(x, z) -> u=x, v=z
+      scope.x = u;
+      scope.z = v;
+    } else {
+      // z = f(x, y) -> u=x, v=y
+      scope.x = u;
+      scope.y = v;
+    }
+    return scope;
+  };
+
   try {
     // Probe once to surface undefined symbol/function errors directly in row UI.
-    compiledExpression.evaluate({ x: 0, y: 0 });
+    compiledExpression.evaluate(getScope(0, 0));
   } catch (error) {
     return {
       evaluator: NAN_EVALUATOR,
@@ -43,9 +72,9 @@ export function compileSurfaceExpression(expression: string): CompiledSurfaceExp
     };
   }
 
-  const evaluator: SurfaceEvaluator = (x, y) => {
+  const evaluator: SurfaceEvaluator = (u, v) => {
     try {
-      const result = compiledExpression.evaluate({ x, y });
+      const result = compiledExpression.evaluate(getScope(u, v));
       const numericResult = typeof result === "number" ? result : Number(result);
       return Number.isFinite(numericResult) ? numericResult : Number.NaN;
     } catch {

@@ -7,6 +7,7 @@ interface SampleSurfaceOptions {
   resolution: number;
   invalidHeight?: number;
   clampHeight?: number;
+  orientation?: "x" | "y" | "z";
 }
 
 export interface SampledSurfaceMesh {
@@ -21,6 +22,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
   const resolution = normalizeSurfaceResolution(options.resolution);
   const invalidHeight = options.invalidHeight ?? 0;
   const clampHeight = Math.max(1, options.clampHeight ?? DEFAULT_CLAMP_HEIGHT);
+  const orientation = options.orientation ?? "z";
 
   const xMin = Math.min(options.domain.xMin, options.domain.xMax);
   const xMax = Math.max(options.domain.xMin, options.domain.xMax);
@@ -44,25 +46,34 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
   let vertexOffset = 0;
   for (let yStep = 0; yStep <= resolution; yStep += 1) {
-    const yValue = lerp(yMin, yMax, yStep / resolution);
+    const vValue = lerp(yMin, yMax, yStep / resolution);
 
     for (let xStep = 0; xStep <= resolution; xStep += 1) {
       const vertexIndex = yStep * stride + xStep;
-      const xValue = lerp(xMin, xMax, xStep / resolution);
-      const sampledHeight = evaluate(xValue, yValue);
+      const uValue = lerp(xMin, xMax, xStep / resolution);
+      const sampledHeight = evaluate(uValue, vValue);
 
-      if (Number.isFinite(sampledHeight)) {
-        positions[vertexOffset] = xValue;
-        positions[vertexOffset + 1] = clamp(sampledHeight, -clampHeight, clampHeight);
-        positions[vertexOffset + 2] = yValue;
-        validVertices[vertexIndex] = 1;
+      const isFinite = Number.isFinite(sampledHeight);
+      const h = isFinite ? clamp(sampledHeight, -clampHeight, clampHeight) : invalidHeight;
+
+      if (orientation === "x") {
+        // x = f(y, z) -> Math Y maps to Three.X, Math Z to Three.Z, Math X (height) to Three.Y
+        positions[vertexOffset] = uValue;     // Math Y -> Three.X
+        positions[vertexOffset + 1] = h;       // Math X -> Three.Y (up)
+        positions[vertexOffset + 2] = vValue; // Math Z -> Three.Z
+      } else if (orientation === "y") {
+        // y = f(x, z) -> Math X maps to Three.X, Math Z to Three.Z, Math Y (height) to Three.Y
+        positions[vertexOffset] = uValue;     // Math X -> Three.X
+        positions[vertexOffset + 1] = h;       // Math Y -> Three.Y (up)
+        positions[vertexOffset + 2] = vValue; // Math Z -> Three.Z
       } else {
-        positions[vertexOffset] = xValue;
-        positions[vertexOffset + 1] = invalidHeight;
-        positions[vertexOffset + 2] = yValue;
-        validVertices[vertexIndex] = 0;
+        // z = f(x, y) -> Math X maps to Three.X, Math Y to Three.Z, Math Z (height) to Three.Y
+        positions[vertexOffset] = uValue;     // Math X -> Three.X
+        positions[vertexOffset + 1] = h;       // Math Z -> Three.Y (up)
+        positions[vertexOffset + 2] = vValue; // Math Y -> Three.Z
       }
 
+      validVertices[vertexIndex] = isFinite ? 1 : 0;
       vertexOffset += 3;
     }
   }

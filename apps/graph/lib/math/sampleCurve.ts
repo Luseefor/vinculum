@@ -33,9 +33,9 @@ export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveO
     const [x, y, z] = evaluate(t);
 
     const point = sanitizePoint([x, y, z], previousPoint, clampCoordinate);
-    positions[index * 3] = point[0];
-    positions[index * 3 + 1] = point[1];
-    positions[index * 3 + 2] = point[2];
+    positions[index * 3] = point[0];     // Math X -> Three.X
+    positions[index * 3 + 1] = point[2]; // Math Z -> Three.Y (up)
+    positions[index * 3 + 2] = point[1]; // Math Y -> Three.Z
 
     previousPoint = point;
   }
