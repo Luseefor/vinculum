@@ -12,6 +12,7 @@ import { sampleCurve } from "@/lib/math/sampleCurve";
 import { buildGridSeries } from "@/components/viewport/Grid2D";
 import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
@@ -65,6 +66,8 @@ interface RenderableGraph {
   verticalLineValue: number | null;
   horizontalLineValue: number | null;
   evaluate: ((horizontalValue: number) => number | null) | null;
+  implicitEvaluate: ((horizontalValue: number, verticalValue: number) => number | null) | null;
+  hatchDomain: { hMin: number; hMax: number; vMin: number; vMax: number } | null;
   polylineHV: Float64Array | null;
 }
 
@@ -114,7 +117,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
-  const probePinnedMaths = useGraphStore((state) => state.ui.probePinnedMaths);
+  const probePins = useGraphStore((state) => state.ui.probePins);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
   const updateViewport2DQuadTop = useGraphStore((state) => state.updateViewport2DQuadTop);
   const patchViewport2D = isQuadTop ? updateViewport2DQuadTop : updateViewport2D;
@@ -359,25 +362,26 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
             verticalLineValue: null,
             horizontalLineValue: null,
             evaluate: null,
+            implicitEvaluate: null,
+            hatchDomain: null,
             polylineHV
           });
         }
         continue;
       }
 
-      let expr = "";
-      if (obj.kind === "surface") {
-        expr = obj.equation;
-      } else if (obj.kind === "plane") {
-        expr = obj.equation;
-      } else {
-        continue;
-      }
-
+      const expr = obj.equation;
       const trimmed = expr.trim();
       if (!trimmed) {
         continue;
       }
+
+      const surfaceEffective =
+        obj.kind === "surface"
+          ? getEffectiveSurfaceOrientation(expr, obj.orientation || "z")
+          : null;
+      const effectiveDependent = surfaceEffective?.effectiveOrientation ?? null;
+      const surfaceBody = surfaceEffective?.body.trim() ?? "";
 
       const horizontal = escapeRegExp(axisPair.horizontal);
       const vertical = escapeRegExp(axisPair.vertical);
@@ -392,6 +396,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
             verticalLineValue: value,
             horizontalLineValue: null,
             evaluate: null,
+            implicitEvaluate: null,
+            hatchDomain: null,
             polylineHV: null
           });
         }
@@ -408,27 +414,125 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
             verticalLineValue: null,
             horizontalLineValue: value,
             evaluate: null,
+            implicitEvaluate: null,
+            hatchDomain: null,
             polylineHV: null
           });
         }
         continue;
       }
 
-      const directValue = Number(trimmed);
-      if (Number.isFinite(directValue)) {
+      const numericSource = obj.kind === "surface" ? surfaceBody || trimmed : trimmed;
+      const maybeDirectValue = Number(numericSource);
+      if (Number.isFinite(maybeDirectValue)) {
+        if (obj.kind === "surface" && effectiveDependent) {
+          if (effectiveDependent === axisPair.horizontal) {
+            graphs.push({
+              id: obj.id,
+              color: obj.color,
+              verticalLineValue: maybeDirectValue,
+              horizontalLineValue: null,
+              evaluate: null,
+              implicitEvaluate: null,
+              hatchDomain: null,
+              polylineHV: null
+            });
+            continue;
+          }
+          if (effectiveDependent === axisPair.vertical) {
+            graphs.push({
+              id: obj.id,
+              color: obj.color,
+              verticalLineValue: null,
+              horizontalLineValue: maybeDirectValue,
+              evaluate: null,
+              implicitEvaluate: null,
+              hatchDomain: null,
+              polylineHV: null
+            });
+            continue;
+          }
+          continue;
+        }
+
         graphs.push({
           id: obj.id,
           color: obj.color,
           verticalLineValue: null,
-          horizontalLineValue: directValue,
+          horizontalLineValue: maybeDirectValue,
           evaluate: null,
+          implicitEvaluate: null,
+          hatchDomain: null,
           polylineHV: null
         });
         continue;
       }
 
-      const dependentPattern = new RegExp(`^${vertical}\\s*=\\s*`, "i");
-      const cleanExpr = trimmed.replace(dependentPattern, "").trim();
+      const implicitParts = splitImplicitEquation(numericSource);
+      if (implicitParts) {
+        const lhs = tryCompileMathExpression(implicitParts.lhs);
+        const rhs = tryCompileMathExpression(implicitParts.rhs);
+        if (lhs && rhs) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: null,
+            horizontalLineValue: null,
+            evaluate: null,
+            implicitEvaluate: (horizontalValue: number, verticalValue: number) => {
+              try {
+                const scope: Record<string, number> = {
+                  x: 0,
+                  y: 0,
+                  z: 0,
+                  t: horizontalValue,
+                  pi: Math.PI,
+                  e: Math.E
+                };
+                scope[axisPair.horizontal] = horizontalValue;
+                scope[axisPair.vertical] = verticalValue;
+                const leftResult = lhs.evaluate(scope);
+                const rightResult = rhs.evaluate(scope);
+                const leftNumeric = typeof leftResult === "number" ? leftResult : Number(leftResult);
+                const rightNumeric = typeof rightResult === "number" ? rightResult : Number(rightResult);
+                if (!Number.isFinite(leftNumeric) || !Number.isFinite(rightNumeric)) {
+                  return null;
+                }
+                return leftNumeric - rightNumeric;
+              } catch {
+                return null;
+              }
+            },
+            hatchDomain: null,
+            polylineHV: null
+          });
+          continue;
+        }
+      }
+
+      const dependentVar =
+        obj.kind === "surface" && effectiveDependent ? effectiveDependent : axisPair.vertical;
+      if (obj.kind === "surface" && effectiveDependent && effectiveDependent !== axisPair.vertical) {
+        graphs.push({
+          id: obj.id,
+          color: obj.color,
+          verticalLineValue: null,
+          horizontalLineValue: null,
+          evaluate: null,
+          implicitEvaluate: null,
+          hatchDomain: {
+            hMin: Math.min(obj.domain.xMin, obj.domain.xMax),
+            hMax: Math.max(obj.domain.xMin, obj.domain.xMax),
+            vMin: Math.min(obj.domain.yMin, obj.domain.yMax),
+            vMax: Math.max(obj.domain.yMin, obj.domain.yMax)
+          },
+          polylineHV: null
+        });
+        continue;
+      }
+
+      const dependentPattern = new RegExp(`^${escapeRegExp(dependentVar)}\\s*=\\s*`, "i");
+      const cleanExpr = numericSource.replace(dependentPattern, "").trim();
       const compiled = tryCompileMathExpression(cleanExpr);
       if (!compiled) {
         continue;
@@ -440,6 +544,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         verticalLineValue: null,
         horizontalLineValue: null,
         polylineHV: null,
+        implicitEvaluate: null,
+        hatchDomain: null,
         evaluate: (horizontalValue: number) => {
           try {
             const scope: Record<string, number> = {
@@ -543,6 +649,19 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         }
 
         ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (graph.implicitEvaluate) {
+        drawImplicitContour(graph.implicitEvaluate, ctx, dc, width, height);
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
+
+      if (graph.hatchDomain) {
+        drawHatchedDomain(graph.hatchDomain, ctx, dc, graph.color);
         ctx.restore();
         return;
       }
@@ -655,14 +774,19 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     }
 
     if (!isQuadTop) {
-      for (const pinned of probePinnedMaths) {
-        const pinnedScreen = mathToScreen(pinned.horizontal, pinned.vertical, dc);
-        drawScreenCrosshair(ctx, dc.width, dc.height, pinnedScreen.x, pinnedScreen.y, palette.probe, 2, []);
+      for (const pin of probePins) {
+        const math = projectWorldTo2dPair(pin.world, pairForCanvas);
+        const pinnedScreen = mathToScreen(math.horizontal, math.vertical, dc);
+        drawScreenCrosshair(ctx, dc.width, dc.height, pinnedScreen.x, pinnedScreen.y, pin.color, 2, []);
+
         ctx.save();
-        ctx.fillStyle = palette.probe;
+        ctx.fillStyle = pin.color;
         ctx.beginPath();
         ctx.arc(alignToPixel(pinnedScreen.x), alignToPixel(pinnedScreen.y), 3.5, 0, Math.PI * 2);
         ctx.fill();
+
+        const label = `${axisPair.horizontalLabel}: ${formatProbeCoord(math.horizontal)} · ${axisPair.verticalLabel}: ${formatProbeCoord(math.vertical)}`;
+        drawProbeLabel(ctx, pinnedScreen.x, pinnedScreen.y - 14, label);
         ctx.restore();
       }
     }
@@ -700,12 +824,15 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     palette.background,
     palette.probe,
     palette.sketch,
-    probePinnedMaths,
+    probePins,
     renderableGraphs,
     sketchDraft,
     viewport.centerX,
     viewport.centerY,
-    viewport.scale
+    viewport.scale,
+    axisPair.horizontalLabel,
+    axisPair.verticalLabel,
+    pairForCanvas
   ]);
 
   const zoomAtScreenPoint = useCallback(
@@ -770,7 +897,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
       const rawMath = screenToMath(screenX, screenY, rect.width, rect.height);
-      const mathCoords = snapMathPoint(rawMath);
+      const mathCoords =
+        snapEnabled && (canvas2dTool === "probe" || canvas2dTool === "draw") ? snapMathPoint(rawMath) : rawMath;
 
       if (canvas2dTool === "probe") {
         setProbePinnedMath({
@@ -796,7 +924,36 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
       activePointerId.current = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [canvas2dTool, isQuadTop, screenToMath, setActive2dViewport, setProbePinnedMath, snapMathPoint]
+    [canvas2dTool, isQuadTop, screenToMath, setActive2dViewport, setProbePinnedMath, snapEnabled, snapMathPoint]
+  );
+
+  const removeProbePin = useGraphStore((state) => state.removeProbePin);
+
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isQuadTop || canvas2dTool !== "probe") {
+        return;
+      }
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const dc = {
+        width: rect.width,
+        height: rect.height,
+        centerX: viewport.centerX,
+        centerY: viewport.centerY,
+        scale: viewport.scale
+      };
+      const hit = findNearestProbePinScreen(probePins, pairForCanvas, x, y, dc, mathToScreen);
+      if (hit) {
+        removeProbePin(hit.id);
+      }
+    },
+    [canvas2dTool, isQuadTop, mathToScreen, pairForCanvas, probePins, removeProbePin, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
   const handlePointerMove = useCallback(
@@ -1027,6 +1184,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         ref={canvasRef}
         data-graph2d-canvas="true"
         className={`h-full w-full ${canvasCursorClass}`}
+        onContextMenu={handleContextMenu}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -1085,7 +1243,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         </button>
       </div>
 
-      <div className="absolute bottom-11 left-3 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
+      <div className="absolute bottom-24 left-3 z-20 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
         {sketchFitPreview && (
           <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
             <p className="mb-1 text-[var(--text-primary)]">Sketch fit preview</p>
@@ -1127,15 +1285,19 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
             {axisPair.verticalLabel}: {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.vertical)}
           </div>
         )}
-        {!isQuadTop && probePinnedMaths.length > 0 && (
+        {!isQuadTop && probePins.length > 0 && (
           <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
-            <div className="mb-0.5 text-[var(--text-tertiary)] font-semibold uppercase tracking-wider">Pinned ({probePinnedMaths.length})</div>
-            {probePinnedMaths.slice(-3).reverse().map((p, i) => (
-              <div key={i} className="mt-0.5 first:mt-0 whitespace-nowrap">
-                {axisPair.horizontalLabel}: {formatProbeCoord(p.horizontal)} · {axisPair.verticalLabel}: {formatProbeCoord(p.vertical)}
-              </div>
-            ))}
-            {probePinnedMaths.length > 3 && <div className="mt-0.5 text-[var(--text-tertiary)] opacity-60">...</div>}
+            <div className="mb-0.5 text-[var(--text-tertiary)] font-semibold uppercase tracking-wider">Pinned ({probePins.length})</div>
+            {probePins.slice(-3).reverse().map((p) => {
+              const math = projectWorldTo2dPair(p.world, pairForCanvas);
+              return (
+                <div key={p.id} className="mt-0.5 first:mt-0 whitespace-nowrap">
+                  <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: p.color }} />
+                  {axisPair.horizontalLabel}: {formatProbeCoord(math.horizontal)} · {axisPair.verticalLabel}: {formatProbeCoord(math.vertical)}
+                </div>
+              );
+            })}
+            {probePins.length > 3 && <div className="mt-0.5 text-[var(--text-tertiary)] opacity-60">...</div>}
           </div>
         )}
         <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
@@ -1215,6 +1377,9 @@ function buildParametricPolylineHV(
   horizontal: AxisVariable,
   vertical: AxisVariable
 ): Float64Array | null {
+  if (![obj.xExpr, obj.yExpr, obj.zExpr].some((expr) => expr.trim())) {
+    return null;
+  }
   const compiled = compileParametricExpressions(obj.xExpr, obj.yExpr, obj.zExpr);
   if (compiled.error) {
     return null;
@@ -1315,12 +1480,250 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function splitImplicitEquation(expression: string): { lhs: string; rhs: string } | null {
+  const trimmed = expression.trim();
+  const eqIndex = trimmed.indexOf("=");
+  if (eqIndex < 0) {
+    return null;
+  }
+  if (trimmed.indexOf("=", eqIndex + 1) !== -1) {
+    return null;
+  }
+  const lhs = trimmed.slice(0, eqIndex).trim() || "0";
+  const rhs = trimmed.slice(eqIndex + 1).trim() || "0";
+  return {
+    lhs,
+    rhs
+  };
+}
+
+function drawHatchedDomain(
+  domain: { hMin: number; hMax: number; vMin: number; vMax: number },
+  ctx: CanvasRenderingContext2D,
+  dc: DrawContext,
+  color: string
+) {
+  const topLeft = {
+    x: (domain.hMin - dc.centerX) * dc.scale + dc.width / 2,
+    y: -(domain.vMax - dc.centerY) * dc.scale + dc.height / 2
+  };
+  const bottomRight = {
+    x: (domain.hMax - dc.centerX) * dc.scale + dc.width / 2,
+    y: -(domain.vMin - dc.centerY) * dc.scale + dc.height / 2
+  };
+  const left = Math.min(topLeft.x, bottomRight.x);
+  const right = Math.max(topLeft.x, bottomRight.x);
+  const top = Math.min(topLeft.y, bottomRight.y);
+  const bottom = Math.max(topLeft.y, bottomRight.y);
+  const width = right - left;
+  const height = bottom - top;
+  if (width < 1 || height < 1) {
+    return;
+  }
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(left, top, width, height);
+  ctx.clip();
+
+  ctx.fillStyle = `${color}1f`;
+  ctx.fillRect(left, top, width, height);
+
+  ctx.strokeStyle = `${color}7a`;
+  ctx.lineWidth = 1;
+  const spacing = 10;
+  for (let x = left - height; x <= right + height; x += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, bottom);
+    ctx.lineTo(x + height, top);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawImplicitContour(
+  evaluate: (horizontalValue: number, verticalValue: number) => number | null,
+  ctx: CanvasRenderingContext2D,
+  dc: DrawContext,
+  width: number,
+  height: number
+) {
+  const cols = clamp(Math.round(width / 9), 40, 220);
+  const rows = clamp(Math.round(height / 9), 40, 220);
+  const values = new Float64Array((cols + 1) * (rows + 1));
+
+  const sampleValue = (gridX: number, gridY: number): number => {
+    const px = (gridX / cols) * width;
+    const py = (gridY / rows) * height;
+    const horizontal = (px - width / 2) / dc.scale + dc.centerX;
+    const vertical = -(py - height / 2) / dc.scale + dc.centerY;
+    const value = evaluate(horizontal, vertical);
+    return value === null ? Number.NaN : value;
+  };
+
+  for (let y = 0; y <= rows; y += 1) {
+    for (let x = 0; x <= cols; x += 1) {
+      values[y * (cols + 1) + x] = sampleValue(x, y);
+    }
+  }
+
+  const cellWidth = width / cols;
+  const cellHeight = height / rows;
+  const getValue = (x: number, y: number) => values[y * (cols + 1) + x];
+
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      const x0 = x * cellWidth;
+      const y0 = y * cellHeight;
+      const x1 = (x + 1) * cellWidth;
+      const y1 = (y + 1) * cellHeight;
+
+      const a = getValue(x, y); // top-left
+      const b = getValue(x + 1, y); // top-right
+      const c = getValue(x + 1, y + 1); // bottom-right
+      const d = getValue(x, y + 1); // bottom-left
+      if (![a, b, c, d].every(Number.isFinite)) {
+        continue;
+      }
+
+      const intersections: Array<{ x: number; y: number }> = [];
+      const edges: Array<[number, number, number, number, number, number]> = [
+        [x0, y0, a, x1, y0, b], // top
+        [x1, y0, b, x1, y1, c], // right
+        [x1, y1, c, x0, y1, d], // bottom
+        [x0, y1, d, x0, y0, a] // left
+      ];
+      for (const [ex1, ey1, ev1, ex2, ey2, ev2] of edges) {
+        const crosses =
+          (ev1 === 0 && ev2 !== 0) ||
+          (ev2 === 0 && ev1 !== 0) ||
+          (ev1 < 0 && ev2 > 0) ||
+          (ev1 > 0 && ev2 < 0);
+        if (!crosses) {
+          continue;
+        }
+        const point = interpolateZeroCrossing(ex1, ey1, ev1, ex2, ey2, ev2);
+        if (point) {
+          intersections.push(point);
+        }
+      }
+      if (intersections.length >= 2) {
+        ctx.moveTo(intersections[0].x, intersections[0].y);
+        ctx.lineTo(intersections[1].x, intersections[1].y);
+      }
+      if (intersections.length >= 4) {
+        ctx.moveTo(intersections[2].x, intersections[2].y);
+        ctx.lineTo(intersections[3].x, intersections[3].y);
+      }
+    }
+  }
+}
+
+function interpolateZeroCrossing(
+  x1: number,
+  y1: number,
+  v1: number,
+  x2: number,
+  y2: number,
+  v2: number
+): { x: number; y: number } | null {
+  if (!Number.isFinite(v1) || !Number.isFinite(v2)) {
+    return null;
+  }
+  if (Math.abs(v1 - v2) < 1e-12) {
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  }
+  const t = clamp(v1 / (v1 - v2), 0, 1);
+  return {
+    x: x1 + (x2 - x1) * t,
+    y: y1 + (y2 - y1) * t
+  };
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
 function alignToPixel(value: number): number {
   return Math.round(value) + 0.5;
+}
+
+function projectWorldTo2dPair(
+  point: { x: number; y: number; z: number },
+  pair: "xy" | "xz" | "yz"
+): { horizontal: number; vertical: number } {
+  if (pair === "xy") {
+    return { horizontal: point.x, vertical: point.y };
+  }
+  if (pair === "xz") {
+    return { horizontal: point.x, vertical: point.z };
+  }
+  return { horizontal: point.y, vertical: point.z };
+}
+
+function drawProbeLabel(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): void {
+  ctx.save();
+  ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
+  const paddingX = 6;
+  const paddingY = 3;
+  const metrics = ctx.measureText(text);
+  const w = Math.ceil(metrics.width) + paddingX * 2;
+  const h = 16;
+  const left = Math.round(x - w / 2);
+  const top = Math.round(y - h);
+
+  ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, left, top, w, h, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#e2e8f0";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, left + paddingX, top + h / 2);
+  ctx.restore();
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+function findNearestProbePinScreen(
+  pins: { id: string; world: { x: number; y: number; z: number } }[],
+  axisPair: "xy" | "xz" | "yz",
+  x: number,
+  y: number,
+  dc: { width: number; height: number; centerX: number; centerY: number; scale: number },
+  mathToScreen: (horizontal: number, vertical: number, dc: any) => { x: number; y: number }
+): { id: string } | null {
+  let best: { id: string; dist2: number } | null = null;
+  const maxDist2 = 12 * 12;
+  for (const pin of pins) {
+    const math = projectWorldTo2dPair(pin.world, axisPair);
+    const s = mathToScreen(math.horizontal, math.vertical, dc);
+    const dx = s.x - x;
+    const dy = s.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= maxDist2 && (!best || d2 < best.dist2)) {
+      best = { id: pin.id, dist2: d2 };
+    }
+  }
+  return best ? { id: best.id } : null;
 }
 
 function snapToStep(value: number, step: number): number {

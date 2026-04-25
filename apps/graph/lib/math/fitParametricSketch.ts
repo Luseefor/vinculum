@@ -18,8 +18,9 @@ export interface FitParametricSketch3DResult {
   maxError: number;
 }
 
-const DEFAULT_MAX_DEGREE = 10;
+const DEFAULT_MAX_DEGREE = 8;
 const MIN_POINTS = 4;
+const DEFAULT_RIDGE = 1e-10;
 
 function buildVandermondeRow(t: number, degree: number): number[] {
   const row = new Array<number>(degree + 1);
@@ -33,7 +34,8 @@ function buildVandermondeRow(t: number, degree: number): number[] {
 function accumulateNormalEquations(
   rows: number[][],
   targets: number[],
-  degree: number
+  degree: number,
+  ridge = DEFAULT_RIDGE
 ): { ata: number[][]; atb: number[] } {
   const n = degree + 1;
   const ata: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
@@ -48,6 +50,11 @@ function accumulateNormalEquations(
         ata[j][k] += row[j] * row[k];
       }
     }
+  }
+
+  // Light L2 regularization stabilizes higher-order terms and reduces wiggle.
+  for (let i = 0; i < n; i += 1) {
+    ata[i][i] += ridge;
   }
 
   return { ata, atb };
@@ -150,21 +157,48 @@ function resampleByArcLength(points: { horizontal: number; vertical: number }[],
   return out;
 }
 
+function smoothStroke(points: { horizontal: number; vertical: number }[], passes = 0) {
+  if (points.length <= 2 || passes <= 0) {
+    return points;
+  }
+  let current = points;
+  for (let pass = 0; pass < passes; pass += 1) {
+    const next = current.map((point, index) => {
+      if (index === 0 || index === current.length - 1) {
+        return point;
+      }
+      const prev = current[index - 1];
+      const curr = current[index];
+      const after = current[index + 1];
+      return {
+        horizontal: prev.horizontal * 0.25 + curr.horizontal * 0.5 + after.horizontal * 0.25,
+        vertical: prev.vertical * 0.25 + curr.vertical * 0.5 + after.vertical * 0.25
+      };
+    });
+    current = next;
+  }
+  return current;
+}
+
 export function fitParametricSketch(
   rawPoints: { horizontal: number; vertical: number }[],
   options: {
     maxDegree?: number;
     relativeErrorTolerance?: number;
+    ridge?: number;
+    smoothPasses?: number;
   } = {}
 ): FitParametricSketchResult | null {
   const maxDegree = options.maxDegree ?? DEFAULT_MAX_DEGREE;
-  const relativeTolerance = options.relativeErrorTolerance ?? 0.025;
+  const relativeTolerance = options.relativeErrorTolerance ?? 0.008;
+  const ridge = options.ridge ?? DEFAULT_RIDGE;
+  const smoothPasses = options.smoothPasses ?? 0;
 
   if (rawPoints.length < MIN_POINTS) {
     return null;
   }
 
-  const points = resampleByArcLength(rawPoints, 56);
+  const points = smoothStroke(resampleByArcLength(rawPoints, 72), smoothPasses);
   if (points.length < MIN_POINTS) {
     return null;
   }
@@ -192,8 +226,8 @@ export function fitParametricSketch(
 
   for (let degree = 1; degree <= maxD; degree += 1) {
     const rows = tValues.map((t) => buildVandermondeRow(t, degree));
-    const hSystem = accumulateNormalEquations(rows, hTargets, degree);
-    const vSystem = accumulateNormalEquations(rows, vTargets, degree);
+    const hSystem = accumulateNormalEquations(rows, hTargets, degree, ridge);
+    const vSystem = accumulateNormalEquations(rows, vTargets, degree, ridge);
 
     const hCoeffs = solveLinearSystem(hSystem.ata, hSystem.atb);
     const vCoeffs = solveLinearSystem(vSystem.ata, vSystem.atb);
@@ -227,10 +261,12 @@ export function fitParametricSketch3d(
   options: {
     maxDegree?: number;
     relativeErrorTolerance?: number;
+    ridge?: number;
   } = {}
 ): FitParametricSketch3DResult | null {
   const maxDegree = options.maxDegree ?? DEFAULT_MAX_DEGREE;
-  const relativeTolerance = options.relativeErrorTolerance ?? 0.025;
+  const relativeTolerance = options.relativeErrorTolerance ?? 0.008;
+  const ridge = options.ridge ?? DEFAULT_RIDGE;
 
   if (rawPoints.length < MIN_POINTS) {
     return null;
@@ -267,9 +303,9 @@ export function fitParametricSketch3d(
 
   for (let degree = 1; degree <= maxD; degree += 1) {
     const rows = tValues.map((t) => buildVandermondeRow(t, degree));
-    const xSystem = accumulateNormalEquations(rows, xTargets, degree);
-    const ySystem = accumulateNormalEquations(rows, yTargets, degree);
-    const zSystem = accumulateNormalEquations(rows, zTargets, degree);
+    const xSystem = accumulateNormalEquations(rows, xTargets, degree, ridge);
+    const ySystem = accumulateNormalEquations(rows, yTargets, degree, ridge);
+    const zSystem = accumulateNormalEquations(rows, zTargets, degree, ridge);
     const xCoeffs = solveLinearSystem(xSystem.ata, xSystem.atb);
     const yCoeffs = solveLinearSystem(ySystem.ata, ySystem.atb);
     const zCoeffs = solveLinearSystem(zSystem.ata, zSystem.atb);
