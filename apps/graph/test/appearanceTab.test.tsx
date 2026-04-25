@@ -10,7 +10,7 @@ describe("AppearanceTab", () => {
 
   it("shows empty state without selection", () => {
     render(<AppearanceTab />);
-    expect(screen.getByText("Select an object to edit appearance controls.")).toBeInTheDocument();
+    expect(screen.getByText("Select an object to edit style controls.")).toBeInTheDocument();
   });
 
   it("updates selected parametric curve color", () => {
@@ -32,8 +32,8 @@ describe("AppearanceTab", () => {
     useGraphStore.getState().selectObject(id);
 
     render(<AppearanceTab />);
-    const button = screen.getByRole("button", { name: "Toggle Wireframe" });
-    fireEvent.click(button);
+    const wireframeSwitch = screen.getByRole("switch", { name: "Toggle Wireframe" });
+    fireEvent.click(wireframeSwitch);
 
     const object = useGraphStore.getState().scene.objects.find((entry) => entry.id === id);
     expect(object?.kind).toBe("plane");

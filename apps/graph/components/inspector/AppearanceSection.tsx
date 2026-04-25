@@ -1,7 +1,8 @@
 "use client";
 
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
-import { cx } from "@/components/ui/styles";
+import { cn } from "@/components/ui/styles";
+import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 
 interface AppearanceSectionProps {
@@ -13,44 +14,41 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
   const toggleSurfaceWireframe = useGraphStore((state) => state.toggleSurfaceWireframe);
 
   return (
-    <section className="pt-3">
-      <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-        Appearance
-      </h4>
+    <section className="flex flex-col gap-4">
+      <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Appearance</h4>
+      
+      <div className="flex flex-col gap-4 p-4 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-sm">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Material</p>
+          
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-tertiary)]">
+              <input
+                type="color"
+                aria-label="Surface color"
+                value={object.color}
+                onChange={(event) => updateObjectColor(object.id, event.target.value)}
+                className="h-9 w-9 cursor-pointer rounded-md border border-[var(--border-strong)] bg-white p-0.5"
+              />
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-[var(--text-primary)]">Color</p>
+                <p className="font-mono text-[10px] font-medium text-[var(--text-tertiary)]">{object.color}</p>
+              </div>
+            </div>
 
-      <div className="flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2.5">
-        <input
-          type="color"
-          aria-label="Surface color"
-          value={object.color}
-          onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch h-7 w-7"
-        />
-        <div className="min-w-0">
-          <p className="text-[12px] font-medium text-[var(--text-primary)]">Color</p>
-          <p className="truncate font-mono text-[10px] text-[var(--text-tertiary)]">{object.color}</p>
+            <div className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-tertiary)]">
+              <div>
+                <p className="text-[11px] font-bold text-[var(--text-primary)]">Wireframe</p>
+                <p className="text-[9px] font-medium text-[var(--text-tertiary)]">Render with edge-only topology</p>
+              </div>
+              <Switch
+                checked={object.appearance.wireframe}
+                onCheckedChange={() => toggleSurfaceWireframe(object.id)}
+                ariaLabel={object.appearance.wireframe ? "Disable wireframe" : "Enable wireframe"}
+              />
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className="mt-2 flex items-center justify-between border border-[var(--border-subtle)] px-3 py-2.5">
-        <p className="text-[12px] font-medium text-[var(--text-primary)]">Wireframe</p>
-        <button
-          type="button"
-          onClick={() => toggleSurfaceWireframe(object.id)}
-          aria-pressed={object.appearance.wireframe}
-          aria-label={object.appearance.wireframe ? "Disable wireframe" : "Enable wireframe"}
-          className={cx(
-            "relative h-5 w-10 rounded-full transition-colors",
-            object.appearance.wireframe ? "border border-transparent bg-[var(--accent)]" : "toggle-track-muted"
-          )}
-        >
-          <span
-            className={cx(
-              "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-              object.appearance.wireframe ? "left-[20px]" : "left-0.5"
-            )}
-          />
-        </button>
       </div>
     </section>
   );

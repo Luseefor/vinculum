@@ -2,32 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
-import {
-  MAX_SURFACE_RESOLUTION,
-  MIN_SURFACE_RESOLUTION,
-  normalizeSurfaceResolution
-} from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/components/ui/styles";
 
 type DomainField = keyof SurfaceDomain;
-
 type DomainDraft = Record<DomainField, string>;
-type DomainAxis = "x" | "y";
+const DOMAIN_STEP = 0.5;
 
 interface DomainSectionProps {
   object: SurfaceGraphObject;
 }
 
-const DOMAIN_FIELDS: Array<{ key: DomainField; label: string }> = [
-  { key: "xMin", label: "X min" },
-  { key: "xMax", label: "X max" },
-  { key: "yMin", label: "Y min" },
-  { key: "yMax", label: "Y max" }
-];
-
 export default function DomainSection({ object }: DomainSectionProps) {
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
-  const updateSurfaceResolution = useGraphStore((state) => state.updateSurfaceResolution);
 
   const domainSnapshot = useMemo<DomainDraft>(
     () => ({
@@ -36,215 +25,113 @@ export default function DomainSection({ object }: DomainSectionProps) {
       yMin: String(object.domain.yMin),
       yMax: String(object.domain.yMax)
     }),
-    [object.domain.xMax, object.domain.xMin, object.domain.yMax, object.domain.yMin]
+    [object.domain]
   );
 
   const [domainDraft, setDomainDraft] = useState<DomainDraft>(domainSnapshot);
-  const [resolutionDraft, setResolutionDraft] = useState(String(object.resolution));
 
-  useEffect(() => {
-    setDomainDraft(domainSnapshot);
-  }, [domainSnapshot, object.id]);
-
-  useEffect(() => {
-    setResolutionDraft(String(object.resolution));
-  }, [object.id, object.resolution]);
+  useEffect(() => setDomainDraft(domainSnapshot), [domainSnapshot]);
 
   const commitDomainField = (field: DomainField) => {
-    const parsedValue = Number(domainDraft[field]);
-    if (!Number.isFinite(parsedValue)) {
-      setDomainDraft((previous) => ({
-        ...previous,
-        [field]: String(object.domain[field])
-      }));
+    const val = Number(domainDraft[field]);
+    if (!Number.isFinite(val)) {
+      setDomainDraft(prev => ({ ...prev, [field]: String(object.domain[field]) }));
       return;
     }
-
-    const axis = field.startsWith("x") ? "x" : "y";
-    const counterpart = getCounterpartField(axis, field);
-    const counterpartRaw = domainDraft[counterpart];
-    const counterpartValue = Number(counterpartRaw);
-    if (Number.isFinite(counterpartValue)) {
-      if (field.endsWith("Min") && parsedValue >= counterpartValue) {
-        setDomainDraft((previous) => ({
-          ...previous,
-          [field]: String(object.domain[field])
-        }));
-        return;
-      }
-      if (field.endsWith("Max") && parsedValue <= counterpartValue) {
-        setDomainDraft((previous) => ({
-          ...previous,
-          [field]: String(object.domain[field])
-        }));
-        return;
-      }
-    }
-
-    updateSurfaceDomain(object.id, surfaceDomainFieldPatch(field, parsedValue));
-    setDomainDraft((previous) => ({
-      ...previous,
-      [field]: String(parsedValue)
-    }));
+    updateSurfaceDomain(object.id, { [field]: val });
   };
 
-  const commitResolution = () => {
-    const parsedValue = Number(resolutionDraft);
-    if (!Number.isFinite(parsedValue)) {
-      setResolutionDraft(String(object.resolution));
-      return;
-    }
-
-    const safeResolution = normalizeSurfaceResolution(parsedValue);
-    updateSurfaceResolution(object.id, safeResolution);
-    setResolutionDraft(String(safeResolution));
+  const stepDomainField = (field: DomainField, delta: number) => {
+    const next = Number(domainDraft[field]) + delta;
+    updateSurfaceDomain(object.id, { [field]: next });
   };
-
-  const sliderResolution = useMemo(() => {
-    const parsedValue = Number(resolutionDraft);
-    if (!Number.isFinite(parsedValue)) {
-      return object.resolution;
-    }
-
-    return normalizeSurfaceResolution(parsedValue);
-  }, [object.resolution, resolutionDraft]);
 
   return (
-    <section className="border-b border-[var(--border-subtle)] py-3">
-      <h4 className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-        Domain
-      </h4>
-
-      <div className="grid grid-cols-2 gap-2">
-        {DOMAIN_FIELDS.map((field) => (
-          <DomainInput
-            key={field.key}
-            label={field.label}
-            value={domainDraft[field.key]}
-            onChange={(value) => setDomainDraft((previous) => ({ ...previous, [field.key]: value }))}
-            onCommit={() => commitDomainField(field.key)}
-            onReset={() =>
-              setDomainDraft((previous) => ({
-                ...previous,
-                [field.key]: String(object.domain[field.key])
-              }))
-            }
-          />
-        ))}
-      </div>
-
-      <div className="mt-3">
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <label htmlFor="resolution-input" className="text-[10px] font-medium text-[var(--text-secondary)]">
-            Resolution ({MIN_SURFACE_RESOLUTION}-{MAX_SURFACE_RESOLUTION})
-          </label>
-          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{sliderResolution}</span>
+    <div className="flex flex-col gap-6">
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Domain</h4>
+          <span className="text-[9px] font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 rounded-full uppercase">Step control</span>
         </div>
-        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-          <div className="flex h-9 items-center rounded-sm border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3">
-            <input
-              type="range"
-              min={MIN_SURFACE_RESOLUTION}
-              max={MAX_SURFACE_RESOLUTION}
-              step={1}
-              value={sliderResolution}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (!Number.isFinite(next)) {
-                  return;
-                }
 
-                const safeResolution = normalizeSurfaceResolution(next);
-                updateSurfaceResolution(object.id, safeResolution);
-                setResolutionDraft(String(safeResolution));
-              }}
-              className="resolution-slider"
-              aria-label="Surface resolution slider"
-            />
+        <div className="flex flex-col gap-5 p-4 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-primary)]">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Bounds</p>
+            
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">X Range</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <RangeField label="Min" symbol="≥" value={domainDraft.xMin} onChange={v => setDomainDraft(p => ({ ...p, xMin: v }))} onBlur={() => commitDomainField("xMin")} onStepDown={() => stepDomainField("xMin", -DOMAIN_STEP)} onStepUp={() => stepDomainField("xMin", DOMAIN_STEP)} />
+                  <RangeField label="Max" symbol="≤" value={domainDraft.xMax} onChange={v => setDomainDraft(p => ({ ...p, xMax: v }))} onBlur={() => commitDomainField("xMax")} onStepDown={() => stepDomainField("xMax", -DOMAIN_STEP)} onStepUp={() => stepDomainField("xMax", DOMAIN_STEP)} />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-[var(--border-subtle)]">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">Y Range</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <RangeField label="Min" symbol="≥" value={domainDraft.yMin} onChange={v => setDomainDraft(p => ({ ...p, yMin: v }))} onBlur={() => commitDomainField("yMin")} onStepDown={() => stepDomainField("yMin", -DOMAIN_STEP)} onStepUp={() => stepDomainField("yMin", DOMAIN_STEP)} />
+                  <RangeField label="Max" symbol="≤" value={domainDraft.yMax} onChange={v => setDomainDraft(p => ({ ...p, yMax: v }))} onBlur={() => commitDomainField("yMax")} onStepDown={() => stepDomainField("yMax", -DOMAIN_STEP)} onStepUp={() => stepDomainField("yMax", DOMAIN_STEP)} />
+                </div>
+              </div>
+            </div>
           </div>
-          <input
-            id="resolution-input"
-            value={resolutionDraft}
-            onChange={(event) => setResolutionDraft(event.target.value)}
-            onBlur={commitResolution}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commitResolution();
-                event.currentTarget.blur();
-              }
-
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setResolutionDraft(String(object.resolution));
-                event.currentTarget.blur();
-              }
-            }}
-            inputMode="numeric"
-            min={MIN_SURFACE_RESOLUTION}
-            max={MAX_SURFACE_RESOLUTION}
-            className="input h-9 w-[4.25rem] rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 text-center text-[12px]"
-          />
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
-interface DomainInputProps {
+interface RangeFieldProps {
   label: string;
+  symbol: string;
   value: string;
   onChange: (value: string) => void;
-  onCommit: () => void;
-  onReset: () => void;
+  onBlur: () => void;
+  onStepDown: () => void;
+  onStepUp: () => void;
 }
 
-function DomainInput({ label, value, onChange, onCommit, onReset }: DomainInputProps) {
+function RangeField({ label, symbol, value, onChange, onBlur, onStepDown, onStepUp }: RangeFieldProps) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-[10px] font-medium text-[var(--text-secondary)]">{label}</span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onCommit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            onCommit();
-            event.currentTarget.blur();
-          }
-
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onReset();
-            event.currentTarget.blur();
-          }
-        }}
-        inputMode="decimal"
-        className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
-      />
-    </label>
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">{label}</label>
+      <div className="flex flex-col gap-1 p-1 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-tertiary)] shadow-sm">
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-primary)] h-6 w-6 flex items-center justify-center rounded border border-[var(--border-strong)]">{symbol}</span>
+          <input 
+            type="text" 
+            value={value} 
+            onChange={e => onChange(e.target.value)}
+            onBlur={onBlur}
+            className="w-full h-6 bg-transparent text-[11px] font-mono font-bold text-right outline-none"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-1 border-t border-[var(--border-subtle)] pt-1 mt-0.5">
+           <button onClick={onStepDown} className="px-1.5 h-5 rounded hover:bg-[var(--surface-muted)] text-[var(--text-tertiary)] transition-colors">
+              <ChevronLeftIcon />
+           </button>
+           <button onClick={onStepUp} className="px-1.5 h-5 rounded hover:bg-[var(--surface-muted)] text-[var(--text-tertiary)] transition-colors">
+              <ChevronRightIcon />
+           </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function surfaceDomainFieldPatch(field: DomainField, value: number): Partial<SurfaceDomain> {
-  switch (field) {
-    case "xMin":
-      return { xMin: value };
-    case "xMax":
-      return { xMax: value };
-    case "yMin":
-      return { yMin: value };
-    case "yMax":
-      return { yMax: value };
-    default:
-      return {};
-  }
+function ChevronLeftIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M9.5 3.5L5.5 8l4 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function getCounterpartField(axis: DomainAxis, field: DomainField): DomainField {
-  if (axis === "x") {
-    return field === "xMin" ? "xMax" : "xMin";
-  }
-  return field === "yMin" ? "yMax" : "yMin";
+function ChevronRightIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M6.5 3.5L10.5 8l-4 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
