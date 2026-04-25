@@ -134,4 +134,21 @@ describe('sampleSurface - CRITICAL-1: Memory allocation fixes', () => {
       expect(result.indices[2]).toBeLessThan(9);
     }
   });
+
+  it("maps constant surfaces to the correct world axis for x/y/z orientations", () => {
+    const constEval: SurfaceEvaluator = () => 3;
+    const domain: SurfaceDomain = { xMin: -1, xMax: 1, yMin: -1, yMax: 1 };
+
+    const zx = sampleSurface(constEval, { domain, resolution: 2, orientation: "x" });
+    // First vertex: world.x should be 3 for x=3.
+    expect(zx.positions[0]).toBeCloseTo(3, 6);
+
+    const zy = sampleSurface(constEval, { domain, resolution: 2, orientation: "y" });
+    // First vertex: world.z (math.y) should be 3 for y=3.
+    expect(zy.positions[2]).toBeCloseTo(3, 6);
+
+    const zz = sampleSurface(constEval, { domain, resolution: 2, orientation: "z" });
+    // First vertex: world.y (math.z) should be 3 for z=3.
+    expect(zz.positions[1]).toBeCloseTo(3, 6);
+  });
 });

@@ -57,20 +57,27 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
       const h = isFinite ? clamp(sampledHeight, -clampHeight, clampHeight) : invalidHeight;
 
       if (orientation === "x") {
-        // x = f(y, z) -> Math Y maps to Three.X, Math Z to Three.Z, Math X (height) to Three.Y
-        positions[vertexOffset] = uValue;     // Math Y -> Three.X
-        positions[vertexOffset + 1] = h;       // Math X -> Three.Y (up)
-        positions[vertexOffset + 2] = vValue; // Math Z -> Three.Z
+        // x = f(y, z)
+        // World mapping used throughout the scene:
+        // - world.x = math.x
+        // - world.y (up) = math.z
+        // - world.z = math.y
+        // uValue is math.y, vValue is math.z, h is math.x
+        positions[vertexOffset] = h;          // math.x -> world.x
+        positions[vertexOffset + 1] = vValue; // math.z -> world.y (up)
+        positions[vertexOffset + 2] = uValue; // math.y -> world.z
       } else if (orientation === "y") {
-        // y = f(x, z) -> Math X maps to Three.X, Math Z to Three.Z, Math Y (height) to Three.Y
-        positions[vertexOffset] = uValue;     // Math X -> Three.X
-        positions[vertexOffset + 1] = h;       // Math Y -> Three.Y (up)
-        positions[vertexOffset + 2] = vValue; // Math Z -> Three.Z
+        // y = f(x, z)
+        // uValue is math.x, vValue is math.z, h is math.y
+        positions[vertexOffset] = uValue;     // math.x -> world.x
+        positions[vertexOffset + 1] = vValue; // math.z -> world.y (up)
+        positions[vertexOffset + 2] = h;      // math.y -> world.z
       } else {
-        // z = f(x, y) -> Math X maps to Three.X, Math Y to Three.Z, Math Z (height) to Three.Y
-        positions[vertexOffset] = uValue;     // Math X -> Three.X
-        positions[vertexOffset + 1] = h;       // Math Z -> Three.Y (up)
-        positions[vertexOffset + 2] = vValue; // Math Y -> Three.Z
+        // z = f(x, y)
+        // uValue is math.x, vValue is math.y, h is math.z
+        positions[vertexOffset] = uValue;     // math.x -> world.x
+        positions[vertexOffset + 1] = h;      // math.z -> world.y (up)
+        positions[vertexOffset + 2] = vValue; // math.y -> world.z
       }
 
       validVertices[vertexIndex] = isFinite ? 1 : 0;
