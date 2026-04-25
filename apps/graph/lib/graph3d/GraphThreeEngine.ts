@@ -90,12 +90,12 @@ void main() {
   float minorMasked = minor * (1.0 - major);
 
   float radialDistance = distance(vWorldPosition.xz, uCameraPosition.xz);
-  float fade = 1.0 - smoothstep(uFadeDistance * 0.08, uFadeDistance * 1.04, radialDistance);
+  float fade = 1.0 - smoothstep(uFadeDistance * 0.12, uFadeDistance * 0.88, radialDistance);
 
   vec3 color = (uMinorColor * minorMasked) + (uMajorColor * major);
-  float alpha = ((minorMasked * 0.45) + (major * 0.9)) * fade;
+  float alpha = ((minorMasked * 0.38) + (major * 0.82)) * fade;
 
-  if (alpha <= 0.002) {
+  if (alpha <= 0.001) {
     discard;
   }
 
@@ -163,7 +163,7 @@ function createAxisTubeGroup(
   }
 ): Group {
   const group = new Group();
-  const radius = 0.03;
+  const radius = 0.005;
   const half = extent / 2;
 
   const addTube = (
@@ -256,7 +256,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const probeBadge = document.createElement("div");
   probeBadge.className =
-    "pointer-events-none absolute left-3 bottom-3 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/85 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow";
+    "pointer-events-none absolute left-3 bottom-11 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/85 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow";
   probeBadge.style.display = "none";
   probeBadge.setAttribute("data-graph3d-probe", "true");
   container.appendChild(probeBadge);
@@ -391,12 +391,42 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   sketchLine.visible = false;
   scene.add(sketchLine);
 
-  const probeMarker = new Mesh(
+  const probeMarkersRoot = new Group();
+  scene.add(probeMarkersRoot);
+  const probeMarkerMeshes: Mesh[] = [];
+
+  const updateProbeMarkers = (points: { x: number; y: number; z: number }[]) => {
+    // Sync mesh count
+    while (probeMarkerMeshes.length < points.length) {
+      const mesh = new Mesh(
+        new SphereGeometry(0.08, 10, 10),
+        new MeshBasicMaterial({ color: "#f472b6", transparent: true, opacity: 0.95 })
+      );
+      probeMarkerMeshes.push(mesh);
+      probeMarkersRoot.add(mesh);
+    }
+    while (probeMarkerMeshes.length > points.length) {
+      const mesh = probeMarkerMeshes.pop();
+      if (mesh) {
+        probeMarkersRoot.remove(mesh);
+        mesh.geometry.dispose();
+        (mesh.material as MeshBasicMaterial).dispose();
+      }
+    }
+
+    // Update positions
+    for (let i = 0; i < points.length; i++) {
+      probeMarkerMeshes[i].position.set(points[i].x, points[i].y, points[i].z);
+      probeMarkerMeshes[i].visible = true;
+    }
+  };
+
+  const hoverMarker = new Mesh(
     new SphereGeometry(0.08, 10, 10),
-    new MeshBasicMaterial({ color: "#f472b6", transparent: true, opacity: 0.95 })
+    new MeshBasicMaterial({ color: "#f472b6", transparent: true, opacity: 0.5 })
   );
-  probeMarker.visible = false;
-  scene.add(probeMarker);
+  hoverMarker.visible = false;
+  scene.add(hoverMarker);
 
   const setProbeBadge = (text: string | null) => {
     if (!text) {
@@ -539,6 +569,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       const prevNode = objectNodes.get(object.id);
       if (prevNode && prevStructure === nextStructure) {
         applyObjectColorToNode(prevNode, object.color);
+        prevNode.visible = object.visible;
         objectSignatures.set(object.id, nextSignature);
         objectStructureSignatures.set(object.id, nextStructure);
         continue;
@@ -552,6 +583,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
       const nextNode = buildGraphObject(object, theme);
       if (nextNode) {
+        nextNode.visible = object.visible;
         objectsRoot.add(nextNode);
         objectNodes.set(object.id, nextNode);
       }
@@ -637,19 +669,23 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       controls.mouseButtons.RIGHT = MOUSE.PAN;
     }
 
-    const pinned = uiState.probePinnedWorld;
-    const markerPoint = pinned ?? hoverProbePoint;
-    if (markerPoint) {
-      tempProbe.set(markerPoint.x, markerPoint.y, markerPoint.z);
-      probeMarker.position.copy(tempProbe);
-      probeMarker.visible = true;
-      if (pinned) {
-        setProbeBadge(`Pinned ${formatProbe(pinned)}`);
+    const pinnedPoints = uiState.probePinnedWorlds;
+    updateProbeMarkers(pinnedPoints);
+
+    if (hoverProbePoint) {
+      hoverMarker.position.set(hoverProbePoint.x, hoverProbePoint.y, hoverProbePoint.z);
+      hoverMarker.visible = true;
+    } else {
+      hoverMarker.visible = false;
+    }
+
+    if (pinnedPoints.length > 0) {
+      if (pinnedPoints.length === 1) {
+        setProbeBadge(`Pinned ${formatProbe(pinnedPoints[0])}`);
       } else {
-        setProbeBadge(null);
+        setProbeBadge(`Pinned (${pinnedPoints.length}) · Last: ${formatProbe(pinnedPoints[pinnedPoints.length - 1])}`);
       }
     } else {
-      probeMarker.visible = false;
       setProbeBadge(null);
     }
 
@@ -846,7 +882,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     } else if (event.key === "3") {
       useGraphStore.getState().setCanvas3dTool("draw");
     } else if (event.key === "Escape") {
-      useGraphStore.getState().setProbePinnedWorld(null);
+      useGraphStore.getState().clearProbes();
       clearSketch();
     }
   };
@@ -908,8 +944,21 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       scene.remove(objectsRoot);
       sketchGeometry.dispose();
       sketchMaterial.dispose();
-      probeMarker.geometry.dispose();
-      (probeMarker.material as MeshBasicMaterial).dispose();
+      
+      while (probeMarkerMeshes.length > 0) {
+        const mesh = probeMarkerMeshes.pop();
+        if (mesh) {
+          probeMarkersRoot.remove(mesh);
+          mesh.geometry.dispose();
+          (mesh.material as MeshBasicMaterial).dispose();
+        }
+      }
+      scene.remove(probeMarkersRoot);
+
+      hoverMarker.geometry.dispose();
+      (hoverMarker.material as MeshBasicMaterial).dispose();
+      scene.remove(hoverMarker);
+
       gridMesh.geometry.dispose();
       gridMaterial.dispose();
       if (axisLineGeometry) {
