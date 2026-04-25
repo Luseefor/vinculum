@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObject,
@@ -6,7 +7,8 @@ import type {
   ParametricCurveObject,
   PlaneGraphObject,
   SurfaceDomain,
-  SurfaceGraphObject
+  SurfaceGraphObject,
+  SurfaceOrientation
 } from "@vinculum/scene/types";
 import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
@@ -24,8 +26,16 @@ import {
   DEFAULT_VIEWPORT_SCALE,
   sanitizeViewportPatch
 } from "@/lib/graph/viewport";
-import { loadStoredThemeMode, persistThemeMode } from "@/lib/theme/themeStorage";
+import {
+  loadStoredAccentPreset,
+  loadStoredDensity,
+  loadStoredThemeMode,
+  persistAccentPreset,
+  persistDensity,
+  persistThemeMode
+} from "@/lib/theme/themeStorage";
 import type {
+  Active2dViewportSlot,
   Axis2DPair,
   Canvas2DTool,
   Canvas3DTool,
@@ -55,6 +65,7 @@ interface GraphStoreState {
   insertObjectAfter: (id: string, kind: GraphObjectKind) => string;
   setObjectKind: (id: string, kind: GraphObjectKind) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
+  updateSurfaceOrientation: (id: string, orientation: SurfaceOrientation) => void;
   updateParametricExpression: (id: string, field: ParametricExpressionField, value: string | number) => void;
   updatePlaneEquation: (id: string, equation: string) => void;
   toggleObjectVisibility: (id: string) => void;
@@ -73,28 +84,42 @@ interface GraphStoreState {
   requestCameraReset: () => void;
   setGraphMode: (mode: GraphUiState["graphMode"]) => void;
   setAxis2DPair: (pair: Axis2DPair) => void;
+  setActive2dViewport: (slot: Active2dViewportSlot) => void;
   setThemeMode: (mode: GraphUiState["themeMode"]) => void;
+  setAccentPreset: (preset: GraphUiState["accentPreset"]) => void;
+  setDensity: (density: GraphUiState["density"]) => void;
   hydrateThemeMode: () => void;
+  hydrateAccentPreset: () => void;
+  hydrateDensity: () => void;
   cycleThemeMode: () => void;
   updateViewport2D: (viewport: Partial<Viewport2D>) => void;
+  updateViewport2DQuadTop: (viewport: Partial<Viewport2D>) => void;
   setViewport2DFrame: (frame: Viewport2DFrame) => void;
+  setViewport2DQuadTopFrame: (frame: Viewport2DFrame) => void;
   resetViewport2D: () => void;
+  resetViewport2DQuadTop: () => void;
   setCanvas2dTool: (tool: Canvas2DTool) => void;
   setCanvas3dTool: (tool: Canvas3DTool) => void;
   setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
+  clearProbes: () => void;
   setSketchExtendFraction: (fraction: number) => void;
   setSketchAutoCreate: (enabled: boolean) => void;
   setSnapEnabled: (enabled: boolean) => void;
   setSnapStep: (step: number) => void;
   applySceneSnapshot: (snapshot: SceneSnapshot) => void;
-  addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[]) => string;
+  addSketchedParametricFromStroke: (
+    stroke: { horizontal: number; vertical: number }[],
+    axisPair?: Axis2DPair
+  ) => string;
   addSketchedParametricFromStroke3d: (stroke: { x: number; y: number; z: number }[]) => string;
 }
 
 const initialScene = createInitialSceneDocument();
 
-export const useGraphStore = create<GraphStoreState>((set) => ({
+export const useGraphStore = create<GraphStoreState>()(
+  persist(
+    (set) => ({
   scene: initialScene,
   ui: createInitialUiState(initialScene.objects[0]?.id ?? null),
   cameraResetVersion: 0,
@@ -185,6 +210,29 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
           object: {
             ...object,
             equation
+          }
+        }
+      };
+
+      return {
+        scene: applySceneCommand(state.scene, command)
+      };
+    });
+  },
+
+  updateSurfaceOrientation: (id, orientation) => {
+    set((state) => {
+      const object = findObjectById(state.scene.objects, id);
+      if (!object || object.kind !== "surface") {
+        return state;
+      }
+
+      const command: SceneCommand = {
+        type: "UPDATE_OBJECT",
+        payload: {
+          object: {
+            ...object,
+            orientation
           }
         }
       };
@@ -471,18 +519,21 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         selectedObjectId: defaultScene.objects[0]?.id ?? null,
         canvas2dTool: "pan",
         canvas3dTool: "pan",
-        probePinnedMath: null,
-        probePinnedWorld: null,
+        probePinnedMaths: [],
+        probePinnedWorlds: [],
         sketchExtendFraction: 0.15,
         sketchAutoCreate: true,
         snapEnabled: true,
         snapStep: 0.25,
+        density: state.ui.density,
         sceneDialog: {
           ...state.ui.sceneDialog,
           isOpen: false,
           error: null,
           jsonText: ""
-        }
+        },
+        active2dViewport: "primary",
+        axis2dPairQuadTop: "xz"
       },
       cameraResetVersion: state.cameraResetVersion + 1
     }));
@@ -557,11 +608,11 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
           ...(mode === "3d"
             ? {
                 canvas2dTool: "pan" as const,
-                probePinnedMath: null
+                probePinnedMaths: []
               }
             : {
                 canvas3dTool: "pan" as const,
-                probePinnedWorld: null
+                probePinnedWorlds: []
               })
         },
         cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion
@@ -571,14 +622,37 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
 
   setAxis2DPair: (pair) => {
     set((state) => {
-      const probePinnedMath = state.ui.probePinnedWorld
-        ? projectWorldTo2dPair(state.ui.probePinnedWorld, pair)
-        : null;
+      if (state.ui.active2dViewport === "quadTop") {
+        return {
+          ui: {
+            ...state.ui,
+            axis2dPairQuadTop: pair
+          }
+        };
+      }
+
+      const probePinnedMaths = state.ui.probePinnedWorlds.map((p) =>
+        projectWorldTo2dPair(p, pair)
+      );
       return {
         ui: {
           ...state.ui,
           axis2dPair: pair,
-          probePinnedMath
+          probePinnedMaths
+        }
+      };
+    });
+  },
+
+  setActive2dViewport: (slot) => {
+    set((state) => {
+      if (state.ui.active2dViewport === slot) {
+        return state;
+      }
+      return {
+        ui: {
+          ...state.ui,
+          active2dViewport: slot
         }
       };
     });
@@ -594,6 +668,25 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
+  setAccentPreset: (preset) => {
+    persistAccentPreset(preset);
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        accentPreset: preset
+      }
+    }));
+  },
+  setDensity: (density) => {
+    persistDensity(density);
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        density
+      }
+    }));
+  },
+
   hydrateThemeMode: () => {
     const mode = loadStoredThemeMode();
     set((state) => {
@@ -605,6 +698,36 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         ui: {
           ...state.ui,
           themeMode: mode
+        }
+      };
+    });
+  },
+
+  hydrateAccentPreset: () => {
+    const preset = loadStoredAccentPreset();
+    set((state) => {
+      if (state.ui.accentPreset === preset) {
+        return state;
+      }
+
+      return {
+        ui: {
+          ...state.ui,
+          accentPreset: preset
+        }
+      };
+    });
+  },
+  hydrateDensity: () => {
+    const density = loadStoredDensity();
+    set((state) => {
+      if (state.ui.density === density) {
+        return state;
+      }
+      return {
+        ui: {
+          ...state.ui,
+          density
         }
       };
     });
@@ -656,6 +779,18 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
+  setViewport2DQuadTopFrame: (frame) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        viewport2dQuadTopFrame: {
+          width: Math.max(0, Math.floor(frame.width)),
+          height: Math.max(0, Math.floor(frame.height))
+        }
+      }
+    }));
+  },
+
   resetViewport2D: () => {
     set((state) => ({
       ui: {
@@ -663,6 +798,35 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         viewport2d: createDefaultViewport2D()
       }
     }));
+  },
+
+  resetViewport2DQuadTop: () => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        viewport2dQuadTop: createDefaultViewport2D()
+      }
+    }));
+  },
+
+  updateViewport2DQuadTop: (viewport) => {
+    set((state) => {
+      const nextViewport = sanitizeViewportPatch(state.ui.viewport2dQuadTop, viewport);
+      if (
+        nextViewport.centerX === state.ui.viewport2dQuadTop.centerX &&
+        nextViewport.centerY === state.ui.viewport2dQuadTop.centerY &&
+        nextViewport.scale === state.ui.viewport2dQuadTop.scale
+      ) {
+        return state;
+      }
+
+      return {
+        ui: {
+          ...state.ui,
+          viewport2dQuadTop: nextViewport
+        }
+      };
+    });
   },
 
   setCanvas2dTool: (tool) => {
@@ -684,21 +848,43 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
   },
 
   setProbePinnedMath: (point) => {
-    set((state) => ({
-      ui: {
-        ...state.ui,
-        probePinnedMath: point,
-        probePinnedWorld: point ? project2dPairToWorld(point, state.ui.axis2dPair) : null
+    set((state) => {
+      if (!point) {
+        return state;
       }
-    }));
+      const worldPoint = project2dPairToWorld(point, state.ui.axis2dPair);
+      return {
+        ui: {
+          ...state.ui,
+          probePinnedMaths: [...state.ui.probePinnedMaths, point],
+          probePinnedWorlds: [...state.ui.probePinnedWorlds, worldPoint]
+        }
+      };
+    });
   },
 
   setProbePinnedWorld: (point) => {
+    set((state) => {
+      if (!point) {
+        return state;
+      }
+      const mathPoint = projectWorldTo2dPair(point, state.ui.axis2dPair);
+      return {
+        ui: {
+          ...state.ui,
+          probePinnedWorlds: [...state.ui.probePinnedWorlds, point],
+          probePinnedMaths: [...state.ui.probePinnedMaths, mathPoint]
+        }
+      };
+    });
+  },
+
+  clearProbes: () => {
     set((state) => ({
       ui: {
         ...state.ui,
-        probePinnedWorld: point,
-        probePinnedMath: point ? projectWorldTo2dPair(point, state.ui.axis2dPair) : null
+        probePinnedMaths: [],
+        probePinnedWorlds: []
       }
     }));
   },
@@ -760,7 +946,7 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
     }));
   },
 
-  addSketchedParametricFromStroke: (stroke) => {
+  addSketchedParametricFromStroke: (stroke, axisPairOverride) => {
     let createdObjectId = "";
 
     set((state) => {
@@ -769,7 +955,7 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
         return state;
       }
 
-      const pair = state.ui.axis2dPair;
+      const pair = axisPairOverride ?? state.ui.axis2dPair;
       const hPoly = formatPolynomialExpression(fit.horizontalCoeffs, "t");
       const vPoly = formatPolynomialExpression(fit.verticalCoeffs, "t");
 
@@ -872,7 +1058,57 @@ export const useGraphStore = create<GraphStoreState>((set) => ({
 
     return createdObjectId;
   }
-}));
+}),
+    {
+      name: "vinculum-graph-session",
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (state) => ({
+        scene: state.scene,
+        ui: {
+          ...state.ui,
+          sceneDialog: {
+            isOpen: false,
+            mode: state.ui.sceneDialog.mode,
+            jsonText: "",
+            error: null
+          }
+        }
+      }),
+      merge: (persisted, current) => {
+        if (!persisted || typeof persisted !== "object" || !("scene" in persisted)) {
+          return current as GraphStoreState;
+        }
+        const { scene, ui } = persisted as { scene: SceneDocument; ui?: GraphUiState };
+        if (!scene?.objects) {
+          return current as GraphStoreState;
+        }
+        const mergedUi = ui ?? (current as GraphStoreState).ui;
+        return {
+          ...(current as GraphStoreState),
+          scene,
+          ui: {
+            ...(current as GraphStoreState).ui,
+            ...mergedUi,
+            viewport2dQuadTop: mergedUi.viewport2dQuadTop ?? createDefaultViewport2D(),
+            viewport2dQuadTopFrame: mergedUi.viewport2dQuadTopFrame ?? { width: 0, height: 0 },
+            axis2dPairQuadTop: mergedUi.axis2dPairQuadTop ?? "xz",
+            active2dViewport:
+              mergedUi.active2dViewport === "quadTop" || mergedUi.active2dViewport === "primary"
+                ? mergedUi.active2dViewport
+                : "primary",
+            selectedObjectId: resolveSelectedObjectId(mergedUi.selectedObjectId ?? null, scene.objects),
+            sceneDialog: {
+              ...mergedUi.sceneDialog,
+              isOpen: false,
+              error: null
+            }
+          }
+        };
+      },
+      skipHydration: true
+    }
+  )
+);
 
 function appendObject(
   set: (partial: ((state: GraphStoreState) => GraphStoreState | Partial<GraphStoreState>) | Partial<GraphStoreState>) => void,
@@ -966,16 +1202,25 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
     },
     graphMode: "3d",
     themeMode: "system",
+    accentPreset: "indigo",
+    density: "balanced",
     axis2dPair: "xy",
+    axis2dPairQuadTop: "xz",
+    active2dViewport: "primary",
     viewport2d: createDefaultViewport2D(),
     viewport2dFrame: {
       width: 0,
       height: 0
     },
+    viewport2dQuadTop: createDefaultViewport2D(),
+    viewport2dQuadTopFrame: {
+      width: 0,
+      height: 0
+    },
     canvas2dTool: "pan",
     canvas3dTool: "pan",
-    probePinnedMath: null,
-    probePinnedWorld: null,
+    probePinnedMaths: [],
+    probePinnedWorlds: [],
     sketchExtendFraction: 0.15,
     sketchAutoCreate: true,
     snapEnabled: true,
