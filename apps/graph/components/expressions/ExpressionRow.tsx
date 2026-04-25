@@ -37,7 +37,7 @@ export default function ExpressionRow({
 
   const validation = useMemo<ExpressionValidationState>(() => {
     if (object.kind === "surface") {
-      return { error: compileSurfaceExpression(object.equation).error };
+      return { error: compileSurfaceExpression(object.equation, object.orientation || "z").error };
     }
 
     if (object.kind === "parametricCurve") {

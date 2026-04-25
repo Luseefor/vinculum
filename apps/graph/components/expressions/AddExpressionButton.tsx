@@ -14,22 +14,14 @@ const ADD_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
 export default function AddExpressionButton() {
   const [graphType, setGraphType] = useState<GraphObjectKind>("surface");
 
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
+  const setObjectKind = useGraphStore((state) => state.setObjectKind);
 
   const addObject = () => {
-    if (graphType === "parametricCurve") {
-      addParametricCurve();
-      return;
+    const id = addEmptyObject();
+    if (graphType !== "surface") {
+      setObjectKind(id, graphType);
     }
-
-    if (graphType === "plane") {
-      addPlaneObject();
-      return;
-    }
-
-    addSurfaceObject();
   };
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import ObjectTree from "@/components/objects/ObjectTree";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,8 +13,10 @@ interface ObjectBrowserPanelProps {
 }
 
 export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
+  const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
@@ -66,6 +69,8 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             type="text"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search objects..."
             className="h-9 w-full rounded-md border border-[var(--border-strong)] bg-[var(--bg-primary)] pl-9 pr-3 text-[11px] font-medium outline-none transition-all focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-soft)]"
           />
@@ -75,7 +80,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           variant="secondary"
           className="h-9 w-full rounded-md border-[var(--border-strong)] bg-[var(--bg-tertiary)] text-[11px] font-bold"
           onClick={() => {
-            addSurfaceObject();
+            addEmptyObject();
             addConsoleEvent("Added new object");
           }}
         >
@@ -84,7 +89,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
       </div>
 
       <ScrollArea className="flex-1 px-3">
-        <ObjectTree />
+        <ObjectTree filterQuery={searchQuery} />
       </ScrollArea>
 
       <div className="border-t border-[var(--panel-border)] p-4">

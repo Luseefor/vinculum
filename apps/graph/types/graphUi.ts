@@ -65,10 +65,9 @@ export interface GraphUiState {
   viewport2dQuadTopFrame: Viewport2DFrame;
   canvas2dTool: Canvas2DTool;
   canvas3dTool: Canvas3DTool;
-  /** 2D probe mode shows pinned points at these math coordinates (horizontal / vertical axes). */
-  probePinnedMaths: { horizontal: number; vertical: number }[];
-  /** 3D probe mode shows pinned world-space points. */
-  probePinnedWorlds: { x: number; y: number; z: number }[];
+  /** Baseline plane for 3D grid + sketch/probe plane picking (through origin). */
+  baseline3dPlane: Axis2DPair;
+  probePins: { id: string; color: string; world: { x: number; y: number; z: number } }[];
   /** Extrapolation past the sketch parameter range: t in [-extend, 1+extend] when stroke is parameterized on [0,1]. */
   sketchExtendFraction: number;
   /** When true, sketch strokes create curves immediately; when false, user confirms from preview card. */
