@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useEditorStore } from "@/lib/store/editorStore";
 import type { BottomPanelTab } from "@/lib/types/ui";
 import { Button } from "@/components/ui/button";
@@ -7,188 +8,162 @@ import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 
 const tabs: Array<{ id: BottomPanelTab; label: string }> = [
-  { id: "parameters", label: "Parameters" },
-  { id: "timeline", label: "Timeline" },
-  { id: "console", label: "Console" },
-  { id: "diagnostics", label: "Diagnostics" }
+  { id: "parameters", label: "PARAMETERS" },
+  { id: "timeline", label: "TIMELINE" },
+  { id: "console", label: "CONSOLE" },
+  { id: "diagnostics", label: "DIAGNOSTICS" }
 ];
 
-export default function BottomPanel() {
+export default function BottomPanel({ height: controlledHeight }: { height?: number }) {
   const collapsed = useEditorStore((state) => state.bottomPanelCollapsed);
-  const height = useEditorStore((state) => state.bottomPanelHeight);
+  const storeHeight = useEditorStore((state) => state.bottomPanelHeight);
+  const height = controlledHeight ?? storeHeight;
   const activeTab = useEditorStore((state) => state.bottomPanelTab);
-  const toggle = useEditorStore((state) => state.toggleBottomPanel);
   const setTab = useEditorStore((state) => state.setBottomPanelTab);
   const parameters = useEditorStore((state) => state.parameters);
   const setParameterValue = useEditorStore((state) => state.setParameterValue);
   const consoleEvents = useEditorStore((state) => state.consoleEvents);
   const animation = useEditorStore((state) => state.animation);
   const setAnimationPlaying = useEditorStore((state) => state.setAnimationPlaying);
-  const setAnimationSpeed = useEditorStore((state) => state.setAnimationSpeed);
-  const setAnimationRange = useEditorStore((state) => state.setAnimationRange);
-  const setAnimationParameterId = useEditorStore((state) => state.setAnimationParameterId);
-  const toggleAnimationLoop = useEditorStore((state) => state.toggleAnimationLoop);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const visibleCount = useGraphStore((state) => state.scene.objects.filter((object) => object.visible).length);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const graphMode = useGraphStore((state) => state.ui.graphMode);
+  
+  const [timelineSeconds, setTimelineSeconds] = useState(0);
+  const timelineDuration = 300;
+
+  useEffect(() => {
+    if (!animation.playing) return;
+    const handle = window.setInterval(() => {
+      setTimelineSeconds((prev) => (prev + 0.1) % timelineDuration);
+    }, 100);
+    return () => window.clearInterval(handle);
+  }, [animation.playing]);
 
   return (
-    <section className="border-t border-[var(--border-subtle)] bg-[var(--surface-bg)]">
-      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5">
-        <div className="flex items-center gap-1">
+    <section
+      className={cn(
+        "border-t border-[var(--panel-border)] bg-[var(--bg-tertiary)] transition-all duration-300",
+        collapsed ? "h-9" : ""
+      )}
+      style={!collapsed ? { height } : {}}
+    >
+      <div className="flex h-9 items-center justify-between border-b border-[var(--panel-border)] px-4">
+        <div className="flex h-full items-center gap-6">
           {tabs.map((tab) => (
-            <Button
+            <button
               key={tab.id}
-              type="button"
-              size="sm"
-              variant={activeTab === tab.id ? "secondary" : "ghost"}
-              className={cn("h-7", activeTab === tab.id ? "font-semibold" : "")}
               onClick={() => setTab(tab.id)}
+              className={cn(
+                "h-full border-b-2 text-[10px] font-bold tracking-widest transition-all",
+                activeTab === tab.id 
+                  ? "border-[var(--accent)] text-[var(--text-primary)]" 
+                  : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+              )}
             >
               {tab.label}
-            </Button>
+            </button>
           ))}
         </div>
-        <Button type="button" size="sm" variant="ghost" onClick={toggle}>
-          {collapsed ? "Expand" : "Collapse"}
-        </Button>
+        
+        {!collapsed && (
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2">
+               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Timeline</p>
+               <div className="flex items-center gap-1">
+                 <button onClick={() => setAnimationPlaying(!animation.playing)} className="text-[10px] font-bold text-[var(--accent)] hover:underline uppercase">
+                   {animation.playing ? "Stop" : "Play"}
+                 </button>
+                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] ml-2">
+                   {formatTimelineTime(timelineSeconds)}
+                 </span>
+               </div>
+             </div>
+          </div>
+        )}
       </div>
-      {!collapsed ? (
-        <div className="overflow-auto px-3 py-2 text-[11px] text-[var(--text-tertiary)]" style={{ height }}>
+
+      {!collapsed && (
+        <div className="flex-1 overflow-auto p-4">
           {activeTab === "parameters" && (
-            <div className="space-y-2">
-              {parameters.map((parameter) => (
-                <div
-                  key={parameter.id}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1.5"
-                >
-                  <span className="font-mono text-[11px] text-[var(--text-primary)]">{parameter.id}</span>
+            <div className="grid grid-cols-1 gap-x-12 gap-y-4 md:grid-cols-2">
+              {parameters.map((param) => (
+                <div key={param.id} className="flex items-center gap-4">
+                  <span className="w-4 text-[11px] font-bold text-[var(--text-secondary)]">{param.id}</span>
                   <input
                     type="range"
-                    min={parameter.min}
-                    max={parameter.max}
-                    step={0.1}
-                    value={parameter.value}
-                    onChange={(event) => setParameterValue(parameter.id, Number(event.target.value))}
-                    className="resolution-slider"
+                    min={param.min}
+                    max={param.max}
+                    step={0.01}
+                    value={param.value}
+                    onChange={(e) => setParameterValue(param.id, Number(e.target.value))}
+                    className="flex-1 accent-[var(--accent)] h-1 rounded-full bg-[var(--surface-muted)] appearance-none cursor-pointer"
                   />
-                  <span className="w-12 text-right font-mono text-[10px] text-[var(--text-secondary)]">
-                    {parameter.value.toFixed(2)}
+                  <span className="w-12 text-right font-mono text-[11px] font-bold text-[var(--text-primary)]">
+                    {param.value.toFixed(2)}
                   </span>
                 </div>
               ))}
-            </div>
-          )}
-          {activeTab === "timeline" && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <DiagnosticCard label="Target" value={animation.parameterId ?? "None"} />
-                <DiagnosticCard label="State" value={animation.playing ? "PLAYING" : "PAUSED"} />
-              </div>
-              <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
-                <div className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-                  <label className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Parameter</span>
-                    <select
-                      value={animation.parameterId ?? ""}
-                      onChange={(event) => setAnimationParameterId(event.target.value || null)}
-                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 text-[11px] text-[var(--text-primary)]"
-                    >
-                      <option value="">None</option>
-                      {parameters.map((parameter) => (
-                        <option key={parameter.id} value={parameter.id}>
-                          {parameter.id}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="flex items-end">
-                    <Button type="button" size="sm" variant="ghost" onClick={toggleAnimationLoop}>
-                      Loop: {animation.loop ? "On" : "Off"}
-                    </Button>
-                  </div>
-                </div>
-                <div className="mb-2 flex items-center gap-2">
-                  <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>
-                    {animation.playing ? "Pause" : "Play"}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setAnimationPlaying(false)}>
-                    Stop
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                  <label className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Speed</span>
-                    <input
-                      type="range"
-                      min={0.05}
-                      max={8}
-                      step={0.05}
-                      value={animation.speed}
-                      onChange={(event) => setAnimationSpeed(Number(event.target.value))}
-                      className="resolution-slider"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Min</span>
-                    <input
-                      type="number"
-                      value={animation.min}
-                      onChange={(event) => setAnimationRange(Number(event.target.value), animation.max)}
-                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 font-mono text-[11px]"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Max</span>
-                    <input
-                      type="number"
-                      value={animation.max}
-                      onChange={(event) => setAnimationRange(animation.min, Number(event.target.value))}
-                      className="h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 font-mono text-[11px]"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-          {activeTab === "console" && (
-            <div className="space-y-1">
-              {consoleEvents.length === 0 ? (
-                <p className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
-                  No events yet.
-                </p>
-              ) : (
-                consoleEvents.map((eventText, index) => (
-                  <p
-                    key={`${eventText}-${index}`}
-                    className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px]"
-                  >
-                    {eventText}
-                  </p>
-                ))
+              {parameters.length === 0 && (
+                <p className="text-[11px] font-medium text-[var(--text-tertiary)] italic">No parameters defined.</p>
               )}
             </div>
           )}
-          {activeTab === "diagnostics" && (
-            <div className="grid grid-cols-2 gap-2">
-              <DiagnosticCard label="Mode" value={graphMode.toUpperCase()} />
-              <DiagnosticCard label="Objects" value={`${objectCount}`} />
-              <DiagnosticCard label="Visible" value={`${visibleCount}`} />
-              <DiagnosticCard label="Selected" value={selectedObjectId ? selectedObjectId.slice(0, 8) : "None"} />
+
+          {activeTab === "console" && (
+            <div className="flex flex-col gap-1.5 font-mono text-[10px]">
+              {consoleEvents.map((ev, i) => (
+                <div key={i} className="flex gap-2 border-b border-[var(--border-subtle)] pb-1">
+                  <span className="text-[var(--text-tertiary)]">[{i}]</span>
+                  <span className="text-[var(--text-secondary)]">{ev}</span>
+                </div>
+              ))}
+              {consoleEvents.length === 0 && <p className="text-[var(--text-tertiary)] italic">Console is empty.</p>}
             </div>
           )}
+
+          {activeTab === "diagnostics" && (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <DiagnosticStat label="Viewport Mode" value={graphMode.toUpperCase()} />
+              <DiagnosticStat label="Objects in Scene" value={String(objectCount)} />
+              <DiagnosticStat label="Visible Objects" value={String(visibleCount)} />
+              <DiagnosticStat label="Selected ID" value={selectedObjectId?.slice(0, 8) ?? "NONE"} />
+            </div>
+          )}
+          
+          {activeTab === "timeline" && (
+             <div className="flex flex-col gap-4">
+                <div className="h-8 w-full bg-[var(--bg-primary)] rounded-md border border-[var(--border-strong)] relative overflow-hidden">
+                   <div 
+                     className="absolute top-0 left-0 h-full bg-[var(--accent)]/10 border-r border-[var(--accent)] transition-all"
+                     style={{ width: `${(timelineSeconds / timelineDuration) * 100}%` }}
+                   />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono text-[var(--text-tertiary)]">
+                   <span>00:00</span>
+                   <span>05:00</span>
+                </div>
+             </div>
+          )}
         </div>
-      ) : null}
+      )}
     </section>
   );
 }
 
-function DiagnosticCard({ label, value }: { label: string; value: string }) {
+function DiagnosticStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{label}</p>
-      <p className="mt-1 font-mono text-[11px] text-[var(--text-primary)]">{value}</p>
+    <div className="flex flex-col gap-1 p-3 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-sm">
+      <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">{label}</p>
+      <p className="text-[11px] font-bold text-[var(--text-primary)]">{value}</p>
     </div>
   );
+}
+
+function formatTimelineTime(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, "0");
+  const seconds = Math.floor(safeSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
 }

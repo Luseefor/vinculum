@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 interface ContextMenuProps {
   open: boolean;
@@ -101,10 +102,11 @@ export default function ContextMenu({
             return <div key={item.id} className="my-1 h-px bg-[var(--border-subtle)]" />;
           }
           return (
-            <button
+            <Button
               key={item.id}
               type="button"
-              className="w-full rounded px-2 py-1.5 text-left text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
+              variant="ghost"
+              className="w-full justify-start rounded px-2 py-1.5 text-left text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
               onClick={() => {
                 onRunCommand(item.id);
                 onClose();
@@ -112,7 +114,7 @@ export default function ContextMenu({
               disabled={item.disabled}
             >
               {item.label}
-            </button>
+            </Button>
           );
         })}
       </div>

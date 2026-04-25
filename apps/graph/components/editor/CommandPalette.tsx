@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface CommandPaletteProps {
@@ -142,7 +143,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
           aria-label="Commands"
         >
           {filtered.map((command) => (
-            <button
+            <Button variant="ghost"
               key={command.id}
               id={`command-palette-option-${command.id}`}
               type="button"
@@ -171,7 +172,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
               ].join(" ")}
             >
               {command.label}
-            </button>
+            </Button>
           ))}
           {filtered.length === 0 ? (
             <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No matching commands.</p>
