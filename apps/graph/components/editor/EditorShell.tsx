@@ -18,6 +18,7 @@ import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { getCurrentSceneSnapshot } from "@/lib/store/sceneStore";
 import { useHistoryStore } from "@/lib/store/historyStore";
+import type { SceneSnapshot } from "@/lib/types/scene";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -33,11 +34,15 @@ export default function EditorShell() {
   const setActive2dViewport = useGraphStore((state) => state.setActive2dViewport);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const baseline3dPlane = useGraphStore((state) => state.ui.baseline3dPlane);
   const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
+  const setBaseline3dPlane = useGraphStore((state) => state.setBaseline3dPlane);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
+  const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
+  const setObjectVisibility = useGraphStore((state) => state.setObjectVisibility);
   const viewport2d = useGraphStore((state) => state.ui.viewport2d);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -83,6 +88,7 @@ export default function EditorShell() {
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
+  const constraints = useEditorStore((state) => state.constraints);
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
   const undoHistory = useHistoryStore((state) => state.undo);
   const redoHistory = useHistoryStore((state) => state.redo);
@@ -91,6 +97,8 @@ export default function EditorShell() {
   const canRedo = useHistoryStore((state) => state.future.length > 0);
   
   const historyActionRef = useRef(false);
+  const skipDerivedHistoryRef = useRef(0);
+  const lastSceneSnapshotRef = useRef<SceneSnapshot | null>(null);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
   const primary2dPlaneLabel = useMemo(() => {
     if (axis2dPair === "xy") {
@@ -142,8 +150,114 @@ export default function EditorShell() {
   }, [runUndo, runRedo, setGraphMode, setViewportMode]);
 
   useEffect(() => {
+    const currentSnapshot = getCurrentSceneSnapshot();
+    const previousSnapshot = lastSceneSnapshotRef.current;
+
+    if (!previousSnapshot) {
+      lastSceneSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    if (historyActionRef.current) {
+      historyActionRef.current = false;
+      lastSceneSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    const objectsChanged = previousSnapshot.objects !== currentSnapshot.objects;
+    const selectionChanged =
+      previousSnapshot.selection.selectedObjectId !== currentSnapshot.selection.selectedObjectId;
+
+    if (objectsChanged && skipDerivedHistoryRef.current > 0) {
+      skipDerivedHistoryRef.current -= 1;
+      lastSceneSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    if (objectsChanged || selectionChanged) {
+      pushSnapshot(previousSnapshot);
+    }
+
+    lastSceneSnapshotRef.current = currentSnapshot;
+  }, [pushSnapshot, scene.objects, selectedObjectId]);
+
+  useEffect(() => {
+    if (constraints.length === 0 || scene.objects.length === 0) {
+      return;
+    }
+
+    const shiftHexColor = (hex: string) => {
+      if (!/^#[0-9a-f]{6}$/i.test(hex)) {
+        return hex;
+      }
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const tint = 28;
+      const clamp = (v: number) => Math.max(0, Math.min(255, v));
+      return `#${clamp(r + tint).toString(16).padStart(2, "0")}${clamp(g + tint).toString(16).padStart(2, "0")}${clamp(b + tint)
+        .toString(16)
+        .padStart(2, "0")}`;
+    };
+
+    const currentObjects = useGraphStore.getState().scene.objects;
+    const objectsById = new Map(currentObjects.map((object) => [object.id, object] as const));
+    const desiredVisibility = new Map<string, boolean>();
+    const desiredColor = new Map<string, { color: string; priority: number }>();
+
+    for (const constraint of constraints) {
+      if (!constraint.enabled) {
+        continue;
+      }
+      const sourceId = constraint.objectIds[0];
+      const targetId = constraint.objectIds[1];
+      if (!sourceId || !targetId || sourceId === targetId) {
+        continue;
+      }
+      const source = objectsById.get(sourceId);
+      const target = objectsById.get(targetId);
+      if (!source || !target) {
+        continue;
+      }
+
+      if (constraint.type === "attach") {
+        desiredVisibility.set(target.id, source.visible);
+        continue;
+      }
+
+      if (constraint.type === "align") {
+        const current = desiredColor.get(target.id);
+        if (!current || current.priority < 1) {
+          desiredColor.set(target.id, { color: source.color, priority: 1 });
+        }
+        continue;
+      }
+
+      if (constraint.type === "offset") {
+        const shifted = shiftHexColor(source.color);
+        const current = desiredColor.get(target.id);
+        if (!current || current.priority < 2) {
+          desiredColor.set(target.id, { color: shifted, priority: 2 });
+        }
+      }
+    }
+
+    const derivedUpdateCount = desiredVisibility.size + desiredColor.size;
+    if (derivedUpdateCount > 0) {
+      skipDerivedHistoryRef.current += derivedUpdateCount;
+    }
+
+    for (const [targetId, visible] of desiredVisibility) {
+      setObjectVisibility(targetId, visible);
+    }
+    for (const [targetId, nextColor] of desiredColor) {
+      updateObjectColor(targetId, nextColor.color);
+    }
+  }, [constraints, scene.objects, setObjectVisibility, updateObjectColor]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandPaletteOpen(true);
       }
@@ -178,24 +292,38 @@ export default function EditorShell() {
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {
     const shell = shellRef.current;
     if (!shell) return;
+    const divider = event.currentTarget;
+    divider.setPointerCapture(event.pointerId);
     beginResize(side, event.pointerId);
     const bounds = shell.getBoundingClientRect();
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const onMove = (moveEvent: PointerEvent) => {
       const x = moveEvent.clientX - bounds.left;
+      const maxLeftWidth = Math.min(420, Math.floor(bounds.width * 0.45));
+      const maxRightWidth = Math.min(540, Math.floor(bounds.width * 0.45));
       if (side === "left") {
         if (x <= leftCollapseSnapOffset) { setLeftPanelCollapsed(true); return; }
         setLeftPanelCollapsed(false);
-        setLeftPanelWidth(x);
+        setLeftPanelWidth(clamp(x, 180, Math.max(180, maxLeftWidth)));
       } else {
         const nextWidth = bounds.right - moveEvent.clientX;
         if (nextWidth <= rightCollapseSnapOffset) { setRightPanelCollapsed(true); return; }
         setRightPanelCollapsed(false);
-        setRightPanelWidth(nextWidth);
+        setRightPanelWidth(clamp(nextWidth, 220, Math.max(220, maxRightWidth)));
       }
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      if (divider.hasPointerCapture(event.pointerId)) {
+        divider.releasePointerCapture(event.pointerId);
+      }
       endResize();
     };
     window.addEventListener("pointermove", onMove);
@@ -293,6 +421,32 @@ export default function EditorShell() {
                         )}
                       >
                         {pair}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* 3D Baseline Plane Switcher */}
+              {(graphMode === "3d" || effectiveViewportMode === "split" || effectiveViewportMode === "quad") && (
+                <>
+                  <div className="w-px h-4 bg-[var(--border-strong)] shrink-0" />
+                  <div
+                    className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0"
+                    title="Baseline plane for the 3D grid and sketch/probe plane picking."
+                  >
+                    {(["xy", "xz", "yz"] as const).map((pair) => (
+                      <button
+                        key={pair}
+                        onClick={() => setBaseline3dPlane(pair)}
+                        className={cn(
+                          "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                          baseline3dPlane === pair
+                            ? "bg-[var(--accent)] text-white shadow-sm"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                        )}
+                      >
+                        Base {pair}
                       </button>
                     ))}
                   </div>

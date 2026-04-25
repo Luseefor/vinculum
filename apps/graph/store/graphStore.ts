@@ -55,6 +55,28 @@ type ParametricExpressionField = keyof Pick<
   "xExpr" | "yExpr" | "zExpr" | "tMin" | "tMax" | "samples"
 >;
 
+const PROBE_PIN_COLORS = [
+  "#f472b6", // pink
+  "#22c55e", // green
+  "#38bdf8", // sky
+  "#f59e0b", // amber
+  "#a78bfa", // violet
+  "#fb7185", // rose
+  "#34d399", // emerald
+  "#60a5fa" // blue
+] as const;
+
+function createProbePin(
+  world: { x: number; y: number; z: number },
+  index: number
+): GraphUiState["probePins"][number] {
+  return {
+    id: `probe_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    color: PROBE_PIN_COLORS[Math.abs(index) % PROBE_PIN_COLORS.length] ?? "#f472b6",
+    world
+  };
+}
+
 interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -62,6 +84,8 @@ interface GraphStoreState {
   addSurfaceObject: () => string;
   addParametricCurve: () => string;
   addPlaneObject: () => string;
+  /** New row with no equation; user picks type from the row menu or inspector. */
+  addEmptyObject: () => string;
   insertObjectAfter: (id: string, kind: GraphObjectKind) => string;
   setObjectKind: (id: string, kind: GraphObjectKind) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
@@ -69,6 +93,7 @@ interface GraphStoreState {
   updateParametricExpression: (id: string, field: ParametricExpressionField, value: string | number) => void;
   updatePlaneEquation: (id: string, equation: string) => void;
   toggleObjectVisibility: (id: string) => void;
+  setObjectVisibility: (id: string, visible: boolean) => void;
   selectObject: (id: string) => void;
   removeObject: (id: string) => void;
   updateObjectColor: (id: string, color: string) => void;
@@ -100,8 +125,10 @@ interface GraphStoreState {
   resetViewport2DQuadTop: () => void;
   setCanvas2dTool: (tool: Canvas2DTool) => void;
   setCanvas3dTool: (tool: Canvas3DTool) => void;
+  setBaseline3dPlane: (pair: Axis2DPair) => void;
   setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
+  removeProbePin: (id: string) => void;
   clearProbes: () => void;
   setSketchExtendFraction: (fraction: number) => void;
   setSketchAutoCreate: (enabled: boolean) => void;
@@ -134,6 +161,10 @@ export const useGraphStore = create<GraphStoreState>()(
 
   addPlaneObject: () => {
     return appendObject(set, (index) => createPlaneGraph({ colorIndex: index }));
+  },
+
+  addEmptyObject: () => {
+    return appendObject(set, (index) => createSurfaceGraph({ colorIndex: index, equation: "" }));
   },
 
   insertObjectAfter: (id, kind) => {
@@ -178,11 +209,17 @@ export const useGraphStore = create<GraphStoreState>()(
         return state;
       }
 
-      const replacement = createGraphObject(kind, index, {
-        id: currentObject.id,
-        color: currentObject.color,
-        visible: currentObject.visible
-      });
+      const replacement = isGraphObjectWithoutExpressions(currentObject)
+        ? createEmptyGraphObject(kind, index, {
+            id: currentObject.id,
+            color: currentObject.color,
+            visible: currentObject.visible
+          })
+        : createGraphObject(kind, index, {
+            id: currentObject.id,
+            color: currentObject.color,
+            visible: currentObject.visible
+          });
 
       const command: SceneCommand = {
         type: "UPDATE_OBJECT",
@@ -302,6 +339,26 @@ export const useGraphStore = create<GraphStoreState>()(
     }));
   },
 
+  setObjectVisibility: (id, visible) => {
+    set((state) => {
+      const object = findObjectById(state.scene.objects, id);
+      if (!object || object.visible === visible) {
+        return state;
+      }
+      return {
+        scene: applySceneCommand(state.scene, {
+          type: "UPDATE_OBJECT",
+          payload: {
+            object: {
+              ...object,
+              visible
+            }
+          }
+        })
+      };
+    });
+  },
+
   selectObject: (id) => {
     set((state) => {
       const exists = state.scene.objects.some((object) => object.id === id);
@@ -359,6 +416,9 @@ export const useGraphStore = create<GraphStoreState>()(
     set((state) => {
       const object = findObjectById(state.scene.objects, id);
       if (!object) {
+        return state;
+      }
+      if (object.color === safeColor) {
         return state;
       }
 
@@ -519,8 +579,8 @@ export const useGraphStore = create<GraphStoreState>()(
         selectedObjectId: defaultScene.objects[0]?.id ?? null,
         canvas2dTool: "pan",
         canvas3dTool: "pan",
-        probePinnedMaths: [],
-        probePinnedWorlds: [],
+        baseline3dPlane: "xy",
+        probePins: [],
         sketchExtendFraction: 0.15,
         sketchAutoCreate: true,
         snapEnabled: true,
@@ -533,7 +593,17 @@ export const useGraphStore = create<GraphStoreState>()(
           jsonText: ""
         },
         active2dViewport: "primary",
-        axis2dPairQuadTop: "xz"
+        axis2dPairQuadTop: "xz",
+        viewport2d: createDefaultViewport2D(),
+        viewport2dFrame: {
+          width: 0,
+          height: 0
+        },
+        viewport2dQuadTop: createDefaultViewport2D(),
+        viewport2dQuadTopFrame: {
+          width: 0,
+          height: 0
+        }
       },
       cameraResetVersion: state.cameraResetVersion + 1
     }));
@@ -547,7 +617,11 @@ export const useGraphStore = create<GraphStoreState>()(
           isOpen: true,
           mode,
           jsonText:
-            mode === "export" ? serializeScene(state.scene) : state.ui.sceneDialog.mode === "import" ? state.ui.sceneDialog.jsonText : "",
+            mode === "export"
+              ? serializeScene(state.scene)
+              : state.ui.sceneDialog.mode === "import" || mode === "import"
+                ? state.ui.sceneDialog.jsonText
+                : "",
           error: null
         }
       }
@@ -608,11 +682,11 @@ export const useGraphStore = create<GraphStoreState>()(
           ...(mode === "3d"
             ? {
                 canvas2dTool: "pan" as const,
-                probePinnedMaths: []
+                probePins: []
               }
             : {
                 canvas3dTool: "pan" as const,
-                probePinnedWorlds: []
+                probePins: []
               })
         },
         cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion
@@ -631,14 +705,10 @@ export const useGraphStore = create<GraphStoreState>()(
         };
       }
 
-      const probePinnedMaths = state.ui.probePinnedWorlds.map((p) =>
-        projectWorldTo2dPair(p, pair)
-      );
       return {
         ui: {
           ...state.ui,
-          axis2dPair: pair,
-          probePinnedMaths
+          axis2dPair: pair
         }
       };
     });
@@ -847,6 +917,15 @@ export const useGraphStore = create<GraphStoreState>()(
     }));
   },
 
+  setBaseline3dPlane: (pair) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        baseline3dPlane: pair
+      }
+    }));
+  },
+
   setProbePinnedMath: (point) => {
     set((state) => {
       if (!point) {
@@ -856,8 +935,7 @@ export const useGraphStore = create<GraphStoreState>()(
       return {
         ui: {
           ...state.ui,
-          probePinnedMaths: [...state.ui.probePinnedMaths, point],
-          probePinnedWorlds: [...state.ui.probePinnedWorlds, worldPoint]
+          probePins: [...state.ui.probePins, createProbePin(worldPoint, state.ui.probePins.length)]
         }
       };
     });
@@ -868,23 +946,29 @@ export const useGraphStore = create<GraphStoreState>()(
       if (!point) {
         return state;
       }
-      const mathPoint = projectWorldTo2dPair(point, state.ui.axis2dPair);
       return {
         ui: {
           ...state.ui,
-          probePinnedWorlds: [...state.ui.probePinnedWorlds, point],
-          probePinnedMaths: [...state.ui.probePinnedMaths, mathPoint]
+          probePins: [...state.ui.probePins, createProbePin(point, state.ui.probePins.length)]
         }
       };
     });
+  },
+
+  removeProbePin: (id) => {
+    set((state) => ({
+      ui: {
+        ...state.ui,
+        probePins: state.ui.probePins.filter((p) => p.id !== id)
+      }
+    }));
   },
 
   clearProbes: () => {
     set((state) => ({
       ui: {
         ...state.ui,
-        probePinnedMaths: [],
-        probePinnedWorlds: []
+        probePins: []
       }
     }));
   },
@@ -963,23 +1047,28 @@ export const useGraphStore = create<GraphStoreState>()(
       let yExpr = "0";
       let zExpr = "0";
 
+      // Parametric curves are evaluated in world coordinates. Match sketch plane to
+      // the same math->world convention used by surfaces (world.x=math.x, world.y=math.z, world.z=math.y).
       if (pair === "xy") {
+        // math: x=H, y=V, z=0 -> world: x=H, y=0, z=V
+        xExpr = hPoly;
+        yExpr = "0";
+        zExpr = vPoly;
+      } else if (pair === "xz") {
+        // math: x=H, z=V, y=0 -> world: x=H, y=V, z=0
         xExpr = hPoly;
         yExpr = vPoly;
         zExpr = "0";
-      } else if (pair === "xz") {
-        xExpr = hPoly;
-        zExpr = vPoly;
-        yExpr = "0";
       } else {
-        yExpr = hPoly;
-        zExpr = vPoly;
+        // math: y=H, z=V, x=0 -> world: x=0, y=V, z=H
         xExpr = "0";
+        yExpr = vPoly;
+        zExpr = hPoly;
       }
 
-      const extend = state.ui.sketchExtendFraction;
-      const tMin = 0 - extend;
-      const tMax = 1 + extend;
+      // Keep sketch-created curve tightly on stroke domain to avoid polynomial extrapolation artifacts.
+      const tMin = 0;
+      const tMax = 1;
       const samples = Math.min(720, Math.max(160, Math.round(200 + fit.degree * 48)));
 
       const nextObject = createParametricCurve({
@@ -1023,9 +1112,9 @@ export const useGraphStore = create<GraphStoreState>()(
         return state;
       }
 
-      const extend = state.ui.sketchExtendFraction;
-      const tMin = 0 - extend;
-      const tMax = 1 + extend;
+      // Keep sketch-created curve tightly on stroke domain to avoid polynomial extrapolation artifacts.
+      const tMin = 0;
+      const tMax = 1;
       const samples = Math.min(720, Math.max(160, Math.round(200 + fit.degree * 48)));
 
       const nextObject = createParametricCurve({
@@ -1139,6 +1228,56 @@ function appendObject(
   return createdObjectId;
 }
 
+function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
+  if (object.kind === "surface" || object.kind === "plane") {
+    return !object.equation.trim();
+  }
+  return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+}
+
+function createEmptyGraphObject(
+  kind: GraphObjectKind,
+  colorIndex: number,
+  options: {
+    id?: string;
+    color?: string;
+    visible?: boolean;
+  } = {}
+): GraphObject {
+  if (kind === "parametricCurve") {
+    return createParametricCurve({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      xExpr: "",
+      yExpr: "",
+      zExpr: "",
+      tMin: 0,
+      tMax: 1,
+      samples: 2
+    });
+  }
+
+  if (kind === "plane") {
+    return createPlaneGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      equation: ""
+    });
+  }
+
+  return createSurfaceGraph({
+    colorIndex,
+    id: options.id,
+    color: options.color,
+    visible: options.visible,
+    equation: ""
+  });
+}
+
 function createGraphObject(
   kind: GraphObjectKind,
   colorIndex: number,
@@ -1219,8 +1358,8 @@ function createInitialUiState(selectedObjectId: string | null): GraphUiState {
     },
     canvas2dTool: "pan",
     canvas3dTool: "pan",
-    probePinnedMaths: [],
-    probePinnedWorlds: [],
+    baseline3dPlane: "xy",
+    probePins: [],
     sketchExtendFraction: 0.15,
     sketchAutoCreate: true,
     snapEnabled: true,

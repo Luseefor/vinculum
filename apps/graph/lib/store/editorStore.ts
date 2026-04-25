@@ -183,17 +183,32 @@ export const useEditorStore = create<EditorStoreState>()(
           consoleEvents: [message, ...state.consoleEvents].slice(0, 80)
         })),
       addConstraint: (type, objectIds) =>
-        set((state) => ({
-          constraints: [
-            ...state.constraints,
-            {
-              id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-              type,
-              objectIds,
-              enabled: true
-            }
-          ]
-        })),
+        set((state) => {
+          const [sourceId, targetId] = objectIds;
+          if (!sourceId || !targetId || sourceId === targetId) {
+            return state;
+          }
+          const exists = state.constraints.some(
+            (constraint) =>
+              constraint.type === type &&
+              ((constraint.objectIds[0] === sourceId && constraint.objectIds[1] === targetId) ||
+                (constraint.objectIds[0] === targetId && constraint.objectIds[1] === sourceId))
+          );
+          if (exists) {
+            return state;
+          }
+          return {
+            constraints: [
+              ...state.constraints,
+              {
+                id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+                type,
+                objectIds: [sourceId, targetId],
+                enabled: true
+              }
+            ]
+          };
+        }),
       toggleConstraint: (id) =>
         set((state) => ({
           constraints: state.constraints.map((constraint) =>
@@ -205,12 +220,35 @@ export const useEditorStore = create<EditorStoreState>()(
           constraints: state.constraints.filter((constraint) => constraint.id !== id)
         })),
       setAnimationParameterId: (id) =>
-        set((state) => ({
-          animation: {
-            ...state.animation,
-            parameterId: id
+        set((state) => {
+          if (!id) {
+            return {
+              animation: {
+                ...state.animation,
+                parameterId: null
+              }
+            };
           }
-        })),
+
+          const parameter = state.parameters.find((entry) => entry.id === id);
+          if (!parameter) {
+            return {
+              animation: {
+                ...state.animation,
+                parameterId: id
+              }
+            };
+          }
+
+          return {
+            animation: {
+              ...state.animation,
+              parameterId: id,
+              min: parameter.min,
+              max: parameter.max
+            }
+          };
+        }),
       setAnimationRange: (min, max) =>
         set((state) => ({
           animation: {
