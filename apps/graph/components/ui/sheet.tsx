@@ -26,8 +26,12 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     return () => window.removeEventListener("keydown", onEscape);
   }, [onOpenChange, open]);
 
+  if (!open) {
+    return null;
+  }
+
   return (
-    <div className={cn("fixed inset-0 z-50 hidden", open && "block lg:hidden")}>
+    <div className={cn("fixed inset-0 z-50 block lg:hidden")}>
       <button
         type="button"
         className="absolute inset-0 bg-[var(--surface-backdrop)]"

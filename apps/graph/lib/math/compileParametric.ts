@@ -1,4 +1,5 @@
 import { compile } from "mathjs";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export type ParametricEvaluator = (t: number) => [number, number, number];
 
@@ -67,7 +68,7 @@ function compileAxisExpression(expr: string, label: string) {
   }
 
   try {
-    compiledExpression.evaluate({ t: 0 });
+    compiledExpression.evaluate({ t: 0, ...getEditorParameterScope() });
   } catch (error) {
     return {
       expression: null,
@@ -87,7 +88,7 @@ function evaluateAxis(expression: CompiledMathExpression | null, t: number): num
   }
 
   try {
-    const value = expression.evaluate({ t });
+    const value = expression.evaluate({ t, ...getEditorParameterScope() });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
   } catch (error) {

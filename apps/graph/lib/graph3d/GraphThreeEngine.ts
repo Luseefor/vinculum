@@ -37,11 +37,13 @@ import {
   disposeObject3D,
   getGraphObjectRenderSignature,
   getGraphObjectStructureSignature,
-  sceneHasVisibleSurface
+  sceneHasVisibleSurface,
+  syncNonRenderableObjectNode
 } from "@/lib/graph3d/buildGraphObjects";
 import { dispatchGraphInteractionEvent } from "@/hooks/useAdaptiveResolution";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
+import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 
 const DEFAULT_CAMERA_POSITION = new Vector3(6, 6, 6);
@@ -70,6 +72,7 @@ uniform vec2 uGridOffset;
 uniform vec3 uCameraPosition;
 uniform vec3 uMinorColor;
 uniform vec3 uMajorColor;
+uniform int uPlaneMode;
 
 varying vec3 vWorldPosition;
 
@@ -84,12 +87,26 @@ void main() {
   float safeMinorStep = max(uMinorStep, 0.0001);
   float safeMajorStep = max(uMajorStep, 0.0001);
 
-  vec2 gridCoord = vWorldPosition.xz - uGridOffset;
+  vec2 gridCoord;
+  vec2 camCoord;
+  if (uPlaneMode == 1) {
+    // world.xy (math x-z baseline)
+    gridCoord = vWorldPosition.xy - uGridOffset;
+    camCoord = uCameraPosition.xy;
+  } else if (uPlaneMode == 2) {
+    // world.yz (math y-z baseline)
+    gridCoord = vWorldPosition.yz - uGridOffset;
+    camCoord = uCameraPosition.yz;
+  } else {
+    // world.xz (math x-y baseline)
+    gridCoord = vWorldPosition.xz - uGridOffset;
+    camCoord = uCameraPosition.xz;
+  }
   float major = lineIntensity(gridCoord, safeMajorStep);
   float minor = lineIntensity(gridCoord, safeMinorStep);
   float minorMasked = minor * (1.0 - major);
 
-  float radialDistance = distance(vWorldPosition.xz, uCameraPosition.xz);
+  float radialDistance = distance(gridCoord + uGridOffset, camCoord);
   float fade = 1.0 - smoothstep(uFadeDistance * 0.12, uFadeDistance * 0.88, radialDistance);
 
   vec3 color = (uMinorColor * minorMasked) + (uMajorColor * major);
@@ -307,7 +324,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     uGridOffset: { value: new Vector2(0, 0) },
     uCameraPosition: { value: new Vector3() },
     uMinorColor: { value: new Color() },
-    uMajorColor: { value: new Color() }
+    uMajorColor: { value: new Color() },
+    uPlaneMode: { value: 0 }
   };
 
   const gridMaterial = new ShaderMaterial({
@@ -342,9 +360,11 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const labelGroup = new Group();
   scene.add(labelGroup);
 
+  // World axis mapping in this renderer is: world.x -> math.X, world.y -> math.Z, world.z -> math.Y.
+  // Keep label text aligned with math axes and annotate if the axis belongs to the selected baseline.
   const labelX = createAxisLabelDiv("X");
-  const labelY = createAxisLabelDiv("Y");
-  const labelZ = createAxisLabelDiv("Z");
+  const labelY = createAxisLabelDiv("Z");
+  const labelZ = createAxisLabelDiv("Y");
   const css2dX = new CSS2DObject(labelX);
   const css2dY = new CSS2DObject(labelY);
   const css2dZ = new CSS2DObject(labelZ);
@@ -360,6 +380,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const objectStructureSignatures = new Map<string, string>();
 
   let lastCameraResetVersion = useGraphStore.getState().cameraResetVersion;
+  let lastBaselinePlanePair = useGraphStore.getState().ui.baseline3dPlane;
   let lastDomTheme = readResolvedThemeFromDom();
   let objectsDirty = true;
   let gridState = createAdaptiveGridState(camera.position.x, camera.position.y, camera.position.z);
@@ -375,7 +396,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   let isAltDown = false;
   const raycaster = new Raycaster();
   const ndc = new Vector2();
-  const groundPlane = new Plane(new Vector3(0, 1, 0), 0);
+  const baselinePlane = new Plane(new Vector3(0, 1, 0), 0);
+  let baselinePlaneMode = 0;
   const tempProbe = new Vector3();
   const tempGround = new Vector3();
   let hoverProbePoint: { x: number; y: number; z: number } | null = null;
@@ -394,30 +416,60 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const probeMarkersRoot = new Group();
   scene.add(probeMarkersRoot);
   const probeMarkerMeshes: Mesh[] = [];
+  const probeMarkerLabels: CSS2DObject[] = [];
 
-  const updateProbeMarkers = (points: { x: number; y: number; z: number }[]) => {
+  const updateProbeMarkers = (pins: { id: string; color: string; world: { x: number; y: number; z: number } }[]) => {
     // Sync mesh count
-    while (probeMarkerMeshes.length < points.length) {
+    while (probeMarkerMeshes.length < pins.length) {
       const mesh = new Mesh(
         new SphereGeometry(0.08, 10, 10),
         new MeshBasicMaterial({ color: "#f472b6", transparent: true, opacity: 0.95 })
       );
       probeMarkerMeshes.push(mesh);
       probeMarkersRoot.add(mesh);
+
+      const label = document.createElement("div");
+      label.style.pointerEvents = "none";
+      label.style.whiteSpace = "nowrap";
+      label.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
+      label.style.fontSize = "10px";
+      label.style.padding = "2px 6px";
+      label.style.borderRadius = "6px";
+      label.style.border = "1px solid rgba(148,163,184,0.35)";
+      label.style.background = "rgba(15,23,42,0.78)";
+      label.style.color = "#e2e8f0";
+      label.style.boxShadow = "0 6px 18px rgba(0,0,0,0.18)";
+      const labelObj = new CSS2DObject(label);
+      probeMarkerLabels.push(labelObj);
+      probeMarkersRoot.add(labelObj);
     }
-    while (probeMarkerMeshes.length > points.length) {
+    while (probeMarkerMeshes.length > pins.length) {
       const mesh = probeMarkerMeshes.pop();
       if (mesh) {
         probeMarkersRoot.remove(mesh);
         mesh.geometry.dispose();
         (mesh.material as MeshBasicMaterial).dispose();
       }
+      const label = probeMarkerLabels.pop();
+      if (label) {
+        probeMarkersRoot.remove(label);
+        (label.element as HTMLElement).remove();
+      }
     }
 
     // Update positions
-    for (let i = 0; i < points.length; i++) {
-      probeMarkerMeshes[i].position.set(points[i].x, points[i].y, points[i].z);
+    for (let i = 0; i < pins.length; i++) {
+      const pin = pins[i];
+      probeMarkerMeshes[i].position.set(pin.world.x, pin.world.y, pin.world.z);
+      (probeMarkerMeshes[i].material as MeshBasicMaterial).color.set(pin.color);
+      probeMarkerMeshes[i].userData.probePinId = pin.id;
       probeMarkerMeshes[i].visible = true;
+
+      const labelObj = probeMarkerLabels[i];
+      labelObj.position.set(pin.world.x, pin.world.y + 0.14, pin.world.z);
+      const el = labelObj.element as HTMLElement;
+      el.textContent = `X ${pin.world.x.toFixed(4)} · Y ${pin.world.y.toFixed(4)} · Z ${pin.world.z.toFixed(4)}`;
+      labelObj.visible = true;
     }
   };
 
@@ -473,10 +525,45 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       }
     }
 
-    if (raycaster.ray.intersectPlane(groundPlane, tempGround)) {
+    if (raycaster.ray.intersectPlane(baselinePlane, tempGround)) {
       return { x: tempGround.x, y: tempGround.y, z: tempGround.z };
     }
     return null;
+  };
+
+  const applyBaselinePlane = (pair: "xy" | "xz" | "yz") => {
+    // 0: world.xz (xy baseline), 1: world.xy (xz baseline), 2: world.yz (yz baseline)
+    if (pair === "xz") {
+      baselinePlaneMode = 1;
+      baselinePlane.normal.set(0, 0, 1);
+      baselinePlane.constant = 0;
+      gridMesh.rotation.set(0, 0, 0);
+      gridMesh.position.set(0, 0, -0.0035);
+    } else if (pair === "yz") {
+      baselinePlaneMode = 2;
+      baselinePlane.normal.set(1, 0, 0);
+      baselinePlane.constant = 0;
+      gridMesh.rotation.set(0, Math.PI / 2, 0);
+      gridMesh.position.set(-0.0035, 0, 0);
+    } else {
+      baselinePlaneMode = 0;
+      baselinePlane.normal.set(0, 1, 0);
+      baselinePlane.constant = 0;
+      gridMesh.rotation.set(-Math.PI / 2, 0, 0);
+      gridMesh.position.set(0, -0.0035, 0);
+    }
+    (gridMaterial.uniforms.uPlaneMode as any).value = baselinePlaneMode;
+  };
+
+  const setAxisLabelRoles = (pair: "xy" | "xz" | "yz") => {
+    const isBaseAxis = (axis: "x" | "y" | "z"): boolean => {
+      if (pair === "xy") return axis === "x" || axis === "y";
+      if (pair === "xz") return axis === "x" || axis === "z";
+      return axis === "y" || axis === "z";
+    };
+    labelX.textContent = `X ${isBaseAxis("x") ? "base" : "perp"}`;
+    labelY.textContent = `Z ${isBaseAxis("z") ? "base" : "perp"}`;
+    labelZ.textContent = `Y ${isBaseAxis("y") ? "base" : "perp"}`;
   };
 
   const rebuildAxesGeometry = (theme: ResolvedTheme) => {
@@ -551,6 +638,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const syncObjects = (theme: ResolvedTheme) => {
     const allObjects = useGraphStore.getState().scene.objects;
+    const parameterSignature = getParameterSignature();
     const hasSurfaces = sceneHasVisibleSurface(allObjects);
     keyLight.castShadow = hasSurfaces;
     renderer.shadowMap.enabled = hasSurfaces;
@@ -558,8 +646,21 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
     for (const object of allObjects) {
       nextIds.add(object.id);
-      const nextSignature = `${theme}:${getGraphObjectRenderSignature(object)}`;
-      const nextStructure = `${theme}:${getGraphObjectStructureSignature(object)}`;
+      if (
+        syncNonRenderableObjectNode(
+          object,
+          theme,
+          objectsRoot,
+          objectNodes,
+          objectSignatures,
+          objectStructureSignatures
+        )
+      ) {
+        continue;
+      }
+
+      const nextSignature = `${theme}:${parameterSignature}:${getGraphObjectRenderSignature(object)}`;
+      const nextStructure = `${theme}:${parameterSignature}:${getGraphObjectStructureSignature(object)}`;
       const prevSignature = objectSignatures.get(object.id);
       const prevStructure = objectStructureSignatures.get(object.id);
       if (prevSignature === nextSignature) {
@@ -605,15 +706,51 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const resetCamera = () => {
     controls.reset();
-    camera.position.copy(DEFAULT_CAMERA_POSITION);
+    const pair = useGraphStore.getState().ui.baseline3dPlane;
+    const target = controls.target.clone();
+    const distance = DEFAULT_CAMERA_POSITION.length();
+    alignCameraToBaseline(pair, target, distance);
     controls.target.set(0, 0, 0);
     controls.update();
+  };
+
+  const alignCameraToBaseline = (
+    pair: "xy" | "xz" | "yz",
+    target: Vector3,
+    distance: number
+  ) => {
+    const safeDistance = Number.isFinite(distance) && distance > 0.001 ? distance : DEFAULT_CAMERA_POSITION.length();
+    let up = new Vector3(0, 1, 0);
+    let direction = new Vector3(1, 1, 1);
+
+    if (pair === "xz") {
+      up = new Vector3(0, 0, 1);
+      direction = new Vector3(1, -1, 1);
+    } else if (pair === "yz") {
+      up = new Vector3(1, 0, 0);
+      direction = new Vector3(1, 1, 1);
+    }
+
+    camera.up.copy(up.normalize());
+    const nextPosition = target.clone().add(direction.normalize().multiplyScalar(safeDistance));
+    camera.position.copy(nextPosition);
+    camera.lookAt(target);
   };
 
   let prevSceneRef = useGraphStore.getState().scene;
   const unsub = useGraphStore.subscribe((state) => {
     if (state.scene !== prevSceneRef) {
       prevSceneRef = state.scene;
+      objectsDirty = true;
+    }
+  });
+  let prevParameterSignature = getParameterSignature();
+  const unsubEditor = useEditorStore.subscribe((state) => {
+    const nextParameterSignature = state.parameters
+      .map((parameter) => `${parameter.id}:${parameter.value}`)
+      .join("|");
+    if (nextParameterSignature !== prevParameterSignature) {
+      prevParameterSignature = nextParameterSignature;
       objectsDirty = true;
     }
   });
@@ -649,6 +786,14 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     }
 
     const uiState = useGraphStore.getState().ui;
+    applyBaselinePlane(uiState.baseline3dPlane);
+    if (uiState.baseline3dPlane !== lastBaselinePlanePair) {
+      lastBaselinePlanePair = uiState.baseline3dPlane;
+      setAxisLabelRoles(uiState.baseline3dPlane);
+      const distance = camera.position.distanceTo(controls.target);
+      alignCameraToBaseline(uiState.baseline3dPlane, controls.target.clone(), distance);
+      controls.update();
+    }
     if (uiState.canvas3dTool === "pan" || isAltDown) {
       controls.enableRotate = true;
       controls.enablePan = true;
@@ -669,8 +814,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       controls.mouseButtons.RIGHT = MOUSE.PAN;
     }
 
-    const pinnedPoints = uiState.probePinnedWorlds;
-    updateProbeMarkers(pinnedPoints);
+    const pinnedPins = uiState.probePins;
+    updateProbeMarkers(pinnedPins);
 
     if (hoverProbePoint) {
       hoverMarker.position.set(hoverProbePoint.x, hoverProbePoint.y, hoverProbePoint.z);
@@ -679,11 +824,11 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       hoverMarker.visible = false;
     }
 
-    if (pinnedPoints.length > 0) {
-      if (pinnedPoints.length === 1) {
-        setProbeBadge(`Pinned ${formatProbe(pinnedPoints[0])}`);
+    if (pinnedPins.length > 0) {
+      if (pinnedPins.length === 1) {
+        setProbeBadge(`Pinned ${formatProbe(pinnedPins[0].world)}`);
       } else {
-        setProbeBadge(`Pinned (${pinnedPoints.length}) · Last: ${formatProbe(pinnedPoints[pinnedPoints.length - 1])}`);
+        setProbeBadge(`Pinned (${pinnedPins.length}) · Last: ${formatProbe(pinnedPins[pinnedPins.length - 1].world)}`);
       }
     } else {
       setProbeBadge(null);
@@ -724,10 +869,22 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       gridUniforms.uMinorStep.value = nextGrid.minorStep;
       gridUniforms.uMajorStep.value = nextGrid.majorStep;
       gridUniforms.uFadeDistance.value = nextGrid.fadeDistance;
-      gridUniforms.uGridOffset.value.set(nextGrid.gridOffset[0], nextGrid.gridOffset[1]);
+      if (baselinePlaneMode === 1) {
+        gridUniforms.uGridOffset.value.set(camera.position.x, camera.position.y);
+      } else if (baselinePlaneMode === 2) {
+        gridUniforms.uGridOffset.value.set(camera.position.y, camera.position.z);
+      } else {
+        gridUniforms.uGridOffset.value.set(nextGrid.gridOffset[0], nextGrid.gridOffset[1]);
+      }
     }
 
-    gridMesh.position.set(camera.position.x, -0.0035, camera.position.z);
+    if (baselinePlaneMode === 1) {
+      gridMesh.position.set(camera.position.x, camera.position.y, -0.0035);
+    } else if (baselinePlaneMode === 2) {
+      gridMesh.position.set(-0.0035, camera.position.y, camera.position.z);
+    } else {
+      gridMesh.position.set(camera.position.x, -0.0035, camera.position.z);
+    }
     const diameter = nextGrid.fadeDistance * 2;
     gridMesh.scale.set(diameter, diameter, 1);
     gridUniforms.uCameraPosition.value.copy(camera.position);
@@ -823,7 +980,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         return;
       }
       const snapped = maybeSnapPoint(point);
-      snapped.y = 0;
+      if (baselinePlaneMode === 1) snapped.z = 0;
+      else if (baselinePlaneMode === 2) snapped.x = 0;
+      else snapped.y = 0;
       appendSketchPoint(snapped);
     }
   };
@@ -843,7 +1002,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       clearSketch();
       if (point) {
         const snapped = maybeSnapPoint(point);
-        snapped.y = 0;
+        if (baselinePlaneMode === 1) snapped.z = 0;
+        else if (baselinePlaneMode === 2) snapped.x = 0;
+        else snapped.y = 0;
         appendSketchPoint(snapped);
       }
     }
@@ -873,6 +1034,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    if (isTypingTarget(event.target)) {
+      return;
+    }
     if (event.key === "Alt") {
       isAltDown = true;
     } else if (event.key === "1") {
@@ -895,6 +1059,25 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const handleContextMenu = (event: Event) => {
     event.preventDefault();
+    event.stopPropagation?.();
+    const tool = useGraphStore.getState().ui.canvas3dTool;
+    if (tool !== "probe") {
+      return;
+    }
+    const mouseEvent = event as MouseEvent;
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+    ndc.x = ((mouseEvent.clientX - rect.left) / rect.width) * 2 - 1;
+    ndc.y = -((mouseEvent.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects(probeMarkerMeshes, false);
+    const hit = hits[0];
+    const id = hit?.object?.userData?.probePinId as string | undefined;
+    if (id) {
+      useGraphStore.getState().removeProbePin(id);
+    }
   };
 
   window.addEventListener("keydown", handleKeyDown);
@@ -908,6 +1091,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   resize();
 
   applyThemeToScene(lastDomTheme);
+  setAxisLabelRoles(lastBaselinePlanePair);
   syncObjects(lastDomTheme);
   objectsDirty = false;
 
@@ -917,6 +1101,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     dispose: () => {
       window.cancelAnimationFrame(animationHandle);
       unsub();
+      unsubEditor();
       resizeObserver?.disconnect();
       resizeObserver = null;
       controls.removeEventListener("start", markInteraction);
@@ -951,6 +1136,13 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
           probeMarkersRoot.remove(mesh);
           mesh.geometry.dispose();
           (mesh.material as MeshBasicMaterial).dispose();
+        }
+      }
+      while (probeMarkerLabels.length > 0) {
+        const label = probeMarkerLabels.pop();
+        if (label) {
+          probeMarkersRoot.remove(label);
+          (label.element as HTMLElement).remove();
         }
       }
       scene.remove(probeMarkersRoot);
@@ -999,6 +1191,26 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       }
     }
   };
+}
+
+function getParameterSignature(): string {
+  return useEditorStore
+    .getState()
+    .parameters.map((parameter) => `${parameter.id}:${parameter.value}`)
+    .join("|");
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.isContentEditable) {
+    return true;
+  }
+
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
 function shouldShowPerfBadge(): boolean {

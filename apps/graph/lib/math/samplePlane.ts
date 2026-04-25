@@ -1,4 +1,5 @@
 import { compile } from "mathjs";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 interface CompiledMathExpression {
   evaluate: (scope: Record<string, number>) => unknown;
@@ -168,7 +169,7 @@ function normalizePlaneEquation(equation: string): { expression: string; error: 
 
 function evaluateExpression(expression: CompiledMathExpression, x: number, y: number, z: number): number {
   try {
-    const value = expression.evaluate({ x, y, z });
+    const value = expression.evaluate({ x, y, z, ...getEditorParameterScope() });
     const numeric = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numeric) ? numeric : Number.NaN;
   } catch {

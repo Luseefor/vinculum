@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,21 @@ export default function AnimationTab() {
   const setAnimationSpeed = useEditorStore((state) => state.setAnimationSpeed);
   const toggleAnimationLoop = useEditorStore((state) => state.toggleAnimationLoop);
   const setAnimationPlaying = useEditorStore((state) => state.setAnimationPlaying);
-  const directionRef = useRef<1 | -1>(1);
+  const [minDraft, setMinDraft] = useState(() => String(animation.min));
+  const [maxDraft, setMaxDraft] = useState(() => String(animation.max));
+  const [speedDraft, setSpeedDraft] = useState(() => String(animation.speed));
+
+  useEffect(() => {
+    setMinDraft(String(animation.min));
+  }, [animation.min]);
+
+  useEffect(() => {
+    setMaxDraft(String(animation.max));
+  }, [animation.max]);
+
+  useEffect(() => {
+    setSpeedDraft(String(animation.speed));
+  }, [animation.speed]);
 
   useEffect(() => {
     if (!animation.playing || !animation.parameterId) {
@@ -23,35 +37,43 @@ export default function AnimationTab() {
     }
     let raf = 0;
     let last = performance.now();
+    const parameterId = animation.parameterId;
+    const parameter = useEditorStore.getState().parameters.find((item) => item.id === parameterId);
+    if (!parameter) {
+      return;
+    }
+
+    let value = Math.min(animation.max, Math.max(animation.min, parameter.value));
+    const span = animation.max - animation.min;
+    let direction: 1 | -1 = 1;
 
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      const parameter = parameters.find((item) => item.id === animation.parameterId);
-      if (parameter) {
-        const next = parameter.value + directionRef.current * animation.speed * dt;
-        if (next > animation.max) {
-          if (animation.loop) {
-            directionRef.current = -1;
-            setParameterValue(parameter.id, animation.max);
-          } else {
-            setParameterValue(parameter.id, animation.max);
-            setAnimationPlaying(false);
-            return;
-          }
-        } else if (next < animation.min) {
-          if (animation.loop) {
-            directionRef.current = 1;
-            setParameterValue(parameter.id, animation.min);
-          } else {
-            setParameterValue(parameter.id, animation.min);
-            setAnimationPlaying(false);
-            return;
-          }
+      value += direction * animation.speed * dt;
+
+      if (animation.loop) {
+        if (span <= 0) {
+          value = animation.min;
         } else {
-          setParameterValue(parameter.id, next);
+          while (value > animation.max || value < animation.min) {
+            if (value > animation.max) {
+              value = animation.max - (value - animation.max);
+              direction = -1;
+            } else if (value < animation.min) {
+              value = animation.min + (animation.min - value);
+              direction = 1;
+            }
+          }
         }
+      } else if (value >= animation.max) {
+        value = animation.max;
+        setParameterValue(parameterId, value);
+        setAnimationPlaying(false);
+        return;
       }
+
+      setParameterValue(parameterId, value);
       raf = requestAnimationFrame(tick);
     };
 
@@ -94,23 +116,78 @@ export default function AnimationTab() {
           <label className="block">
             <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Min</span>
             <Input
-              value={animation.min}
-              onChange={(event) => setAnimationRange(Number(event.target.value), animation.max)}
+              type="text"
+              inputMode="decimal"
+              value={minDraft}
+              onChange={(event) => {
+                const next = event.target.value;
+                setMinDraft(next);
+                const parsed = Number(next);
+                if (Number.isFinite(parsed)) {
+                  setAnimationRange(parsed, animation.max);
+                }
+              }}
+              onBlur={() => {
+                const parsed = Number(minDraft);
+                if (Number.isFinite(parsed)) {
+                  setAnimationRange(parsed, animation.max);
+                } else {
+                  setMinDraft(String(animation.min));
+                }
+              }}
               className="h-8 text-[11px]"
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Max</span>
             <Input
-              value={animation.max}
-              onChange={(event) => setAnimationRange(animation.min, Number(event.target.value))}
+              type="text"
+              inputMode="decimal"
+              value={maxDraft}
+              onChange={(event) => {
+                const next = event.target.value;
+                setMaxDraft(next);
+                const parsed = Number(next);
+                if (Number.isFinite(parsed)) {
+                  setAnimationRange(animation.min, parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = Number(maxDraft);
+                if (Number.isFinite(parsed)) {
+                  setAnimationRange(animation.min, parsed);
+                } else {
+                  setMaxDraft(String(animation.max));
+                }
+              }}
               className="h-8 text-[11px]"
             />
           </label>
         </div>
         <label className="block">
           <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Speed</span>
-          <Input value={animation.speed} onChange={(event) => setAnimationSpeed(Number(event.target.value))} className="h-8 text-[11px]" />
+          <Input
+            type="text"
+            inputMode="decimal"
+            value={speedDraft}
+            onChange={(event) => {
+              const next = event.target.value;
+              setSpeedDraft(next);
+              const parsed = Number(next);
+              if (Number.isFinite(parsed)) {
+                setAnimationSpeed(parsed);
+              }
+            }}
+            onBlur={() => {
+              const parsed = Number(speedDraft);
+              if (Number.isFinite(parsed)) {
+                setAnimationSpeed(parsed);
+              } else {
+                setSpeedDraft(String(animation.speed));
+              }
+            }}
+            className="h-8 text-[11px]"
+          />
         </label>
         <div className="flex items-center gap-2 pt-1">
           <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>

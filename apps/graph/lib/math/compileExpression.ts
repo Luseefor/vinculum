@@ -1,10 +1,13 @@
 import { compile } from "mathjs";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export type SurfaceEvaluator = (u: number, v: number) => number;
 
 export interface CompiledSurfaceExpression {
   evaluator: SurfaceEvaluator;
   error: string | null;
+  /** Orientation used for f(u,v) sampling (equation wins over UI when the equation starts with x=, y=, or z=). */
+  effectiveOrientation: "x" | "y" | "z";
 }
 
 interface CompiledMathExpression {
@@ -14,25 +17,66 @@ interface CompiledMathExpression {
 const NAN_EVALUATOR: SurfaceEvaluator = () => Number.NaN;
 const MAX_ERROR_LENGTH = 92;
 
+const EXPLICIT_AXIS = /^([xyz])\s*=\s*(.+)$/i;
+const IMPLICIT_STRIP = /^[a-z](\([a-z,\s]*\))?\s*=\s*/i;
+
+/**
+ * If the leading form is a simple axis assignment (`x=…`, `y=…`, `z=…`), that axis
+ * is the dependent variable (independent of the surface orientation UI).
+ * Otherwise uses the same implicit strip as before and the UI `fallbackOrientation`.
+ */
+export function getEffectiveSurfaceOrientation(
+  expression: string,
+  fallbackOrientation: "x" | "y" | "z" = "z"
+): { body: string; effectiveOrientation: "x" | "y" | "z" } {
+  const trimmed = expression.trim();
+  if (!trimmed) {
+    return { body: "", effectiveOrientation: fallbackOrientation };
+  }
+
+  const explicit = EXPLICIT_AXIS.exec(trimmed);
+  if (explicit) {
+    const letter = explicit[1].toLowerCase();
+    if (letter === "x" || letter === "y" || letter === "z") {
+      return {
+        body: explicit[2].trim(),
+        effectiveOrientation: letter
+      };
+    }
+  }
+
+  return {
+    body: trimmed.replace(IMPLICIT_STRIP, "").trim(),
+    effectiveOrientation: fallbackOrientation
+  };
+}
+
 export function compileSurfaceExpression(expression: string, orientation: "x" | "y" | "z" = "z"): CompiledSurfaceExpression {
-  let trimmedExpression = expression.trim();
-  if (!trimmedExpression) {
+  if (!expression.trim()) {
     return {
       evaluator: NAN_EVALUATOR,
-      error: "Equation cannot be empty."
+      error: "Equation cannot be empty.",
+      effectiveOrientation: orientation
     };
   }
 
-  // Strip prefixes like "z =", "y =", "x =", "f(x,y) =", etc.
-  trimmedExpression = trimmedExpression.replace(/^[a-z](\([a-z,\s]*\))?\s*=\s*/i, "");
+  const { body, effectiveOrientation } = getEffectiveSurfaceOrientation(expression, orientation);
+  if (!body) {
+    return {
+      evaluator: NAN_EVALUATOR,
+      error: "Equation cannot be empty.",
+      effectiveOrientation
+    };
+  }
 
   let compiledExpression: CompiledMathExpression;
   try {
-    compiledExpression = compile(trimmedExpression) as CompiledMathExpression;
+    compiledExpression = compile(body) as CompiledMathExpression;
   } catch (error) {
     return {
       evaluator: NAN_EVALUATOR,
-      error: formatExpressionError(error)
+      error: formatExpressionError(error),
+      effectiveOrientation
     };
   }
 
@@ -43,14 +87,15 @@ export function compileSurfaceExpression(expression: string, orientation: "x" | 
       z: 0,
       t: 0,
       pi: Math.PI,
-      e: Math.E
+      e: Math.E,
+      ...getEditorParameterScope()
     };
 
-    if (orientation === "x") {
+    if (effectiveOrientation === "x") {
       // x = f(y, z) -> u=y, v=z
       scope.y = u;
       scope.z = v;
-    } else if (orientation === "y") {
+    } else if (effectiveOrientation === "y") {
       // y = f(x, z) -> u=x, v=z
       scope.x = u;
       scope.z = v;
@@ -68,7 +113,8 @@ export function compileSurfaceExpression(expression: string, orientation: "x" | 
   } catch (error) {
     return {
       evaluator: NAN_EVALUATOR,
-      error: formatExpressionError(error)
+      error: formatExpressionError(error),
+      effectiveOrientation
     };
   }
 
@@ -84,7 +130,8 @@ export function compileSurfaceExpression(expression: string, orientation: "x" | 
 
   return {
     evaluator,
-    error: null
+    error: null,
+    effectiveOrientation
   };
 }
 
