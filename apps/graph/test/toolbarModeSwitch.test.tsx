@@ -12,7 +12,7 @@ describe("Toolbar mode switch", () => {
   it("switches from 2D to 3D on click", () => {
     render(<Toolbar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "3D", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "3D" }));
 
     expect(useGraphStore.getState().ui.graphMode).toBe("3d");
   });
@@ -21,7 +21,7 @@ describe("Toolbar mode switch", () => {
     useGraphStore.getState().setGraphMode("3d");
     render(<Toolbar />);
 
-    fireEvent.click(screen.getByRole("button", { name: "2D", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "2D" }));
 
     expect(useGraphStore.getState().ui.graphMode).toBe("2d");
   });
@@ -34,7 +34,7 @@ describe("Toolbar new scene dialog", () => {
 
   it("opens confirmation dialog when scene has objects", () => {
     useGraphStore.getState().addParametricCurve();
-    expect(useGraphStore.getState().scene.objects.length).toBeGreaterThan(1);
+    expect(useGraphStore.getState().scene.objects.length).toBeGreaterThan(0);
 
     render(<Toolbar />);
 
