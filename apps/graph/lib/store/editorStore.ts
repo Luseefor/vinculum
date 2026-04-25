@@ -37,6 +37,18 @@ interface EditorStoreState {
   leftPanelWidth: number;
   rightPanelWidth: number;
   bottomPanelHeight: number;
+  leftPanelLastOpenWidth: number;
+  rightPanelLastOpenWidth: number;
+  bottomPanelLastOpenHeight: number;
+  leftCollapseSnapOffset: number;
+  rightCollapseSnapOffset: number;
+  bottomCollapseSnapOffset: number;
+  responsiveInspectorDrawer: boolean;
+  responsiveLeftRail: boolean;
+  responsiveBottomCollapsed: boolean;
+  activeResizeHandle: "left" | "right" | "bottom" | null;
+  resizePointerId: number | null;
+  bottomPanelToggleSource: "manual" | "drag" | "breakpoint";
   bottomPanelTab: BottomPanelTab;
   parameters: EditorParameter[];
   consoleEvents: string[];
@@ -46,9 +58,20 @@ interface EditorStoreState {
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleBottomPanel: () => void;
+  setLeftPanelCollapsed: (collapsed: boolean) => void;
+  setRightPanelCollapsed: (collapsed: boolean) => void;
+  setBottomPanelCollapsed: (collapsed: boolean) => void;
   setLeftPanelWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
   setBottomPanelHeight: (height: number) => void;
+  beginResize: (handle: "left" | "right" | "bottom", pointerId: number) => void;
+  endResize: () => void;
+  setResponsiveFlags: (flags: {
+    inspectorDrawer?: boolean;
+    leftRail?: boolean;
+    bottomCollapsed?: boolean;
+  }) => void;
+  setBottomPanelToggleSource: (source: "manual" | "drag" | "breakpoint") => void;
   setBottomPanelTab: (tab: BottomPanelTab) => void;
   setParameterValue: (id: string, value: number) => void;
   addConsoleEvent: (message: string) => void;
@@ -65,13 +88,25 @@ interface EditorStoreState {
 export const useEditorStore = create<EditorStoreState>()(
   persist(
     (set) => ({
-      viewportMode: "3d",
+      viewportMode: "split",
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
       bottomPanelCollapsed: false,
-      leftPanelWidth: 280,
-      rightPanelWidth: 320,
-      bottomPanelHeight: 180,
+      leftPanelWidth: 240,
+      rightPanelWidth: 248,
+      bottomPanelHeight: 160,
+      leftPanelLastOpenWidth: 240,
+      rightPanelLastOpenWidth: 248,
+      bottomPanelLastOpenHeight: 160,
+      leftCollapseSnapOffset: 40,
+      rightCollapseSnapOffset: 40,
+      bottomCollapseSnapOffset: 40,
+      responsiveInspectorDrawer: false,
+      responsiveLeftRail: false,
+      responsiveBottomCollapsed: false,
+      activeResizeHandle: null,
+      resizePointerId: null,
+      bottomPanelToggleSource: "manual",
       bottomPanelTab: "parameters",
       parameters: [
         { id: "r", value: 2.5, min: 0.1, max: 12 },
@@ -88,12 +123,49 @@ export const useEditorStore = create<EditorStoreState>()(
         playing: false
       },
       setViewportMode: (mode) => set({ viewportMode: mode }),
-      toggleLeftPanel: () => set((state) => ({ leftPanelCollapsed: !state.leftPanelCollapsed })),
-      toggleRightPanel: () => set((state) => ({ rightPanelCollapsed: !state.rightPanelCollapsed })),
-      toggleBottomPanel: () => set((state) => ({ bottomPanelCollapsed: !state.bottomPanelCollapsed })),
-      setLeftPanelWidth: (width) => set({ leftPanelWidth: clamp(width, 224, 480) }),
-      setRightPanelWidth: (width) => set({ rightPanelWidth: clamp(width, 260, 540) }),
-      setBottomPanelHeight: (height) => set({ bottomPanelHeight: clamp(height, 120, 360) }),
+      toggleLeftPanel: () =>
+        set((state) => ({
+          leftPanelCollapsed: !state.leftPanelCollapsed,
+          leftPanelLastOpenWidth: state.leftPanelCollapsed ? state.leftPanelLastOpenWidth : state.leftPanelWidth
+        })),
+      toggleRightPanel: () =>
+        set((state) => ({
+          rightPanelCollapsed: !state.rightPanelCollapsed,
+          rightPanelLastOpenWidth: state.rightPanelCollapsed ? state.rightPanelLastOpenWidth : state.rightPanelWidth
+        })),
+      toggleBottomPanel: () =>
+        set((state) => ({
+          bottomPanelCollapsed: !state.bottomPanelCollapsed,
+          bottomPanelLastOpenHeight: state.bottomPanelCollapsed ? state.bottomPanelLastOpenHeight : state.bottomPanelHeight,
+          bottomPanelToggleSource: "manual"
+        })),
+      setLeftPanelCollapsed: (collapsed) => set({ leftPanelCollapsed: collapsed }),
+      setRightPanelCollapsed: (collapsed) => set({ rightPanelCollapsed: collapsed }),
+      setBottomPanelCollapsed: (collapsed) => set({ bottomPanelCollapsed: collapsed }),
+      setLeftPanelWidth: (width) =>
+        set((state) => {
+          const next = clamp(width, 180, 420);
+          return { leftPanelWidth: next, leftPanelLastOpenWidth: next, leftPanelCollapsed: false };
+        }),
+      setRightPanelWidth: (width) =>
+        set((state) => {
+          const next = clamp(width, 220, 540);
+          return { rightPanelWidth: next, rightPanelLastOpenWidth: next, rightPanelCollapsed: false };
+        }),
+      setBottomPanelHeight: (height) =>
+        set((state) => {
+          const next = clamp(height, 96, 420);
+          return { bottomPanelHeight: next, bottomPanelLastOpenHeight: next, bottomPanelCollapsed: false };
+        }),
+      beginResize: (handle, pointerId) => set({ activeResizeHandle: handle, resizePointerId: pointerId }),
+      endResize: () => set({ activeResizeHandle: null, resizePointerId: null }),
+      setResponsiveFlags: (flags) =>
+        set((state) => ({
+          responsiveInspectorDrawer: flags.inspectorDrawer ?? state.responsiveInspectorDrawer,
+          responsiveLeftRail: flags.leftRail ?? state.responsiveLeftRail,
+          responsiveBottomCollapsed: flags.bottomCollapsed ?? state.responsiveBottomCollapsed
+        })),
+      setBottomPanelToggleSource: (source) => set({ bottomPanelToggleSource: source }),
       setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
       setParameterValue: (id, value) =>
         set((state) => ({
