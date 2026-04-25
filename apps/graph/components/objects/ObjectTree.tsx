@@ -32,7 +32,7 @@ export default function ObjectTree() {
       <Input
         value={filter}
         onChange={(event) => setFilter(event.target.value)}
-        placeholder="Search objects…"
+        placeholder="Search objects..."
         className="h-8 text-[11px]"
         aria-label="Filter objects"
       />

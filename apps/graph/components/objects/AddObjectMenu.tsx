@@ -152,7 +152,7 @@ export default function AddObjectMenu() {
             addConsoleEvent("Created surface from quick add");
           }}
         >
-          Add
+          + Add Object
         </Button>
         <Button type="button" variant="ghost" className="px-2" onClick={() => setOpen((v) => !v)} aria-label="Open object menu">
           ▾
