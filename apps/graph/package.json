@@ -16,8 +16,6 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.17.10",
     "@vinculum/scene": "workspace:*",
     "mathjs": "^13.2.3",
     "next": "^14.2.17",
