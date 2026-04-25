@@ -111,7 +111,8 @@ export function createDefaultSurfaceGraph(options: CreateDefaultSurfaceGraphOpti
     appearance: {
       ...defaultSurfaceAppearance,
       ...options.appearance
-    }
+    },
+    orientation: "z"
   };
 }
 
