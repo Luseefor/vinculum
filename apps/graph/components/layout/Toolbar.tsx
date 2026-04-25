@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import * as React from "react";
+import { useState, useRef, useEffect } from "react";
 import NewSceneDialog from "@/components/layout/NewSceneDialog";
+import {
+  ChevronDownIcon,
+  MoonIcon,
+  QuadViewIcon,
+  RedoIcon,
+  SingleViewIcon,
+  SplitViewIcon,
+  SunIcon,
+  UndoIcon,
+  VinculumMark
+} from "@/components/layout/icons";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { Portal } from "@/components/ui/portal";
 import { cn } from "@/components/ui/styles";
-import { MAX_VIEWPORT_SCALE, MIN_VIEWPORT_SCALE } from "@/lib/graph/viewport";
-import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useHistoryStore } from "@/lib/store/historyStore";
+import type { ViewportMode } from "@/lib/types/ui";
 import { useGraphStore } from "@/store/graphStore";
-import type { Canvas2DTool, Canvas3DTool } from "@/types/graphUi";
+import type { AccentPreset, Canvas2DTool, Canvas3DTool, ThemeMode, UiDensity } from "@/types/graphUi";
 
 interface ToolbarProps {
   onOpenInspector?: () => void;
@@ -18,462 +28,344 @@ interface ToolbarProps {
   rightCollapsed?: boolean;
   onToggleLeftPanel?: () => void;
   onToggleRightPanel?: () => void;
-  onDecreaseLeftWidth?: () => void;
-  onIncreaseLeftWidth?: () => void;
-  onDecreaseRightWidth?: () => void;
-  onIncreaseRightWidth?: () => void;
+  viewportMode?: ViewportMode;
+  onViewportModeChange?: (mode: ViewportMode) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
+
+const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "green", "amber", "orange", "rose", "pink", "violet"];
+const accentHex: Record<AccentPreset, string> = {
+  indigo: "#6366f1",
+  blue: "#3b82f6",
+  cyan: "#06b6d4",
+  emerald: "#10b981",
+  green: "#22c55e",
+  amber: "#f59e0b",
+  orange: "#f97316",
+  rose: "#f43f5e",
+  pink: "#ec4899",
+  violet: "#8b5cf6"
+};
 
 export default function Toolbar({
   onOpenInspector,
-  leftCollapsed = false,
-  rightCollapsed = false,
-  onToggleLeftPanel,
-  onToggleRightPanel,
-  onDecreaseLeftWidth,
-  onIncreaseLeftWidth,
-  onDecreaseRightWidth,
-  onIncreaseRightWidth
+  viewportMode = "split",
+  onViewportModeChange = () => undefined,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo
 }: ToolbarProps) {
+  const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [newSceneOpen, setNewSceneOpen] = useState(false);
+  
+  const appearanceTriggerRef = useRef<HTMLButtonElement>(null);
+  const fileTriggerRef = useRef<HTMLButtonElement>(null);
+
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const resetScene = useGraphStore((state) => state.resetScene);
-  const clearHistory = useHistoryStore((state) => state.clear);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
-  const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
-  const setAxis2DPair = useGraphStore((state) => state.setAxis2DPair);
-  const themeMode = useGraphStore((state) => state.ui.themeMode);
-  const setThemeMode = useGraphStore((state) => state.setThemeMode);
-  const cycleThemeMode = useGraphStore((state) => state.cycleThemeMode);
-  const viewport2d = useGraphStore((state) => state.ui.viewport2d);
-  const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
-  const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
+  const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
   const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
-  const probePinnedMath = useGraphStore((state) => state.ui.probePinnedMath);
-  const setProbePinnedMath = useGraphStore((state) => state.setProbePinnedMath);
-  const sketchExtendFraction = useGraphStore((state) => state.ui.sketchExtendFraction);
-  const sketchAutoCreate = useGraphStore((state) => state.ui.sketchAutoCreate);
-  const setSketchExtendFraction = useGraphStore((state) => state.setSketchExtendFraction);
-  const setSketchAutoCreate = useGraphStore((state) => state.setSketchAutoCreate);
+  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
   const setSnapStep = useGraphStore((state) => state.setSnapStep);
-  const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
-  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
-  const probePinnedWorld = useGraphStore((state) => state.ui.probePinnedWorld);
-  const setProbePinnedWorld = useGraphStore((state) => state.setProbePinnedWorld);
-  const resolvedTheme = useResolvedTheme();
+  const themeMode = useGraphStore((state) => state.ui.themeMode);
+  const setThemeMode = useGraphStore((state) => state.setThemeMode);
+  const accentPreset = useGraphStore((state) => state.ui.accentPreset);
+  const setAccentPreset = useGraphStore((state) => state.setAccentPreset);
+  const clearHistory = useHistoryStore((state) => state.clear);
 
-  const handleResetView = () => {
-    if (graphMode === "2d") {
-      resetViewport2D();
-    } else {
-      requestCameraReset();
-    }
-  };
-
-  const handleRequestNewScene = () => {
-    if (objectCount === 0) {
-      clearHistory();
-      resetScene();
-      return;
-    }
-
-    setNewSceneOpen(true);
-  };
+  const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
 
   const handleConfirmNewScene = () => {
     clearHistory();
     resetScene();
     setNewSceneOpen(false);
+    setFileMenuOpen(false);
   };
+
+  const setActiveTool = (tool: Canvas2DTool | Canvas3DTool) => {
+    setCanvas2dTool(tool as Canvas2DTool);
+    setCanvas3dTool(tool as Canvas3DTool);
+  };
+
+  // Close menus on click outside
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (appearanceOpen && !appearanceTriggerRef.current?.contains(e.target as Node)) {
+        setAppearanceOpen(false);
+      }
+      if (fileMenuOpen && !fileTriggerRef.current?.contains(e.target as Node)) {
+        setFileMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [appearanceOpen, fileMenuOpen]);
 
   return (
     <>
-      <NewSceneDialog
-        open={newSceneOpen}
-        onConfirm={handleConfirmNewScene}
-        onCancel={() => setNewSceneOpen(false)}
-      />
-      <header className="relative z-40 flex min-h-12 flex-col gap-2 border-b border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <div className="flex shrink-0 items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
-            <div className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-blue-400 to-blue-600" />
-            <h1 className="text-xs font-semibold tracking-[0.08em]">Vinculum</h1>
+      <NewSceneDialog open={newSceneOpen} onConfirm={handleConfirmNewScene} onCancel={() => setNewSceneOpen(false)} />
+      
+      <header className="relative z-40 flex h-14 items-center gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-bg)]/80 px-3 py-1.5 backdrop-blur-md">
+        {/* Brand Pill */}
+        <div className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] pl-1.5 pr-3 py-1 shadow-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--surface-overlay)]">
+            <VinculumMark className="h-4.5 w-4.5" />
           </div>
+          <span className="text-xs font-bold tracking-tight text-[var(--text-primary)]">VINCULUM</span>
+        </div>
 
-          <div
-            role="group"
-            aria-label="Graph mode"
-            className="flex shrink-0 items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1"
-          >
-            <button
-              type="button"
+        <div className="h-6 w-px shrink-0 bg-[var(--border-subtle)]/50" />
+
+        {/* Mode & Tools Pill */}
+        <div className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1 shadow-sm">
+          <div className="flex items-center gap-0.5 px-1 mr-1 border-r border-[var(--border-subtle)]/40">
+            <Button
+              size="xs"
+              variant={graphMode === "2d" ? "primary" : "ghost"}
               onClick={() => setGraphMode("2d")}
-              aria-pressed={graphMode === "2d"}
-              className={cn(
-                "h-6 w-10 cursor-pointer rounded-md text-[10px] font-semibold transition-colors",
-                graphMode === "2d"
-                  ? "bg-[var(--accent)] text-white"
-                  : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
-              )}
+              className="rounded-full px-3"
             >
               2D
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="xs"
+              variant={graphMode === "3d" ? "primary" : "ghost"}
               onClick={() => setGraphMode("3d")}
-              aria-pressed={graphMode === "3d"}
-              className={cn(
-                "h-6 w-10 cursor-pointer rounded-md text-[10px] font-semibold transition-colors",
-                graphMode === "3d"
-                  ? "bg-[var(--accent)] text-white"
-                  : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
-              )}
+              className="rounded-full px-3"
             >
               3D
-            </button>
+            </Button>
           </div>
-
-          <span className="shrink-0 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-tertiary)]">
-            {objectCount} {objectCount === 1 ? "object" : "objects"}
-          </span>
-
-          {graphMode === "2d" && (
-            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
-              <label className="text-[10px] text-[var(--text-tertiary)]">Axes</label>
-              <select
-                value={axis2dPair}
-                onChange={(event) => {
-                  const pair = event.target.value;
-                  if (pair === "xy" || pair === "yz" || pair === "xz") {
-                    setAxis2DPair(pair);
-                  }
-                }}
-                className="h-6 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
-                aria-label="2D axis pair"
-              >
-                <option value="xy">X / Y</option>
-                <option value="yz">Y / Z</option>
-                <option value="xz">X / Z</option>
-              </select>
-              <label className="text-[10px] text-[var(--text-tertiary)]">Scale</label>
-              <input
-                type="number"
-                min={MIN_VIEWPORT_SCALE}
-                max={MAX_VIEWPORT_SCALE}
-                step="0.1"
-                value={Number(viewport2d.scale.toPrecision(6))}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) {
-                    updateViewport2D({ scale: next });
-                  }
-                }}
-                className="h-6 w-16 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
-                aria-label="2D axis scale"
-              />
-
-              <div
-                role="group"
-                aria-label="2D canvas tools"
-                className="flex flex-wrap items-center gap-0.5 rounded border border-[var(--border-subtle)] p-0.5"
-              >
-                {(
-                  [
-                    { id: "pan", label: "Pan" },
-                    { id: "probe", label: "Probe" },
-                    { id: "draw", label: "Sketch" }
-                  ] as { id: Canvas2DTool; label: string }[]
-                ).map((tool) => (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    aria-pressed={canvas2dTool === tool.id}
-                    onClick={() => setCanvas2dTool(tool.id)}
-                    className={cn(
-                      "h-6 rounded px-2 text-[10px] font-semibold transition-colors",
-                      canvas2dTool === tool.id
-                        ? "bg-[var(--accent)] text-white"
-                        : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
-                    )}
-                  >
-                    {tool.label}
-                  </button>
-                ))}
-              </div>
-
-              {canvas2dTool === "draw" && (
-                <>
-                  <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
-                    Extend
-                    <Input
-                      type="number"
-                      min={0}
-                      max={0.45}
-                      step={0.05}
-                      value={sketchExtendFraction}
-                      onChange={(event) => {
-                        const next = Number(event.target.value);
-                        if (Number.isFinite(next)) {
-                          setSketchExtendFraction(next);
-                        }
-                      }}
-                      className="h-6 w-14 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
-                      title="Extrapolate fitted curve in parameter space: t ∈ [−extend, 1 + extend]"
-                      aria-label="Sketch curve extension along parameter"
-                    />
-                  </label>
-                  <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
-                    <input
-                      type="checkbox"
-                      checked={sketchAutoCreate}
-                      onChange={(event) => setSketchAutoCreate(event.target.checked)}
-                      aria-label="Auto create sketch fit"
-                    />
-                    Auto create
-                  </label>
-                </>
-              )}
-
-              {probePinnedMath && (
-                <Button
-                  type="button"
-                  onClick={() => setProbePinnedMath(null)}
-                  size="sm"
-                  className="h-6"
-                >
-                  Clear pin
-                </Button>
-              )}
-              <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
-                <input
-                  type="checkbox"
-                  checked={snapEnabled}
-                  onChange={(event) => setSnapEnabled(event.target.checked)}
-                  aria-label="Enable snapping"
-                />
-                Snap
-              </label>
-              <Input
-                type="number"
-                min={0.0001}
-                step={0.05}
-                value={snapStep}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) {
-                    setSnapStep(next);
-                  }
-                }}
-                className="h-6 w-16 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
-                aria-label="Snap step"
-                title="Snap grid step in math units"
-              />
-            </div>
-          )}
-
-          {graphMode === "3d" && (
-            <div
-              data-testid="toolbar-3d-tools"
-              className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1"
-            >
-              <div
-                role="group"
-                aria-label="3D canvas tools"
-                className="flex flex-wrap items-center gap-0.5 rounded border border-[var(--border-subtle)] p-0.5"
-              >
-                {(
-                  [
-                    { id: "pan", label: "Pan" },
-                    { id: "probe", label: "Probe" },
-                    { id: "draw", label: "Sketch" }
-                  ] as { id: Canvas3DTool; label: string }[]
-                ).map((tool) => (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    aria-pressed={canvas3dTool === tool.id}
-                    onClick={() => setCanvas3dTool(tool.id)}
-                    title={`3D tool: ${tool.label}`}
-                    className={cn(
-                      "h-6 rounded px-2 text-[10px] font-semibold transition-colors",
-                      canvas3dTool === tool.id
-                        ? "bg-[var(--accent)] text-white"
-                        : "text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-secondary)]"
-                    )}
-                  >
-                    {tool.label}
-                  </button>
-                ))}
-              </div>
-
-              {canvas3dTool === "draw" && (
-                <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
-                  Extend
-                  <Input
-                    type="number"
-                    min={0}
-                    max={0.45}
-                    step={0.05}
-                    value={sketchExtendFraction}
-                    onChange={(event) => {
-                      const next = Number(event.target.value);
-                      if (Number.isFinite(next)) {
-                        setSketchExtendFraction(next);
-                      }
-                    }}
-                    className="h-6 w-14 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
-                    title="Extrapolate fitted 3D curve in parameter space: t ∈ [−extend, 1 + extend]"
-                    aria-label="3D sketch curve extension along parameter"
-                  />
-                </label>
-              )}
-
-              {probePinnedWorld && (
-                <Button
-                  type="button"
-                  onClick={() => setProbePinnedWorld(null)}
-                  size="sm"
-                  className="h-6"
-                >
-                  Clear pin
-                </Button>
-              )}
-              <label className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
-                <input
-                  type="checkbox"
-                  checked={snapEnabled}
-                  onChange={(event) => setSnapEnabled(event.target.checked)}
-                  aria-label="Enable snapping"
-                />
-                Snap
-              </label>
-              <Input
-                type="number"
-                min={0.0001}
-                step={0.05}
-                value={snapStep}
-                onChange={(event) => {
-                  const next = Number(event.target.value);
-                  if (Number.isFinite(next)) {
-                    setSnapStep(next);
-                  }
-                }}
-                className="h-6 w-16 rounded border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1 text-[10px] text-[var(--text-secondary)]"
-                aria-label="Snap step"
-                title="Snap grid step in world units"
-              />
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1">
-            <select
-              value={themeMode}
-              onChange={(event) => {
-                const mode = event.target.value;
-                if (mode === "system" || mode === "light" || mode === "dark") {
-                  setThemeMode(mode);
-                }
-              }}
-              className="h-6 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 text-[10px] text-[var(--text-secondary)]"
-              aria-label="Theme mode"
-            >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
+          
+          <div className="flex items-center gap-1 px-1">
             <Button
-              type="button"
-              onClick={cycleThemeMode}
-              size="sm"
-              className="h-6"
-              title={`Theme: ${themeMode} (${resolvedTheme})`}
-              aria-label={`Cycle theme mode, current ${themeMode}`}
+              size="xs"
+              variant={activeTool === "pan" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("pan")}
+              className="rounded-full"
             >
-              {resolvedTheme === "dark" ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12.79A9 9 0 1111.21 3c.2 0 .4.01.6.03A7 7 0 0021 12.79z" />
-                </svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                </svg>
-              )}
+              Pan
+            </Button>
+            <Button
+              size="xs"
+              variant={activeTool === "probe" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("probe")}
+              className="rounded-full"
+            >
+              Probe
+            </Button>
+            <Button
+              size="xs"
+              variant={activeTool === "draw" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("draw")}
+              className="rounded-full"
+            >
+              Sketch
             </Button>
           </div>
         </div>
 
-        <nav className="flex flex-wrap items-center gap-1 lg:shrink-0 lg:justify-end">
-          {onToggleLeftPanel ? (
-            <Button type="button" variant="secondary" onClick={onToggleLeftPanel} aria-label="Toggle left sidebar">
-              {leftCollapsed ? "Show left" : "Hide left"}
-            </Button>
-          ) : null}
-          {!leftCollapsed && onDecreaseLeftWidth && onIncreaseLeftWidth ? (
-            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1">
-              <span className="px-1 text-[10px] text-[var(--text-tertiary)]">Left</span>
-              <Button type="button" size="sm" variant="ghost" onClick={onDecreaseLeftWidth} aria-label="Decrease left sidebar width">
-                -
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={onIncreaseLeftWidth} aria-label="Increase left sidebar width">
-                +
-              </Button>
+        {/* Snap & Utility Pill */}
+        <div className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1 shadow-sm">
+          <Button
+            size="xs"
+            variant={snapEnabled ? "primary" : "ghost"}
+            onClick={() => setSnapEnabled(!snapEnabled)}
+            className="rounded-full px-3"
+          >
+            Snap
+          </Button>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[var(--surface-overlay)]/40 border border-[var(--border-subtle)]/30">
+            <span className="text-[10px] font-bold text-[var(--text-tertiary)]">STEP</span>
+            <input
+              type="number"
+              value={snapStep}
+              onChange={(e) => setSnapStep(Number(e.target.value))}
+              className="w-10 bg-transparent text-[11px] font-mono font-medium outline-none text-[var(--text-primary)]"
+            />
+          </div>
+        </div>
+
+        <div className="h-6 w-px shrink-0 bg-[var(--border-subtle)]/50" />
+
+        {/* Viewport Control Pill */}
+        <div className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1 shadow-sm">
+          <Button
+            size="icon"
+            variant={viewportMode === "split" ? "primary" : "ghost"}
+            onClick={() => onViewportModeChange("split")}
+            className="h-7 w-7 rounded-full"
+          >
+            <SplitViewIcon className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant={viewportMode === "2d" || viewportMode === "3d" ? "primary" : "ghost"}
+            onClick={() => onViewportModeChange(graphMode)}
+            className="h-7 w-7 rounded-full"
+          >
+            <SingleViewIcon className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant={viewportMode === "quad" ? "primary" : "ghost"}
+            onClick={() => onViewportModeChange("quad")}
+            className="h-7 w-7 rounded-full"
+          >
+            <QuadViewIcon className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {/* History Pill */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1 shadow-sm">
+          <Button
+            size="icon"
+            variant="shell"
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="h-7 w-7 rounded-full"
+          >
+            <UndoIcon className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="shell"
+            onClick={onRedo}
+            disabled={!canRedo}
+            className="h-7 w-7 rounded-full"
+          >
+            <RedoIcon className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="flex-1" />
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-2">
+          <Button
+            ref={fileTriggerRef}
+            variant="utility"
+            size="sm"
+            onClick={() => setFileMenuOpen(!fileMenuOpen)}
+            className="rounded-full gap-2 px-4 shadow-sm"
+          >
+            Scene
+            <ChevronDownIcon className={cn("h-3 w-3 transition-transform", fileMenuOpen && "rotate-180")} />
+          </Button>
+
+          <Button
+            ref={appearanceTriggerRef}
+            variant="utility"
+            size="icon"
+            onClick={() => setAppearanceOpen(!appearanceOpen)}
+            className="h-8 w-8 rounded-full shadow-sm"
+          >
+            {themeMode === "dark" ? <MoonIcon className="h-4 w-4" /> : <SunIcon className="h-4 w-4" />}
+          </Button>
+        </div>
+
+        {/* File Dropdown Portal */}
+        {fileMenuOpen && (
+          <Portal>
+            <div 
+              className="fixed z-[100] w-48 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-bg)]/95 shadow-2xl backdrop-blur-xl"
+              style={{
+                top: (fileTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
+                left: (fileTriggerRef.current?.getBoundingClientRect().left ?? 0) - 40
+              }}
+            >
+              <div className="p-1.5 flex flex-col gap-0.5">
+                <MenuButton onClick={() => { if(objectCount === 0) resetScene(); else setNewSceneOpen(true); setFileMenuOpen(false); }}>New Scene</MenuButton>
+                <MenuButton onClick={() => { openSceneDialog("import"); setFileMenuOpen(false); }}>Import...</MenuButton>
+                <MenuButton onClick={() => { openSceneDialog("export"); setFileMenuOpen(false); }}>Export...</MenuButton>
+                <div className="h-px bg-[var(--border-subtle)]/40 my-1 mx-2" />
+                <MenuButton onClick={() => { requestCameraReset(); setFileMenuOpen(false); }}>Reset Camera</MenuButton>
+              </div>
             </div>
-          ) : null}
-          {onToggleRightPanel ? (
-            <Button type="button" variant="secondary" onClick={onToggleRightPanel} aria-label="Toggle right sidebar">
-              {rightCollapsed ? "Show right" : "Hide right"}
-            </Button>
-          ) : null}
-          {!rightCollapsed && onDecreaseRightWidth && onIncreaseRightWidth ? (
-            <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1">
-              <span className="px-1 text-[10px] text-[var(--text-tertiary)]">Right</span>
-              <Button type="button" size="sm" variant="ghost" onClick={onDecreaseRightWidth} aria-label="Decrease right sidebar width">
-                -
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={onIncreaseRightWidth} aria-label="Increase right sidebar width">
-                +
-              </Button>
+          </Portal>
+        )}
+
+        {/* Appearance Dropdown Portal */}
+        {appearanceOpen && (
+          <Portal>
+            <div 
+              className="fixed z-[100] w-64 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-bg)]/95 shadow-2xl backdrop-blur-xl"
+              style={{
+                top: (appearanceTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
+                right: window.innerWidth - (appearanceTriggerRef.current?.getBoundingClientRect().right ?? 0)
+              }}
+            >
+              <div className="p-4 flex flex-col gap-6">
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-tertiary)] mb-3">Appearance</h3>
+                  <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--surface-raised)] border border-[var(--border-subtle)]/40">
+                    <button 
+                      onClick={() => setThemeMode("light")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[11px] font-medium transition",
+                        themeMode === "light" ? "bg-[var(--surface-overlay)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      )}
+                    >
+                      <SunIcon className="h-3.5 w-3.5" /> Light
+                    </button>
+                    <button 
+                      onClick={() => setThemeMode("dark")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[11px] font-medium transition",
+                        themeMode === "dark" ? "bg-[var(--surface-overlay)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                      )}
+                    >
+                      <MoonIcon className="h-3.5 w-3.5" /> Dark
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-tertiary)] mb-3">Accent Color</h3>
+                  <div className="grid grid-cols-5 gap-3 justify-items-center">
+                    {accentOptions.map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setAccentPreset(preset)}
+                        className={cn(
+                          "h-5 w-5 rounded-full border-2 transition hover:scale-125 active:scale-95",
+                          accentPreset === preset ? "border-[var(--text-primary)] ring-2 ring-[var(--accent-primary)]/20" : "border-transparent"
+                        )}
+                        style={{ backgroundColor: accentHex[preset] }}
+                        aria-label={`Accent ${preset}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : null}
-          <Button type="button" onClick={handleRequestNewScene}>
-            New
-          </Button>
-
-          <Separator orientation="vertical" className="mx-0.5 h-5" />
-
-          <Button type="button" onClick={() => openSceneDialog("import")}>
-            Import
-          </Button>
-          <Button type="button" onClick={() => openSceneDialog("export")}>
-            Export
-          </Button>
-
-          <Separator orientation="vertical" className="mx-0.5 h-5" />
-
-          <Button type="button" onClick={handleResetView}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M8 16H3v5" />
-            </svg>
-            Reset
-          </Button>
-          {onOpenInspector ? (
-            <Button type="button" className="lg:hidden" onClick={onOpenInspector}>
-              Inspector
-            </Button>
-          ) : null}
-        </nav>
+          </Portal>
+        )}
       </header>
     </>
+  );
+}
+
+function MenuButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center px-3 py-2 text-[12px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)]/60 rounded-lg transition-colors"
+    >
+      {children}
+    </button>
   );
 }
