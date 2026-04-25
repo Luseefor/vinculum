@@ -17,8 +17,12 @@ import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
 import type { ParametricCurveObject } from "@vinculum/scene/types";
 
+export type Graph2DCanvasVariant = "primary" | "quadTop";
+
 interface Graph2DCanvasProps {
   className?: string;
+  /** Quad bottom-right: XZ top view with its own pan/zoom state. */
+  variant?: Graph2DCanvasVariant;
 }
 
 interface DrawContext {
@@ -89,26 +93,47 @@ const VIEWPORT_BADGE_HEIGHT_PX = 28;
 const SKETCH_SAMPLE_MIN_SCREEN_PX = 2.25;
 const SKETCH_MIN_POINTS_TO_FIT = 4;
 
-export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
+export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resolvedTheme = useResolvedTheme();
+  const isQuadTop = variant === "quadTop";
 
   const objects = useGraphStore((state) => state.scene.objects);
-  const viewport = useGraphStore((state) => state.ui.viewport2d);
-  const viewportFrame = useGraphStore((state) => state.ui.viewport2dFrame);
-  const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
+  const viewportMain = useGraphStore((state) => state.ui.viewport2d);
+  const viewportQuadTop = useGraphStore((state) => state.ui.viewport2dQuadTop);
+  const viewport = isQuadTop ? viewportQuadTop : viewportMain;
+
+  const viewportFrameMain = useGraphStore((state) => state.ui.viewport2dFrame);
+  const viewportFrameQuadTop = useGraphStore((state) => state.ui.viewport2dQuadTopFrame);
+  const viewportFrame = isQuadTop ? viewportFrameQuadTop : viewportFrameMain;
+
+  const axis2dPairPrimary = useGraphStore((state) => state.ui.axis2dPair);
+  const axis2dPairQuadTop = useGraphStore((state) => state.ui.axis2dPairQuadTop);
+  const setActive2dViewport = useGraphStore((state) => state.setActive2dViewport);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
-  const probePinnedMath = useGraphStore((state) => state.ui.probePinnedMath);
+  const probePinnedMaths = useGraphStore((state) => state.ui.probePinnedMaths);
   const updateViewport2D = useGraphStore((state) => state.updateViewport2D);
+  const updateViewport2DQuadTop = useGraphStore((state) => state.updateViewport2DQuadTop);
+  const patchViewport2D = isQuadTop ? updateViewport2DQuadTop : updateViewport2D;
+
   const setViewport2DFrame = useGraphStore((state) => state.setViewport2DFrame);
+  const setViewport2DQuadTopFrame = useGraphStore((state) => state.setViewport2DQuadTopFrame);
+  const setFrameForCanvas = isQuadTop ? setViewport2DQuadTopFrame : setViewport2DFrame;
+
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
+  const resetViewport2DQuadTop = useGraphStore((state) => state.resetViewport2DQuadTop);
+  const resetViewForCanvas = isQuadTop ? resetViewport2DQuadTop : resetViewport2D;
+
   const setProbePinnedMath = useGraphStore((state) => state.setProbePinnedMath);
+  const clearProbes = useGraphStore((state) => state.clearProbes);
   const addSketchedParametricFromStroke = useGraphStore((state) => state.addSketchedParametricFromStroke);
   const sketchAutoCreate = useGraphStore((state) => state.ui.sketchAutoCreate);
-  const axisPair = useMemo(() => getAxisPairSpec(axis2dPair), [axis2dPair]);
+  const pairForCanvas = isQuadTop ? axis2dPairQuadTop : axis2dPairPrimary;
+
+  const axisPair = useMemo(() => getAxisPairSpec(pairForCanvas), [pairForCanvas]);
 
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -194,6 +219,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
       ctx.strokeStyle = colors.gridMinor;
       ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.42;
       ctx.beginPath();
       const minorXSeries = buildGridSeries(
         minX - minorOverscan,
@@ -229,6 +255,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
       ctx.strokeStyle = colors.gridMajor;
       ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.78;
       ctx.beginPath();
       const majorXSeries = buildGridSeries(
         minX - majorOverscan,
@@ -264,6 +291,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
       ctx.strokeStyle = colors.axis;
       ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.92;
       ctx.beginPath();
       const originScreen = mathToScreen(0, 0, dc);
       const alignedOriginY = alignToPixel(originScreen.y);
@@ -604,25 +632,39 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     ctx.fillStyle = palette.background;
     ctx.fillRect(0, 0, dc.width, dc.height);
     drawGrid(dc);
+    const vignette = ctx.createRadialGradient(
+      dc.width / 2,
+      dc.height / 2,
+      Math.min(dc.width, dc.height) * 0.25,
+      dc.width / 2,
+      dc.height / 2,
+      Math.max(dc.width, dc.height) * 0.72
+    );
+    vignette.addColorStop(0, "rgba(2, 6, 23, 0)");
+    vignette.addColorStop(1, "rgba(2, 6, 23, 0.3)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, dc.width, dc.height);
 
     for (const graph of renderableGraphs) {
       drawGraph(graph, dc);
     }
 
-    if (canvas2dTool === "probe" && mousePos) {
+    if (canvas2dTool === "probe" && mousePos && !isQuadTop) {
       const cursorScreen = mathToScreen(mousePos.math.horizontal, mousePos.math.vertical, dc);
       drawScreenCrosshair(ctx, dc.width, dc.height, cursorScreen.x, cursorScreen.y, palette.probe, 1, [5, 5]);
     }
 
-    if (probePinnedMath) {
-      const pinnedScreen = mathToScreen(probePinnedMath.horizontal, probePinnedMath.vertical, dc);
-      drawScreenCrosshair(ctx, dc.width, dc.height, pinnedScreen.x, pinnedScreen.y, palette.probe, 2, []);
-      ctx.save();
-      ctx.fillStyle = palette.probe;
-      ctx.beginPath();
-      ctx.arc(alignToPixel(pinnedScreen.x), alignToPixel(pinnedScreen.y), 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+    if (!isQuadTop) {
+      for (const pinned of probePinnedMaths) {
+        const pinnedScreen = mathToScreen(pinned.horizontal, pinned.vertical, dc);
+        drawScreenCrosshair(ctx, dc.width, dc.height, pinnedScreen.x, pinnedScreen.y, palette.probe, 2, []);
+        ctx.save();
+        ctx.fillStyle = palette.probe;
+        ctx.beginPath();
+        ctx.arc(alignToPixel(pinnedScreen.x), alignToPixel(pinnedScreen.y), 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
     }
 
     if (sketchDraft && sketchDraft.length >= 2) {
@@ -652,12 +694,13 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     canvas2dTool,
     drawGraph,
     drawGrid,
+    isQuadTop,
     mathToScreen,
     mousePos,
     palette.background,
     palette.probe,
     palette.sketch,
-    probePinnedMath,
+    probePinnedMaths,
     renderableGraphs,
     sketchDraft,
     viewport.centerX,
@@ -672,13 +715,13 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const newCenterX = mathPos.horizontal - (mouseX - width / 2) / newScale;
       const newCenterY = mathPos.vertical + (mouseY - height / 2) / newScale;
 
-      updateViewport2D({
+      patchViewport2D({
         scale: newScale,
         centerX: newCenterX,
         centerY: newCenterY
       });
     },
-    [screenToMath, updateViewport2D, viewport.scale]
+    [screenToMath, patchViewport2D, viewport.scale]
   );
 
   const handleWheel = useCallback(
@@ -689,6 +732,8 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       if (!canvas) {
         return;
       }
+
+      setActive2dViewport(isQuadTop ? "quadTop" : "primary");
 
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -701,7 +746,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         rect.height
       );
     },
-    [zoomAtScreenPoint]
+    [isQuadTop, setActive2dViewport, zoomAtScreenPoint]
   );
 
   const handlePointerDown = useCallback(
@@ -714,6 +759,12 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       if (!canvas) {
         return;
       }
+
+      if (isQuadTop && canvas2dTool !== "pan") {
+        return;
+      }
+
+      setActive2dViewport(isQuadTop ? "quadTop" : "primary");
 
       const rect = canvas.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
@@ -745,7 +796,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       activePointerId.current = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [canvas2dTool, screenToMath, setProbePinnedMath, snapMathPoint]
+    [canvas2dTool, isQuadTop, screenToMath, setActive2dViewport, setProbePinnedMath, snapMathPoint]
   );
 
   const handlePointerMove = useCallback(
@@ -793,12 +844,12 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const moveDy = event.clientY - lastMouse.current.y;
       lastMouse.current = { x: event.clientX, y: event.clientY };
 
-      updateViewport2D({
+      patchViewport2D({
         centerX: viewport.centerX - moveDx / viewport.scale,
         centerY: viewport.centerY + moveDy / viewport.scale
       });
     },
-    [canvas2dTool, screenToMath, snapEnabled, snapMathPoint, updateViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
+    [canvas2dTool, screenToMath, snapEnabled, snapMathPoint, patchViewport2D, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
   const handlePointerUp = useCallback(
@@ -818,7 +869,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
         if (stroke.length >= SKETCH_MIN_POINTS_TO_FIT) {
           if (sketchAutoCreate) {
-            addSketchedParametricFromStroke(stroke);
+            addSketchedParametricFromStroke(stroke, isQuadTop ? axis2dPairQuadTop : undefined);
           } else {
             const fit = fitParametricSketch(stroke);
             if (fit) {
@@ -850,7 +901,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         // Pointer may already be released (e.g. touch cancelled by OS).
       }
     },
-    [addSketchedParametricFromStroke, canvas2dTool, sketchAutoCreate]
+    [addSketchedParametricFromStroke, axis2dPairQuadTop, canvas2dTool, isQuadTop, sketchAutoCreate]
   );
 
   const handlePointerLeave = useCallback((event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -883,10 +934,12 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         return;
       }
 
+      setActive2dViewport(isQuadTop ? "quadTop" : "primary");
+
       const rect = canvas.getBoundingClientRect();
       zoomAtScreenPoint(event.clientX - rect.left, event.clientY - rect.top, 1.5, rect.width, rect.height);
     },
-    [canvas2dTool, zoomAtScreenPoint]
+    [canvas2dTool, isQuadTop, setActive2dViewport, zoomAtScreenPoint]
   );
 
   useEffect(() => {
@@ -911,7 +964,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
       const container = containerRef.current;
       if (container) {
         const rect = container.getBoundingClientRect();
-        setViewport2DFrame({ width: rect.width, height: rect.height });
+        setFrameForCanvas({ width: rect.width, height: rect.height });
       }
       draw();
     };
@@ -919,7 +972,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [draw, setViewport2DFrame]);
+  }, [draw, setFrameForCanvas]);
 
   useEffect(() => {
     if (canvas2dTool !== "draw") {
@@ -937,7 +990,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         return;
       }
 
-      setProbePinnedMath(null);
+      clearProbes();
       if (canvas2dTool === "draw") {
         isSketching.current = false;
         lastSketchScreen.current = null;
@@ -949,7 +1002,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canvas2dTool, setProbePinnedMath]);
+  }, [canvas2dTool, clearProbes]);
 
   const viewportRange = useMemo(() => {
     const width = viewportFrame.width;
@@ -1002,10 +1055,10 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         </div>
       )}
 
-      <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+      <div className="absolute bottom-11 right-3 flex flex-col gap-1.5">
         <button
           type="button"
-          onClick={() => updateViewport2D({ scale: viewport.scale * 1.25 })}
+          onClick={() => patchViewport2D({ scale: viewport.scale * 1.25 })}
           className="h-7 w-7 rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
           title="Zoom in"
           aria-label="Zoom in"
@@ -1014,7 +1067,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         </button>
         <button
           type="button"
-          onClick={() => updateViewport2D({ scale: viewport.scale * 0.8 })}
+          onClick={() => patchViewport2D({ scale: viewport.scale * 0.8 })}
           className="h-7 w-7 rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
           title="Zoom out"
           aria-label="Zoom out"
@@ -1023,7 +1076,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         </button>
         <button
           type="button"
-          onClick={resetViewport2D}
+          onClick={resetViewForCanvas}
           className="rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
           title="Reset view"
           aria-label="Reset 2D view"
@@ -1032,7 +1085,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
         </button>
       </div>
 
-      <div className="absolute bottom-3 left-3 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
+      <div className="absolute bottom-11 left-3 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
         {sketchFitPreview && (
           <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
             <p className="mb-1 text-[var(--text-primary)]">Sketch fit preview</p>
@@ -1050,7 +1103,7 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
                 type="button"
                 className="rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 py-1 text-[10px] text-[var(--text-primary)] hover:bg-[var(--surface-bg)]"
                 onClick={() => {
-                  addSketchedParametricFromStroke(sketchFitPreview.stroke);
+                  addSketchedParametricFromStroke(sketchFitPreview.stroke, isQuadTop ? axis2dPairQuadTop : undefined);
                   setSketchFitPreview(null);
                 }}
               >
@@ -1074,11 +1127,15 @@ export function Graph2DCanvas({ className = "" }: Graph2DCanvasProps) {
             {axisPair.verticalLabel}: {(canvas2dTool === "probe" ? formatProbeCoord : formatCoord)(mousePos.math.vertical)}
           </div>
         )}
-        {probePinnedMath && (
+        {!isQuadTop && probePinnedMaths.length > 0 && (
           <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
-            <span className="text-[var(--text-tertiary)]">Pinned </span>
-            {axisPair.horizontalLabel}: {formatProbeCoord(probePinnedMath.horizontal)} · {axisPair.verticalLabel}:{" "}
-            {formatProbeCoord(probePinnedMath.vertical)}
+            <div className="mb-0.5 text-[var(--text-tertiary)] font-semibold uppercase tracking-wider">Pinned ({probePinnedMaths.length})</div>
+            {probePinnedMaths.slice(-3).reverse().map((p, i) => (
+              <div key={i} className="mt-0.5 first:mt-0 whitespace-nowrap">
+                {axisPair.horizontalLabel}: {formatProbeCoord(p.horizontal)} · {axisPair.verticalLabel}: {formatProbeCoord(p.vertical)}
+              </div>
+            ))}
+            {probePinnedMaths.length > 3 && <div className="mt-0.5 text-[var(--text-tertiary)] opacity-60">...</div>}
           </div>
         )}
         <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">

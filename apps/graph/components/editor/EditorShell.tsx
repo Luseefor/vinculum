@@ -4,36 +4,37 @@ import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBou
 import BottomPanel from "@/components/editor/BottomPanel";
 import CommandPalette from "@/components/editor/CommandPalette";
 import ContextMenu from "@/components/editor/ContextMenu";
-import FloatingToolHUD from "@/components/editor/FloatingToolHUD";
 import LeftObjectBrowser from "@/components/editor/LeftObjectBrowser";
 import RightInspector from "@/components/editor/RightInspector";
 import StatusBar from "@/components/editor/StatusBar";
 import TopToolbar from "@/components/editor/TopToolbar";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
 import ThemeSync from "@/components/theme/ThemeSync";
-import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
+import ViewportHost from "@/components/viewport/ViewportHost";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
-import ViewportHost from "@/components/viewport/ViewportHost";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { getCurrentSceneSnapshot } from "@/lib/store/sceneStore";
 import { useHistoryStore } from "@/lib/store/historyStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { cn } from "@/components/ui/styles";
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
-  const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
-  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
+  const axis2dPair = useGraphStore((state) => state.ui.axis2dPair);
+  const axis2dPairQuadTop = useGraphStore((state) => state.ui.axis2dPairQuadTop);
+  const active2dViewport = useGraphStore((state) => state.ui.active2dViewport);
+  const setAxis2DPair = useGraphStore((state) => state.setAxis2DPair);
+  const setActive2dViewport = useGraphStore((state) => state.setActive2dViewport);
   const canvas2dTool = useGraphStore((state) => state.ui.canvas2dTool);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
+  const setCanvas2dTool = useGraphStore((state) => state.setCanvas2dTool);
+  const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
@@ -45,6 +46,10 @@ export default function EditorShell() {
   const scene = useGraphStore((state) => state.scene);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
+  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
+  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ open: boolean; x: number; y: number }>({
@@ -52,7 +57,9 @@ export default function EditorShell() {
     x: 0,
     y: 0
   });
+
   const importInputRef = useRef<HTMLInputElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const leftCollapsed = useEditorStore((state) => state.leftPanelCollapsed);
   const rightCollapsed = useEditorStore((state) => state.rightPanelCollapsed);
   const leftWidth = useEditorStore((state) => state.leftPanelWidth);
@@ -61,6 +68,18 @@ export default function EditorShell() {
   const toggleRightPanel = useEditorStore((state) => state.toggleRightPanel);
   const setLeftPanelWidth = useEditorStore((state) => state.setLeftPanelWidth);
   const setRightPanelWidth = useEditorStore((state) => state.setRightPanelWidth);
+  const setLeftPanelCollapsed = useEditorStore((state) => state.setLeftPanelCollapsed);
+  const setRightPanelCollapsed = useEditorStore((state) => state.setRightPanelCollapsed);
+  const setBottomPanelCollapsed = useEditorStore((state) => state.setBottomPanelCollapsed);
+  const setBottomPanelHeight = useEditorStore((state) => state.setBottomPanelHeight);
+  const bottomPanelHeight = useEditorStore((state) => state.bottomPanelHeight);
+  const bottomPanelCollapsed = useEditorStore((state) => state.bottomPanelCollapsed);
+  const leftCollapseSnapOffset = useEditorStore((state) => state.leftCollapseSnapOffset);
+  const rightCollapseSnapOffset = useEditorStore((state) => state.rightCollapseSnapOffset);
+  const bottomCollapseSnapOffset = useEditorStore((state) => state.bottomCollapseSnapOffset);
+  const beginResize = useEditorStore((state) => state.beginResize);
+  const endResize = useEditorStore((state) => state.endResize);
+  const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
@@ -70,21 +89,35 @@ export default function EditorShell() {
   const clearHistory = useHistoryStore((state) => state.clear);
   const canUndo = useHistoryStore((state) => state.past.length > 0);
   const canRedo = useHistoryStore((state) => state.future.length > 0);
-  const prevSnapshotRef = useRef(getCurrentSceneSnapshot());
+  
   const historyActionRef = useRef(false);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
+  const primary2dPlaneLabel = useMemo(() => {
+    if (axis2dPair === "xy") {
+      return "XY";
+    }
+    if (axis2dPair === "xz") {
+      return "XZ";
+    }
+    return "YZ";
+  }, [axis2dPair]);
+  const planeSwitcherActivePair =
+    effectiveViewportMode === "quad" && active2dViewport === "quadTop" ? axis2dPairQuadTop : axis2dPair;
   const selectedLabel = selectedObjectId ? selectedObjectId.slice(0, 8) : "None";
-  const primaryToolLabel = canvas2dTool.toUpperCase();
-  const secondaryToolLabel = canvas3dTool.toUpperCase();
-  const zoomLabel = graphMode === "2d" ? `Zoom ${Math.round(viewport2d.scale)}%` : "Perspective";
-  const snapLabel = snapEnabled ? `On (${snapStep})` : "Off";
+  const zoomLabel = graphMode === "2d" ? `${Math.round(viewport2d.scale)}%` : "Perspective";
+  const snapLabel = snapEnabled ? `ON (${snapStep})` : "OFF";
+  const [inspectorDrawerMode, setInspectorDrawerMode] = useState(false);
+
+  const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
+  const setActiveTool = (tool: any) => {
+    setCanvas2dTool(tool);
+    setCanvas3dTool(tool);
+  };
 
   const runUndo = useCallback(() => {
     const current = getCurrentSceneSnapshot();
     const previous = undoHistory(current);
-    if (!previous) {
-      return;
-    }
+    if (!previous) return;
     historyActionRef.current = true;
     applySceneSnapshot(previous);
     addConsoleEvent("Undo");
@@ -93,326 +126,275 @@ export default function EditorShell() {
   const runRedo = useCallback(() => {
     const current = getCurrentSceneSnapshot();
     const next = redoHistory(current);
-    if (!next) {
-      return;
-    }
+    if (!next) return;
     historyActionRef.current = true;
     applySceneSnapshot(next);
     addConsoleEvent("Redo");
   }, [addConsoleEvent, applySceneSnapshot, redoHistory]);
 
-  const runCommand = useCallback(
-    (commandId: string) => {
-      if (commandId === "add-surface") {
-        addSurfaceObject();
-        addConsoleEvent("Created surface object");
-        return;
-      }
-      if (commandId === "add-curve") {
-        addParametricCurve();
-        addConsoleEvent("Created parametric curve");
-        return;
-      }
-      if (commandId === "add-plane") {
-        addPlaneObject();
-        addConsoleEvent("Created plane object");
-        return;
-      }
-      if (commandId === "toggle-2d") {
-        setGraphMode("2d");
-        setViewportMode("2d");
-        addConsoleEvent("Switched viewport to 2D");
-        return;
-      }
-      if (commandId === "toggle-3d") {
-        setGraphMode("3d");
-        setViewportMode("3d");
-        addConsoleEvent("Switched viewport to 3D");
-        return;
-      }
-      if (commandId === "switch-split") {
-        setViewportMode("split");
-        addConsoleEvent("Switched viewport to Split");
-        return;
-      }
-      if (commandId === "switch-quad") {
-        setViewportMode("quad");
-        addConsoleEvent("Switched viewport to Quad");
-        return;
-      }
-      if (commandId === "toggle-snap") {
-        setSnapEnabled(!snapEnabled);
-        addConsoleEvent(`Snap ${!snapEnabled ? "enabled" : "disabled"}`);
-        return;
-      }
-      if (commandId === "undo") {
-        runUndo();
-        return;
-      }
-      if (commandId === "redo") {
-        runRedo();
-        return;
-      }
-      if (commandId === "delete-selected") {
-        if (selectedObjectId) {
-          removeObject(selectedObjectId);
-          addConsoleEvent(`Removed object ${selectedObjectId.slice(0, 8)}`);
-        }
-        return;
-      }
-      if (commandId === "reset-view") {
-        if (graphMode === "2d") {
-          resetViewport2D();
-        } else {
-          requestCameraReset();
-        }
-        addConsoleEvent("Reset active viewport camera");
-        return;
-      }
-      if (commandId === "export-scene-json") {
-        const json = serializeScene(scene);
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = "vinculum-scene.json";
-        anchor.click();
-        URL.revokeObjectURL(url);
-        addConsoleEvent("Exported scene JSON");
-        return;
-      }
-      if (commandId === "import-scene-json") {
-        importInputRef.current?.click();
-        addConsoleEvent("Opened scene import picker");
-      }
-    },
-    [
-      addConsoleEvent,
-      addParametricCurve,
-      addPlaneObject,
-      addSurfaceObject,
-      applySceneSnapshot,
-      graphMode,
-      selectedObjectId,
-      scene,
-      requestCameraReset,
-      replaceSceneDocument,
-      removeObject,
-      runRedo,
-      runUndo,
-      resetViewport2D,
-      snapEnabled,
-      setGraphMode,
-      setSnapEnabled,
-      setViewportMode
-    ]
-  );
-
-  useEffect(() => {
-    const current = getCurrentSceneSnapshot();
-    const previous = prevSnapshotRef.current;
-    const changed =
-      previous.selection.selectedObjectId !== current.selection.selectedObjectId ||
-      previous.objects !== current.objects;
-
-    if (!changed) {
-      return;
-    }
-
-    if (historyActionRef.current) {
-      historyActionRef.current = false;
-    } else {
-      pushSnapshot(previous);
-    }
-
-    prevSnapshotRef.current = current;
-  }, [pushSnapshot, scene, selectedObjectId]);
+  const runCommand = useCallback((commandId: string) => {
+    if (commandId === "undo") { runUndo(); return; }
+    if (commandId === "redo") { runRedo(); return; }
+    if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
+    if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
+    if (commandId === "switch-split") { setViewportMode("split"); return; }
+    if (commandId === "switch-quad") { setViewportMode("quad"); return; }
+  }, [runUndo, runRedo, setGraphMode, setViewportMode]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setCommandPaletteOpen(true);
-        return;
-      }
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        setCommandPaletteOpen(true);
-        return;
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        if (event.shiftKey) {
-          runRedo();
-        } else {
-          runUndo();
-        }
-        return;
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
-        event.preventDefault();
-        runRedo();
-        return;
       }
       if (event.key === "Escape") {
         setCommandPaletteOpen(false);
         setContextMenu((state) => ({ ...state, open: false }));
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
-        if (key === "1") {
-          setGraphMode("2d");
-          setViewportMode("2d");
-          addConsoleEvent("Switched viewport to 2D");
-          return;
-        }
-        if (key === "2") {
-          setGraphMode("3d");
-          setViewportMode("3d");
-          addConsoleEvent("Switched viewport to 3D");
-          return;
-        }
-        if (key === "3") {
-          setViewportMode("split");
-          addConsoleEvent("Switched viewport to Split");
-          return;
-        }
-        if (key === "4") {
-          setViewportMode("quad");
-          addConsoleEvent("Switched viewport to Quad");
-          return;
-        }
-      }
-      if (key === "v" || key === "h") {
-        setCanvas2dTool("pan");
-        setCanvas3dTool("pan");
-        return;
-      }
-      if (key === "s") {
-        setCanvas2dTool("draw");
-        setCanvas3dTool("draw");
-        return;
-      }
-      if (key === "x") {
-        setSnapEnabled(!snapEnabled);
-        addConsoleEvent(`Snap ${!snapEnabled ? "enabled" : "disabled"}`);
-        return;
-      }
-      if (key === "p" || key === "c") {
-        setCanvas2dTool("probe");
-        setCanvas3dTool("probe");
-        return;
-      }
-      if ((event.key === "Delete" || event.key === "Backspace") && selectedObjectId) {
-        removeObject(selectedObjectId);
-        return;
-      }
-      if (key === "f") {
-        if (graphMode === "2d") {
-          resetViewport2D();
-        } else {
-          requestCameraReset();
-        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    graphMode,
-    addConsoleEvent,
-    removeObject,
-    requestCameraReset,
-    resetViewport2D,
-    runRedo,
-    runUndo,
-    snapEnabled,
-    selectedObjectId,
-    setGraphMode,
-    setCanvas2dTool,
-    setCanvas3dTool,
-    setSnapEnabled,
-    setViewportMode
-  ]);
+  }, []);
+
+  useEffect(() => {
+    const node = shellRef.current;
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? window.innerWidth;
+      const inspectorDrawer = width <= 1100;
+      setInspectorDrawerMode(inspectorDrawer);
+      setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false });
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [setResponsiveFlags]);
+
+  useEffect(() => {
+    if (effectiveViewportMode !== "quad") {
+      setActive2dViewport("primary");
+    }
+  }, [effectiveViewportMode, setActive2dViewport]);
+
+  const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    beginResize(side, event.pointerId);
+    const bounds = shell.getBoundingClientRect();
+    const onMove = (moveEvent: PointerEvent) => {
+      const x = moveEvent.clientX - bounds.left;
+      if (side === "left") {
+        if (x <= leftCollapseSnapOffset) { setLeftPanelCollapsed(true); return; }
+        setLeftPanelCollapsed(false);
+        setLeftPanelWidth(x);
+      } else {
+        const nextWidth = bounds.right - moveEvent.clientX;
+        if (nextWidth <= rightCollapseSnapOffset) { setRightPanelCollapsed(true); return; }
+        setRightPanelCollapsed(false);
+        setRightPanelWidth(nextWidth);
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      endResize();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [beginResize, endResize, leftCollapseSnapOffset, rightCollapseSnapOffset, setLeftPanelCollapsed, setLeftPanelWidth, setRightPanelCollapsed, setRightPanelWidth]);
+
+  const startBottomResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    beginResize("bottom", event.pointerId);
+    const bounds = shell.getBoundingClientRect();
+    const onMove = (moveEvent: PointerEvent) => {
+      const nextHeight = bounds.bottom - moveEvent.clientY - 24;
+      if (nextHeight <= bottomCollapseSnapOffset) { setBottomPanelCollapsed(true); return; }
+      setBottomPanelCollapsed(false);
+      setBottomPanelHeight(nextHeight);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      endResize();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden bg-[var(--surface-bg)]"
-      onContextMenu={(event) => {
-        event.preventDefault();
-        setContextMenu({
-          open: true,
-          x: event.clientX,
-          y: event.clientY
-        });
-      }}
+      ref={shellRef}
+      className="flex h-screen flex-col overflow-hidden bg-[var(--bg-primary)] font-sans"
+      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
     >
       <ThemeSync />
       <TopToolbar
-        onOpenInspector={() => setInspectorOpen(true)}
-        leftCollapsed={leftCollapsed}
-        rightCollapsed={rightCollapsed}
-        onToggleLeftPanel={toggleLeftPanel}
-        onToggleRightPanel={toggleRightPanel}
-        onDecreaseLeftWidth={() => setLeftPanelWidth(leftWidth - 24)}
-        onIncreaseLeftWidth={() => setLeftPanelWidth(leftWidth + 24)}
-        onDecreaseRightWidth={() => setRightPanelWidth(rightWidth - 24)}
-        onIncreaseRightWidth={() => setRightPanelWidth(rightWidth + 24)}
-        viewportMode={effectiveViewportMode}
-        onViewportModeChange={setViewportMode}
-      />
-      <div className="flex min-h-0 flex-1">
-        {!leftCollapsed ? <LeftObjectBrowser width={leftWidth} /> : null}
-        <main className="relative min-w-0 flex-1 bg-[var(--surface-canvas)]">
-          <FloatingToolHUD
-            modeLabel={effectiveViewportMode.toUpperCase()}
-            toolLabel={(graphMode === "2d" ? canvas2dTool : canvas3dTool).toUpperCase()}
-            selectedId={selectedObjectId}
-          />
-          <div className="absolute right-3 top-3 z-20 lg:hidden">
-            <Button size="sm" variant="secondary" onClick={() => setInspectorOpen(true)}>
-              Inspector
-            </Button>
-          </div>
-          <GraphViewportErrorBoundary>
-            <ViewportHost
-              mode={effectiveViewportMode}
-              viewport2d={<Viewport2D key="graph-2d" />}
-              viewport3d={<Viewport3D key="graph-3d" />}
-              selectedLabel={selectedLabel}
-              primaryToolLabel={primaryToolLabel}
-              secondaryToolLabel={secondaryToolLabel}
-              zoomLabel={zoomLabel}
-              snapLabel={snapLabel}
-            />
-          </GraphViewportErrorBoundary>
-        </main>
-        <div className="hidden lg:block">{!rightCollapsed ? <RightInspector width={rightWidth} /> : null}</div>
-      </div>
-      <BottomPanel />
-      <StatusBar />
-      <SceneImportExportDialog />
-      <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
-        <RightInspector width={rightWidth} />
-      </Sheet>
-      <CommandPalette
-        open={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-        onRunCommand={runCommand}
-      />
-      <ContextMenu
-        open={contextMenu.open}
-        x={contextMenu.x}
-        y={contextMenu.y}
-        onRunCommand={runCommand}
-        hasSelection={Boolean(selectedObjectId)}
         canUndo={canUndo}
         canRedo={canRedo}
-        snapEnabled={snapEnabled}
-        currentMode={effectiveViewportMode}
-        onClose={() => setContextMenu((state) => ({ ...state, open: false }))}
+        onUndo={runUndo}
+        onRedo={runRedo}
       />
+      
+      <div className="flex min-h-0 flex-1">
+        {!leftCollapsed && (
+          <>
+            <LeftObjectBrowser width={leftWidth} />
+            <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
+          </>
+        )}
+
+        <main className="relative flex min-w-0 flex-1 flex-col bg-[var(--surface-canvas)]">
+          <div className="flex items-center justify-between border-b border-[var(--panel-border)] bg-[var(--bg-tertiary)] px-3 py-1.5 shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-4">
+              {/* Graph Mode (2D/3D) */}
+              <div className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0">
+                <button
+                  onClick={() => setGraphMode("2d")}
+                  className={cn(
+                    "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                    graphMode === "2d" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                  )}
+                >
+                  2D
+                </button>
+                <button
+                  onClick={() => setGraphMode("3d")}
+                  className={cn(
+                    "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                    graphMode === "3d" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                  )}
+                >
+                  3D
+                </button>
+              </div>
+
+              {/* Axis Plane Switcher (Visible only in 2D or Split mode) */}
+              {(graphMode === "2d" || effectiveViewportMode === "split" || effectiveViewportMode === "quad") && (
+                <>
+                  <div className="w-px h-4 bg-[var(--border-strong)] shrink-0" />
+                  <div
+                    className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0"
+                    title={
+                      effectiveViewportMode === "quad"
+                        ? "Plane applies to the 2D view you last clicked or zoomed."
+                        : undefined
+                    }
+                  >
+                    {(["xy", "xz", "yz"] as const).map((pair) => (
+                      <button
+                        key={pair}
+                        onClick={() => setAxis2DPair(pair)}
+                        className={cn(
+                          "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                          planeSwitcherActivePair === pair
+                            ? "bg-[var(--accent)] text-white shadow-sm"
+                            : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                        )}
+                      >
+                        {pair}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <div className="w-px h-4 bg-[var(--border-strong)] shrink-0" />
+
+              {/* Viewport Switcher */}
+              <div className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0">
+                {(["split", "quad"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewportMode(mode)}
+                    className={cn(
+                      "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                      effectiveViewportMode === mode
+                        ? "bg-[var(--accent)] text-white shadow-sm"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setViewportMode(graphMode)}
+                  className={cn(
+                    "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                    effectiveViewportMode === "2d" || effectiveViewportMode === "3d"
+                      ? "bg-[var(--accent)] text-white shadow-sm"
+                      : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                  )}
+                >
+                  Single
+                </button>
+              </div>
+
+              <div className="w-px h-4 bg-[var(--border-strong)] shrink-0" />
+
+              {/* Tools Switcher */}
+              <div className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0">
+                {(["pan", "probe", "draw"] as const).map((tool) => (
+                  <button
+                    key={tool}
+                    onClick={() => setActiveTool(tool)}
+                    className={cn(
+                      "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
+                      activeTool === tool
+                        ? "bg-[var(--accent)] text-white shadow-sm"
+                        : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                    )}
+                  >
+                    {tool === "draw" ? "Sketch" : tool}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setInspectorOpen(true)}
+              className="lg:hidden text-[9px] font-bold uppercase tracking-widest text-[var(--accent)] hover:underline ml-4"
+            >
+              Inspector
+            </button>
+          </div>
+
+          <div className="relative min-h-0 flex-1">
+            <GraphViewportErrorBoundary>
+              <ViewportHost
+                mode={effectiveViewportMode}
+                viewport2d={<Viewport2D key="graph-2d" />}
+                viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
+                primary2dPlaneLabel={primary2dPlaneLabel}
+                secondary2dPlaneTitle={axis2dPairQuadTop.toUpperCase()}
+                viewport3d={<Viewport3D key="graph-3d" />}
+                selectedLabel={selectedLabel}
+                zoomLabel={zoomLabel}
+                snapLabel={snapLabel}
+              />
+            </GraphViewportErrorBoundary>
+          </div>
+        </main>
+
+        {!inspectorDrawerMode && !rightCollapsed && (
+          <>
+            <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "right")} />
+            <RightInspector width={rightWidth} />
+          </>
+        )}
+      </div>
+
+      <div className="divider-y" onPointerDown={startBottomResize} />
+      <BottomPanel height={bottomPanelCollapsed ? 0 : bottomPanelHeight} />
+      
+      <StatusBar />
+      <SceneImportExportDialog />
+      <Sheet open={inspectorOpen || (inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
+        <RightInspector width={rightWidth} />
+      </Sheet>
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
+      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      
       <input
         ref={importInputRef}
         type="file"
@@ -420,17 +402,13 @@ export default function EditorShell() {
         className="hidden"
         onChange={async (event) => {
           const file = event.target.files?.[0];
-          if (!file) {
-            return;
-          }
+          if (!file) return;
           const text = await file.text();
           const parsed = deserializeScene(text);
           if (parsed.valid && parsed.normalizedScene) {
             clearHistory();
             replaceSceneDocument(parsed.normalizedScene);
             addConsoleEvent("Imported scene JSON");
-          } else {
-            addConsoleEvent(`Import failed: ${(parsed.errors ?? ["Unknown error"]).join(", ")}`);
           }
           event.currentTarget.value = "";
         }}
