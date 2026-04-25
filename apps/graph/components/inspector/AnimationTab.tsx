@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEditorStore } from "@/lib/store/editorStore";
 
@@ -69,53 +70,57 @@ export default function AnimationTab() {
   ]);
 
   return (
-    <section className="space-y-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 p-3">
-      <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Animation</h3>
-      <label className="block">
-        <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Parameter</span>
-        <select
-          value={animation.parameterId ?? ""}
-          onChange={(event) => setAnimationParameterId(event.target.value || null)}
-          className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 text-[11px]"
-        >
-          <option value="">None</option>
-          {parameters.map((parameter) => (
-            <option key={parameter.id} value={parameter.id}>
-              {parameter.id}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="grid grid-cols-2 gap-2">
+    <Card className="border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 shadow-sm">
+      <CardHeader className="p-3 pb-0">
+        <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Animation</h3>
+      </CardHeader>
+      <CardContent className="space-y-2 p-3 pt-3">
         <label className="block">
-          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Min</span>
-          <Input
-            value={animation.min}
-            onChange={(event) => setAnimationRange(Number(event.target.value), animation.max)}
-            className="h-8 text-[11px]"
-          />
+          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Parameter</span>
+          <select
+            value={animation.parameterId ?? ""}
+            onChange={(event) => setAnimationParameterId(event.target.value || null)}
+            className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 text-[11px]"
+          >
+            <option value="">None</option>
+            {parameters.map((parameter) => (
+              <option key={parameter.id} value={parameter.id}>
+                {parameter.id}
+              </option>
+            ))}
+          </select>
         </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Min</span>
+            <Input
+              value={animation.min}
+              onChange={(event) => setAnimationRange(Number(event.target.value), animation.max)}
+              className="h-8 text-[11px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Max</span>
+            <Input
+              value={animation.max}
+              onChange={(event) => setAnimationRange(animation.min, Number(event.target.value))}
+              className="h-8 text-[11px]"
+            />
+          </label>
+        </div>
         <label className="block">
-          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Max</span>
-          <Input
-            value={animation.max}
-            onChange={(event) => setAnimationRange(animation.min, Number(event.target.value))}
-            className="h-8 text-[11px]"
-          />
+          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Speed</span>
+          <Input value={animation.speed} onChange={(event) => setAnimationSpeed(Number(event.target.value))} className="h-8 text-[11px]" />
         </label>
-      </div>
-      <label className="block">
-        <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Speed</span>
-        <Input value={animation.speed} onChange={(event) => setAnimationSpeed(Number(event.target.value))} className="h-8 text-[11px]" />
-      </label>
-      <div className="flex items-center gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>
-          {animation.playing ? "Pause" : "Play"}
-        </Button>
-        <Button type="button" size="sm" variant="ghost" onClick={toggleAnimationLoop}>
-          Loop: {animation.loop ? "On" : "Off"}
-        </Button>
-      </div>
-    </section>
+        <div className="flex items-center gap-2 pt-1">
+          <Button type="button" size="sm" variant="secondary" onClick={() => setAnimationPlaying(!animation.playing)}>
+            {animation.playing ? "Pause" : "Play"}
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={toggleAnimationLoop}>
+            Loop: {animation.loop ? "On" : "Off"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
