@@ -24,6 +24,8 @@ export default function GraphTypeSelector({ value, onChange }: GraphTypeSelector
           onChange(kind);
         }
       }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       className="h-7 w-auto cursor-pointer rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)]"
       aria-label="Graph type"

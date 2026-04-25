@@ -28,7 +28,7 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
                 aria-label="Surface color"
                 value={object.color}
                 onChange={(event) => updateObjectColor(object.id, event.target.value)}
-                className="h-9 w-9 cursor-pointer rounded-md border border-[var(--border-strong)] bg-white p-0.5"
+                className="h-9 w-9 cursor-pointer rounded-md border border-[var(--border-strong)] bg-[var(--surface-raised)] p-0.5"
               />
               <div className="min-w-0">
                 <p className="text-[11px] font-bold text-[var(--text-primary)]">Color</p>

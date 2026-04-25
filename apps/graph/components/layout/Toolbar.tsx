@@ -88,6 +88,17 @@ export default function Toolbar({
 
   const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
 
+  const handleNew = () => {
+    if (objectCount === 0) {
+      clearHistory();
+      resetScene();
+      setFileMenuOpen(false);
+      return;
+    }
+    setNewSceneOpen(true);
+    setFileMenuOpen(false);
+  };
+
   const handleConfirmNewScene = () => {
     clearHistory();
     resetScene();
@@ -185,6 +196,9 @@ export default function Toolbar({
             variant={snapEnabled ? "primary" : "ghost"}
             onClick={() => setSnapEnabled(!snapEnabled)}
             className="rounded-full px-3"
+            role="checkbox"
+            aria-checked={snapEnabled}
+            aria-label="Enable snapping"
           >
             Snap
           </Button>
@@ -194,6 +208,7 @@ export default function Toolbar({
               type="number"
               value={snapStep}
               onChange={(e) => setSnapStep(Number(e.target.value))}
+              aria-label="Snap step"
               className="w-10 bg-transparent text-[11px] font-mono font-medium outline-none text-[var(--text-primary)]"
             />
           </div>
@@ -255,6 +270,9 @@ export default function Toolbar({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          <Button variant="utility" size="sm" onClick={handleNew} className="rounded-full px-4 shadow-sm">
+            New
+          </Button>
           <Button
             ref={fileTriggerRef}
             variant="utility"
@@ -288,7 +306,7 @@ export default function Toolbar({
               }}
             >
               <div className="p-1.5 flex flex-col gap-0.5">
-                <MenuButton onClick={() => { if(objectCount === 0) resetScene(); else setNewSceneOpen(true); setFileMenuOpen(false); }}>New Scene</MenuButton>
+                <MenuButton onClick={handleNew}>New Scene</MenuButton>
                 <MenuButton onClick={() => { openSceneDialog("import"); setFileMenuOpen(false); }}>Import...</MenuButton>
                 <MenuButton onClick={() => { openSceneDialog("export"); setFileMenuOpen(false); }}>Export...</MenuButton>
                 <div className="h-px bg-[var(--border-subtle)]/40 my-1 mx-2" />

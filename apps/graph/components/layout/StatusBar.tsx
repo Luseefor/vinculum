@@ -26,7 +26,7 @@ export default function StatusBar() {
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 sm:max-w-[70%] sm:justify-end">
         <span className="hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-1.5 py-0.5 text-[var(--text-secondary)] min-[700px]:inline">
-          Hotkeys: 1/2/3/4 views · V pan · P probe · S sketch · X snap · Cmd/Ctrl+K palette
+          Hotkeys: 1/2/3/4 views · V pan · P probe · S sketch · X snap · Cmd/Ctrl+Shift+K palette
         </span>
         <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(34,197,94,0.12)]" />
       </div>

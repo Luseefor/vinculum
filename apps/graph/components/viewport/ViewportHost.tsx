@@ -36,18 +36,18 @@ function Pane({
   return (
     <section className="relative h-full w-full min-w-0 overflow-hidden bg-[var(--surface-canvas)]">
       {/* Top Left Floating Label */}
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-white/90 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
         {title} · PAN · Perspective
       </div>
 
       {/* Bottom Left Consolidated Status Stack */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-col gap-1.5">
         {is2d && (
-          <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] shadow-sm backdrop-blur-sm">
             X: [-10.00, 10.00] · Y: [-10.00, 10.00]
           </div>
         )}
-        <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-white/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
+        <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
           Selected: {selectedLabel} · Snap: {snapLabel}
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function ViewportHost({
 
   if (mode === "2d") {
     return (
-      <Pane title="2D Graph - Plane (XY)" selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+      <Pane title={`2D Graph - Plane (${primary2dPlaneLabel})`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
         {mountViewport(viewport2d, "single-2d")}
       </Pane>
     );
@@ -93,7 +93,7 @@ export default function ViewportHost({
     return (
       <SplitViewport
         primary={
-          <Pane title="2D Graph - Plane (XY)" selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+          <Pane title={`2D Graph - Plane (${primary2dPlaneLabel})`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
             {mountViewport(viewport2d, "split-2d")}
           </Pane>
         }

@@ -44,7 +44,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
   return (
     <section
       className={cn(
-        "border-t border-[var(--panel-border)] bg-[var(--bg-tertiary)] transition-all duration-300",
+        "flex flex-col border-t border-[var(--panel-border)] bg-[var(--bg-tertiary)] transition-all duration-300",
         collapsed ? "h-9" : ""
       )}
       style={!collapsed ? { height } : {}}
@@ -85,7 +85,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
       </div>
 
       {!collapsed && (
-        <div className="flex-1 overflow-auto p-4">
+        <div className="min-h-0 flex-1 overflow-auto p-4">
           {activeTab === "parameters" && (
             <div className="grid grid-cols-1 gap-x-12 gap-y-4 md:grid-cols-2">
               {parameters.map((param) => (
@@ -112,7 +112,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
           )}
 
           {activeTab === "console" && (
-            <div className="flex flex-col gap-1.5 font-mono text-[10px]">
+            <div className="flex flex-col gap-1.5 font-mono text-[10px] pr-1">
               {consoleEvents.map((ev, i) => (
                 <div key={i} className="flex gap-2 border-b border-[var(--border-subtle)] pb-1">
                   <span className="text-[var(--text-tertiary)]">[{i}]</span>

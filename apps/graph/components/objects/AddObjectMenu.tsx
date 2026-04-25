@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
@@ -10,6 +10,7 @@ export default function AddObjectMenu() {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
+  const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
@@ -23,14 +24,17 @@ export default function AddObjectMenu() {
     [objects, selectedObjectId]
   );
 
-  const createSurfaceTemplate = (equation: string, message: string, domain?: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
-    const id = addSurfaceObject();
-    updateSurfaceEquation(id, equation);
-    if (domain) {
-      updateSurfaceDomain(id, domain);
-    }
-    addConsoleEvent(message);
-  };
+  const createSurfaceTemplate = useCallback(
+    (equation: string, message: string, domain?: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
+      const id = addSurfaceObject();
+      updateSurfaceEquation(id, equation);
+      if (domain) {
+        updateSurfaceDomain(id, domain);
+      }
+      addConsoleEvent(message);
+    },
+    [addConsoleEvent, addSurfaceObject, updateSurfaceDomain, updateSurfaceEquation]
+  );
 
   const sections = useMemo(
     () => [
@@ -134,9 +138,7 @@ export default function AddObjectMenu() {
       createSurfaceTemplate,
       selectedObject,
       updateParametricExpression,
-      updatePlaneEquation,
-      updateSurfaceDomain,
-      updateSurfaceEquation
+      updatePlaneEquation
     ]
   );
 
@@ -148,8 +150,8 @@ export default function AddObjectMenu() {
           variant="secondary"
           className="justify-center"
           onClick={() => {
-            addSurfaceObject();
-            addConsoleEvent("Created surface from quick add");
+            addEmptyObject();
+            addConsoleEvent("Added empty expression");
           }}
         >
           + Add Object
