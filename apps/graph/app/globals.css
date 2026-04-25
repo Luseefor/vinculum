@@ -196,7 +196,8 @@ body {
 }
 
 .divider-x {
-  width: 4px;
+  width: 8px;
+  flex-shrink: 0;
   cursor: col-resize;
   background: transparent;
   transition: background-color 0.2s;
