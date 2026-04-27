@@ -3,182 +3,21 @@
  * in parameter t ∈ [0, 1] for each axis component, for use as x(t), y(t), z(t).
  */
 
-export interface FitParametricSketchResult {
-  horizontalCoeffs: number[];
-  verticalCoeffs: number[];
-  degree: number;
-  maxError: number;
-}
+import {
+  accumulateNormalEquations,
+  buildVandermondeRow,
+  evaluatePoly,
+  FIT_PARAMETRIC_SKETCH_DEFAULT_MAX_DEGREE,
+  FIT_PARAMETRIC_SKETCH_DEFAULT_RIDGE,
+  FIT_PARAMETRIC_SKETCH_MIN_POINTS,
+  solveLinearSystem
+} from "./fitParametricSketchPolyCore";
+import { resampleStrokeByArcLength, smoothStrokePoints } from "./fitParametricSketchStrokePrep";
+import type { FitParametricSketch3DResult, FitParametricSketchResult } from "./fitParametricSketchTypes";
 
-export interface FitParametricSketch3DResult {
-  xCoeffs: number[];
-  yCoeffs: number[];
-  zCoeffs: number[];
-  degree: number;
-  maxError: number;
-}
+export type { FitParametricSketch3DResult, FitParametricSketchResult } from "./fitParametricSketchTypes";
 
-const DEFAULT_MAX_DEGREE = 8;
-const MIN_POINTS = 4;
-const DEFAULT_RIDGE = 1e-10;
-
-function buildVandermondeRow(t: number, degree: number): number[] {
-  const row = new Array<number>(degree + 1);
-  row[0] = 1;
-  for (let j = 1; j <= degree; j += 1) {
-    row[j] = row[j - 1] * t;
-  }
-  return row;
-}
-
-function accumulateNormalEquations(
-  rows: number[][],
-  targets: number[],
-  degree: number,
-  ridge = DEFAULT_RIDGE
-): { ata: number[][]; atb: number[] } {
-  const n = degree + 1;
-  const ata: number[][] = Array.from({ length: n }, () => new Array<number>(n).fill(0));
-  const atb = new Array<number>(n).fill(0);
-
-  for (let i = 0; i < rows.length; i += 1) {
-    const row = rows[i];
-    const y = targets[i];
-    for (let j = 0; j < n; j += 1) {
-      atb[j] += row[j] * y;
-      for (let k = 0; k < n; k += 1) {
-        ata[j][k] += row[j] * row[k];
-      }
-    }
-  }
-
-  // Light L2 regularization stabilizes higher-order terms and reduces wiggle.
-  for (let i = 0; i < n; i += 1) {
-    ata[i][i] += ridge;
-  }
-
-  return { ata, atb };
-}
-
-function solveLinearSystem(ata: number[][], atb: number[]): number[] | null {
-  const n = atb.length;
-  const aug: number[][] = ata.map((row, i) => [...row, atb[i]]);
-
-  for (let col = 0; col < n; col += 1) {
-    let pivotRow = col;
-    let pivotMag = Math.abs(aug[col][col]);
-    for (let r = col + 1; r < n; r += 1) {
-      const v = Math.abs(aug[r][col]);
-      if (v > pivotMag) {
-        pivotMag = v;
-        pivotRow = r;
-      }
-    }
-
-    if (pivotMag < 1e-12) {
-      return null;
-    }
-
-    if (pivotRow !== col) {
-      const tmp = aug[col];
-      aug[col] = aug[pivotRow];
-      aug[pivotRow] = tmp;
-    }
-
-    const pivot = aug[col][col];
-    for (let c = col; c <= n; c += 1) {
-      aug[col][c] /= pivot;
-    }
-
-    for (let r = 0; r < n; r += 1) {
-      if (r === col) {
-        continue;
-      }
-      const factor = aug[r][col];
-      if (Math.abs(factor) < 1e-15) {
-        continue;
-      }
-      for (let c = col; c <= n; c += 1) {
-        aug[r][c] -= factor * aug[col][c];
-      }
-    }
-  }
-
-  return aug.map((row) => row[n]);
-}
-
-function evaluatePoly(coeffs: number[], t: number): number {
-  let sum = 0;
-  let p = 1;
-  for (let j = 0; j < coeffs.length; j += 1) {
-    sum += coeffs[j] * p;
-    p *= t;
-  }
-  return sum;
-}
-
-function resampleByArcLength(points: { horizontal: number; vertical: number }[], targetCount: number) {
-  if (points.length < 2) {
-    return points;
-  }
-
-  const dists: number[] = [0];
-  let total = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    const dx = points[i].horizontal - points[i - 1].horizontal;
-    const dy = points[i].vertical - points[i - 1].vertical;
-    const d = Math.hypot(dx, dy);
-    total += d;
-    dists.push(total);
-  }
-
-  if (total < 1e-12) {
-    return [points[0]];
-  }
-
-  const out: { horizontal: number; vertical: number }[] = [];
-  const count = Math.max(2, Math.min(targetCount, Math.floor(total * 500) + 2));
-
-  for (let k = 0; k < count; k += 1) {
-    const s = (k / (count - 1)) * total;
-    let j = 0;
-    while (j < dists.length - 1 && dists[j + 1] < s) {
-      j += 1;
-    }
-    const s0 = dists[j];
-    const s1 = dists[j + 1];
-    const u = s1 > s0 ? (s - s0) / (s1 - s0) : 0;
-    out.push({
-      horizontal: points[j].horizontal + u * (points[j + 1].horizontal - points[j].horizontal),
-      vertical: points[j].vertical + u * (points[j + 1].vertical - points[j].vertical)
-    });
-  }
-
-  return out;
-}
-
-function smoothStroke(points: { horizontal: number; vertical: number }[], passes = 0) {
-  if (points.length <= 2 || passes <= 0) {
-    return points;
-  }
-  let current = points;
-  for (let pass = 0; pass < passes; pass += 1) {
-    const next = current.map((point, index) => {
-      if (index === 0 || index === current.length - 1) {
-        return point;
-      }
-      const prev = current[index - 1];
-      const curr = current[index];
-      const after = current[index + 1];
-      return {
-        horizontal: prev.horizontal * 0.25 + curr.horizontal * 0.5 + after.horizontal * 0.25,
-        vertical: prev.vertical * 0.25 + curr.vertical * 0.5 + after.vertical * 0.25
-      };
-    });
-    current = next;
-  }
-  return current;
-}
+export { formatPolynomialExpression } from "./fitParametricSketchFormat";
 
 export function fitParametricSketch(
   rawPoints: { horizontal: number; vertical: number }[],
@@ -189,17 +28,17 @@ export function fitParametricSketch(
     smoothPasses?: number;
   } = {}
 ): FitParametricSketchResult | null {
-  const maxDegree = options.maxDegree ?? DEFAULT_MAX_DEGREE;
+  const maxDegree = options.maxDegree ?? FIT_PARAMETRIC_SKETCH_DEFAULT_MAX_DEGREE;
   const relativeTolerance = options.relativeErrorTolerance ?? 0.008;
-  const ridge = options.ridge ?? DEFAULT_RIDGE;
+  const ridge = options.ridge ?? FIT_PARAMETRIC_SKETCH_DEFAULT_RIDGE;
   const smoothPasses = options.smoothPasses ?? 0;
 
-  if (rawPoints.length < MIN_POINTS) {
+  if (rawPoints.length < FIT_PARAMETRIC_SKETCH_MIN_POINTS) {
     return null;
   }
 
-  const points = smoothStroke(resampleByArcLength(rawPoints, 72), smoothPasses);
-  if (points.length < MIN_POINTS) {
+  const points = smoothStrokePoints(resampleStrokeByArcLength(rawPoints, 72), smoothPasses);
+  if (points.length < FIT_PARAMETRIC_SKETCH_MIN_POINTS) {
     return null;
   }
 
@@ -264,11 +103,11 @@ export function fitParametricSketch3d(
     ridge?: number;
   } = {}
 ): FitParametricSketch3DResult | null {
-  const maxDegree = options.maxDegree ?? DEFAULT_MAX_DEGREE;
+  const maxDegree = options.maxDegree ?? FIT_PARAMETRIC_SKETCH_DEFAULT_MAX_DEGREE;
   const relativeTolerance = options.relativeErrorTolerance ?? 0.008;
-  const ridge = options.ridge ?? DEFAULT_RIDGE;
+  const ridge = options.ridge ?? FIT_PARAMETRIC_SKETCH_DEFAULT_RIDGE;
 
-  if (rawPoints.length < MIN_POINTS) {
+  if (rawPoints.length < FIT_PARAMETRIC_SKETCH_MIN_POINTS) {
     return null;
   }
 
@@ -334,38 +173,4 @@ export function fitParametricSketch3d(
   }
 
   return null;
-}
-
-function formatCoefficientMagnitude(value: number): string {
-  const mag = Math.abs(value);
-  if (mag >= 1e4 || mag < 1e-3) {
-    return mag.toExponential(6).replace(/e\+/g, "e");
-  }
-  const s = mag.toPrecision(8);
-  return s.replace(/\.?0+$/, "");
-}
-
-export function formatPolynomialExpression(coeffs: number[], variable: string): string {
-  let first = true;
-  let expr = "";
-
-  for (let j = 0; j < coeffs.length; j += 1) {
-    const c = coeffs[j];
-    if (!Number.isFinite(c) || Math.abs(c) < 1e-12) {
-      continue;
-    }
-
-    const magStr = formatCoefficientMagnitude(c);
-    const factor = j === 0 ? "" : j === 1 ? `*${variable}` : `*${variable}^${j}`;
-
-    if (first) {
-      expr = c < 0 ? `-${magStr}${factor}` : `${magStr}${factor}`;
-      first = false;
-      continue;
-    }
-
-    expr += c < 0 ? ` - ${magStr}${factor}` : ` + ${magStr}${factor}`;
-  }
-
-  return expr.length > 0 ? expr : "0";
 }
