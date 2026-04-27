@@ -13,7 +13,7 @@ interface EditorParameter {
 
 export type EditorConstraintType = "attach" | "align" | "offset";
 
-interface EditorConstraint {
+export interface EditorConstraint {
   id: string;
   type: EditorConstraintType;
   objectIds: string[];

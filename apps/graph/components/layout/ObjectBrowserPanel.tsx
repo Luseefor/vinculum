@@ -59,7 +59,10 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--accent)]">Scene</p>
           <div className="mt-1 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">Objects</h2>
-            <span className="flex h-5 items-center justify-center rounded bg-[var(--surface-muted)] px-1.5 font-mono text-[10px] font-bold text-[var(--text-muted)]">
+            <span
+              data-testid="scene-object-count"
+              className="flex h-5 items-center justify-center rounded bg-[var(--surface-muted)] px-1.5 font-mono text-[10px] font-bold text-[var(--text-muted)]"
+            >
               {objectCount}
             </span>
           </div>

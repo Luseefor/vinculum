@@ -20,7 +20,8 @@ import { cn } from "@/components/ui/styles";
 import { useHistoryStore } from "@/lib/store/historyStore";
 import type { ViewportMode } from "@/lib/types/ui";
 import { useGraphStore } from "@/store/graphStore";
-import type { AccentPreset, Canvas2DTool, Canvas3DTool, ThemeMode, UiDensity } from "@/types/graphUi";
+import type { Canvas2DTool, Canvas3DTool, ThemeMode, UiDensity } from "@/types/graphUi";
+import { toolbarAccentHex, toolbarAccentOptions } from "@/components/layout/toolbarAccentPresets";
 
 interface ToolbarProps {
   onOpenInspector?: () => void;
@@ -35,20 +36,6 @@ interface ToolbarProps {
   onUndo?: () => void;
   onRedo?: () => void;
 }
-
-const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "green", "amber", "orange", "rose", "pink", "violet"];
-const accentHex: Record<AccentPreset, string> = {
-  indigo: "#6366f1",
-  blue: "#3b82f6",
-  cyan: "#06b6d4",
-  emerald: "#10b981",
-  green: "#22c55e",
-  amber: "#f59e0b",
-  orange: "#f97316",
-  rose: "#f43f5e",
-  pink: "#ec4899",
-  violet: "#8b5cf6"
-};
 
 export default function Toolbar({
   onOpenInspector,
@@ -354,7 +341,7 @@ export default function Toolbar({
                 <div>
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-tertiary)] mb-3">Accent Color</h3>
                   <div className="grid grid-cols-5 gap-3 justify-items-center">
-                    {accentOptions.map((preset) => (
+                    {toolbarAccentOptions.map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setAccentPreset(preset)}
@@ -362,7 +349,7 @@ export default function Toolbar({
                           "h-5 w-5 rounded-full border-2 transition hover:scale-125 active:scale-95",
                           accentPreset === preset ? "border-[var(--text-primary)] ring-2 ring-[var(--accent-primary)]/20" : "border-transparent"
                         )}
-                        style={{ backgroundColor: accentHex[preset] }}
+                        style={{ backgroundColor: toolbarAccentHex[preset] }}
                         aria-label={`Accent ${preset}`}
                       />
                     ))}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useHistoryStore } from "@/lib/store/historyStore";
+import NewSceneDialog from "@/components/layout/NewSceneDialog";
 import { useGraphStore } from "@/store/graphStore";
 import { cn } from "@/components/ui/styles";
 import { 
@@ -19,9 +21,10 @@ const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "gre
 export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [newSceneOpen, setNewSceneOpen] = useState(false);
   const fileTriggerRef = useRef<HTMLButtonElement>(null);
   const themeTriggerRef = useRef<HTMLButtonElement>(null);
-  
+
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const themeMode = useGraphStore((state) => state.ui.themeMode);
   const setThemeMode = useGraphStore((state) => state.setThemeMode);
@@ -29,6 +32,25 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
   const setAccentPreset = useGraphStore((state) => state.setAccentPreset);
   const resetScene = useGraphStore((state) => state.resetScene);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
+  const clearHistory = useHistoryStore((state) => state.clear);
+
+  const handleNewSceneMenuClick = () => {
+    if (objectCount === 0) {
+      clearHistory();
+      resetScene();
+      setFileMenuOpen(false);
+      return;
+    }
+    setNewSceneOpen(true);
+    setFileMenuOpen(false);
+  };
+
+  const handleConfirmNewScene = () => {
+    clearHistory();
+    resetScene();
+    setNewSceneOpen(false);
+    setFileMenuOpen(false);
+  };
 
   // Robust click-outside logic for Portals
   useEffect(() => {
@@ -52,8 +74,28 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
     return () => window.removeEventListener("mousedown", handleClick);
   }, [fileMenuOpen, themeMenuOpen]);
 
+  useEffect(() => {
+    if (!themeMenuOpen && !fileMenuOpen) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setThemeMenuOpen(false);
+        setFileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [themeMenuOpen, fileMenuOpen]);
+
   return (
-    <header className="flex h-11 shrink-0 items-center border-b border-[var(--panel-border)] bg-[var(--bg-tertiary)] px-4 z-50 font-sans">
+    <>
+      <NewSceneDialog
+        open={newSceneOpen}
+        onConfirm={handleConfirmNewScene}
+        onCancel={() => setNewSceneOpen(false)}
+      />
+      <header className="flex h-11 shrink-0 items-center border-b border-[var(--panel-border)] bg-[var(--bg-tertiary)] px-4 z-50 font-sans">
       <div className="flex items-center gap-2 mr-6">
         <VinculumMark className="h-5 w-5" />
         <span className="text-[11px] font-bold tracking-tight text-[var(--text-primary)] uppercase">Vinculum</span>
@@ -62,6 +104,7 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
       <div className="flex items-center gap-1">
         <button
           ref={fileTriggerRef}
+          type="button"
           onClick={() => setFileMenuOpen(!fileMenuOpen)}
           className={cn(
             "flex items-center gap-1.5 h-7 px-3 rounded-full text-[10px] font-bold uppercase transition-all",
@@ -90,6 +133,9 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
 
         <button
           ref={themeTriggerRef}
+          type="button"
+          aria-label="Open theme and accent menu"
+          aria-expanded={themeMenuOpen}
           onClick={() => setThemeMenuOpen(!themeMenuOpen)}
           className={cn(
             "flex items-center justify-center h-7 w-7 rounded-full transition-all",
@@ -111,7 +157,7 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
             }}
           >
             <div className="p-1 flex flex-col gap-0.5">
-              <MenuButton onClick={() => { resetScene(); setFileMenuOpen(false); }}>New Scene</MenuButton>
+              <MenuButton onClick={handleNewSceneMenuClick}>New Scene</MenuButton>
               <MenuButton onClick={() => { openSceneDialog("import"); setFileMenuOpen(false); }}>Import...</MenuButton>
               <MenuButton onClick={() => { openSceneDialog("export"); setFileMenuOpen(false); }}>Export...</MenuButton>
             </div>
@@ -132,7 +178,9 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
             <div>
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Appearance</h3>
               <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--bg-primary)] border border-[var(--border-strong)]">
-                <button 
+                <button
+                  type="button"
+                  aria-label="Use light theme"
                   onClick={() => setThemeMode("light")}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[10px] font-bold transition",
@@ -141,7 +189,9 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
                 >
                   <SunIcon className="h-3.5 w-3.5" /> LIGHT
                 </button>
-                <button 
+                <button
+                  type="button"
+                  aria-label="Use dark theme"
                   onClick={() => setThemeMode("dark")}
                   className={cn(
                     "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[10px] font-bold transition",
@@ -174,6 +224,7 @@ export default function TopToolbar({ canUndo, canRedo, onUndo, onRedo }: any) {
         </Portal>
       )}
     </header>
+    </>
   );
 }
 

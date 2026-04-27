@@ -4,8 +4,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
-import { Portal } from "@/components/ui/portal";
 import { useGraphStore } from "@/store/graphStore";
+import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
+import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
 
 interface ObjectRowProps {
   object: GraphObject;
@@ -13,13 +14,6 @@ interface ObjectRowProps {
   selected: boolean;
   onSelect: (id: string) => void;
   onToggleVisibility: (id: string) => void;
-}
-
-function isExpressionRowEmpty(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane") {
-    return !object.equation.trim();
-  }
-  return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
 }
 
 export default function ObjectRow({ object, index, selected, onSelect, onToggleVisibility }: ObjectRowProps) {
@@ -81,7 +75,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     };
   }, [menuOpen, closeMenu]);
 
-  const meta = getDisplayMeta(object);
+  const meta = getObjectRowDisplayMeta(object);
   const title = `${meta.label} #${index + 1}`;
   const emptyCue = isExpressionRowEmpty(object);
   const subLabel = emptyCue
@@ -219,51 +213,14 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         </div>
       </div>
 
-      {menuOpen && menuPos ? (
-        <Portal>
-          <div
-            ref={menuRef}
-            role="menu"
-            className="fixed z-[500] min-w-[11rem] rounded-lg border border-[var(--border-strong)] bg-[var(--bg-primary)] py-1 shadow-lg"
-            style={{ top: menuPos.top, left: menuPos.left }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-              Convert to
-            </p>
-            {(
-              [
-                { kind: "surface" as const, label: "Surface" },
-                { kind: "parametricCurve" as const, label: "Parametric curve" },
-                { kind: "plane" as const, label: "Plane" }
-              ] as const
-            ).map(({ kind, label }) => (
-              <button
-                key={kind}
-                type="button"
-                role="menuitem"
-                disabled={object.kind === kind}
-                onClick={() => convertKind(kind)}
-                className={cn(
-                  "flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-                  object.kind === kind && "cursor-not-allowed opacity-40 hover:bg-transparent"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-            <div className="my-1 h-px bg-[var(--border-subtle)]" />
-            <button
-              type="button"
-              role="menuitem"
-              onClick={handleRemove}
-              className="flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
-            >
-              Remove
-            </button>
-          </div>
-        </Portal>
-      ) : null}
+      <ObjectRowContextMenu
+        object={object}
+        menuOpen={menuOpen}
+        menuPos={menuPos}
+        menuRef={menuRef}
+        onConvertKind={convertKind}
+        onRemove={handleRemove}
+      />
 
       {(isExpanded || emptyCue) && (
         <div className="mx-3 mb-2 p-3 rounded-md border border-[var(--border-strong)] bg-[var(--bg-primary)] animate-slide-up shadow-sm">
@@ -332,29 +289,4 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       )}
     </div>
   );
-}
-
-function getDisplayMeta(object: GraphObject): { label: string; type: string } {
-  if (object.kind === "plane") {
-    if (!object.equation.trim()) {
-      return { label: "Expression", type: "Choose type in menu" };
-    }
-    return { label: "Plane", type: "Plane" };
-  }
-  if (object.kind === "parametricCurve") {
-    const allEmpty = ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
-    if (allEmpty) {
-      return { label: "Expression", type: "Choose type in menu" };
-    }
-    const normalized = [object.xExpr, object.yExpr, object.zExpr].map((v) => v.replace(/\s+/g, ""));
-    const isPoint = normalized.every((v) => v === "0" || v === "0.0");
-    return isPoint ? { label: "Point", type: "Point" } : { label: "Curve", type: "Curve" };
-  }
-  if (!object.equation.trim()) {
-    return { label: "Expression", type: "Choose type in menu" };
-  }
-  const equation = object.equation.replace(/\s+/g, "");
-  if (equation === "sqrt(max(0,9-x^2-y^2))") return { label: "Sphere", type: "Sphere" };
-  if (equation === "sqrt(max(0,4-x^2))") return { label: "Cylinder", type: "Cylinder" };
-  return { label: "Surface", type: "Surface" };
 }

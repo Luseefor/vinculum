@@ -3,11 +3,9 @@
 import { useMemo } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
 import { cx } from "@/components/ui/styles";
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { useGraphStore } from "@/store/graphStore";
-import type { ExpressionRowProps, ExpressionValidationState } from "@/types/graphUi";
+import type { ExpressionRowProps } from "@/types/graphUi";
+import { getExpressionRowValidation } from "./expressionRowValidation";
 import GraphTypeSelector from "./GraphTypeSelector";
 
 const PARAMETRIC_FIELDS = [
@@ -35,19 +33,7 @@ export default function ExpressionRow({
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
 
-  const validation = useMemo<ExpressionValidationState>(() => {
-    if (object.kind === "surface") {
-      return { error: compileSurfaceExpression(object.equation, object.orientation || "z").error };
-    }
-
-    if (object.kind === "parametricCurve") {
-      return {
-        error: compileParametricExpressions(object.xExpr, object.yExpr, object.zExpr).error
-      };
-    }
-
-    return { error: compilePlaneEquation(object.equation).error };
-  }, [object]);
+  const validation = useMemo(() => getExpressionRowValidation(object), [object]);
 
   const placeholder2d = axis2dPair === "yz" ? "z = y^2" : axis2dPair === "xz" ? "z = x^2" : "y = x^2";
   const inputIdBase = `expr-${object.id}`;

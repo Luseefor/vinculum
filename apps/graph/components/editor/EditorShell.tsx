@@ -23,6 +23,7 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { cn } from "@/components/ui/styles";
+import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDerivedUpdates";
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -186,72 +187,13 @@ export default function EditorShell() {
       return;
     }
 
-    const shiftHexColor = (hex: string) => {
-      if (!/^#[0-9a-f]{6}$/i.test(hex)) {
-        return hex;
-      }
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      const tint = 28;
-      const clamp = (v: number) => Math.max(0, Math.min(255, v));
-      return `#${clamp(r + tint).toString(16).padStart(2, "0")}${clamp(g + tint).toString(16).padStart(2, "0")}${clamp(b + tint)
-        .toString(16)
-        .padStart(2, "0")}`;
-    };
-
-    const currentObjects = useGraphStore.getState().scene.objects;
-    const objectsById = new Map(currentObjects.map((object) => [object.id, object] as const));
-    const desiredVisibility = new Map<string, boolean>();
-    const desiredColor = new Map<string, { color: string; priority: number }>();
-
-    for (const constraint of constraints) {
-      if (!constraint.enabled) {
-        continue;
-      }
-      const sourceId = constraint.objectIds[0];
-      const targetId = constraint.objectIds[1];
-      if (!sourceId || !targetId || sourceId === targetId) {
-        continue;
-      }
-      const source = objectsById.get(sourceId);
-      const target = objectsById.get(targetId);
-      if (!source || !target) {
-        continue;
-      }
-
-      if (constraint.type === "attach") {
-        desiredVisibility.set(target.id, source.visible);
-        continue;
-      }
-
-      if (constraint.type === "align") {
-        const current = desiredColor.get(target.id);
-        if (!current || current.priority < 1) {
-          desiredColor.set(target.id, { color: source.color, priority: 1 });
-        }
-        continue;
-      }
-
-      if (constraint.type === "offset") {
-        const shifted = shiftHexColor(source.color);
-        const current = desiredColor.get(target.id);
-        if (!current || current.priority < 2) {
-          desiredColor.set(target.id, { color: shifted, priority: 2 });
-        }
-      }
-    }
-
-    const derivedUpdateCount = desiredVisibility.size + desiredColor.size;
+    const derivedUpdateCount = applyConstraintDerivedUpdates(
+      constraints,
+      setObjectVisibility,
+      updateObjectColor
+    );
     if (derivedUpdateCount > 0) {
       skipDerivedHistoryRef.current += derivedUpdateCount;
-    }
-
-    for (const [targetId, visible] of desiredVisibility) {
-      setObjectVisibility(targetId, visible);
-    }
-    for (const [targetId, nextColor] of desiredColor) {
-      updateObjectColor(targetId, nextColor.color);
     }
   }, [constraints, scene.objects, setObjectVisibility, updateObjectColor]);
 
@@ -378,6 +320,8 @@ export default function EditorShell() {
               {/* Graph Mode (2D/3D) */}
               <div className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0">
                 <button
+                  type="button"
+                  aria-pressed={graphMode === "2d"}
                   onClick={() => setGraphMode("2d")}
                   className={cn(
                     "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
@@ -387,6 +331,8 @@ export default function EditorShell() {
                   2D
                 </button>
                 <button
+                  type="button"
+                  aria-pressed={graphMode === "3d"}
                   onClick={() => setGraphMode("3d")}
                   className={cn(
                     "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
