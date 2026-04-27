@@ -45,6 +45,9 @@ export interface Viewport2DFrame {
   height: number;
 }
 
+/** World-space pin shown on the 2D graph and in the object list. */
+export type GraphProbePin = { id: string; color: string; world: { x: number; y: number; z: number } };
+
 export interface GraphUiState {
   selectedObjectId: string | null;
   sceneDialog: SceneDialogState;
@@ -67,7 +70,7 @@ export interface GraphUiState {
   canvas3dTool: Canvas3DTool;
   /** Baseline plane for 3D grid + sketch/probe plane picking (through origin). */
   baseline3dPlane: Axis2DPair;
-  probePins: { id: string; color: string; world: { x: number; y: number; z: number } }[];
+  probePins: GraphProbePin[];
   /** Extrapolation past the sketch parameter range: t in [-extend, 1+extend] when stroke is parameterized on [0,1]. */
   sketchExtendFraction: number;
   /** When true, sketch strokes create curves immediately; when false, user confirms from preview card. */
