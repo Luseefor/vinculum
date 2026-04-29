@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { useEditorStore, type EditorConstraintType } from "@/lib/store/editorStore";
+import {
+  useEditorStore,
+  type ConstraintAxis,
+  type EditorConstraint,
+  type EditorConstraintType
+} from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 
 export default function ConstraintsTab() {
@@ -11,6 +16,8 @@ export default function ConstraintsTab() {
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const constraints = useEditorStore((state) => state.constraints);
   const addConstraint = useEditorStore((state) => state.addConstraint);
+  const updateConstraintAxisLocks = useEditorStore((state) => state.updateConstraintAxisLocks);
+  const updateConstraintOffsetValue = useEditorStore((state) => state.updateConstraintOffsetValue);
   const toggleConstraint = useEditorStore((state) => state.toggleConstraint);
   const removeConstraint = useEditorStore((state) => state.removeConstraint);
   const [targetObjectId, setTargetObjectId] = useState<string>("");
@@ -157,6 +164,8 @@ export default function ConstraintsTab() {
                 key={constraint.id}
                 constraint={constraint}
                 labelForObject={labelForObject}
+                onAxisToggle={updateConstraintAxisLocks}
+                onOffsetChange={updateConstraintOffsetValue}
                 onToggle={toggleConstraint}
                 onRemove={removeConstraint}
               />
@@ -180,6 +189,8 @@ export default function ConstraintsTab() {
                 key={constraint.id}
                 constraint={constraint}
                 labelForObject={labelForObject}
+                onAxisToggle={updateConstraintAxisLocks}
+                onOffsetChange={updateConstraintOffsetValue}
                 onToggle={toggleConstraint}
                 onRemove={removeConstraint}
               />
@@ -194,16 +205,15 @@ export default function ConstraintsTab() {
 function LinkRow({
   constraint,
   labelForObject,
+  onAxisToggle,
+  onOffsetChange,
   onToggle,
   onRemove
 }: {
-  constraint: {
-    id: string;
-    type: string;
-    objectIds: string[];
-    enabled: boolean;
-  };
+  constraint: EditorConstraint;
   labelForObject: (id: string) => string;
+  onAxisToggle: (id: string, axisLocks: Partial<Record<ConstraintAxis, boolean>>) => void;
+  onOffsetChange: (id: string, value: number) => void;
   onToggle: (id: string) => void;
   onRemove: (id: string) => void;
 }) {
@@ -230,6 +240,38 @@ function LinkRow({
         <p className="truncate font-mono text-[10px] text-[var(--text-tertiary)]" title={constraint.id}>
           {constraint.id}
         </p>
+      </div>
+      <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1 text-[10px] text-[var(--text-secondary)]">
+        <span>Axis</span>
+        <div className="flex items-center gap-1">
+          {(["x", "y", "z"] as const).map((axis) => (
+            <button
+              key={axis}
+              type="button"
+              aria-pressed={constraint.axisLocks[axis]}
+              onClick={() => onAxisToggle(constraint.id, { [axis]: !constraint.axisLocks[axis] })}
+              className={`h-5 w-5 rounded border text-[10px] uppercase ${
+                constraint.axisLocks[axis]
+                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--text-primary)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface-bg)] text-[var(--text-tertiary)]"
+              }`}
+            >
+              {axis}
+            </button>
+          ))}
+        </div>
+        <span>Offset</span>
+        <input
+          type="number"
+          value={constraint.offsetValue}
+          disabled={constraint.type !== "offset"}
+          onChange={(event) => onOffsetChange(constraint.id, Number(event.target.value))}
+          className="h-6 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 font-mono text-[10px] text-[var(--text-primary)] disabled:opacity-50"
+          min={-255}
+          max={255}
+          step={1}
+          aria-label="Constraint offset"
+        />
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button type="button" size="sm" variant="ghost" className="shrink-0" onClick={() => onToggle(constraint.id)}>

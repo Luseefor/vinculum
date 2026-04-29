@@ -12,12 +12,25 @@ interface EditorParameter {
 }
 
 export type EditorConstraintType = "attach" | "align" | "offset";
+export type ConstraintAxis = "x" | "y" | "z";
+export type ConstraintAxisLocks = Record<ConstraintAxis, boolean>;
+
+const DEFAULT_AXIS_LOCKS: ConstraintAxisLocks = {
+  x: true,
+  y: true,
+  z: true
+};
+const MIN_CONSTRAINT_OFFSET = -255;
+const MAX_CONSTRAINT_OFFSET = 255;
+const DEFAULT_OFFSET_VALUE = 28;
 
 export interface EditorConstraint {
   id: string;
   type: EditorConstraintType;
   objectIds: string[];
   enabled: boolean;
+  axisLocks: ConstraintAxisLocks;
+  offsetValue: number;
 }
 
 interface EditorAnimationState {
@@ -50,6 +63,8 @@ interface EditorStoreState {
   resizePointerId: number | null;
   bottomPanelToggleSource: "manual" | "drag" | "breakpoint";
   bottomPanelTab: BottomPanelTab;
+  /** Optional performance HUD (FPS/frame-time) toggle. Off by default. */
+  showPerfHud: boolean;
   parameters: EditorParameter[];
   consoleEvents: string[];
   constraints: EditorConstraint[];
@@ -76,6 +91,8 @@ interface EditorStoreState {
   setParameterValue: (id: string, value: number) => void;
   addConsoleEvent: (message: string) => void;
   addConstraint: (type: EditorConstraintType, objectIds: string[]) => void;
+  updateConstraintAxisLocks: (id: string, axisLocks: Partial<ConstraintAxisLocks>) => void;
+  updateConstraintOffsetValue: (id: string, offsetValue: number) => void;
   toggleConstraint: (id: string) => void;
   removeConstraint: (id: string) => void;
   setAnimationParameterId: (id: string | null) => void;
@@ -83,6 +100,7 @@ interface EditorStoreState {
   setAnimationSpeed: (speed: number) => void;
   toggleAnimationLoop: () => void;
   setAnimationPlaying: (playing: boolean) => void;
+  setShowPerfHud: (value: boolean) => void;
 }
 
 export const useEditorStore = create<EditorStoreState>()(
@@ -108,6 +126,7 @@ export const useEditorStore = create<EditorStoreState>()(
       resizePointerId: null,
       bottomPanelToggleSource: "manual",
       bottomPanelTab: "parameters",
+      showPerfHud: false,
       parameters: [
         { id: "r", value: 2.5, min: 0.1, max: 12 },
         { id: "h", value: 3.0, min: 0.1, max: 20 }
@@ -204,11 +223,43 @@ export const useEditorStore = create<EditorStoreState>()(
                 id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
                 type,
                 objectIds: [sourceId, targetId],
-                enabled: true
+                enabled: true,
+                axisLocks: { ...DEFAULT_AXIS_LOCKS },
+                offsetValue: DEFAULT_OFFSET_VALUE
               }
             ]
           };
         }),
+      updateConstraintAxisLocks: (id, axisLocks) =>
+        set((state) => ({
+          constraints: state.constraints.map((constraint) =>
+            constraint.id !== id
+              ? constraint
+              : {
+                  ...constraint,
+                  axisLocks: sanitizeAxisLocks({
+                    ...constraint.axisLocks,
+                    ...axisLocks
+                  })
+                }
+          )
+        })),
+      updateConstraintOffsetValue: (id, offsetValue) => {
+        const safeOffset = sanitizeConstraintOffset(offsetValue);
+        if (safeOffset === null) {
+          return;
+        }
+        set((state) => ({
+          constraints: state.constraints.map((constraint) =>
+            constraint.id === id
+              ? {
+                  ...constraint,
+                  offsetValue: safeOffset
+                }
+              : constraint
+          )
+        }));
+      },
       toggleConstraint: (id) =>
         set((state) => ({
           constraints: state.constraints.map((constraint) =>
@@ -277,10 +328,26 @@ export const useEditorStore = create<EditorStoreState>()(
             ...state.animation,
             playing
           }
-        }))
+        })),
+      setShowPerfHud: (value) => set({ showPerfHud: value })
     }),
     {
-      name: "vinculum-editor-layout"
+      name: "vinculum-editor-layout",
+      merge: (persistedState, currentState) => {
+        if (!persistedState || typeof persistedState !== "object") {
+          return currentState;
+        }
+        const incoming = persistedState as Partial<EditorStoreState>;
+        const incomingConstraints = Array.isArray(incoming.constraints) ? incoming.constraints : [];
+        const normalizedConstraints = incomingConstraints.map((constraint) =>
+          sanitizeConstraintRecord(constraint)
+        );
+        return {
+          ...currentState,
+          ...incoming,
+          constraints: normalizedConstraints
+        };
+      }
     }
   )
 );
@@ -290,4 +357,38 @@ function clamp(value: number, min: number, max: number): number {
     return min;
   }
   return Math.min(max, Math.max(min, value));
+}
+
+function sanitizeAxisLocks(value: unknown): ConstraintAxisLocks {
+  if (!value || typeof value !== "object") {
+    return { ...DEFAULT_AXIS_LOCKS };
+  }
+  const input = value as Partial<Record<ConstraintAxis, unknown>>;
+  return {
+    x: input.x !== false,
+    y: input.y !== false,
+    z: input.z !== false
+  };
+}
+
+function sanitizeConstraintOffset(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return clamp(Math.round(value), MIN_CONSTRAINT_OFFSET, MAX_CONSTRAINT_OFFSET);
+}
+
+function sanitizeConstraintRecord(value: unknown): EditorConstraint {
+  const input = (value && typeof value === "object" ? value : {}) as Partial<EditorConstraint>;
+  const safeOffset = sanitizeConstraintOffset(input.offsetValue);
+  return {
+    id: typeof input.id === "string" ? input.id : `c_${Date.now().toString(36)}_legacy`,
+    type: input.type === "attach" || input.type === "align" || input.type === "offset" ? input.type : "attach",
+    objectIds: Array.isArray(input.objectIds)
+      ? input.objectIds.filter((candidate): candidate is string => typeof candidate === "string").slice(0, 2)
+      : [],
+    enabled: input.enabled !== false,
+    axisLocks: sanitizeAxisLocks(input.axisLocks),
+    offsetValue: safeOffset ?? DEFAULT_OFFSET_VALUE
+  };
 }
