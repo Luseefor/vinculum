@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
 
 interface NewSceneDialogProps {
   open: boolean;
@@ -9,6 +10,9 @@ interface NewSceneDialogProps {
 }
 
 export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap({ open, containerRef: dialogRef });
+
   useEffect(() => {
     if (!open) {
       return;
@@ -44,6 +48,7 @@ export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDi
         aria-labelledby="new-scene-title"
         data-testid="new-scene-dialog"
         onClick={(event) => event.stopPropagation()}
+        ref={dialogRef}
       >
         <div className="border-b border-[var(--border-subtle)] px-5 py-4">
           <h2 id="new-scene-title" className="text-sm font-semibold text-[var(--text-primary)]">

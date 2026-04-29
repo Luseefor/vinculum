@@ -105,6 +105,17 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     <div className="flex flex-col gap-1 font-sans">
       <div
         onClick={() => onSelect(object.id)}
+        role="button"
+        tabIndex={0}
+        aria-label={selected ? `Selected ${title}` : `Select ${title}`}
+        aria-pressed={selected}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(object.id);
+          }
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -164,7 +175,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               e.stopPropagation();
               onToggleVisibility(object.id);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleVisibility(object.id);
+              }
+            }}
             className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            aria-label={object.visible ? "Hide object" : "Show object"}
+            aria-pressed={object.visible}
           >
             {object.visible ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeOffIcon className="h-3.5 w-3.5" />}
           </button>
@@ -175,6 +195,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
+            aria-label={isExpanded ? "Collapse definition" : "Expand definition"}
+            aria-expanded={isExpanded}
             className={cn(
               "flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-transform",
               isExpanded && "rotate-180"
