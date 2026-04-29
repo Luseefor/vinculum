@@ -8,14 +8,32 @@ import LeftObjectBrowser from "@/components/editor/LeftObjectBrowser";
 import RightInspector from "@/components/editor/RightInspector";
 import StatusBar from "@/components/editor/StatusBar";
 import TopToolbar from "@/components/editor/TopToolbar";
+import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
+import RecoveryDialog from "@/components/projects/RecoveryDialog";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
+import SharedSceneConfirmDialog from "@/components/scene/SharedSceneConfirmDialog";
 import ThemeSync from "@/components/theme/ThemeSync";
 import { Sheet } from "@/components/ui/sheet";
 import ViewportHost from "@/components/viewport/ViewportHost";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
+import { exportSceneJson, triggerSceneExportDownload } from "@/lib/export/sceneExport";
+import { reportError } from "@/lib/monitoring/errorReporting";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
-import { serializeScene } from "@/lib/scene/serializeScene";
+import type { SceneDocument } from "@/lib/scene/sceneSchema";
+import {
+  LocalProjectRepositoryError,
+  localProjectRepository
+} from "@/lib/projects/localProjectRepository";
+import { ProjectAutosaveController } from "@/lib/projects/projectAutosave";
+import { applySharedSceneToEditor } from "@/lib/share/applySharedScene";
+import { readSharedSceneFromSearch } from "@/lib/share/shareSceneLink";
+import {
+  readWelcomeOnboardingDismissed,
+  setWelcomeOnboardingDismissed,
+  shouldShowWelcomeOnStartup,
+  WelcomeOnboardingStateError
+} from "@/lib/onboarding/welcomeOnboardingState";
 import { getCurrentSceneSnapshot } from "@/lib/store/sceneStore";
 import { useHistoryStore } from "@/lib/store/historyStore";
 import type { SceneSnapshot } from "@/lib/types/scene";
@@ -49,7 +67,12 @@ export default function EditorShell() {
   const removeObject = useGraphStore((state) => state.removeObject);
   const applySceneSnapshot = useGraphStore((state) => state.applySceneSnapshot);
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
+  const resetScene = useGraphStore((state) => state.resetScene);
   const scene = useGraphStore((state) => state.scene);
+  const currentProjectId = useGraphStore((state) => state.ui.projectSession.currentProjectId);
+  const currentProjectName = useGraphStore((state) => state.ui.projectSession.currentProjectName);
+  const setCurrentProjectSession = useGraphStore((state) => state.setCurrentProjectSession);
+  const setProjectAutosaveStatus = useGraphStore((state) => state.setProjectAutosaveStatus);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
@@ -63,6 +86,17 @@ export default function EditorShell() {
     x: 0,
     y: 0
   });
+  const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [recoveryUpdatedAt, setRecoveryUpdatedAt] = useState<string | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [sharedSceneDialogOpen, setSharedSceneDialogOpen] = useState(false);
+  const [sharedSceneError, setSharedSceneError] = useState<string | null>(null);
+  const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
+  const [welcomeDialogError, setWelcomeDialogError] = useState<string | null>(null);
+  const [welcomeDontShowAgain, setWelcomeDontShowAgain] = useState(false);
+  const [examplesOpenSignal, setExamplesOpenSignal] = useState(0);
+  const [viewportFallbackMessage, setViewportFallbackMessage] = useState<string | null>(null);
+  const [isGraphStoreHydrated, setIsGraphStoreHydrated] = useState(false);
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -100,6 +134,11 @@ export default function EditorShell() {
   const historyActionRef = useRef(false);
   const skipDerivedHistoryRef = useRef(0);
   const lastSceneSnapshotRef = useRef<SceneSnapshot | null>(null);
+  const hasCheckedRecoveryRef = useRef(false);
+  const hasCheckedSharedSceneRef = useRef(false);
+  const hasCheckedWelcomeRef = useRef(false);
+  const pendingSharedSceneRef = useRef<SceneDocument | null>(null);
+  const autosaveControllerRef = useRef<ProjectAutosaveController | null>(null);
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
   const primary2dPlaneLabel = useMemo(() => {
     if (axis2dPair === "xy") {
@@ -122,6 +161,35 @@ export default function EditorShell() {
     setCanvas2dTool(tool);
     setCanvas3dTool(tool);
   };
+
+  if (!autosaveControllerRef.current) {
+    autosaveControllerRef.current = new ProjectAutosaveController(
+      localProjectRepository,
+      {
+        onDirty: () => setProjectAutosaveStatus("dirty"),
+        onSaving: () => setProjectAutosaveStatus("saving"),
+        onSaved: () => setProjectAutosaveStatus("saved"),
+        onError: (message) => setProjectAutosaveStatus("error", message)
+      },
+      900
+    );
+  }
+
+  useEffect(() => {
+    const persistApi = useGraphStore.persist;
+    if (!persistApi) {
+      setIsGraphStoreHydrated(true);
+      return;
+    }
+
+    setIsGraphStoreHydrated(persistApi.hasHydrated());
+    const unsubscribe = persistApi.onFinishHydration(() => {
+      setIsGraphStoreHydrated(true);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const runUndo = useCallback(() => {
     const current = getCurrentSceneSnapshot();
@@ -187,15 +255,18 @@ export default function EditorShell() {
       return;
     }
 
-    const derivedUpdateCount = applyConstraintDerivedUpdates(
+    const { updateCount: derivedUpdateCount, errors } = applyConstraintDerivedUpdates(
       constraints,
       setObjectVisibility,
       updateObjectColor
     );
+    for (const error of errors) {
+      addConsoleEvent(`Constraint skipped: ${error}`);
+    }
     if (derivedUpdateCount > 0) {
       skipDerivedHistoryRef.current += derivedUpdateCount;
     }
-  }, [constraints, scene.objects, setObjectVisibility, updateObjectColor]);
+  }, [addConsoleEvent, constraints, scene.objects, setObjectVisibility, updateObjectColor]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -230,6 +301,346 @@ export default function EditorShell() {
       setActive2dViewport("primary");
     }
   }, [effectiveViewportMode, setActive2dViewport]);
+
+  useEffect(() => {
+    if (hasCheckedRecoveryRef.current) {
+      return;
+    }
+    if (!isGraphStoreHydrated) {
+      return;
+    }
+
+    if (scene.objects.length > 0) {
+      hasCheckedRecoveryRef.current = true;
+      return;
+    }
+
+    try {
+      const snapshot = localProjectRepository.getUnnamedRecoverySnapshot();
+      if (!snapshot) {
+        hasCheckedRecoveryRef.current = true;
+        return;
+      }
+
+      const snapshotTime = Date.parse(snapshot.updatedAt);
+      const sceneTime = Date.parse(scene.metadata.updatedAt);
+      if (Number.isFinite(snapshotTime) && Number.isFinite(sceneTime) && snapshotTime <= sceneTime) {
+        hasCheckedRecoveryRef.current = true;
+        return;
+      }
+
+      setRecoveryUpdatedAt(snapshot.updatedAt);
+      setRecoveryError(null);
+      setRecoveryDialogOpen(true);
+      hasCheckedRecoveryRef.current = true;
+    } catch (error) {
+      const message =
+        error instanceof LocalProjectRepositoryError
+          ? error.message
+          : "Recovery snapshot could not be read safely.";
+      setRecoveryError(message);
+      setRecoveryDialogOpen(true);
+      hasCheckedRecoveryRef.current = true;
+    }
+  }, [isGraphStoreHydrated, scene.metadata.updatedAt, scene.objects.length]);
+
+  useEffect(() => {
+    if (hasCheckedSharedSceneRef.current || !isGraphStoreHydrated) {
+      return;
+    }
+
+    const sharedSceneResult = readSharedSceneFromSearch(window.location.search);
+    hasCheckedSharedSceneRef.current = true;
+    if (!sharedSceneResult) {
+      return;
+    }
+
+    if (!sharedSceneResult.ok || !sharedSceneResult.scene) {
+      setSharedSceneError(sharedSceneResult.error ?? "Shared scene link could not be opened.");
+      setSharedSceneDialogOpen(true);
+      return;
+    }
+
+    const hasWorkToProtect =
+      scene.objects.length > 0 ||
+      currentProjectId !== null ||
+      recoveryDialogOpen ||
+      scene.metadata.updatedAt !== scene.metadata.createdAt;
+
+    if (hasWorkToProtect) {
+      pendingSharedSceneRef.current = sharedSceneResult.scene;
+      setSharedSceneError(null);
+      setSharedSceneDialogOpen(true);
+      return;
+    }
+
+    applySharedSceneToEditor({
+      scene: sharedSceneResult.scene,
+      clearHistory,
+      replaceSceneDocument,
+      setCurrentProjectSession,
+      setProjectAutosaveStatus
+    });
+  }, [
+    clearHistory,
+    currentProjectId,
+    isGraphStoreHydrated,
+    recoveryDialogOpen,
+    replaceSceneDocument,
+    scene.metadata.createdAt,
+    scene.metadata.updatedAt,
+    scene.objects.length,
+    setCurrentProjectSession,
+    setProjectAutosaveStatus
+  ]);
+
+  useEffect(() => {
+    if (!isGraphStoreHydrated || hasCheckedWelcomeRef.current) {
+      return;
+    }
+    if (!hasCheckedRecoveryRef.current || !hasCheckedSharedSceneRef.current) {
+      return;
+    }
+
+    let dismissed = false;
+    try {
+      dismissed = readWelcomeOnboardingDismissed();
+    } catch (error) {
+      const message =
+        error instanceof WelcomeOnboardingStateError
+          ? error.message
+          : "Welcome preference could not be read safely.";
+      setWelcomeDialogError(message);
+      dismissed = false;
+    }
+
+    let hasRecoverySnapshot = false;
+    try {
+      hasRecoverySnapshot = localProjectRepository.getUnnamedRecoverySnapshot() !== null;
+    } catch {
+      hasRecoverySnapshot = true;
+    }
+
+    const shouldOpen = shouldShowWelcomeOnStartup({
+      dismissed,
+      hasCheckedRecovery: hasCheckedRecoveryRef.current,
+      hasCheckedSharedScene: hasCheckedSharedSceneRef.current,
+      recoveryDialogOpen,
+      sharedSceneDialogOpen,
+      hasObjects: scene.objects.length > 0,
+      hasNamedProject: currentProjectId !== null,
+      hasRecoverySnapshot
+    });
+
+    if (shouldOpen) {
+      setWelcomeDialogOpen(true);
+    }
+    hasCheckedWelcomeRef.current = true;
+  }, [
+    currentProjectId,
+    isGraphStoreHydrated,
+    recoveryDialogOpen,
+    scene.objects.length,
+    sharedSceneDialogOpen
+  ]);
+
+  useEffect(() => {
+    const autosave = autosaveControllerRef.current;
+    if (!autosave) {
+      return;
+    }
+    if (!isGraphStoreHydrated) {
+      autosave.clearPending();
+      return;
+    }
+
+    if (recoveryDialogOpen) {
+      autosave.clearPending();
+      return;
+    }
+
+    if (currentProjectId && currentProjectName) {
+      autosave.scheduleProjectAutosave({
+        projectId: currentProjectId,
+        projectName: currentProjectName,
+        scene
+      });
+      return () => autosave.clearPending();
+    }
+
+    if (scene.objects.length === 0) {
+      autosave.clearPending();
+      localProjectRepository.clearUnnamedRecoverySnapshot();
+      setProjectAutosaveStatus("idle");
+      return;
+    }
+
+    autosave.scheduleUnnamedRecovery(scene);
+    setProjectAutosaveStatus("idle");
+    return () => autosave.clearPending();
+  }, [
+    currentProjectId,
+    currentProjectName,
+    isGraphStoreHydrated,
+    recoveryDialogOpen,
+    scene,
+    scene.objects.length,
+    setProjectAutosaveStatus
+  ]);
+
+  const handleRestoreRecovery = useCallback(() => {
+    try {
+      const restoredScene = localProjectRepository.restoreUnnamedRecoverySnapshot();
+      localProjectRepository.clearUnnamedRecoverySnapshot();
+      clearHistory();
+      replaceSceneDocument(restoredScene);
+      setCurrentProjectSession(null);
+      setProjectAutosaveStatus("idle");
+      setRecoveryError(null);
+      setRecoveryDialogOpen(false);
+      setRecoveryUpdatedAt(null);
+    } catch (error) {
+      const message =
+        error instanceof LocalProjectRepositoryError
+          ? error.message
+          : "Recovery restore failed.";
+      setRecoveryError(message);
+    }
+  }, [clearHistory, replaceSceneDocument, setCurrentProjectSession, setProjectAutosaveStatus]);
+
+  const handleDiscardRecovery = useCallback(() => {
+    try {
+      localProjectRepository.clearUnnamedRecoverySnapshot();
+      setRecoveryError(null);
+      setRecoveryDialogOpen(false);
+      setRecoveryUpdatedAt(null);
+    } catch (error) {
+      const message =
+        error instanceof LocalProjectRepositoryError
+          ? error.message
+          : "Recovery discard failed.";
+      setRecoveryError(message);
+    }
+  }, []);
+
+  const handleOpenSharedScene = useCallback(() => {
+    const pendingScene = pendingSharedSceneRef.current;
+    if (!pendingScene) {
+      setSharedSceneDialogOpen(false);
+      return;
+    }
+    try {
+      applySharedSceneToEditor({
+        scene: pendingScene,
+        clearHistory,
+        replaceSceneDocument,
+        setCurrentProjectSession,
+        setProjectAutosaveStatus
+      });
+      setSharedSceneError(null);
+      setSharedSceneDialogOpen(false);
+      pendingSharedSceneRef.current = null;
+    } catch {
+      setSharedSceneError("Shared scene could not replace the current scene. Try JSON import instead.");
+    }
+  }, [clearHistory, replaceSceneDocument, setCurrentProjectSession, setProjectAutosaveStatus]);
+
+  const handleCancelSharedScene = useCallback(() => {
+    pendingSharedSceneRef.current = null;
+    setSharedSceneDialogOpen(false);
+  }, []);
+
+  const persistWelcomePreference = useCallback(
+    (dismissed: boolean) => {
+      try {
+        setWelcomeOnboardingDismissed(dismissed);
+      } catch (error) {
+        const message =
+          error instanceof WelcomeOnboardingStateError
+            ? error.message
+            : "Welcome preference could not be saved safely.";
+        setWelcomeDialogError(message);
+      }
+    },
+    []
+  );
+
+  const handleCloseWelcome = useCallback(() => {
+    if (welcomeDontShowAgain) {
+      persistWelcomePreference(true);
+    }
+    setWelcomeDialogOpen(false);
+  }, [persistWelcomePreference, welcomeDontShowAgain]);
+
+  const handleWelcomeStartBlankScene = useCallback(() => {
+    try {
+      clearHistory();
+      resetViewport2D();
+      requestCameraReset();
+      resetScene();
+      setCurrentProjectSession(null);
+      setProjectAutosaveStatus("idle");
+      if (welcomeDontShowAgain) {
+        persistWelcomePreference(true);
+      }
+      setWelcomeDialogOpen(false);
+    } catch {
+      setWelcomeDialogError("Blank scene could not be started. Try New Scene from the Scene menu.");
+    }
+  }, [
+    clearHistory,
+    persistWelcomePreference,
+    resetScene,
+    requestCameraReset,
+    resetViewport2D,
+    setCurrentProjectSession,
+    setProjectAutosaveStatus,
+    welcomeDontShowAgain
+  ]);
+
+  const handleWelcomeOpenExamples = useCallback(() => {
+    if (welcomeDontShowAgain) {
+      persistWelcomePreference(true);
+    }
+    setWelcomeDialogOpen(false);
+    setExamplesOpenSignal((current) => current + 1);
+  }, [persistWelcomePreference, welcomeDontShowAgain]);
+
+  const handleViewportResetView = useCallback(() => {
+    try {
+      resetViewport2D();
+      requestCameraReset();
+      setViewportFallbackMessage(null);
+    } catch (error) {
+      reportError(error, {
+        featureArea: "editor-shell",
+        operation: "viewport-reset"
+      });
+      setViewportFallbackMessage("Reset view failed. Try again.");
+    }
+  }, [requestCameraReset, resetViewport2D]);
+
+  const handleViewportExportSceneJson = useCallback(() => {
+    const exported = exportSceneJson(scene);
+    if (!exported.ok || !exported.file) {
+      reportError(exported.error ?? "JSON export failed.", {
+        featureArea: "export",
+        operation: "viewport-fallback-export"
+      });
+      setViewportFallbackMessage(exported.error ?? "Export scene JSON failed.");
+      return;
+    }
+    const download = triggerSceneExportDownload(exported.file);
+    if (!download.ok) {
+      reportError(download.error ?? "JSON download failed.", {
+        featureArea: "export",
+        operation: "viewport-fallback-download"
+      });
+      setViewportFallbackMessage(download.error ?? "Export scene JSON failed.");
+      return;
+    }
+    setViewportFallbackMessage("Scene JSON exported.");
+  }, [scene]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {
     const shell = shellRef.current;
@@ -304,6 +715,12 @@ export default function EditorShell() {
         canRedo={canRedo}
         onUndo={runUndo}
         onRedo={runRedo}
+        onOpenWelcome={() => {
+          setWelcomeDialogError(null);
+          setWelcomeDontShowAgain(false);
+          setWelcomeDialogOpen(true);
+        }}
+        openExamplesSignal={examplesOpenSignal}
       />
       
       <div className="flex min-h-0 flex-1">
@@ -434,10 +851,11 @@ export default function EditorShell() {
 
               {/* Tools Switcher */}
               <div className="flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] p-0.5 shadow-sm shrink-0">
-                {(["pan", "probe", "draw"] as const).map((tool) => (
+                {(["pan", "probe", "measureDistance", "measureAngle", "addPin", "draw"] as const).map((tool) => (
                   <button
                     key={tool}
                     onClick={() => setActiveTool(tool)}
+                    aria-pressed={activeTool === tool}
                     className={cn(
                       "h-6 rounded-full px-3 text-[9px] font-bold uppercase tracking-wider transition-all",
                       activeTool === tool
@@ -445,7 +863,17 @@ export default function EditorShell() {
                         : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                     )}
                   >
-                    {tool === "draw" ? "Sketch" : tool}
+                    {tool === "draw"
+                      ? "Sketch"
+                      : tool === "measureDistance"
+                        ? "Distance"
+                        : tool === "measureAngle"
+                          ? "Angle"
+                          : tool === "addPin"
+                            ? "Pin"
+                            : tool === "probe"
+                              ? "Probe"
+                              : tool}
                   </button>
                 ))}
               </div>
@@ -460,7 +888,11 @@ export default function EditorShell() {
           </div>
 
           <div className="relative min-h-0 flex-1">
-            <GraphViewportErrorBoundary>
+            <GraphViewportErrorBoundary
+              featureArea={graphMode === "2d" ? "2d-viewport" : "3d-viewport"}
+              onResetView={handleViewportResetView}
+              onExportSceneJson={handleViewportExportSceneJson}
+            >
               <ViewportHost
                 mode={effectiveViewportMode}
                 viewport2d={<Viewport2D key="graph-2d" />}
@@ -473,6 +905,11 @@ export default function EditorShell() {
                 snapLabel={snapLabel}
               />
             </GraphViewportErrorBoundary>
+            {viewportFallbackMessage ? (
+              <div className="pointer-events-none absolute left-3 top-3 z-[11] rounded border border-[var(--border-strong)] bg-[var(--surface-overlay)] px-2 py-1 text-[10px] text-[var(--text-secondary)]">
+                {viewportFallbackMessage}
+              </div>
+            ) : null}
           </div>
         </main>
 
@@ -489,6 +926,29 @@ export default function EditorShell() {
       
       <StatusBar />
       <SceneImportExportDialog />
+      <RecoveryDialog
+        open={recoveryDialogOpen}
+        updatedAt={recoveryUpdatedAt}
+        error={recoveryError}
+        onRestore={handleRestoreRecovery}
+        onDiscard={handleDiscardRecovery}
+      />
+      <SharedSceneConfirmDialog
+        open={sharedSceneDialogOpen}
+        error={sharedSceneError}
+        onConfirm={handleOpenSharedScene}
+        onCancel={handleCancelSharedScene}
+      />
+      <WelcomeDialog
+        open={welcomeDialogOpen}
+        error={welcomeDialogError}
+        dontShowAgain={welcomeDontShowAgain}
+        onDontShowAgainChange={setWelcomeDontShowAgain}
+        onOpenExamples={handleWelcomeOpenExamples}
+        onStartBlankScene={handleWelcomeStartBlankScene}
+        onContinue={handleCloseWelcome}
+        onClose={handleCloseWelcome}
+      />
       <Sheet open={inspectorOpen || (inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
         <RightInspector width={rightWidth} />
       </Sheet>

@@ -7,6 +7,8 @@ export function buildUiDialogModeSlice(set: GraphStoreSet): Pick<
   | "closeSceneDialog"
   | "setSceneDialogDraft"
   | "setSceneDialogError"
+  | "setCurrentProjectSession"
+  | "setProjectAutosaveStatus"
   | "requestCameraReset"
   | "setGraphMode"
   | "setAxis2DPair"
@@ -69,6 +71,33 @@ export function buildUiDialogModeSlice(set: GraphStoreSet): Pick<
       }));
     },
 
+    setCurrentProjectSession: (project) => {
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          projectSession: {
+            currentProjectId: project?.id ?? null,
+            currentProjectName: project?.name ?? null,
+            autosaveStatus: "idle",
+            autosaveError: null
+          }
+        }
+      }));
+    },
+
+    setProjectAutosaveStatus: (status, error = null) => {
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          projectSession: {
+            ...state.ui.projectSession,
+            autosaveStatus: status,
+            autosaveError: error
+          }
+        }
+      }));
+    },
+
     requestCameraReset: () => {
       set((state) => ({ cameraResetVersion: state.cameraResetVersion + 1 }));
     },
@@ -86,11 +115,13 @@ export function buildUiDialogModeSlice(set: GraphStoreSet): Pick<
             ...(mode === "3d"
               ? {
                   canvas2dTool: "pan" as const,
-                  probePins: []
+                  measurementDraft: null,
+                  probePins: state.ui.probePins
                 }
               : {
                   canvas3dTool: "pan" as const,
-                  probePins: []
+                  measurementDraft: null,
+                  probePins: state.ui.probePins
                 })
           },
           cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion

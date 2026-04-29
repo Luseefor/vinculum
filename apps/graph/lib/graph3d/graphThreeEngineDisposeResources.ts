@@ -28,6 +28,7 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   labelY: HTMLElement;
   labelZ: HTMLElement;
   perfBadge: HTMLDivElement;
+  warningBadge: HTMLDivElement;
   probeBadge: HTMLDivElement;
   hoverProbeBadge: HTMLDivElement;
   renderer: WebGLRenderer;
@@ -58,6 +59,7 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     labelY,
     labelZ,
     perfBadge,
+    warningBadge,
     probeBadge,
     hoverProbeBadge,
     renderer,
@@ -127,6 +129,7 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
   labelY.remove();
   labelZ.remove();
   perfBadge.remove();
+  warningBadge.remove();
   probeBadge.remove();
   hoverProbeBadge.remove();
 

@@ -10,6 +10,7 @@ import {
   MeshBasicMaterial
 } from "three";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { validateExpressionSafety } from "@/lib/math/expressionSafety";
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { updateIndexAttributeUint32 } from "./bufferGeometryAttributes";
@@ -33,6 +34,17 @@ export function buildImplicitSurfaceContour(
   const expression = `(${parts.left}) - (${parts.right})`;
   let compiled: CompiledMathExpression;
   try {
+    const safety = validateExpressionSafety(expression, {
+      operation: "compile-implicit-contour",
+      expressionLabel: "Implicit surface equation",
+      objectId: object.id,
+      objectKind: "surface",
+      allowedSymbols: Object.keys(getEditorParameterScope())
+    });
+    if (!safety.ok) {
+      return null;
+    }
+
     compiled = compile(expression) as CompiledMathExpression;
   } catch {
     return null;
