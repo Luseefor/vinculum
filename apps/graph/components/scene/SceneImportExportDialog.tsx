@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cx } from "@/components/ui/styles";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { useGraphStore } from "@/store/graphStore";
+import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
 
 export default function SceneImportExportDialog() {
   const sceneName = useGraphStore((state) => state.scene.metadata.name);
@@ -14,6 +15,9 @@ export default function SceneImportExportDialog() {
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
 
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">("idle");
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap({ open: dialogState.isOpen, containerRef: dialogRef });
 
   useEffect(() => {
     if (!dialogState.isOpen) {
@@ -87,12 +91,16 @@ export default function SceneImportExportDialog() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-backdrop)] backdrop-blur-sm p-6">
       <div
         className="panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scene-import-export-title"
         onClick={(e) => e.stopPropagation()}
+        ref={dialogRef}
       >
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+            <h3 id="scene-import-export-title" className="text-sm font-semibold text-[var(--text-primary)]">
               {isExportMode ? "Export Scene" : "Import Scene"}
             </h3>
             <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
@@ -106,6 +114,8 @@ export default function SceneImportExportDialog() {
               type="button"
               onClick={closeSceneDialog}
               className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-selection)] transition-colors"
+              aria-label="Close import/export dialog"
+              title="Close"
             >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -126,6 +136,7 @@ export default function SceneImportExportDialog() {
             }}
             readOnly={isExportMode}
             spellCheck={false}
+            data-autofocus="true"
             className="input h-80 resize-none font-mono text-xs leading-relaxed"
           />
 
