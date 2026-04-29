@@ -1,9 +1,16 @@
 "use client";
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import {
+  reportError,
+  type MonitoringFeatureArea
+} from "@/lib/monitoring/errorReporting";
 
 interface Props {
   children: ReactNode;
+  featureArea?: MonitoringFeatureArea;
+  onResetView?: () => void;
+  onExportSceneJson?: () => void;
 }
 
 interface State {
@@ -22,10 +29,13 @@ export default class GraphViewportErrorBoundary extends Component<Props, State> 
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console -- surfaced only in development
-      console.error("Graph viewport error:", error, info.componentStack);
-    }
+    reportError(error, {
+      featureArea: this.props.featureArea ?? "3d-viewport",
+      operation: "render",
+      details: {
+        componentStack: info.componentStack
+      }
+    });
   }
 
   private handleRetry = (): void => {
@@ -40,11 +50,19 @@ export default class GraphViewportErrorBoundary extends Component<Props, State> 
       return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
           <p className="max-w-sm text-sm font-semibold text-[var(--text-primary)]">
-            Something went wrong while rendering the graph.
+            Something went wrong
           </p>
-          <button type="button" className="btn btn-primary" onClick={this.handleRetry}>
-            Try again
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button type="button" className="btn btn-primary" onClick={this.handleRetry}>
+              Try again
+            </button>
+            <button type="button" className="btn" onClick={this.props.onResetView}>
+              Reset view
+            </button>
+            <button type="button" className="btn" onClick={this.props.onExportSceneJson}>
+              Export scene JSON
+            </button>
+          </div>
         </div>
       );
     }
