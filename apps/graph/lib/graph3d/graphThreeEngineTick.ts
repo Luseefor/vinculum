@@ -10,8 +10,13 @@ import { readResolvedThemeFromDom } from "./graphThreeEngineTheme";
 import { applyGraphThreeTickPerfSampling } from "./graphThreeEngineTickPerf";
 import { syncGraphThreeTickGridFrame } from "./graphThreeEngineTickGrid";
 import { syncOrbitControlsToCanvas3dTool } from "./graphThreeEngineTickOrbit";
+import {
+  computeScenePressureFromObjects,
+  recordFrameSample
+} from "@/lib/performance/performanceMetrics";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
+import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -89,9 +94,11 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     const now = performance.now();
     const frameDeltaMs = now - runtime.lastFrameTime;
     runtime.lastFrameTime = now;
-    applyGraphThreeTickPerfSampling(now, frameDeltaMs, runtime, perfBadge, objectNodes.size);
+    runtime.lastFrameDeltaMs = frameDeltaMs;
+    applyGraphThreeTickPerfSampling(now, frameDeltaMs, runtime, perfBadge, runtime.scenePressure);
 
-    const uiState = useGraphStore.getState().ui;
+    const storeState = useGraphStore.getState();
+    const uiState = storeState.ui;
     applyBaselinePlane(uiState.baseline3dPlane);
     if (uiState.baseline3dPlane !== runtime.lastBaselinePlanePair) {
       runtime.lastBaselinePlanePair = uiState.baseline3dPlane;
@@ -109,6 +116,7 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     syncOrbitControlsToCanvas3dTool(controls, uiState.canvas3dTool, runtime.isAltDown);
 
     const pinnedPins = uiState.probePins;
+    const measurements = storeState.scene.measurements;
     updateThreeProbeMarkers(pinnedPins, probeMarkersRoot, probeMarkerMeshes, probeMarkerLabels);
 
     const hoverProbePoint = getHoverProbePoint();
@@ -119,7 +127,16 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       hoverMarker.visible = false;
     }
 
-    if (pinnedPins.length > 0) {
+    if (measurements.length > 0) {
+      const last = measurements[measurements.length - 1];
+      if (last.kind === "pin") {
+        setProbeBadge(`Pin ${formatMeasurementValue(last)}`);
+      } else if (last.kind === "distance") {
+        setProbeBadge(`Distance ${formatMeasurementValue(last)}`);
+      } else {
+        setProbeBadge(`Angle ${formatMeasurementValue(last)}`);
+      }
+    } else if (pinnedPins.length > 0) {
       if (pinnedPins.length === 1) {
         setProbeBadge(`Pinned ${formatProbe(pinnedPins[0].world)}`);
       } else {
@@ -147,7 +164,16 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     if (runtime.objectsDirty) {
       runtime.objectsDirty = false;
       syncObjects(domTheme);
+      runtime.scenePressure = computeScenePressureFromObjects(useGraphStore.getState().scene.objects);
     }
+
+    // Track frame timing + scene pressure (throttled inside the metrics module).
+    recordFrameSample({
+      nowMs: now,
+      frameTimeMs: frameDeltaMs,
+      viewport: "3d-viewport",
+      scenePressure: runtime.scenePressure
+    });
 
     controls.update();
 

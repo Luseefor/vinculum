@@ -33,6 +33,11 @@ import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
+import {
+  computeScenePressureFromObjects,
+  getLatestPerformanceMetricsSnapshot,
+  subscribePerformanceMetrics
+} from "@/lib/performance/performanceMetrics";
 import { createAxisGeometry, createAxisTubeGroup } from "./graphThreeAxisGeometry";
 import { alignCameraToThreeBaseline } from "./graphThreeCameraBaseline";
 import { BASE_AXIS_EXTENT, CAMERA_FAR_PLANE, DEFAULT_CAMERA_POSITION, LABEL_DISTANCE } from "./graphThreeEngineConstants";
@@ -51,6 +56,7 @@ import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
 import type { GraphThreeEngine } from "./graphThreeEngineTypes";
+import { reportWarning } from "@/lib/monitoring/errorReporting";
 
 export type { GraphThreeEngine } from "./graphThreeEngineTypes";
 export { snapWorldPoint } from "./graphThreeSnapWorld";
@@ -92,6 +98,15 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   perfBadge.textContent = "FPS -- · Frame --ms";
   perfBadge.setAttribute("data-graph3d-perf", "true");
   container.appendChild(perfBadge);
+
+  const warningBadge = document.createElement("div");
+  warningBadge.className =
+    "pointer-events-none absolute left-3 bottom-3 max-w-[260px] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/90 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
+  warningBadge.style.display = "none";
+  warningBadge.setAttribute("data-graph3d-performance-warning", "true");
+  warningBadge.setAttribute("role", "status");
+  warningBadge.setAttribute("aria-live", "polite");
+  container.appendChild(warningBadge);
 
   const probeBadge = document.createElement("div");
   probeBadge.className =
@@ -206,8 +221,10 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     isContextLost: false,
     isAltDown: false,
     lastFrameTime: tickTime0,
+    lastFrameDeltaMs: 0,
     sampleWindowStart: tickTime0,
     sampleFrames: 0,
+    sampleFrameTimeSumMs: 0,
     sampleWorstFrameMs: 0,
     lastLongFrameLogAt: 0,
     lastBaselinePlanePair: useGraphStore.getState().ui.baseline3dPlane,
@@ -215,7 +232,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     lastCameraResetVersion: useGraphStore.getState().cameraResetVersion,
     objectsDirty: true,
     gridState: createAdaptiveGridState(camera.position.x, camera.position.y, camera.position.z),
-    baselinePlaneMode: 0
+    baselinePlaneMode: 0,
+    scenePressure: computeScenePressureFromObjects(useGraphStore.getState().scene.objects)
   };
 
   let animationHandle = 0;
@@ -427,6 +445,25 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     }
   });
 
+  let prevPerfHud = useEditorStore.getState().showPerfHud;
+  const unsubPerfHud = useEditorStore.subscribe((state) => {
+    if (state.showPerfHud === prevPerfHud) return;
+    prevPerfHud = state.showPerfHud;
+    perfBadge.style.display = shouldShowPerfBadge() ? "block" : "none";
+  });
+
+  const unsubPerformanceMetrics = subscribePerformanceMetrics(() => {
+    const latest = getLatestPerformanceMetricsSnapshot();
+    if (latest.warningLevel === "ok") {
+      warningBadge.style.display = "none";
+      return;
+    }
+    const firstItems = latest.warningItems.slice(0, 3);
+    const itemsText = firstItems.length > 0 ? firstItems.join("\n") : latest.warningSummary;
+    warningBadge.textContent = `${latest.warningSummary}\n${itemsText}`;
+    warningBadge.style.display = "block";
+  });
+
   const requestNextFrame = (callback: () => void) => {
     animationHandle = window.requestAnimationFrame(callback);
   };
@@ -499,12 +536,18 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const handleContextLost = (event: Event) => {
     event.preventDefault();
     tickRuntime.isContextLost = true;
-    console.warn("[graph3d] WebGL context lost");
+    reportWarning("WebGL context lost.", {
+      featureArea: "3d-viewport",
+      operation: "webgl-context-lost"
+    });
   };
 
   const handleContextRestored = () => {
     tickRuntime.isContextLost = false;
-    console.info("[graph3d] WebGL context restored");
+    reportWarning("WebGL context restored.", {
+      featureArea: "3d-viewport",
+      operation: "webgl-context-restored"
+    });
     applyThemeToScene(readResolvedThemeFromDom());
     tickRuntime.objectsDirty = true;
     resize();
@@ -540,6 +583,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       window.cancelAnimationFrame(animationHandle);
       unsub();
       unsubEditor();
+      unsubPerfHud();
+      unsubPerformanceMetrics();
       resizeObserver?.disconnect();
       resizeObserver = null;
       controls.removeEventListener("start", markInteraction);
@@ -577,6 +622,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         labelY,
         labelZ,
         perfBadge,
+        warningBadge,
         probeBadge,
         hoverProbeBadge,
         renderer,

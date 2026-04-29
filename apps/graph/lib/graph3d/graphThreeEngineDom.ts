@@ -27,6 +27,11 @@ export function shouldShowPerfBadge(): boolean {
     if (params.get("perf") === "1") {
       return true;
     }
+    // Primary source: persisted editor preference.
+    const showFromStore = useEditorStore.getState().showPerfHud;
+    if (showFromStore) return true;
+
+    // Backward-compatible fallback for older localStorage-based toggles.
     return window.localStorage.getItem("vinculum:graph3d:showPerf") === "1";
   } catch {
     return false;

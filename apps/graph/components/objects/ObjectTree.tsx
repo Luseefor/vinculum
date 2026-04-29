@@ -23,6 +23,13 @@ export default function ObjectTree({ filterQuery = "" }: ObjectTreeProps) {
       return label.includes(q) || object.id.toLowerCase().includes(q);
     });
   }, [filterQuery, objects]);
+  const objectIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    objects.forEach((object, index) => {
+      map.set(object.id, index);
+    });
+    return map;
+  }, [objects]);
 
   if (objects.length === 0) {
     return <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No objects in scene.</p>;
@@ -32,7 +39,7 @@ export default function ObjectTree({ filterQuery = "" }: ObjectTreeProps) {
     <div className="space-y-2">
       <div className="space-y-1">
         {filtered.map((object) => {
-          const index = objects.findIndex((candidate) => candidate.id === object.id);
+          const index = objectIndexById.get(object.id) ?? -1;
           return (
             <ObjectRow
               key={object.id}
