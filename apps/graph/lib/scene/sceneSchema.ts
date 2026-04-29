@@ -1,6 +1,7 @@
 import type { GraphObject } from "@vinculum/scene/types";
 
 export const SCENE_DOCUMENT_VERSION = "1.0";
+export const CURRENT_SCENE_SCHEMA_VERSION = 1;
 export const DEFAULT_SCENE_NAME = "Untitled Scene";
 
 export interface SceneMetadata {
@@ -10,6 +11,7 @@ export interface SceneMetadata {
 }
 
 export interface SceneDocument {
+  schemaVersion: number;
   version: string;
   metadata: SceneMetadata;
   objects: GraphObject[];
