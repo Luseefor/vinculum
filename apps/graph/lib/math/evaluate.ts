@@ -1,4 +1,5 @@
 import { compile } from "mathjs";
+import { reportWarning } from "@/lib/monitoring/errorReporting";
 
 interface CompiledMathExpression {
   evaluate: (scope: Record<string, number>) => unknown;
@@ -22,6 +23,11 @@ export function evaluateExpression(expression: string, scope: Record<string, num
       compiled = next;
       expressionCache.set(trimmed, next);
     } catch {
+      reportWarning("Expression compilation failed during evaluation.", {
+        featureArea: "expression-eval",
+        operation: "compile",
+        details: { expression: trimmed.slice(0, 120) }
+      });
       return null;
     }
   }
@@ -31,6 +37,11 @@ export function evaluateExpression(expression: string, scope: Record<string, num
     const numeric = typeof result === "number" ? result : Number(result);
     return Number.isFinite(numeric) ? numeric : null;
   } catch {
+    reportWarning("Expression evaluation failed.", {
+      featureArea: "expression-eval",
+      operation: "evaluate",
+      details: { expression: trimmed.slice(0, 120) }
+    });
     return null;
   }
 }

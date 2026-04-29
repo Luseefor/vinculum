@@ -1,4 +1,5 @@
 import type { ParametricEvaluator } from "./compileParametric";
+import { MAX_PARAMETRIC_CURVE_SAMPLES } from "./expressionSafety";
 
 interface SampleCurveOptions {
   tMin: number;
@@ -14,7 +15,12 @@ export interface SampledCurve {
 const DEFAULT_CLAMP_COORDINATE = 10_000;
 
 export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveOptions): SampledCurve {
-  const samples = Math.max(2, Math.floor(options.samples));
+  const requestedSamples = Math.floor(options.samples);
+  if (!Number.isFinite(requestedSamples) || requestedSamples > MAX_PARAMETRIC_CURVE_SAMPLES) {
+    throw new Error(`Resolution is too high. Use ${MAX_PARAMETRIC_CURVE_SAMPLES} or lower.`);
+  }
+
+  const samples = Math.max(2, requestedSamples);
   const rawTMin = Number.isFinite(options.tMin) ? options.tMin : -1;
   const rawTMax = Number.isFinite(options.tMax) ? options.tMax : 1;
   let tMin = Math.min(rawTMin, rawTMax);
