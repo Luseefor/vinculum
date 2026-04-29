@@ -18,6 +18,12 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
       jsonText: "",
       error: null
     },
+    projectSession: {
+      currentProjectId: null,
+      currentProjectName: null,
+      autosaveStatus: "idle",
+      autosaveError: null
+    },
     graphMode: "3d",
     themeMode: "system",
     accentPreset: "indigo",
@@ -38,6 +44,7 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     canvas2dTool: "pan",
     canvas3dTool: "pan",
     baseline3dPlane: "xy",
+    measurementDraft: null,
     probePins: [],
     sketchExtendFraction: 0.15,
     sketchAutoCreate: true,

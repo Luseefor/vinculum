@@ -45,6 +45,7 @@ export function getCurrentSceneSnapshot() {
   const state = useGraphStore.getState();
   return {
     objects: state.scene.objects,
+    measurements: state.scene.measurements,
     selection: {
       selectedObjectId: state.ui.selectedObjectId
     }

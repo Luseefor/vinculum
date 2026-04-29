@@ -141,11 +141,21 @@ export function useGraph2dCanvasInteraction(
       const screenY = event.clientY - rect.top;
       const rawMath = graph2dScreenToMath(screenX, screenY, rect.width, rect.height, viewport);
       const mathCoords =
-        snapEnabled && (canvas2dTool === "probe" || canvas2dTool === "draw")
+        snapEnabled &&
+        (canvas2dTool === "probe" ||
+          canvas2dTool === "draw" ||
+          canvas2dTool === "measureDistance" ||
+          canvas2dTool === "measureAngle" ||
+          canvas2dTool === "addPin")
           ? snapGraph2dMathPoint(rawMath, snapEnabled, snapStep)
           : rawMath;
 
-      if (canvas2dTool === "probe") {
+      if (
+        canvas2dTool === "probe" ||
+        canvas2dTool === "addPin" ||
+        canvas2dTool === "measureDistance" ||
+        canvas2dTool === "measureAngle"
+      ) {
         setProbePinnedMath({
           horizontal: mathCoords.horizontal,
           vertical: mathCoords.vertical
@@ -176,7 +186,13 @@ export function useGraph2dCanvasInteraction(
     (event: MouseEvent<HTMLCanvasElement>) => {
       event.preventDefault();
       event.stopPropagation();
-      if (isQuadTop || canvas2dTool !== "probe") {
+      if (
+        isQuadTop ||
+        (canvas2dTool !== "probe" &&
+          canvas2dTool !== "addPin" &&
+          canvas2dTool !== "measureDistance" &&
+          canvas2dTool !== "measureAngle")
+      ) {
         return;
       }
       const canvas = canvasRef.current;
@@ -214,7 +230,14 @@ export function useGraph2dCanvasInteraction(
       const rawMath = graph2dScreenToMath(screenX, screenY, rect.width, rect.height, viewport);
       const snappedMath = snapGraph2dMathPoint(rawMath, snapEnabled, snapStep);
       const mathCoords =
-        snapEnabled && (canvas2dTool === "probe" || canvas2dTool === "draw") ? snappedMath : rawMath;
+        snapEnabled &&
+        (canvas2dTool === "probe" ||
+          canvas2dTool === "draw" ||
+          canvas2dTool === "measureDistance" ||
+          canvas2dTool === "measureAngle" ||
+          canvas2dTool === "addPin")
+          ? snappedMath
+          : rawMath;
 
       setMousePos({
         screen: { x: screenX, y: screenY },

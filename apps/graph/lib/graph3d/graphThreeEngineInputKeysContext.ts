@@ -38,7 +38,7 @@ export function createGraphThreeKeyboardAndContextHandlers(
     event.preventDefault();
     event.stopPropagation?.();
     const tool = useGraphStore.getState().ui.canvas3dTool;
-    if (tool !== "probe") {
+    if (tool !== "probe" && tool !== "addPin" && tool !== "measureDistance" && tool !== "measureAngle") {
       return;
     }
     const mouseEvent = event as MouseEvent;

@@ -14,7 +14,7 @@ export type PaintGraph2dCanvasFrameArgs = {
   palette: Graph2dPaintPalette;
   viewport: { centerX: number; centerY: number; scale: number };
   renderableGraphs: RenderableGraph[];
-  canvas2dTool: "pan" | "probe" | "draw";
+  canvas2dTool: "pan" | "probe" | "draw" | "measureDistance" | "measureAngle" | "addPin";
   mousePos: MousePosition | null;
   isQuadTop: boolean;
   probePins: GraphProbePin[];
@@ -86,7 +86,11 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     drawRenderableGraph2d(graph, dc, graph2dMathToScreen);
   }
 
-  if (canvas2dTool === "probe" && mousePos && !isQuadTop) {
+  if (
+    (canvas2dTool === "probe" || canvas2dTool === "measureDistance" || canvas2dTool === "measureAngle" || canvas2dTool === "addPin") &&
+    mousePos &&
+    !isQuadTop
+  ) {
     const cursorScreen = graph2dMathToScreen(mousePos.math.horizontal, mousePos.math.vertical, dc);
     drawScreenCrosshair(ctx, dc.width, dc.height, cursorScreen.x, cursorScreen.y, palette.probe, 1, [5, 5]);
   }

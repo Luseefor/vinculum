@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import type { Axis2DPair, Canvas2DTool, GraphProbePin, Viewport2D } from "@/types/graphUi";
+import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { Graph2DCanvasUiBottomLeftColumn } from "./Graph2DCanvasUiBottomLeftColumn";
 import { Graph2DCanvasUiCursorTooltip } from "./Graph2DCanvasUiCursorTooltip";
 import { Graph2DCanvasUiZoomCluster } from "./Graph2DCanvasUiZoomCluster";
@@ -22,6 +23,8 @@ export type Graph2DCanvasUiChromeProps = {
   isQuadTop: boolean;
   axis2dPairQuadTop: Axis2DPair;
   probePins: GraphProbePin[];
+  measurements: SceneMeasurement[];
+  measurementDraft: { kind: "distance" | "angle"; points: { x: number; y: number; z: number }[] } | null;
   pairForCanvas: Axis2DPair;
   viewportRange: Viewport2dVisibleRange;
 };
@@ -41,6 +44,8 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
     isQuadTop,
     axis2dPairQuadTop,
     probePins,
+    measurements,
+    measurementDraft,
     pairForCanvas,
     viewportRange
   } = props;
@@ -72,6 +77,8 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
         isQuadTop={isQuadTop}
         axis2dPairQuadTop={axis2dPairQuadTop}
         probePins={probePins}
+        measurements={measurements}
+        measurementDraft={measurementDraft}
         pairForCanvas={pairForCanvas}
         viewportRange={viewportRange}
       />

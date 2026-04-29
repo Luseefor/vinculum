@@ -17,6 +17,8 @@ export function selectGraph2dCanvasSlice(state: GraphStoreState, isQuadTop: bool
     snapEnabled: state.ui.snapEnabled,
     snapStep: state.ui.snapStep,
     probePins: state.ui.probePins,
+    measurements: state.scene.measurements,
+    measurementDraft: state.ui.measurementDraft,
     patchViewport2D: isQuadTop ? state.updateViewport2DQuadTop : state.updateViewport2D,
     setFrameForCanvas: isQuadTop ? state.setViewport2DQuadTopFrame : state.setViewport2DFrame,
     resetViewForCanvas: isQuadTop ? state.resetViewport2DQuadTop : state.resetViewport2D,

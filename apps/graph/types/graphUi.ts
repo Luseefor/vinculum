@@ -23,15 +23,22 @@ export type Axis2DPair = "xy" | "yz" | "xz";
 export type Active2dViewportSlot = "primary" | "quadTop";
 
 /** 2D canvas interaction mode: pan the view, probe coordinates, or sketch a curve to fit. */
-export type Canvas2DTool = "pan" | "probe" | "draw";
+export type Canvas2DTool = "pan" | "probe" | "draw" | "measureDistance" | "measureAngle" | "addPin";
 /** 3D viewport interaction mode: pan camera, probe a point, or sketch a curve on the ground plane. */
-export type Canvas3DTool = "pan" | "probe" | "draw";
+export type Canvas3DTool = "pan" | "probe" | "draw" | "measureDistance" | "measureAngle" | "addPin";
 
 export interface SceneDialogState {
   isOpen: boolean;
   mode: SceneDialogMode;
   jsonText: string;
   error: string | null;
+}
+
+export interface ProjectSessionState {
+  currentProjectId: string | null;
+  currentProjectName: string | null;
+  autosaveStatus: "idle" | "dirty" | "saving" | "saved" | "error";
+  autosaveError: string | null;
 }
 
 export interface Viewport2D {
@@ -51,6 +58,7 @@ export type GraphProbePin = { id: string; color: string; world: { x: number; y: 
 export interface GraphUiState {
   selectedObjectId: string | null;
   sceneDialog: SceneDialogState;
+  projectSession: ProjectSessionState;
   graphMode: GraphMode;
   themeMode: ThemeMode;
   accentPreset: AccentPreset;
@@ -70,6 +78,10 @@ export interface GraphUiState {
   canvas3dTool: Canvas3DTool;
   /** Baseline plane for 3D grid + sketch/probe plane picking (through origin). */
   baseline3dPlane: Axis2DPair;
+  measurementDraft: {
+    kind: "distance" | "angle";
+    points: { x: number; y: number; z: number }[];
+  } | null;
   probePins: GraphProbePin[];
   /** Extrapolation past the sketch parameter range: t in [-extend, 1+extend] when stroke is parameterized on [0,1]. */
   sketchExtendFraction: number;

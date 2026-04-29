@@ -29,7 +29,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
 
   const handlePointerMove = (event: PointerEvent) => {
     const tool = useGraphStore.getState().ui.canvas3dTool;
-    if (tool === "probe") {
+    if (tool === "probe" || tool === "addPin" || tool === "measureDistance" || tool === "measureAngle") {
       const point = pickWorld(deps, event);
       const snappedPoint = point ? deps.maybeSnapPoint(point) : null;
       mutable.hoverProbePoint = snappedPoint;
@@ -60,7 +60,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
   const handlePointerDown = (event: PointerEvent) => {
     const state = useGraphStore.getState();
     const tool = state.ui.canvas3dTool;
-    if (tool === "probe") {
+    if (tool === "probe" || tool === "addPin" || tool === "measureDistance" || tool === "measureAngle") {
       const point = pickWorld(deps, event);
       state.setProbePinnedWorld(point ? deps.maybeSnapPoint(point) : null);
       return;

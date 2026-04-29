@@ -1,6 +1,7 @@
 "use client";
 
 import type { Axis2DPair, Canvas2DTool, GraphProbePin } from "@/types/graphUi";
+import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { Graph2DCanvasUiCursorCoordsBadge } from "./Graph2DCanvasUiCursorCoordsBadge";
 import { Graph2DCanvasUiProbePinsSummary } from "./Graph2DCanvasUiProbePinsSummary";
 import { Graph2DCanvasUiSketchFitPreview } from "./Graph2DCanvasUiSketchFitPreview";
@@ -21,6 +22,8 @@ export type Graph2DCanvasUiBottomLeftColumnProps = {
   isQuadTop: boolean;
   axis2dPairQuadTop: Axis2DPair;
   probePins: GraphProbePin[];
+  measurements: SceneMeasurement[];
+  measurementDraft: { kind: "distance" | "angle"; points: { x: number; y: number; z: number }[] } | null;
   pairForCanvas: Axis2DPair;
   viewportRange: Viewport2dVisibleRange;
 };
@@ -36,6 +39,8 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
     isQuadTop,
     axis2dPairQuadTop,
     probePins,
+    measurements,
+    measurementDraft,
     pairForCanvas,
     viewportRange
   } = props;
@@ -55,8 +60,14 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
       {mousePos && (
         <Graph2DCanvasUiCursorCoordsBadge mousePos={mousePos} axisPair={axisPair} canvas2dTool={canvas2dTool} />
       )}
-      {!isQuadTop && probePins.length > 0 && (
-        <Graph2DCanvasUiProbePinsSummary axisPair={axisPair} probePins={probePins} pairForCanvas={pairForCanvas} />
+      {!isQuadTop && (probePins.length > 0 || measurements.some((measurement) => measurement.kind !== "pin") || measurementDraft) && (
+        <Graph2DCanvasUiProbePinsSummary
+          axisPair={axisPair}
+          probePins={probePins}
+          measurements={measurements}
+          measurementDraft={measurementDraft}
+          pairForCanvas={pairForCanvas}
+        />
       )}
       <Graph2DCanvasUiViewportRangeBadge axisPair={axisPair} viewportRange={viewportRange} />
     </div>

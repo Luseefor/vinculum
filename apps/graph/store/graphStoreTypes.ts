@@ -57,6 +57,11 @@ export interface GraphStoreState {
   closeSceneDialog: () => void;
   setSceneDialogDraft: (jsonText: string) => void;
   setSceneDialogError: (error: string | null) => void;
+  setCurrentProjectSession: (project: { id: string; name: string } | null) => void;
+  setProjectAutosaveStatus: (
+    status: GraphUiState["projectSession"]["autosaveStatus"],
+    error?: string | null
+  ) => void;
   requestCameraReset: () => void;
   setGraphMode: (mode: GraphUiState["graphMode"]) => void;
   setAxis2DPair: (pair: Axis2DPair) => void;

@@ -135,6 +135,7 @@ export default function Toolbar({
               variant={graphMode === "2d" ? "primary" : "ghost"}
               onClick={() => setGraphMode("2d")}
               className="rounded-full px-3"
+              aria-pressed={graphMode === "2d"}
             >
               2D
             </Button>
@@ -143,6 +144,7 @@ export default function Toolbar({
               variant={graphMode === "3d" ? "primary" : "ghost"}
               onClick={() => setGraphMode("3d")}
               className="rounded-full px-3"
+              aria-pressed={graphMode === "3d"}
             >
               3D
             </Button>
@@ -154,6 +156,7 @@ export default function Toolbar({
               variant={activeTool === "pan" ? "primary" : "ghost"}
               onClick={() => setActiveTool("pan")}
               className="rounded-full"
+              aria-pressed={activeTool === "pan"}
             >
               Pan
             </Button>
@@ -162,14 +165,43 @@ export default function Toolbar({
               variant={activeTool === "probe" ? "primary" : "ghost"}
               onClick={() => setActiveTool("probe")}
               className="rounded-full"
+              aria-pressed={activeTool === "probe"}
             >
               Probe
+            </Button>
+            <Button
+              size="xs"
+              variant={activeTool === "measureDistance" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("measureDistance")}
+              className="rounded-full"
+              aria-pressed={activeTool === "measureDistance"}
+            >
+              Distance
+            </Button>
+            <Button
+              size="xs"
+              variant={activeTool === "measureAngle" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("measureAngle")}
+              className="rounded-full"
+              aria-pressed={activeTool === "measureAngle"}
+            >
+              Angle
+            </Button>
+            <Button
+              size="xs"
+              variant={activeTool === "addPin" ? "primary" : "ghost"}
+              onClick={() => setActiveTool("addPin")}
+              className="rounded-full"
+              aria-pressed={activeTool === "addPin"}
+            >
+              Pin
             </Button>
             <Button
               size="xs"
               variant={activeTool === "draw" ? "primary" : "ghost"}
               onClick={() => setActiveTool("draw")}
               className="rounded-full"
+              aria-pressed={activeTool === "draw"}
             >
               Sketch
             </Button>
@@ -210,6 +242,8 @@ export default function Toolbar({
             variant={viewportMode === "split" ? "primary" : "ghost"}
             onClick={() => onViewportModeChange("split")}
             className="h-7 w-7 rounded-full"
+            aria-label="Split view"
+            aria-pressed={viewportMode === "split"}
           >
             <SplitViewIcon className="h-3.5 w-3.5" />
           </Button>
@@ -218,6 +252,8 @@ export default function Toolbar({
             variant={viewportMode === "2d" || viewportMode === "3d" ? "primary" : "ghost"}
             onClick={() => onViewportModeChange(graphMode)}
             className="h-7 w-7 rounded-full"
+            aria-label={graphMode === "2d" ? "2D view" : "3D view"}
+            aria-pressed={viewportMode === "2d" || viewportMode === "3d"}
           >
             <SingleViewIcon className="h-3.5 w-3.5" />
           </Button>
@@ -226,6 +262,8 @@ export default function Toolbar({
             variant={viewportMode === "quad" ? "primary" : "ghost"}
             onClick={() => onViewportModeChange("quad")}
             className="h-7 w-7 rounded-full"
+            aria-label="Quad view"
+            aria-pressed={viewportMode === "quad"}
           >
             <QuadViewIcon className="h-3.5 w-3.5" />
           </Button>
@@ -239,6 +277,7 @@ export default function Toolbar({
             onClick={onUndo}
             disabled={!canUndo}
             className="h-7 w-7 rounded-full"
+            aria-label="Undo"
           >
             <UndoIcon className="h-3.5 w-3.5" />
           </Button>
@@ -248,6 +287,7 @@ export default function Toolbar({
             onClick={onRedo}
             disabled={!canRedo}
             className="h-7 w-7 rounded-full"
+            aria-label="Redo"
           >
             <RedoIcon className="h-3.5 w-3.5" />
           </Button>
@@ -266,6 +306,8 @@ export default function Toolbar({
             size="sm"
             onClick={() => setFileMenuOpen(!fileMenuOpen)}
             className="rounded-full gap-2 px-4 shadow-sm"
+            aria-haspopup="menu"
+            aria-expanded={fileMenuOpen}
           >
             Scene
             <ChevronDownIcon className={cn("h-3 w-3 transition-transform", fileMenuOpen && "rotate-180")} />
@@ -277,6 +319,9 @@ export default function Toolbar({
             size="icon"
             onClick={() => setAppearanceOpen(!appearanceOpen)}
             className="h-8 w-8 rounded-full shadow-sm"
+            aria-label="Appearance and theme menu"
+            aria-haspopup="menu"
+            aria-expanded={appearanceOpen}
           >
             {themeMode === "dark" ? <MoonIcon className="h-4 w-4" /> : <SunIcon className="h-4 w-4" />}
           </Button>

@@ -58,13 +58,33 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
       set((state) => ({
         scene: {
           ...state.scene,
-          objects: snapshot.objects
+          objects: snapshot.objects,
+          measurements: snapshot.measurements
         },
         ui: {
           ...state.ui,
+          probePins: snapshot.measurements
+            .filter((measurement) => measurement.kind === "pin")
+            .map((measurement, index) => ({
+              id: measurement.id,
+              color: PROBE_PIN_COLORS[index % PROBE_PIN_COLORS.length] ?? "#f472b6",
+              world: measurement.point
+            })),
+          measurementDraft: null,
           selectedObjectId: resolveSelectedObjectId(snapshot.selection.selectedObjectId, snapshot.objects)
         }
       }));
     }
   };
 }
+
+const PROBE_PIN_COLORS = [
+  "#f472b6",
+  "#22c55e",
+  "#38bdf8",
+  "#f59e0b",
+  "#a78bfa",
+  "#fb7185",
+  "#34d399",
+  "#60a5fa"
+] as const;

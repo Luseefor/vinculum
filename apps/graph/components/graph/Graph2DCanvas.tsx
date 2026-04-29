@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useCallback } from "react";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { getAxisPairSpec } from "./graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
@@ -12,6 +12,12 @@ import { useGraph2dCanvasDraw } from "./graph2d/useGraph2dCanvasDraw";
 import { useGraph2dCanvasInteraction } from "./graph2d/useGraph2dCanvasInteraction";
 import { useGraph2dCanvasPaintSchedule } from "./graph2d/useGraph2dCanvasPaintSchedule";
 import { useGraph2dCanvasStoreSlice } from "./graph2d/useGraph2dCanvasStoreSlice";
+import { useEditorStore } from "@/lib/store/editorStore";
+import {
+  computeScenePressureFromObjects,
+  recordPaintSample
+} from "@/lib/performance/performanceMetrics";
+import { usePerformanceMetricsSnapshot } from "@/lib/performance/usePerformanceMetrics";
 
 export type Graph2DCanvasVariant = "primary" | "quadTop";
 
@@ -26,6 +32,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   const containerRef = useRef<HTMLDivElement>(null);
   const resolvedTheme = useResolvedTheme();
   const isQuadTop = variant === "quadTop";
+  const showPerfHud = useEditorStore((state) => state.showPerfHud);
+  const metrics = usePerformanceMetricsSnapshot();
 
   const {
     objects,
@@ -37,6 +45,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     snapEnabled,
     snapStep,
     probePins,
+    measurements,
+    measurementDraft,
     patchViewport2D,
     setFrameForCanvas,
     resetViewForCanvas,
@@ -97,11 +107,24 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     sketchDraft
   });
 
+  const scenePressure = useMemo(() => computeScenePressureFromObjects(objects), [objects]);
+  const drawMeasured = useCallback(() => {
+    const start = performance.now();
+    draw();
+    const end = performance.now();
+    recordPaintSample({
+      nowMs: end,
+      paintTimeMs: end - start,
+      viewport: "2d-viewport",
+      scenePressure
+    });
+  }, [draw, scenePressure]);
+
   useGraph2dCanvasPaintSchedule({
     canvasRef,
     containerRef,
     setFrameForCanvas,
-    draw
+    draw: drawMeasured
   });
 
   const viewportRange = useMemo(
@@ -117,8 +140,9 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label="2D graph. Pan, probe, or sketch. Press Escape to clear probes or cancel a sketch."
+        aria-label="2D graph. Pan, probe, measure, pin, or sketch. Press Escape to clear measurement drafts or cancel a sketch."
         data-graph2d-canvas="true"
+        data-graph2d-variant={variant}
         className={`h-full w-full ${canvasCursorClass}`}
         {...canvasHandlers}
       />
@@ -137,9 +161,37 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         isQuadTop={isQuadTop}
         axis2dPairQuadTop={axis2dPairQuadTop}
         probePins={probePins}
+        measurements={measurements}
+        measurementDraft={measurementDraft}
         pairForCanvas={pairForCanvas}
         viewportRange={viewportRange}
       />
+
+      {(showPerfHud || metrics.warningLevel !== "ok") && (
+        <div
+          className="pointer-events-none absolute right-3 top-3 z-[20] max-w-[320px] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/80 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur whitespace-pre-line"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {showPerfHud ? (
+            <>
+              Paint {metrics.lastFrameTimeMs !== null ? metrics.lastFrameTimeMs.toFixed(1) : "--"}ms
+              {"\n"}
+              Obj {metrics.scenePressure.visibleObjectCount}/{metrics.scenePressure.objectCount}
+              {"\n"}
+              Res {Math.round(metrics.scenePressure.surfaceResolutionMax)} · Smp {Math.round(metrics.scenePressure.parametricSamplesMax)}
+            </>
+          ) : null}
+          {metrics.warningLevel !== "ok" ? (
+            <>
+              {"\n"}
+              {metrics.warningSummary}
+              {metrics.warningItems[0] ? `\n${metrics.warningItems[0]}` : ""}
+            </>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
