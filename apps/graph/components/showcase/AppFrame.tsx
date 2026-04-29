@@ -66,6 +66,8 @@ export default function AppFrame() {
   }, [viewportMode]);
 
   const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
+  const showcaseTool: "pan" | "probe" | "draw" =
+    activeTool === "pan" || activeTool === "probe" || activeTool === "draw" ? activeTool : "pan";
 
   useEffect(() => {
     setViewportMode("split");
@@ -145,7 +147,7 @@ export default function AppFrame() {
       <TopCommandBar
         mode={graphMode}
         onModeChange={setGraphMode}
-        tool={activeTool}
+        tool={showcaseTool}
         onToolChange={handleToolChange}
         snapEnabled={snapEnabled}
         onSnapEnabledChange={setSnapEnabled}

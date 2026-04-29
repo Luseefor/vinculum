@@ -195,6 +195,12 @@ body {
   animation: slideUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up {
+    animation: none !important;
+  }
+}
+
 .divider-x {
   width: 8px;
   flex-shrink: 0;
