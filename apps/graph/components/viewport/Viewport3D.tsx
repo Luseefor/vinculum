@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 const Graph3DCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-[11px] text-[var(--text-tertiary)]">
+    <div className="flex h-full w-full items-center justify-center text-[12px] text-[var(--text-tertiary)] motion-safe:transition-opacity motion-safe:duration-100">
       Loading 3D view…
     </div>
   )

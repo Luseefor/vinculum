@@ -30,22 +30,22 @@ export function drawScreenCrosshair(
 
 export function drawProbeLabel(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): void {
   ctx.save();
-  ctx.font = "10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
+  ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
   const paddingX = 6;
   const metrics = ctx.measureText(text);
   const w = Math.ceil(metrics.width) + paddingX * 2;
-  const h = 16;
+  const h = 18;
   const left = Math.round(x - w / 2);
   const top = Math.round(y - h);
 
-  ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+  ctx.fillStyle = "rgba(15, 23, 42, 0.86)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.5)";
   ctx.lineWidth = 1;
   roundRect(ctx, left, top, w, h, 6);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = "#e2e8f0";
+  ctx.fillStyle = "#f8fafc";
   ctx.textBaseline = "middle";
   ctx.fillText(text, left + paddingX, top + h / 2);
   ctx.restore();

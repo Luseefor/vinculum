@@ -13,6 +13,7 @@ export type Graph2DCanvasUiProbePinsSummaryProps = {
   measurements: SceneMeasurement[];
   measurementDraft: { kind: "distance" | "angle"; points: { x: number; y: number; z: number }[] } | null;
   pairForCanvas: Axis2DPair;
+  embedded?: boolean;
 };
 
 export function Graph2DCanvasUiProbePinsSummary({
@@ -20,12 +21,19 @@ export function Graph2DCanvasUiProbePinsSummary({
   probePins,
   measurements,
   measurementDraft,
-  pairForCanvas
+  pairForCanvas,
+  embedded = false
 }: Graph2DCanvasUiProbePinsSummaryProps) {
   const nonPinMeasurements = measurements.filter((measurement) => measurement.kind !== "pin");
   return (
-    <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
-      <div className="mb-0.5 text-[var(--text-tertiary)] font-semibold uppercase tracking-wider">Measurements</div>
+    <div
+      className={
+        embedded
+          ? "min-w-0 font-mono text-[10px] text-[var(--text-primary)]"
+          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)]"
+      }
+    >
+      <div className="mb-0.5 text-[var(--text-tertiary)] font-medium uppercase tracking-wide">Measurements</div>
       {measurementDraft ? (
         <div className="mt-0.5 text-[var(--text-tertiary)]">
           Draft {measurementDraft.kind === "distance" ? "distance" : "angle"} ({measurementDraft.points.length}/

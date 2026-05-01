@@ -15,7 +15,7 @@ import {
   recordFrameSample
 } from "@/lib/performance/performanceMetrics";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
-import { updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
+import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
@@ -41,6 +41,9 @@ export type GraphThreeEngineTickDeps = {
   probeMarkersRoot: Group;
   probeMarkerMeshes: Mesh[];
   probeMarkerLabels: CSS2DObject[];
+  measurementMarkersRoot: Group;
+  measurementLines: import("three").Line[];
+  measurementLabels: CSS2DObject[];
   hoverMarker: Mesh;
   getHoverProbePoint: () => { x: number; y: number; z: number } | null;
   axesGroup: Group;
@@ -69,6 +72,9 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     probeMarkersRoot,
     probeMarkerMeshes,
     probeMarkerLabels,
+    measurementMarkersRoot,
+    measurementLines,
+    measurementLabels,
     hoverMarker,
     getHoverProbePoint,
     axesGroup,
@@ -117,7 +123,15 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
 
     const pinnedPins = uiState.probePins;
     const measurements = storeState.scene.measurements;
+    const selectedMeasurementId = uiState.selectedMeasurementId;
     updateThreeProbeMarkers(pinnedPins, probeMarkersRoot, probeMarkerMeshes, probeMarkerLabels);
+    updateThreeMeasurementMarkers(
+      measurements,
+      selectedMeasurementId,
+      measurementMarkersRoot,
+      measurementLines,
+      measurementLabels
+    );
 
     const hoverProbePoint = getHoverProbePoint();
     if (hoverProbePoint) {

@@ -98,7 +98,7 @@ describe("TopToolbar 3D export action", () => {
     render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /scene/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Export 3D PNG" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export 3D PNG" }));
 
     await waitFor(() => {
       expect(mockExport3dPngFromCanvas).toHaveBeenCalledTimes(1);

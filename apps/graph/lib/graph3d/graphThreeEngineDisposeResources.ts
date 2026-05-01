@@ -1,4 +1,4 @@
-import type { BufferGeometry, LineSegments, Object3D, Scene } from "three";
+import type { BufferGeometry, Line, LineSegments, Object3D, Scene } from "three";
 import { LineBasicMaterial, Mesh, MeshBasicMaterial } from "three";
 import type { Group } from "three";
 import type { ShaderMaterial } from "three";
@@ -17,6 +17,9 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   probeMarkersRoot: Group;
   probeMarkerMeshes: Mesh[];
   probeMarkerLabels: CSS2DObject[];
+  measurementMarkersRoot: Group;
+  measurementLines: Line[];
+  measurementLabels: CSS2DObject[];
   hoverMarker: Mesh;
   gridMesh: Mesh;
   gridMaterial: ShaderMaterial;
@@ -48,6 +51,9 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     probeMarkersRoot,
     probeMarkerMeshes,
     probeMarkerLabels,
+    measurementMarkersRoot,
+    measurementLines,
+    measurementLabels,
     hoverMarker,
     gridMesh,
     gridMaterial,
@@ -96,6 +102,23 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     }
   }
   scene.remove(probeMarkersRoot);
+
+  while (measurementLines.length > 0) {
+    const line = measurementLines.pop();
+    if (line) {
+      measurementMarkersRoot.remove(line);
+      line.geometry.dispose();
+      (line.material as LineBasicMaterial).dispose();
+    }
+  }
+  while (measurementLabels.length > 0) {
+    const label = measurementLabels.pop();
+    if (label) {
+      measurementMarkersRoot.remove(label);
+      (label.element as HTMLElement).remove();
+    }
+  }
+  scene.remove(measurementMarkersRoot);
 
   hoverMarker.geometry.dispose();
   (hoverMarker.material as MeshBasicMaterial).dispose();

@@ -40,7 +40,7 @@ export function Graph2DCanvasUiCursorTooltip({
 
   return (
     <div
-      className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg"
+      className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]"
       style={{
         left: Math.min(
           mousePos.screen.x + CURSOR_TOOLTIP_OFFSET_PX,

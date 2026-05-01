@@ -45,8 +45,12 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
     viewportRange
   } = props;
 
+  const showProbeBlock =
+    !isQuadTop &&
+    (probePins.length > 0 || measurements.some((measurement) => measurement.kind !== "pin") || measurementDraft);
+
   return (
-    <div className="absolute bottom-24 left-3 z-20 flex max-w-[min(520px,calc(100%-1.5rem))] flex-col gap-1">
+    <div className="absolute bottom-20 left-3 z-[24] flex max-w-[min(480px,calc(100%-4rem))] min-w-0 flex-col gap-1.5">
       {sketchFitPreview && (
         <Graph2DCanvasUiSketchFitPreview
           axisPair={axisPair}
@@ -57,19 +61,31 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
           axis2dPairQuadTop={axis2dPairQuadTop}
         />
       )}
-      {mousePos && (
-        <Graph2DCanvasUiCursorCoordsBadge mousePos={mousePos} axisPair={axisPair} canvas2dTool={canvas2dTool} />
-      )}
-      {!isQuadTop && (probePins.length > 0 || measurements.some((measurement) => measurement.kind !== "pin") || measurementDraft) && (
-        <Graph2DCanvasUiProbePinsSummary
-          axisPair={axisPair}
-          probePins={probePins}
-          measurements={measurements}
-          measurementDraft={measurementDraft}
-          pairForCanvas={pairForCanvas}
-        />
-      )}
-      <Graph2DCanvasUiViewportRangeBadge axisPair={axisPair} viewportRange={viewportRange} />
+      <div className="flex min-w-0 flex-col gap-1 rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
+        <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">2D readout</div>
+        <div className="flex min-w-0 flex-col divide-y divide-[var(--border-subtle)]/55">
+          {mousePos ? (
+            <div className="min-w-0 py-1 first:pt-0">
+              <Graph2DCanvasUiCursorCoordsBadge mousePos={mousePos} axisPair={axisPair} canvas2dTool={canvas2dTool} embedded />
+            </div>
+          ) : null}
+          {showProbeBlock ? (
+            <div className="min-w-0 py-1">
+              <Graph2DCanvasUiProbePinsSummary
+                axisPair={axisPair}
+                probePins={probePins}
+                measurements={measurements}
+                measurementDraft={measurementDraft}
+                pairForCanvas={pairForCanvas}
+                embedded
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0 py-1">
+            <Graph2DCanvasUiViewportRangeBadge axisPair={axisPair} viewportRange={viewportRange} embedded />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

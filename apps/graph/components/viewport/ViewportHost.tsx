@@ -10,45 +10,26 @@ interface ViewportHostProps {
   viewport2d: ReactNode;
   /** Quad layout only: second 2D panel (XZ top view, independent camera). */
   viewport2dQuadTop?: ReactNode;
-  /** Short axis label for the primary 2D panel (e.g. `XY`, `XZ`). */
-  primary2dPlaneLabel?: string;
-  /** Title for the secondary 2D quad (different orthographic plane). */
-  secondary2dPlaneTitle?: string;
   viewport3d: ReactNode;
   selectedLabel: string;
-  zoomLabel: string;
   snapLabel: string;
 }
 
-function Pane({
-  title,
-  selectedLabel,
-  snapLabel,
-  children,
-  is2d = false
-}: {
-  title: string;
-  selectedLabel: string;
-  snapLabel: string;
-  children: ReactNode;
-  is2d?: boolean;
-}) {
+function Pane({ selectedLabel, snapLabel, children }: { selectedLabel: string; snapLabel: string; children: ReactNode }) {
   return (
-    <section className="relative h-full w-full min-w-0 overflow-hidden bg-[var(--surface-canvas)]">
-      {/* Top Left Floating Label */}
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
-        {title} · PAN · Perspective
-      </div>
-
-      {/* Bottom Left Consolidated Status Stack */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-col gap-1.5">
-        {is2d && (
-          <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] shadow-sm backdrop-blur-sm">
-            X: [-10.00, 10.00] · Y: [-10.00, 10.00]
+    <section className="relative h-full w-full min-w-0 overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
+      {/* Bottom-left: scene selection + snap (keeps bottom-right free for zoom/reset controls). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[12] flex max-w-[min(320px,calc(100%-4rem))] flex-col justify-end">
+        <div className="mr-auto flex min-w-0 flex-col gap-0.5 rounded-md border border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/85 px-2.5 py-1.5 text-[10px] leading-snug text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
+          <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Scene</div>
+          <div className="flex w-full items-baseline gap-1.5 overflow-hidden">
+            <span className="shrink-0 text-[var(--text-tertiary)]">Selected</span>
+            <span className="truncate font-medium">{selectedLabel}</span>
           </div>
-        )}
-        <div className="flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--surface-overlay)]/90 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
-          Selected: {selectedLabel} · Snap: {snapLabel}
+          <div className="flex w-full items-baseline gap-1.5 overflow-hidden">
+            <span className="shrink-0 text-[var(--text-tertiary)]">Snap</span>
+            <span className="truncate font-medium">{snapLabel}</span>
+          </div>
         </div>
       </div>
 
@@ -61,11 +42,8 @@ export default function ViewportHost({
   mode,
   viewport2d,
   viewport2dQuadTop,
-  primary2dPlaneLabel = "XY",
-  secondary2dPlaneTitle = "XZ (top)",
   viewport3d,
   selectedLabel,
-  zoomLabel,
   snapLabel
 }: ViewportHostProps) {
   const mountViewport = (node: ReactNode, key: string): ReactNode => {
@@ -75,7 +53,7 @@ export default function ViewportHost({
 
   if (mode === "2d") {
     return (
-      <Pane title={`2D Graph - Plane (${primary2dPlaneLabel})`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(viewport2d, "single-2d")}
       </Pane>
     );
@@ -83,7 +61,7 @@ export default function ViewportHost({
 
   if (mode === "3d") {
     return (
-      <Pane title="3D View - Perspective" selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(viewport3d, "single-3d")}
       </Pane>
     );
@@ -93,12 +71,12 @@ export default function ViewportHost({
     return (
       <SplitViewport
         primary={
-          <Pane title={`2D Graph - Plane (${primary2dPlaneLabel})`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
             {mountViewport(viewport2d, "split-2d")}
           </Pane>
         }
         secondary={
-          <Pane title="3D View - Perspective" selectedLabel={selectedLabel} snapLabel={snapLabel}>
+          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
             {mountViewport(viewport3d, "split-3d")}
           </Pane>
         }
@@ -109,17 +87,17 @@ export default function ViewportHost({
   const quadTop2d = viewport2dQuadTop ?? viewport2d;
 
   return (
-    <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-px bg-[var(--border-subtle)]">
-      <Pane title={`2D · ${primary2dPlaneLabel}`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+    <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-px bg-[var(--border-strong)]">
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(viewport2d, "quad-xy")}
       </Pane>
-      <Pane title="3D · Perspective" selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(viewport3d, "quad-perspective")}
       </Pane>
-      <Pane title="3D · Front" selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(viewport3d, "quad-front")}
       </Pane>
-      <Pane title={`2D · ${secondary2dPlaneTitle}`} selectedLabel={selectedLabel} snapLabel={snapLabel} is2d>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
         {mountViewport(quadTop2d, "quad-top")}
       </Pane>
     </div>

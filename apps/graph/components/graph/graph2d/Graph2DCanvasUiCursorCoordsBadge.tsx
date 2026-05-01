@@ -8,15 +8,24 @@ export type Graph2DCanvasUiCursorCoordsBadgeProps = {
   mousePos: MousePosition;
   axisPair: AxisPairSpec;
   canvas2dTool: Canvas2DTool;
+  /** When true, render as a row inside a parent HUD card (no outer border/shadow). */
+  embedded?: boolean;
 };
 
 export function Graph2DCanvasUiCursorCoordsBadge({
   mousePos,
   axisPair,
-  canvas2dTool
+  canvas2dTool,
+  embedded = false
 }: Graph2DCanvasUiCursorCoordsBadgeProps) {
   return (
-    <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg">
+    <div
+      className={
+        embedded
+          ? "min-w-0 font-mono text-[10px] text-[var(--text-primary)]"
+          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg"
+      }
+    >
       <span className="text-[var(--text-tertiary)]">Cursor </span>
       {axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)}
       {" · "}

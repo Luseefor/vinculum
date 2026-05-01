@@ -46,6 +46,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     snapStep,
     probePins,
     measurements,
+    selectedMeasurementId,
     measurementDraft,
     patchViewport2D,
     setFrameForCanvas,
@@ -102,6 +103,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     mousePos,
     isQuadTop,
     probePins,
+    measurements,
+    selectedMeasurementId,
     pairForCanvas,
     axisPair,
     sketchDraft
@@ -133,8 +136,11 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   );
 
   const canvasCursorClass =
-    canvas2dTool === "pan" ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-crosshair touch-none";
-
+    canvas2dTool === "pan"
+      ? "cursor-grab touch-none active:cursor-grabbing"
+      : canvas2dTool === "draw"
+        ? "cursor-cell touch-none"
+        : "cursor-crosshair touch-none";
   return (
     <div ref={containerRef} className={`relative h-full w-full ${className}`}>
       <canvas
@@ -169,25 +175,34 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
       {(showPerfHud || metrics.warningLevel !== "ok") && (
         <div
-          className="pointer-events-none absolute right-3 top-3 z-[20] max-w-[320px] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/80 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur whitespace-pre-line"
+          className={`pointer-events-none absolute right-3 top-3 z-[22] flex max-w-[min(320px,calc(100%-4rem))] flex-col gap-0.5 rounded-md border px-2.5 py-1.5 font-mono text-[10px] leading-snug shadow-sm backdrop-blur-sm ${
+            metrics.warningLevel === "critical"
+              ? "border-amber-500/60 bg-[var(--surface-overlay)]/90 text-amber-200"
+              : metrics.warningLevel === "warning"
+                ? "border-amber-400/40 bg-[var(--surface-overlay)]/85 text-amber-100"
+                : "border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/85 text-[var(--text-secondary)]"
+          }`}
           role="status"
           aria-live="polite"
           aria-atomic="true"
         >
           {showPerfHud ? (
             <>
-              Paint {metrics.lastFrameTimeMs !== null ? metrics.lastFrameTimeMs.toFixed(1) : "--"}ms
-              {"\n"}
-              Obj {metrics.scenePressure.visibleObjectCount}/{metrics.scenePressure.objectCount}
-              {"\n"}
-              Res {Math.round(metrics.scenePressure.surfaceResolutionMax)} · Smp {Math.round(metrics.scenePressure.parametricSamplesMax)}
+              <div>
+                Paint {metrics.lastFrameTimeMs !== null ? metrics.lastFrameTimeMs.toFixed(1) : "--"}ms
+              </div>
+              <div>
+                Obj {metrics.scenePressure.visibleObjectCount}/{metrics.scenePressure.objectCount}
+              </div>
+              <div>
+                Res {Math.round(metrics.scenePressure.surfaceResolutionMax)} · Smp {Math.round(metrics.scenePressure.parametricSamplesMax)}
+              </div>
             </>
           ) : null}
           {metrics.warningLevel !== "ok" ? (
             <>
-              {"\n"}
-              {metrics.warningSummary}
-              {metrics.warningItems[0] ? `\n${metrics.warningItems[0]}` : ""}
+              <div className="font-semibold">{metrics.warningSummary}</div>
+              {metrics.warningItems[0] ? <div>{metrics.warningItems[0]}</div> : null}
             </>
           ) : null}
         </div>

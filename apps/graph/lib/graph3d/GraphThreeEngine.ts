@@ -69,7 +69,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const renderer = new WebGLRenderer({
     antialias: true,
     alpha: false,
-    powerPreference: "high-performance"
+    powerPreference: "high-performance",
+    preserveDrawingBuffer: true
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = ACESFilmicToneMapping;
@@ -93,7 +94,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const perfBadge = document.createElement("div");
   perfBadge.className =
-    "pointer-events-none absolute right-3 top-3 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/80 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur";
+    "pointer-events-none absolute right-3 top-14 z-[18] rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/75 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur";
   perfBadge.style.display = shouldShowPerfBadge() ? "block" : "none";
   perfBadge.textContent = "FPS -- · Frame --ms";
   perfBadge.setAttribute("data-graph3d-perf", "true");
@@ -101,7 +102,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const warningBadge = document.createElement("div");
   warningBadge.className =
-    "pointer-events-none absolute left-3 bottom-3 max-w-[260px] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/90 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
+    "pointer-events-none absolute left-3 bottom-[5.5rem] z-[18] max-w-[min(260px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
   warningBadge.style.display = "none";
   warningBadge.setAttribute("data-graph3d-performance-warning", "true");
   warningBadge.setAttribute("role", "status");
@@ -110,13 +111,13 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const probeBadge = document.createElement("div");
   probeBadge.className =
-    "pointer-events-none absolute left-3 bottom-11 rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/85 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow";
+    "pointer-events-none absolute left-3 bottom-3 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
   probeBadge.style.display = "none";
   probeBadge.setAttribute("data-graph3d-probe", "true");
   container.appendChild(probeBadge);
   const hoverProbeBadge = document.createElement("div");
   hoverProbeBadge.className =
-    "pointer-events-none absolute rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/90 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow";
+    "pointer-events-none absolute z-[19] max-w-[min(240px,calc(100vw-2rem))] rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/92 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
   hoverProbeBadge.style.display = "none";
   hoverProbeBadge.setAttribute("data-graph3d-probe-hover", "true");
   container.appendChild(hoverProbeBadge);
@@ -262,6 +263,10 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   scene.add(probeMarkersRoot);
   const probeMarkerMeshes: Mesh[] = [];
   const probeMarkerLabels: CSS2DObject[] = [];
+  const measurementMarkersRoot = new Group();
+  scene.add(measurementMarkersRoot);
+  const measurementLines: Line[] = [];
+  const measurementLabels: CSS2DObject[] = [];
 
   const hoverMarker = new Mesh(
     new SphereGeometry(0.08, 10, 10),
@@ -323,15 +328,11 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     (gridMaterial.uniforms.uPlaneMode as any).value = tickRuntime.baselinePlaneMode;
   };
 
-  const setAxisLabelRoles = (pair: "xy" | "xz" | "yz") => {
-    const isBaseAxis = (axis: "x" | "y" | "z"): boolean => {
-      if (pair === "xy") return axis === "x" || axis === "y";
-      if (pair === "xz") return axis === "x" || axis === "z";
-      return axis === "y" || axis === "z";
-    };
-    labelX.textContent = `X ${isBaseAxis("x") ? "base" : "perp"}`;
-    labelY.textContent = `Z ${isBaseAxis("z") ? "base" : "perp"}`;
-    labelZ.textContent = `Y ${isBaseAxis("y") ? "base" : "perp"}`;
+  /** World axis letters only; base-plane context lives in the 3D viewport chrome. */
+  const setAxisLabelRoles = (_pair: "xy" | "xz" | "yz") => {
+    labelX.textContent = "X";
+    labelY.textContent = "Z";
+    labelZ.textContent = "Y";
   };
 
   const rebuildAxesGeometry = (theme: ResolvedTheme) => {
@@ -508,6 +509,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     probeMarkersRoot,
     probeMarkerMeshes,
     probeMarkerLabels,
+    measurementMarkersRoot,
+    measurementLines,
+    measurementLabels,
     hoverMarker,
     getHoverProbePoint: () => inputMutable.hoverProbePoint,
     axesGroup,
@@ -611,6 +615,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         probeMarkersRoot,
         probeMarkerMeshes,
         probeMarkerLabels,
+        measurementMarkersRoot,
+        measurementLines,
+        measurementLabels,
         hoverMarker,
         gridMesh,
         gridMaterial,

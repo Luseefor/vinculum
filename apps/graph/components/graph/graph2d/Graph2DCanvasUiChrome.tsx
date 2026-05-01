@@ -4,6 +4,7 @@ import type { RefObject } from "react";
 import type { Axis2DPair, Canvas2DTool, GraphProbePin, Viewport2D } from "@/types/graphUi";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { Graph2DCanvasUiBottomLeftColumn } from "./Graph2DCanvasUiBottomLeftColumn";
+import { Graph2DCanvasUiTopIdentity } from "./Graph2DCanvasUiTopIdentity";
 import { Graph2DCanvasUiCursorTooltip } from "./Graph2DCanvasUiCursorTooltip";
 import { Graph2DCanvasUiZoomCluster } from "./Graph2DCanvasUiZoomCluster";
 import type { AxisPairSpec, MousePosition, SketchFitPreview } from "./graph2dCanvasTypes";
@@ -52,6 +53,7 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
 
   return (
     <>
+      <Graph2DCanvasUiTopIdentity pairForCanvas={pairForCanvas} canvas2dTool={canvas2dTool} />
       {mousePos && (
         <Graph2DCanvasUiCursorTooltip
           containerRef={containerRef}
