@@ -10,15 +10,18 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import type { AccentPreset } from "@/types/graphUi";
 import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "green", "amber", "orange", "rose", "pink", "violet"];
 
 interface ThemeAccentPopoverProps {
   showPerformance?: boolean;
+  context?: "landing" | "editor";
 }
 
 export default function ThemeAccentPopover({
-  showPerformance = true
+  showPerformance = true,
+  context = "landing"
 }: ThemeAccentPopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   useDialogFocusTrap({ open: true, containerRef });
@@ -40,7 +43,10 @@ export default function ThemeAccentPopover({
               <Button
               type="button"
               aria-label="Use light theme"
-              onClick={() => setThemeMode("light")}
+              onClick={() => {
+                setThemeMode("light");
+                captureEvent(context === "editor" ? "editor_theme_changed" : "landing_theme_changed", { theme: "light" });
+              }}
               className={cn(
                 "h-8 gap-2 text-[10px] font-bold uppercase tracking-wide",
                 themeMode === "light"
@@ -55,7 +61,10 @@ export default function ThemeAccentPopover({
               <Button
               type="button"
               aria-label="Use dark theme"
-              onClick={() => setThemeMode("dark")}
+              onClick={() => {
+                setThemeMode("dark");
+                captureEvent(context === "editor" ? "editor_theme_changed" : "landing_theme_changed", { theme: "dark" });
+              }}
               className={cn(
                 "h-8 gap-2 text-[10px] font-bold uppercase tracking-wide",
                 themeMode === "dark"
@@ -81,7 +90,10 @@ export default function ThemeAccentPopover({
             {accentOptions.map((preset) => (
               <button
                 key={preset}
-                onClick={() => setAccentPreset(preset)}
+                onClick={() => {
+                  setAccentPreset(preset);
+                  captureEvent(context === "editor" ? "editor_accent_changed" : "landing_accent_changed", { accent: preset });
+                }}
                 className={cn(
                   "h-7 w-7 rounded-full border-2 transition-all hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                   accentPreset === preset ? "border-[var(--text-primary)] ring-2 ring-[var(--accent-primary)]/20 shadow-md opacity-100" : "border-transparent opacity-80 hover:opacity-100"

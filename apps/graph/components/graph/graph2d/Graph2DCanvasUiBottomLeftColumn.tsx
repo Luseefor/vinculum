@@ -61,7 +61,7 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
           axis2dPairQuadTop={axis2dPairQuadTop}
         />
       )}
-      <div className="flex min-w-0 flex-col gap-1 rounded-lg border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
+      <div className="flex min-w-0 flex-col gap-1 rounded-[5px] border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
         <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">2D readout</div>
         <div className="flex min-w-0 flex-col divide-y divide-[var(--border-subtle)]/55">
           {mousePos ? (

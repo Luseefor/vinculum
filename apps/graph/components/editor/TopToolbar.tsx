@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export default function TopToolbar({
   canUndo,
@@ -205,12 +206,15 @@ export default function TopToolbar({
       setProjectDialogError(null);
       setProjectDialogMode(null);
       refreshProjects();
+      captureEvent("project_saved", { mode: "save_as", object_count: scene.objects.length });
     } catch (error) {
       if (error instanceof LocalProjectRepositoryError) {
         setProjectDialogError(error.message);
+        captureEvent("project_save_failed", { mode: "save_as", error_type: "repository" });
         return;
       }
       setProjectDialogError("Project save failed. Try again.");
+      captureEvent("project_save_failed", { mode: "save_as", error_type: "unknown" });
     }
   };
 
@@ -232,6 +236,7 @@ export default function TopToolbar({
       setProjectDialogError(null);
       refreshProjects();
       setFileMenuOpen(false);
+      captureEvent("project_saved", { mode: "save", object_count: scene.objects.length });
     } catch (error) {
       if (error instanceof LocalProjectRepositoryError) {
         setProjectDialogError(error.message);
@@ -239,6 +244,7 @@ export default function TopToolbar({
         setProjectDialogError("Project save failed. Try again.");
       }
       setProjectDialogMode("saveAs");
+      captureEvent("project_save_failed", { mode: "save", error_type: error instanceof LocalProjectRepositoryError ? "repository" : "unknown" });
     }
   };
 
@@ -259,6 +265,7 @@ export default function TopToolbar({
       setProjectAutosaveStatus("idle");
       setProjectDialogError(null);
       setProjectDialogMode(null);
+      captureEvent("project_opened", { object_count: loadedScene.objects.length });
     } catch (error) {
       if (error instanceof LocalProjectRepositoryError) {
         setProjectDialogError(error.message);
@@ -277,6 +284,7 @@ export default function TopToolbar({
       }
       setProjectDialogError(null);
       refreshProjects();
+      captureEvent("project_deleted");
     } catch (error) {
       if (error instanceof LocalProjectRepositoryError) {
         setProjectDialogError(error.message);
@@ -293,14 +301,17 @@ export default function TopToolbar({
     });
     if (!shareResult.ok || !shareResult.url) {
       setActionFeedback(shareResult.error ?? "Share link failed. Use JSON export instead.");
+      captureEvent("share_link_copy_failed", { error_type: "build_failed" });
       return;
     }
 
     try {
       await navigator.clipboard.writeText(shareResult.url);
       setActionFeedback("Share link copied.");
+      captureEvent("share_link_copied", { object_count: scene.objects.length });
     } catch {
       setActionFeedback("Share link copy failed. Copy the URL from the browser bar.");
+      captureEvent("share_link_copy_failed", { error_type: "clipboard" });
     }
   };
 
@@ -364,19 +375,27 @@ export default function TopToolbar({
   };
 
   const handleExportJson = () => {
+    captureEvent("export_json_clicked", { object_count: scene.objects.length });
     const exported = exportSceneJson(scene);
     if (!exported.ok || !exported.file) {
       setActionFeedback(exported.error ?? "JSON export failed.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "json", error_type: "serialize" });
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
+    if (download.ok) {
+      captureEvent("export_succeeded", { format: "json" });
+    } else {
+      captureEvent("export_failed", { format: "json", error_type: "download" });
+    }
     setActionFeedback(download.ok ? "Export JSON downloaded." : download.error ?? "JSON download failed.");
     setFileMenuOpen(false);
     setShareDialogOpen(false);
   };
 
   const handleExport2dPng = async () => {
+    captureEvent("export_2d_png_clicked", { object_count: scene.objects.length });
     if (graphMode !== "2d") {
       setActionFeedback("Switch to 2D mode to export 2D PNG.");
       setFileMenuOpen(false);
@@ -393,15 +412,22 @@ export default function TopToolbar({
     if (!exported.ok || !exported.file) {
       setActionFeedback(exported.error ?? "2D PNG export failed.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "2d_png", error_type: "capture" });
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
+    if (download.ok) {
+      captureEvent("export_succeeded", { format: "2d_png" });
+    } else {
+      captureEvent("export_failed", { format: "2d_png", error_type: "download" });
+    }
     setActionFeedback(download.ok ? "Export 2D PNG downloaded." : download.error ?? "2D PNG download failed.");
     setFileMenuOpen(false);
     setShareDialogOpen(false);
   };
 
   const handleExport2dSvg = () => {
+    captureEvent("export_2d_svg_clicked", { object_count: scene.objects.length });
     if (graphMode !== "2d") {
       setActionFeedback("Switch to 2D mode to export 2D SVG.");
       setFileMenuOpen(false);
@@ -418,14 +444,17 @@ export default function TopToolbar({
     if (!exported.ok || !exported.file) {
       setActionFeedback(exported.error ?? "2D SVG export failed.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "2d_svg", error_type: "build" });
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
     if (!download.ok) {
       setActionFeedback(download.error ?? "2D SVG download failed.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "2d_svg", error_type: "download" });
       return;
     }
+    captureEvent("export_succeeded", { format: "2d_svg", had_warnings: (exported.file.warnings?.length ?? 0) > 0 });
     setActionFeedback(
       exported.file.warnings && exported.file.warnings.length > 0
         ? "Export 2D SVG downloaded with some unsupported objects skipped."
@@ -436,6 +465,7 @@ export default function TopToolbar({
   };
 
   const handleExport3dPng = async () => {
+    captureEvent("export_3d_png_clicked", { object_count: scene.objects.length });
     if (graphMode !== "3d") {
       setActionFeedback("Switch to 3D mode to export 3D PNG.");
       setFileMenuOpen(false);
@@ -449,9 +479,15 @@ export default function TopToolbar({
     if (!exported.ok || !exported.file) {
       setActionFeedback(exported.error ?? "3D PNG export failed.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "3d_png", error_type: "capture" });
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
+    if (download.ok) {
+      captureEvent("export_succeeded", { format: "3d_png" });
+    } else {
+      captureEvent("export_failed", { format: "3d_png", error_type: "download" });
+    }
     setActionFeedback(download.ok ? "Export 3D PNG downloaded." : download.error ?? "3D PNG download failed.");
     setFileMenuOpen(false);
     setShareDialogOpen(false);
@@ -618,7 +654,7 @@ export default function TopToolbar({
               <DropdownMenuGroup>
                 <DropdownMenuLabel>Share</DropdownMenuLabel>
                 <DropdownMenuItem onSelect={handleCopyShareLink}>Copy share link</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setShareDialogOpen(true)}>Open share/export dialog</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}>Open share/export dialog</DropdownMenuItem>
               </DropdownMenuGroup>
             </ScrollArea>
           </DropdownMenuContent>
@@ -753,7 +789,7 @@ export default function TopToolbar({
           type="button"
           variant="secondary"
           size="sm"
-          onClick={() => setShareDialogOpen(true)}
+          onClick={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}
           className="uppercase tracking-wide"
         >
           Share
@@ -845,7 +881,7 @@ export default function TopToolbar({
             )}
           </PopoverTrigger>
           <PopoverContent className="w-72">
-            <ThemeAccentPopover showPerformance={true} />
+            <ThemeAccentPopover showPerformance={true} context="editor" />
           </PopoverContent>
         </Popover>
       </div>

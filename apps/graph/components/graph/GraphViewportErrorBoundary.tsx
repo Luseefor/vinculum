@@ -5,6 +5,7 @@ import {
   reportError,
   type MonitoringFeatureArea
 } from "@/lib/monitoring/errorReporting";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 interface Props {
   children: ReactNode;
@@ -35,6 +36,10 @@ export default class GraphViewportErrorBoundary extends Component<Props, State> 
       details: {
         componentStack: info.componentStack
       }
+    });
+    captureEvent("editor_error_boundary_shown", {
+      feature_area: this.props.featureArea ?? "3d-viewport",
+      error_name: error.name
     });
   }
 
