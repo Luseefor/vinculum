@@ -28,6 +28,9 @@
   --surface-overlay: rgba(255, 255, 255, 0.98);
   --surface-inset: rgba(15, 23, 42, 0.04);
   --surface-muted: rgba(15, 23, 42, 0.06);
+  --editor-shell: #e7edf5;
+  --editor-chrome: #edf2f8;
+  --editor-control: rgba(255, 255, 255, 0.96);
   
   --panel-bg: rgba(255, 255, 255, 0.9);
   --panel-border: rgba(15, 23, 42, 0.08);
@@ -83,6 +86,9 @@
   --surface-overlay: rgba(15, 23, 42, 0.94);
   --surface-inset: rgba(2, 6, 23, 0.4);
   --surface-muted: rgba(148, 163, 184, 0.1);
+  --editor-shell: #030915;
+  --editor-chrome: #07101f;
+  --editor-control: rgba(15, 23, 42, 0.92);
   
   --panel-bg: rgba(11, 16, 32, 0.75);
   --panel-border: rgba(148, 163, 184, 0.12);
@@ -205,25 +211,29 @@ body {
   width: 8px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: transparent;
+  background: var(--surface-bg);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
   transition: background-color 0.2s;
   z-index: 10;
 }
 
 .divider-x:hover {
-  background: var(--accent-soft);
+  background: var(--surface-muted);
 }
 
 .divider-y {
   height: 4px;
   cursor: row-resize;
-  background: transparent;
+  background: var(--surface-bg);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   transition: background-color 0.2s;
   z-index: 10;
 }
 
 .divider-y:hover {
-  background: var(--accent-soft);
+  background: var(--surface-muted);
 }
 
 .resolution-slider {

@@ -18,7 +18,6 @@ import {
   triggerSceneExportDownload
 } from "@/lib/export/sceneExport";
 import { buildShareSceneUrl } from "@/lib/share/shareSceneLink";
-import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
 import {
   applySceneExampleToEditor
 } from "@/lib/templates/applySceneExample";
@@ -28,6 +27,7 @@ import {
   SCENE_EXAMPLES
 } from "@/lib/templates/examplesRegistry";
 import { useGraphStore } from "@/store/graphStore";
+import type { Axis2DPair } from "@/types/graphUi";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { cn } from "@/components/ui/styles";
 import { 
@@ -38,10 +38,31 @@ import {
   SunIcon, 
   MoonIcon 
 } from "@/components/layout/icons";
-import { Portal } from "@/components/ui/portal";
-import type { AccentPreset } from "@/types/graphUi";
-
-const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "green", "amber", "orange", "rose", "pink", "violet"];
+import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function TopToolbar({
   canUndo,
@@ -49,7 +70,19 @@ export default function TopToolbar({
   onUndo,
   onRedo,
   onOpenWelcome,
-  openExamplesSignal = 0
+  openExamplesSignal = 0,
+  activeViewType = "3d",
+  onViewTypeChange = () => {},
+  activeLayout = "split",
+  onLayoutChange = () => {},
+  plane2d = "xy",
+  onPlane2dChange = () => {},
+  base3d = "xy",
+  onBase3dChange = () => {},
+  activeToolLabel = "pan",
+  onToolChange = () => {},
+  inspectorOpen = false,
+  onToggleInspector = () => {}
 }: {
   canUndo: boolean;
   canRedo: boolean;
@@ -57,6 +90,18 @@ export default function TopToolbar({
   onRedo: () => void;
   onOpenWelcome?: () => void;
   openExamplesSignal?: number;
+  activeViewType?: "2d" | "3d" | "both";
+  onViewTypeChange?: (view: "2d" | "3d" | "both") => void;
+  activeLayout?: "split" | "quad";
+  onLayoutChange?: (layout: "split" | "quad") => void;
+  plane2d?: Axis2DPair;
+  onPlane2dChange?: (pair: Axis2DPair) => void;
+  base3d?: Axis2DPair;
+  onBase3dChange?: (pair: Axis2DPair) => void;
+  activeToolLabel?: "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw";
+  onToolChange?: (tool: "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw") => void;
+  inspectorOpen?: boolean;
+  onToggleInspector?: () => void;
 }) {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -66,8 +111,8 @@ export default function TopToolbar({
   const [examplesDialogOpen, setExamplesDialogOpen] = useState(false);
   const [examplesDialogError, setExamplesDialogError] = useState<string | null>(null);
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
-  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState(() => {
     try {
@@ -78,21 +123,13 @@ export default function TopToolbar({
   });
   const [projectsVersion, setProjectsVersion] = useState(0);
   const [showBrandImageFallback, setShowBrandImageFallback] = useState(false);
-  const fileTriggerRef = useRef<HTMLButtonElement>(null);
-  const themeTriggerRef = useRef<HTMLButtonElement>(null);
-  const fileMenuContainerRef = useRef<HTMLDivElement>(null);
-  const themeMenuContainerRef = useRef<HTMLDivElement>(null);
   const lastOpenExamplesSignalRef = useRef(openExamplesSignal);
-
-  useDialogFocusTrap({ open: fileMenuOpen, containerRef: fileMenuContainerRef });
-  useDialogFocusTrap({ open: themeMenuOpen, containerRef: themeMenuContainerRef });
 
   const scene = useGraphStore((state) => state.scene);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const themeMode = useGraphStore((state) => state.ui.themeMode);
   const setThemeMode = useGraphStore((state) => state.setThemeMode);
   const accentPreset = useGraphStore((state) => state.ui.accentPreset);
-  const setAccentPreset = useGraphStore((state) => state.setAccentPreset);
   const currentProjectId = useGraphStore((state) => state.ui.projectSession.currentProjectId);
   const currentProjectName = useGraphStore((state) => state.ui.projectSession.currentProjectName);
   const autosaveStatus = useGraphStore((state) => state.ui.projectSession.autosaveStatus);
@@ -113,7 +150,6 @@ export default function TopToolbar({
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
   const clearHistory = useHistoryStore((state) => state.clear);
   const showPerfHud = useEditorStore((state) => state.showPerfHud);
-  const setShowPerfHud = useEditorStore((state) => state.setShowPerfHud);
   const headerLogoSrc = themeMode === "dark" ? "/brand/logo.png" : "/brand/logo_horizontal.png";
   useEffect(() => {
     try {
@@ -256,18 +292,25 @@ export default function TopToolbar({
       baseUrl: window.location.href
     });
     if (!shareResult.ok || !shareResult.url) {
-      setShareMessage(shareResult.error ?? "Share link failed. Use JSON export instead.");
-      setFileMenuOpen(false);
+      setActionFeedback(shareResult.error ?? "Share link failed. Use JSON export instead.");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(shareResult.url);
-      setShareMessage("Share link copied.");
+      setActionFeedback("Share link copied.");
     } catch {
-      setShareMessage("Share link copy failed. Copy the URL from the browser bar.");
+      setActionFeedback("Share link copy failed. Copy the URL from the browser bar.");
     }
-    setFileMenuOpen(false);
+  };
+
+  const handleCopyCurrentUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setActionFeedback("Current URL copied.");
+    } catch {
+      setActionFeedback("Current URL copy failed.");
+    }
   };
 
   const applyExampleById = (exampleId: string) => {
@@ -323,18 +366,19 @@ export default function TopToolbar({
   const handleExportJson = () => {
     const exported = exportSceneJson(scene);
     if (!exported.ok || !exported.file) {
-      setExportMessage(exported.error ?? "JSON export failed.");
+      setActionFeedback(exported.error ?? "JSON export failed.");
       setFileMenuOpen(false);
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
-    setExportMessage(download.ok ? "Export JSON downloaded." : download.error ?? "JSON download failed.");
+    setActionFeedback(download.ok ? "Export JSON downloaded." : download.error ?? "JSON download failed.");
     setFileMenuOpen(false);
+    setShareDialogOpen(false);
   };
 
   const handleExport2dPng = async () => {
     if (graphMode !== "2d") {
-      setExportMessage("Switch to 2D mode to export 2D PNG.");
+      setActionFeedback("Switch to 2D mode to export 2D PNG.");
       setFileMenuOpen(false);
       return;
     }
@@ -347,18 +391,19 @@ export default function TopToolbar({
       sceneName: scene.metadata.name
     });
     if (!exported.ok || !exported.file) {
-      setExportMessage(exported.error ?? "2D PNG export failed.");
+      setActionFeedback(exported.error ?? "2D PNG export failed.");
       setFileMenuOpen(false);
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
-    setExportMessage(download.ok ? "Export 2D PNG downloaded." : download.error ?? "2D PNG download failed.");
+    setActionFeedback(download.ok ? "Export 2D PNG downloaded." : download.error ?? "2D PNG download failed.");
     setFileMenuOpen(false);
+    setShareDialogOpen(false);
   };
 
   const handleExport2dSvg = () => {
     if (graphMode !== "2d") {
-      setExportMessage("Switch to 2D mode to export 2D SVG.");
+      setActionFeedback("Switch to 2D mode to export 2D SVG.");
       setFileMenuOpen(false);
       return;
     }
@@ -371,27 +416,28 @@ export default function TopToolbar({
       viewportFrame: useQuadTop ? viewport2dQuadTopFrame : viewport2dFrame
     });
     if (!exported.ok || !exported.file) {
-      setExportMessage(exported.error ?? "2D SVG export failed.");
+      setActionFeedback(exported.error ?? "2D SVG export failed.");
       setFileMenuOpen(false);
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
     if (!download.ok) {
-      setExportMessage(download.error ?? "2D SVG download failed.");
+      setActionFeedback(download.error ?? "2D SVG download failed.");
       setFileMenuOpen(false);
       return;
     }
-    setExportMessage(
+    setActionFeedback(
       exported.file.warnings && exported.file.warnings.length > 0
         ? "Export 2D SVG downloaded with some unsupported objects skipped."
         : "Export 2D SVG downloaded."
     );
     setFileMenuOpen(false);
+    setShareDialogOpen(false);
   };
 
   const handleExport3dPng = async () => {
     if (graphMode !== "3d") {
-      setExportMessage("Switch to 3D mode to export 3D PNG.");
+      setActionFeedback("Switch to 3D mode to export 3D PNG.");
       setFileMenuOpen(false);
       return;
     }
@@ -401,36 +447,16 @@ export default function TopToolbar({
       sceneName: scene.metadata.name
     });
     if (!exported.ok || !exported.file) {
-      setExportMessage(exported.error ?? "3D PNG export failed.");
+      setActionFeedback(exported.error ?? "3D PNG export failed.");
       setFileMenuOpen(false);
       return;
     }
     const download = triggerSceneExportDownload(exported.file);
-    setExportMessage(download.ok ? "Export 3D PNG downloaded." : download.error ?? "3D PNG download failed.");
+    setActionFeedback(download.ok ? "Export 3D PNG downloaded." : download.error ?? "3D PNG download failed.");
     setFileMenuOpen(false);
+    setShareDialogOpen(false);
   };
 
-  // Robust click-outside logic for Portals
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      
-      // Check if click was inside a portal container
-      const isInsidePortal = target.closest('[data-portal-content="true"]');
-      if (isInsidePortal) return;
-
-      // Close menus if clicking outside of their respective triggers
-      if (fileMenuOpen && !fileTriggerRef.current?.contains(target)) {
-        setFileMenuOpen(false);
-      }
-      if (themeMenuOpen && !themeTriggerRef.current?.contains(target)) {
-        setThemeMenuOpen(false);
-      }
-    };
-
-    window.addEventListener("mousedown", handleClick);
-    return () => window.removeEventListener("mousedown", handleClick);
-  }, [fileMenuOpen, themeMenuOpen]);
 
   useEffect(() => {
     if (openExamplesSignal === lastOpenExamplesSignalRef.current) {
@@ -443,18 +469,12 @@ export default function TopToolbar({
   }, [openExamplesSignal]);
 
   useEffect(() => {
-    if (!themeMenuOpen && !fileMenuOpen) {
+    if (!actionFeedback) {
       return;
     }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setThemeMenuOpen(false);
-        setFileMenuOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [themeMenuOpen, fileMenuOpen]);
+    const timeout = window.setTimeout(() => setActionFeedback(null), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [actionFeedback]);
 
   return (
     <>
@@ -490,8 +510,8 @@ export default function TopToolbar({
         }}
         onOpenExample={handleOpenExample}
       />
-      <header className="flex h-11 shrink-0 items-center border-b border-[var(--panel-border)] bg-[var(--bg-tertiary)] px-4 z-50 font-sans">
-      <div className="flex items-center gap-2 mr-6">
+      <header className="z-50 flex h-12 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-3 font-sans shadow-[0_1px_0_var(--border-subtle)]">
+      <div className="mr-3 flex shrink-0 items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-transparent px-2 py-1">
         {showBrandImageFallback ? (
           <>
             <VinculumMark className="h-5 w-5" />
@@ -503,38 +523,108 @@ export default function TopToolbar({
             alt="Vinculum"
             width={160}
             height={28}
-            className="h-7 w-auto object-contain"
+            className="h-5 w-auto object-contain"
             priority
             onError={() => setShowBrandImageFallback(true)}
           />
         )}
       </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          ref={fileTriggerRef}
-          type="button"
-          onClick={() => setFileMenuOpen((v) => !v)}
-          aria-expanded={fileMenuOpen}
-          aria-controls="vinculum-scene-menu"
-          aria-haspopup="menu"
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              event.stopPropagation();
-              setFileMenuOpen((v) => !v);
-            }
-          }}
-          className={cn(
-            "flex items-center gap-1.5 h-7 px-3 rounded-full text-[10px] font-bold uppercase transition-all",
-            fileMenuOpen ? "bg-[var(--surface-muted)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
-          )}
-        >
-          Scene
-          <ChevronDownIcon className={cn("h-3 w-3 transition-transform", fileMenuOpen && "rotate-180")} />
-        </button>
+      <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent px-1.5 py-1">
+        <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
+          <DropdownMenuTrigger>
+            {(props) => (
+              <button
+                ref={props.ref as any}
+                type="button"
+                aria-expanded={props["aria-expanded"]}
+                aria-controls={props["aria-controls"]}
+                aria-haspopup={props["aria-haspopup"]}
+                onClick={props.onClick}
+                onKeyDown={props.onKeyDown}
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-all",
+                  fileMenuOpen
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                )}
+              >
+                Scene
+                <ChevronDownIcon className={cn("h-3 w-3 transition-transform", fileMenuOpen && "rotate-180")} />
+              </button>
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[260px] p-0">
+            <ScrollArea className="max-h-[420px] p-1.5">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Scene</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={handleNewSceneMenuClick}>
+                  New scene
+                  <DropdownMenuShortcut>N</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setExamplesDialogError(null);
+                    setExamplesDialogOpen(true);
+                  }}
+                >
+                  Open example...
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Welcome / Getting started</DropdownMenuItem>
+              </DropdownMenuGroup>
 
-        <div className="w-px h-4 bg-[var(--border-strong)] mx-2" />
+              <DropdownMenuSeparator />
+
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Projects</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={handleSaveProject}>Save project</DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setProjectDialogError(null);
+                    setProjectDialogMode("saveAs");
+                  }}
+                >
+                  Save as...
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setProjectDialogError(null);
+                    setProjectDialogMode("open");
+                  }}
+                >
+                  Open project...
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Import / Export</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={() => openSceneDialog("import")}>Import...</DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExportJson}>Export JSON</DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExport2dPng} disabled={graphMode !== "2d"}>
+                  Export 2D PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExport2dSvg} disabled={graphMode !== "2d"}>
+                  Export 2D SVG
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExport3dPng} disabled={graphMode !== "3d"}>
+                  Export 3D PNG
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Share</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={handleCopyShareLink}>Copy share link</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setShareDialogOpen(true)}>Open share/export dialog</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </ScrollArea>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="mx-1 h-4 w-px bg-[var(--border-strong)]" />
 
         <div className="flex items-center gap-0.5">
           <ToolbarAction onClick={onUndo} disabled={!canUndo} icon={<UndoIcon className="h-3.5 w-3.5" />} title="Undo" />
@@ -542,205 +632,273 @@ export default function TopToolbar({
         </div>
       </div>
 
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] px-3 py-1 shadow-sm">
-          <span className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Objects</span>
-          <span className="text-[9px] font-bold text-[var(--accent)]">{objectCount}</span>
+      <div className="mx-2 hidden min-h-0 min-w-0 flex-1 items-center justify-start lg:flex">
+        <div className="flex w-full min-w-0 justify-start overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+          <div className="flex w-max items-center gap-2">
+        <div
+          className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
+          role="group"
+          aria-label="View type"
+        >
+          <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">View</span>
+          {(["2d", "3d", "both"] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={activeViewType === id}
+              aria-label={id === "both" ? "2D and 3D together" : `${id.toUpperCase()} only`}
+              onClick={() => onViewTypeChange(id)}
+              className={cn(
+                "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                activeViewType === id
+                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+              )}
+            >
+              {id === "both" ? "2D+3D" : id.toUpperCase()}
+            </button>
+          ))}
         </div>
-        {shareMessage ? (
-          <div className="flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] px-3 py-1 shadow-sm">
-            <span className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Share</span>
-            <span className="max-w-56 truncate text-[9px] font-semibold text-[var(--accent)]">{shareMessage}</span>
+        {activeViewType === "both" ? (
+          <div
+            className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
+            role="group"
+            aria-label="Multi-panel layout"
+          >
+            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Layout</span>
+            {(["split", "quad"] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={activeLayout === id}
+                aria-label={id === "split" ? "Side-by-side layout" : "Four-panel layout"}
+                onClick={() => onLayoutChange(id)}
+                className={cn(
+                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                  activeLayout === id
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+                )}
+              >
+                {id === "split" ? "Split" : "Quad"}
+              </button>
+            ))}
           </div>
         ) : null}
-        {exportMessage ? (
-          <div className="flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] px-3 py-1 shadow-sm">
-            <span className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Export</span>
-            <span className="max-w-56 truncate text-[9px] font-semibold text-[var(--accent)]">{exportMessage}</span>
-          </div>
+        {activeViewType !== "3d" ? (
+          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+            2D Plane
+            <Select
+              data-testid="toolbar-2d-plane-select"
+              aria-label="2D Plane"
+              value={plane2d}
+              onChange={(event) => onPlane2dChange(event.target.value as Axis2DPair)}
+              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+            >
+              <option value="xy">XY</option>
+              <option value="xz">XZ</option>
+              <option value="yz">YZ</option>
+            </Select>
+          </label>
         ) : null}
-        <div className="flex items-center gap-2 rounded-full border border-[var(--border-strong)] bg-[var(--bg-primary)] px-3 py-1 shadow-sm">
-          <span className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Autosave</span>
-          <span className="text-[9px] font-bold text-[var(--accent)]">
-            {autosaveStatus === "error" ? "ERROR" : autosaveStatus.toUpperCase()}
+        {activeViewType !== "2d" ? (
+          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+            3D Base
+            <Select
+              data-testid="toolbar-3d-base-select"
+              aria-label="3D Base"
+              value={base3d}
+              onChange={(event) => onBase3dChange(event.target.value as Axis2DPair)}
+              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+            >
+              <option value="xy">Base XY</option>
+              <option value="xz">Base XZ</option>
+              <option value="yz">Base YZ</option>
+            </Select>
+          </label>
+        ) : null}
+        <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+          Tool
+          <Select
+            value={activeToolLabel === "select" ? "probe" : activeToolLabel}
+            onChange={(event) => onToolChange(event.target.value as "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw")}
+            className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+          >
+            <option value="pan">Pan</option>
+            <option value="probe">Probe</option>
+            <option value="addPin">Pin</option>
+            <option value="measureDistance">Distance</option>
+            <option value="measureAngle">Angle</option>
+            <option value="draw">Sketch</option>
+          </Select>
+        </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 overflow-x-auto rounded-md border border-[var(--border-subtle)] bg-transparent px-1.5 py-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setExamplesDialogError(null);
+            setExamplesDialogOpen(true);
+          }}
+          className="uppercase tracking-wide"
+        >
+          Examples
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => setShareDialogOpen(true)}
+          className="uppercase tracking-wide"
+        >
+          Share
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={handleExportJson}
+          className="uppercase tracking-wide"
+        >
+          Export
+        </Button>
+        <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent px-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Objects</span>
+          <Badge variant="default" className="h-5 rounded">{objectCount}</Badge>
+        </div>
+        <div
+          className={cn(
+            "flex h-8 min-w-0 max-w-[220px] shrink-0 items-center gap-1.5 rounded-md border bg-transparent px-2.5",
+            autosaveStatus === "error"
+              ? "border-rose-500/40"
+              : autosaveStatus === "saving"
+                ? "border-amber-500/40"
+                : autosaveStatus === "saved"
+                  ? "border-emerald-500/40"
+                  : "border-[var(--border-strong)]"
+          )}
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Autosave</span>
+          <span
+            className={cn(
+              "shrink-0 text-[11px] font-semibold",
+              autosaveStatus === "error"
+                ? "text-rose-400"
+                : autosaveStatus === "saving"
+                  ? "text-amber-400"
+                  : autosaveStatus === "saved"
+                    ? "text-emerald-400"
+                    : "text-[var(--text-secondary)]"
+            )}
+          >
+            {autosaveStatus === "dirty"
+              ? "Unsaved"
+              : autosaveStatus === "saved"
+                ? "Saved"
+                : autosaveStatus === "saving"
+                  ? "Saving"
+                  : autosaveStatus === "error"
+                    ? "Error"
+                    : "Idle"}
           </span>
           {autosaveError ? (
-            <span className="max-w-40 truncate text-[9px] font-medium text-amber-400" title={autosaveError}>
-              {autosaveError}
-            </span>
+            <span className="truncate text-[10px] font-medium text-rose-300" title={autosaveError}>{autosaveError}</span>
           ) : null}
         </div>
 
-        <button
-          ref={themeTriggerRef}
+        <Button
           type="button"
-          aria-label="Open theme and accent menu"
-          aria-expanded={themeMenuOpen}
-          aria-controls="vinculum-theme-menu"
-          aria-haspopup="menu"
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              event.stopPropagation();
-              setThemeMenuOpen((v) => !v);
-            }
-          }}
-          onClick={() => setThemeMenuOpen((v) => !v)}
-          className={cn(
-            "flex items-center justify-center h-7 w-7 rounded-full transition-all",
-            themeMenuOpen ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
-          )}
+          onClick={onToggleInspector}
+          variant={inspectorOpen ? "primary" : "secondary"}
+          size="sm"
+          className="uppercase tracking-wide"
         >
-          {themeMode === "dark" ? <MoonIcon className="h-3.5 w-3.5" /> : <SunIcon className="h-3.5 w-3.5" />}
-        </button>
-      </div>
+          Inspector
+        </Button>
 
-      {fileMenuOpen && (
-        <Portal>
-          <div
-            id="vinculum-scene-menu"
-            ref={fileMenuContainerRef}
-            data-portal-content="true"
-            role="menu"
-            aria-label="Scene menu"
-            className="fixed z-[100] w-44 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl backdrop-blur-xl animate-slide-up"
-            style={{
-              top: (fileTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
-              left: (fileTriggerRef.current?.getBoundingClientRect().left ?? 0)
-            }}
-          >
-            <div className="p-1 flex flex-col gap-0.5">
-              <MenuButton onClick={handleNewSceneMenuClick}>New Scene</MenuButton>
-              <MenuButton onClick={handleSaveProject}>Save project</MenuButton>
-              <MenuButton
-                onClick={() => {
-                  setProjectDialogError(null);
-                  setProjectDialogMode("saveAs");
-                  setFileMenuOpen(false);
-                }}
-              >
-                Save as...
-              </MenuButton>
-              <MenuButton
-                onClick={() => {
-                  setProjectDialogError(null);
-                  setProjectDialogMode("open");
-                  setFileMenuOpen(false);
-                }}
-              >
-                Open project...
-              </MenuButton>
-              <MenuButton
-                onClick={() => {
-                  setExamplesDialogError(null);
-                  setExamplesDialogOpen(true);
-                  setFileMenuOpen(false);
-                }}
-              >
-                Open example...
-              </MenuButton>
-              <MenuButton
-                onClick={() => {
-                  onOpenWelcome?.();
-                  setFileMenuOpen(false);
-                }}
-              >
-                Welcome / getting started
-              </MenuButton>
-              <MenuButton onClick={() => { openSceneDialog("import"); setFileMenuOpen(false); }}>Import...</MenuButton>
-              <MenuButton onClick={handleExportJson}>Export JSON</MenuButton>
-              <MenuButton onClick={handleExport2dPng}>Export 2D PNG</MenuButton>
-              <MenuButton onClick={handleExport2dSvg}>Export 2D SVG</MenuButton>
-              <MenuButton onClick={handleExport3dPng}>Export 3D PNG</MenuButton>
-              <MenuButton onClick={handleCopyShareLink}>Copy share link</MenuButton>
-            </div>
-          </div>
-        </Portal>
-      )}
-
-      {themeMenuOpen && (
-        <Portal>
-          <div
-            id="vinculum-theme-menu"
-            ref={themeMenuContainerRef}
-            data-portal-content="true"
-            role="menu"
-            aria-label="Theme and accent menu"
-            className="fixed z-[100] w-64 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl backdrop-blur-xl animate-slide-up p-4 flex flex-col gap-6"
-            style={{
-              top: (themeTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
-              right: window.innerWidth - (themeTriggerRef.current?.getBoundingClientRect().right ?? 0)
-            }}
-          >
-            <div>
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Appearance</h3>
-              <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--bg-primary)] border border-[var(--border-strong)]">
-                <button
-                  type="button"
-                  aria-label="Use light theme"
-                  onClick={() => setThemeMode("light")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[10px] font-bold transition",
-                    themeMode === "light" ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  )}
-                >
-                  <SunIcon className="h-3.5 w-3.5" /> LIGHT
-                </button>
-                <button
-                  type="button"
-                  aria-label="Use dark theme"
-                  onClick={() => setThemeMode("dark")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 h-7 rounded-full text-[10px] font-bold transition",
-                    themeMode === "dark" ? "bg-[var(--bg-tertiary)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-                  )}
-                >
-                  <MoonIcon className="h-3.5 w-3.5" /> DARK
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Accent Color</h3>
-              <div className="grid grid-cols-5 gap-3 justify-items-center">
-                {accentOptions.map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => setAccentPreset(preset)}
-                    className={cn(
-                      "h-6 w-6 rounded-full border-2 transition-all hover:scale-125 active:scale-90",
-                      accentPreset === preset ? "border-[var(--text-primary)] ring-2 ring-[var(--accent-primary)]/20 shadow-md" : "border-transparent opacity-80 hover:opacity-100"
-                    )}
-                    style={{ backgroundColor: `var(--clr-${preset})` }}
-                    aria-label={`Accent ${preset}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Performance</h3>
+        <Popover open={themeMenuOpen} onOpenChange={setThemeMenuOpen}>
+          <PopoverTrigger>
+            {(props) => (
               <button
+                ref={props.ref as any}
                 type="button"
-                role="checkbox"
-                aria-checked={showPerfHud}
-                onClick={() => setShowPerfHud(!showPerfHud)}
+                aria-label="Open theme and accent menu"
+                aria-expanded={props["aria-expanded"]}
+                aria-controls={props["aria-controls"]}
+                aria-haspopup={props["aria-haspopup"]}
+                onClick={props.onClick}
+                onKeyDown={props.onKeyDown}
                 className={cn(
-                  "flex items-center justify-between gap-3 w-full h-8 px-3 rounded-full border text-[10px] font-bold transition",
-                  showPerfHud
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "border-[var(--border-subtle)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+                  "flex h-8 w-8 items-center justify-center rounded-md border transition-all",
+                  themeMenuOpen
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                 )}
               >
-                <span>Performance HUD</span>
-                <span className="font-mono">{showPerfHud ? "ON" : "OFF"}</span>
+                {themeMode === "dark" ? <MoonIcon className="h-3.5 w-3.5" /> : <SunIcon className="h-3.5 w-3.5" />}
               </button>
+            )}
+          </PopoverTrigger>
+          <PopoverContent className="w-72">
+            <ThemeAccentPopover showPerformance={true} />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share and export</DialogTitle>
+          <DialogDescription>Copy a share URL or trigger existing export actions.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 px-5 py-4">
+          <section className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Share</p>
+            <div className="grid grid-cols-1 gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={handleCopyShareLink}>
+                Copy share link
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleCopyCurrentUrl}>
+                Copy current URL
+              </Button>
             </div>
-          </div>
-        </Portal>
-      )}
+          </section>
+          <Separator />
+          <section className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Export</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={handleExportJson}>
+                JSON
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleExport2dSvg}>
+                2D SVG
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleExport2dPng}>
+                2D PNG
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={handleExport3dPng}>
+                3D PNG
+              </Button>
+            </div>
+          </section>
+          {actionFeedback ? (
+            <div className="rounded-md border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-[11px] text-[var(--text-secondary)]">
+              {actionFeedback}
+            </div>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="secondary" size="sm" data-autofocus="true" onClick={() => setShareDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
     </>
   );
@@ -752,20 +910,10 @@ function ToolbarAction({ onClick, disabled, icon, title }: any) {
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex items-center justify-center h-7 w-7 rounded-full text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[var(--text-secondary)] transition-all hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
     >
       {icon}
     </button>
   );
 }
 
-function MenuButton({ children, onClick }: any) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center px-3 py-1.5 text-[10px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-soft)] rounded-md transition-all uppercase tracking-tight"
-    >
-      {children}
-    </button>
-  );
-}

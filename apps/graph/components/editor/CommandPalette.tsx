@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -69,11 +70,8 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
   }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-[var(--surface-backdrop)]/80 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="mx-auto mt-[10vh] w-full max-w-xl overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-[var(--shadow-floating)]"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-w-xl self-start mt-[10vh] p-0 border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-[var(--shadow-floating)]" contentProps={{ onClick: (event) => event.stopPropagation() }}>
         <div className="border-b border-[var(--border-subtle)] p-3">
           <Input
             autoFocus
@@ -184,7 +182,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
           </span>
           <span>Cmd/Ctrl+K or Cmd/Ctrl+Shift+P · ↑/↓ Navigate · Enter Run · Esc Close</span>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
