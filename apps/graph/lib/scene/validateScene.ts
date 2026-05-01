@@ -1,12 +1,26 @@
-import type { GraphObject, GraphObjectKind, ParametricCurveObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject } from "@vinculum/scene/types";
 import {
-  MAX_SURFACE_RESOLUTION,
-  MIN_SURFACE_RESOLUTION,
-  normalizeSurfaceResolution
-} from "@vinculum/scene/defaults";
-import { createSceneDocument, DEFAULT_SCENE_NAME, SCENE_DOCUMENT_VERSION, type SceneDocument } from "./sceneSchema";
-
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
+  cloneSceneMeasurement,
+  createSceneDocument,
+  CURRENT_SCENE_SCHEMA_VERSION,
+  SCENE_DOCUMENT_VERSION,
+  type SceneMeasurement,
+  type SceneDocument
+} from "./sceneSchema";
+import { parseGraphObject } from "./validateSceneGraphParsers";
+import {
+  isRecord,
+  parseSceneMetadata,
+  parseSceneSchemaVersion,
+  parseSceneVersion,
+  parseMeasurementPoint
+} from "./validateScenePrimitives";
+import {
+  MAX_SCENE_CONSTRAINT_COUNT,
+  MAX_SCENE_GROUP_COUNT,
+  MAX_SCENE_MEASUREMENT_COUNT,
+  MAX_SCENE_OBJECT_COUNT
+} from "./importPayloadLimits";
 
 export interface SceneValidationResult {
   valid: boolean;
@@ -24,11 +38,35 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
     };
   }
 
-  const version = parseVersion(input.version, errors);
-  const metadata = parseMetadata(input.metadata, errors);
+  const migrationResult = migrateSceneDocumentEnvelope(input);
+  if (!migrationResult.ok) {
+    return {
+      valid: false,
+      errors: migrationResult.errors
+    };
+  }
 
-  if (!Array.isArray(input.objects)) {
+  const migratedInput = migrationResult.document;
+  rejectUnsupportedTopLevelKeys(migratedInput, errors);
+
+  const schemaVersion = parseSceneSchemaVersion(migratedInput.schemaVersion, errors);
+  if (schemaVersion !== CURRENT_SCENE_SCHEMA_VERSION) {
+    errors.push(
+      `Scene schema version ${schemaVersion} is not supported. Expected schema version ${CURRENT_SCENE_SCHEMA_VERSION}.`
+    );
+  }
+  const version = parseSceneVersion(migratedInput.version, errors);
+  const metadata = parseSceneMetadata(migratedInput.metadata, errors);
+
+  if (!Array.isArray(migratedInput.objects)) {
     errors.push("objects must be an array.");
+    return {
+      valid: false,
+      errors
+    };
+  }
+  if (migratedInput.objects.length > MAX_SCENE_OBJECT_COUNT) {
+    errors.push(`objects cannot exceed ${MAX_SCENE_OBJECT_COUNT}.`);
     return {
       valid: false,
       errors
@@ -37,12 +75,14 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
 
   const normalizedObjects: GraphObject[] = [];
 
-  input.objects.forEach((rawObject, objectIndex) => {
+  migratedInput.objects.forEach((rawObject, objectIndex) => {
     const parsedObject = parseGraphObject(rawObject, objectIndex, errors);
     if (parsedObject) {
       normalizedObjects.push(parsedObject);
     }
   });
+
+  const normalizedMeasurements = parseSceneMeasurements(migratedInput.measurements, errors);
 
   if (errors.length > 0) {
     return {
@@ -55,310 +95,216 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
     valid: true,
     errors: [],
     normalizedScene: createSceneDocument({
+      // createSceneDocument normalizes to current schema version.
       version,
       metadata,
-      objects: normalizedObjects
+      objects: normalizedObjects,
+      measurements: normalizedMeasurements
     })
   };
 }
 
-function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
-  if (!isRecord(rawObject)) {
-    errors.push(`objects[${objectIndex}] must be an object.`);
-    return null;
+type MigrationStep = (document: Record<string, unknown>) => Record<string, unknown>;
+
+const SCENE_DOCUMENT_MIGRATIONS: Record<number, MigrationStep> = {
+  0: migrateSceneDocumentV0ToV1
+};
+
+function migrateSceneDocumentEnvelope(input: Record<string, unknown>):
+  | { ok: true; document: Record<string, unknown> }
+  | { ok: false; errors: string[] } {
+  const errors: string[] = [];
+  const startingVersion = inferSceneSchemaVersion(input, errors);
+
+  if (errors.length > 0 || startingVersion === null) {
+    return { ok: false, errors };
   }
 
-  const id = requireNonEmptyString(rawObject.id, `objects[${objectIndex}].id`, errors);
-  const kind = parseObjectKind(rawObject.kind, `objects[${objectIndex}].kind`, errors);
-  const color = parseColor(rawObject.color, `objects[${objectIndex}].color`, errors);
-  const visible = parseBoolean(rawObject.visible, `objects[${objectIndex}].visible`, errors);
-
-  if (!id || !kind || !color || visible === null) {
-    return null;
-  }
-
-  if (kind === "surface") {
-    return parseSurfaceGraphObject(rawObject, objectIndex, id, color, visible, errors);
-  }
-
-  if (kind === "parametricCurve") {
-    return parseParametricCurveObject(rawObject, objectIndex, id, color, visible, errors);
-  }
-
-  return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
-}
-
-function parseSurfaceGraphObject(
-  rawObject: Record<string, unknown>,
-  objectIndex: number,
-  id: string,
-  color: string,
-  visible: boolean,
-  errors: string[]
-): SurfaceGraphObject | null {
-  const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
-
-  const domainPath = `objects[${objectIndex}].domain`;
-  if (!isRecord(rawObject.domain)) {
-    errors.push(`${domainPath} must be an object.`);
-    return null;
-  }
-
-  const xMin = parseFiniteNumber(rawObject.domain.xMin, `${domainPath}.xMin`, errors);
-  const xMax = parseFiniteNumber(rawObject.domain.xMax, `${domainPath}.xMax`, errors);
-  const yMin = parseFiniteNumber(rawObject.domain.yMin, `${domainPath}.yMin`, errors);
-  const yMax = parseFiniteNumber(rawObject.domain.yMax, `${domainPath}.yMax`, errors);
-
-  const resolution = parseInteger(
-    rawObject.resolution,
-    `objects[${objectIndex}].resolution`,
-    errors,
-    MIN_SURFACE_RESOLUTION,
-    MAX_SURFACE_RESOLUTION
-  );
-
-  const appearancePath = `objects[${objectIndex}].appearance`;
-  if (!isRecord(rawObject.appearance)) {
-    errors.push(`${appearancePath} must be an object.`);
-    return null;
-  }
-
-  const wireframe = parseBoolean(rawObject.appearance.wireframe, `${appearancePath}.wireframe`, errors);
-
-  if (!equation || xMin === null || xMax === null || yMin === null || yMax === null || resolution === null || wireframe === null) {
-    return null;
-  }
-
-  return {
-    id,
-    kind: "surface",
-    equation,
-    visible,
-    color,
-    domain: {
-      xMin,
-      xMax,
-      yMin,
-      yMax
-    },
-    resolution: normalizeSurfaceResolution(resolution),
-    appearance: {
-      wireframe
-    }
-  };
-}
-
-function parseParametricCurveObject(
-  rawObject: Record<string, unknown>,
-  objectIndex: number,
-  id: string,
-  color: string,
-  visible: boolean,
-  errors: string[]
-): ParametricCurveObject | null {
-  const xExpr = requireString(rawObject.xExpr, `objects[${objectIndex}].xExpr`, errors);
-  const yExpr = requireString(rawObject.yExpr, `objects[${objectIndex}].yExpr`, errors);
-  const zExpr = requireString(rawObject.zExpr, `objects[${objectIndex}].zExpr`, errors);
-  const tMin = parseFiniteNumber(rawObject.tMin, `objects[${objectIndex}].tMin`, errors);
-  const tMax = parseFiniteNumber(rawObject.tMax, `objects[${objectIndex}].tMax`, errors);
-  const samples = parseInteger(rawObject.samples, `objects[${objectIndex}].samples`, errors, 2);
-
-  if (!xExpr || !yExpr || !zExpr || tMin === null || tMax === null || samples === null) {
-    return null;
-  }
-
-  return {
-    id,
-    kind: "parametricCurve",
-    xExpr,
-    yExpr,
-    zExpr,
-    tMin,
-    tMax,
-    samples,
-    color,
-    visible
-  };
-}
-
-function parsePlaneGraphObject(
-  rawObject: Record<string, unknown>,
-  objectIndex: number,
-  id: string,
-  color: string,
-  visible: boolean,
-  errors: string[]
-): PlaneGraphObject | null {
-  const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
-  const size = parseInteger(rawObject.size, `objects[${objectIndex}].size`, errors, 1);
-
-  const appearancePath = `objects[${objectIndex}].appearance`;
-  if (!isRecord(rawObject.appearance)) {
-    errors.push(`${appearancePath} must be an object.`);
-    return null;
-  }
-
-  const wireframe = parseBoolean(rawObject.appearance.wireframe, `${appearancePath}.wireframe`, errors);
-
-  if (!equation || size === null || wireframe === null) {
-    return null;
-  }
-
-  return {
-    id,
-    kind: "plane",
-    equation,
-    size,
-    color,
-    visible,
-    appearance: {
-      wireframe
-    }
-  };
-}
-
-function parseVersion(value: unknown, errors: string[]): string {
-  if (typeof value !== "string") {
-    errors.push("version must be a string.");
-    return SCENE_DOCUMENT_VERSION;
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    errors.push("version cannot be empty.");
-    return SCENE_DOCUMENT_VERSION;
-  }
-
-  return trimmed;
-}
-
-function parseMetadata(value: unknown, errors: string[]): {
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-} {
-  if (!isRecord(value)) {
-    errors.push("metadata must be an object.");
-    const now = new Date().toISOString();
+  if (startingVersion > CURRENT_SCENE_SCHEMA_VERSION) {
     return {
-      name: DEFAULT_SCENE_NAME,
-      createdAt: now,
-      updatedAt: now
+      ok: false,
+      errors: [
+        `Unsupported scene schema version ${startingVersion}. This editor supports up to schema version ${CURRENT_SCENE_SCHEMA_VERSION}. Export this scene from a compatible version or upgrade Vinculum.`
+      ]
     };
   }
 
-  const name = requireNonEmptyString(value.name, "metadata.name", errors) ?? DEFAULT_SCENE_NAME;
-  const createdAt = parseIsoTimestamp(value.createdAt, "metadata.createdAt", errors) ?? new Date().toISOString();
-  const updatedAt = parseIsoTimestamp(value.updatedAt, "metadata.updatedAt", errors) ?? createdAt;
+  let nextDocument = { ...input };
+  let cursorVersion = startingVersion;
+
+  while (cursorVersion < CURRENT_SCENE_SCHEMA_VERSION) {
+    const migrateStep = SCENE_DOCUMENT_MIGRATIONS[cursorVersion];
+    if (!migrateStep) {
+      return {
+        ok: false,
+        errors: [
+          `Scene schema version ${cursorVersion} cannot be migrated automatically. Re-export the scene from a newer Vinculum version and try again.`
+        ]
+      };
+    }
+
+    nextDocument = migrateStep(nextDocument);
+    cursorVersion += 1;
+  }
+
+  return { ok: true, document: nextDocument };
+}
+
+function inferSceneSchemaVersion(input: Record<string, unknown>, errors: string[]): number | null {
+  const rawSchemaVersion = input.schemaVersion;
+  if (typeof rawSchemaVersion === "undefined") {
+    // Legacy schema: version field existed before schemaVersion.
+    return 0;
+  }
+
+  if (typeof rawSchemaVersion !== "number" || !Number.isInteger(rawSchemaVersion)) {
+    errors.push("schemaVersion must be an integer when provided.");
+    return null;
+  }
+
+  if (rawSchemaVersion < 0) {
+    errors.push("schemaVersion must be >= 0.");
+    return null;
+  }
+
+  return rawSchemaVersion;
+}
+
+function migrateSceneDocumentV0ToV1(document: Record<string, unknown>): Record<string, unknown> {
+  const nextVersion =
+    typeof document.version === "string" && document.version.trim().length > 0
+      ? document.version.trim()
+      : SCENE_DOCUMENT_VERSION;
 
   return {
-    name,
-    createdAt,
-    updatedAt
+    ...document,
+    schemaVersion: 1,
+    version: nextVersion,
+    measurements: Array.isArray(document.measurements) ? document.measurements : []
   };
 }
 
-function parseObjectKind(value: unknown, path: string, errors: string[]): GraphObjectKind | null {
-  if (value === "surface" || value === "parametricCurve" || value === "plane") {
-    return value;
+function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurement[] {
+  if (typeof value === "undefined") {
+    return [];
   }
 
-  errors.push(`${path} must be one of: surface, parametricCurve, plane.`);
-  return null;
-}
-
-function parseColor(value: unknown, path: string, errors: string[]): string | null {
-  if (typeof value !== "string" || !HEX_COLOR_PATTERN.test(value.trim())) {
-    errors.push(`${path} must be a hex color like #3b82f6.`);
-    return null;
+  if (!Array.isArray(value)) {
+    errors.push("measurements must be an array when provided.");
+    return [];
+  }
+  if (value.length > MAX_SCENE_MEASUREMENT_COUNT) {
+    errors.push(`measurements cannot exceed ${MAX_SCENE_MEASUREMENT_COUNT}.`);
+    return [];
   }
 
-  return value.trim().toLowerCase();
-}
+  const normalized: SceneMeasurement[] = [];
 
-function parseBoolean(value: unknown, path: string, errors: string[]): boolean | null {
-  if (typeof value !== "boolean") {
-    errors.push(`${path} must be a boolean.`);
-    return null;
-  }
+  value.forEach((rawMeasurement, index) => {
+    const path = `measurements[${index}]`;
+    if (!isRecord(rawMeasurement)) {
+      errors.push(`${path} must be an object.`);
+      return;
+    }
 
-  return value;
-}
+    const id = typeof rawMeasurement.id === "string" ? rawMeasurement.id.trim() : "";
+    if (id.length === 0) {
+      errors.push(`${path}.id must be a non-empty string.`);
+      return;
+    }
 
-function parseFiniteNumber(value: unknown, path: string, errors: string[]): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    errors.push(`${path} must be a finite number.`);
-    return null;
-  }
+    const kind = rawMeasurement.kind;
+    if (kind === "pin") {
+      const point = parseMeasurementPoint(rawMeasurement.point, `${path}.point`, errors);
+      if (!point) {
+        return;
+      }
 
-  return value;
-}
+      const label =
+        typeof rawMeasurement.label === "string" && rawMeasurement.label.trim().length > 0
+          ? rawMeasurement.label.trim()
+          : undefined;
+      normalized.push({
+        id,
+        kind: "pin",
+        point,
+        label
+      });
+      return;
+    }
 
-function parseInteger(
-  value: unknown,
-  path: string,
-  errors: string[],
-  min: number,
-  max = Number.POSITIVE_INFINITY
-): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    errors.push(`${path} must be a finite number.`);
-    return null;
-  }
+    if (kind === "distance" || kind === "angle") {
+      if (!Array.isArray(rawMeasurement.points)) {
+        errors.push(`${path}.points must be an array.`);
+        return;
+      }
 
-  const normalized = Math.floor(value);
-  if (normalized < min) {
-    errors.push(`${path} must be >= ${min}.`);
-    return null;
-  }
+      const expected = kind === "distance" ? 2 : 3;
+      if (rawMeasurement.points.length !== expected) {
+        errors.push(`${path}.points must include exactly ${expected} points.`);
+        return;
+      }
 
-  if (normalized > max) {
-    errors.push(`${path} must be <= ${max}.`);
-    return null;
-  }
+      const points = rawMeasurement.points
+        .map((point, pointIndex) => parseMeasurementPoint(point, `${path}.points[${pointIndex}]`, errors))
+        .filter((point): point is { x: number; y: number; z: number } => point !== null);
+
+      if (points.length !== expected) {
+        return;
+      }
+
+      normalized.push(
+        cloneSceneMeasurement(
+          kind === "distance"
+            ? {
+                id,
+                kind,
+                points: [points[0], points[1]]
+              }
+            : {
+                id,
+                kind,
+                points: [points[0], points[1], points[2]]
+              }
+        )
+      );
+      return;
+    }
+
+    errors.push(`${path}.kind must be one of: distance, angle, pin.`);
+  });
 
   return normalized;
 }
 
-function requireString(value: unknown, path: string, errors: string[]): string | null {
-  if (typeof value !== "string") {
-    errors.push(`${path} must be a string.`);
-    return null;
+function rejectUnsupportedTopLevelKeys(document: Record<string, unknown>, errors: string[]): void {
+  const allowedKeys = new Set(["schemaVersion", "version", "metadata", "objects", "measurements"]);
+
+  if ("groups" in document) {
+    const groups = document.groups;
+    if (!Array.isArray(groups)) {
+      errors.push("groups must be an array when provided.");
+    } else if (groups.length > MAX_SCENE_GROUP_COUNT) {
+      errors.push(`groups cannot exceed ${MAX_SCENE_GROUP_COUNT}.`);
+    } else {
+      errors.push("groups are not supported by this scene schema.");
+    }
   }
 
-  return value;
-}
-
-function requireNonEmptyString(value: unknown, path: string, errors: string[]): string | null {
-  if (typeof value !== "string") {
-    errors.push(`${path} must be a string.`);
-    return null;
+  if ("constraints" in document) {
+    const constraints = document.constraints;
+    if (!Array.isArray(constraints)) {
+      errors.push("constraints must be an array when provided.");
+    } else if (constraints.length > MAX_SCENE_CONSTRAINT_COUNT) {
+      errors.push(`constraints cannot exceed ${MAX_SCENE_CONSTRAINT_COUNT}.`);
+    } else {
+      errors.push("constraints are not supported by this scene schema.");
+    }
   }
 
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    errors.push(`${path} cannot be empty.`);
-    return null;
+  for (const key of Object.keys(document)) {
+    if (!allowedKeys.has(key) && key !== "groups" && key !== "constraints") {
+      errors.push(`Unsupported top-level field "${key}".`);
+    }
   }
-
-  return trimmed;
-}
-
-function parseIsoTimestamp(value: unknown, path: string, errors: string[]): string | null {
-  if (typeof value !== "string") {
-    errors.push(`${path} must be an ISO timestamp string.`);
-    return null;
-  }
-
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) {
-    errors.push(`${path} must be a valid timestamp.`);
-    return null;
-  }
-
-  return new Date(timestamp).toISOString();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

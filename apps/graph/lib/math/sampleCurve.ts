@@ -1,4 +1,5 @@
 import type { ParametricEvaluator } from "./compileParametric";
+import { MAX_PARAMETRIC_CURVE_SAMPLES } from "./expressionSafety";
 
 interface SampleCurveOptions {
   tMin: number;
@@ -14,7 +15,12 @@ export interface SampledCurve {
 const DEFAULT_CLAMP_COORDINATE = 10_000;
 
 export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveOptions): SampledCurve {
-  const samples = Math.max(2, Math.floor(options.samples));
+  const requestedSamples = Math.floor(options.samples);
+  if (!Number.isFinite(requestedSamples) || requestedSamples > MAX_PARAMETRIC_CURVE_SAMPLES) {
+    throw new Error(`Resolution is too high. Use ${MAX_PARAMETRIC_CURVE_SAMPLES} or lower.`);
+  }
+
+  const samples = Math.max(2, requestedSamples);
   const rawTMin = Number.isFinite(options.tMin) ? options.tMin : -1;
   const rawTMax = Number.isFinite(options.tMax) ? options.tMax : 1;
   let tMin = Math.min(rawTMin, rawTMax);
@@ -33,9 +39,9 @@ export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveO
     const [x, y, z] = evaluate(t);
 
     const point = sanitizePoint([x, y, z], previousPoint, clampCoordinate);
-    positions[index * 3] = point[0];
-    positions[index * 3 + 1] = point[1];
-    positions[index * 3 + 2] = point[2];
+    positions[index * 3] = point[0];     // Math X -> Three.X
+    positions[index * 3 + 1] = point[2]; // Math Z -> Three.Y (up)
+    positions[index * 3 + 2] = point[1]; // Math Y -> Three.Z
 
     previousPoint = point;
   }

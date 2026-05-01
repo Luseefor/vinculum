@@ -7,6 +7,7 @@ interface SampleSurfaceOptions {
   resolution: number;
   invalidHeight?: number;
   clampHeight?: number;
+  orientation?: "x" | "y" | "z";
 }
 
 export interface SampledSurfaceMesh {
@@ -21,6 +22,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
   const resolution = normalizeSurfaceResolution(options.resolution);
   const invalidHeight = options.invalidHeight ?? 0;
   const clampHeight = Math.max(1, options.clampHeight ?? DEFAULT_CLAMP_HEIGHT);
+  const orientation = options.orientation ?? "z";
 
   const xMin = Math.min(options.domain.xMin, options.domain.xMax);
   const xMax = Math.max(options.domain.xMin, options.domain.xMax);
@@ -44,25 +46,41 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
   let vertexOffset = 0;
   for (let yStep = 0; yStep <= resolution; yStep += 1) {
-    const yValue = lerp(yMin, yMax, yStep / resolution);
+    const vValue = lerp(yMin, yMax, yStep / resolution);
 
     for (let xStep = 0; xStep <= resolution; xStep += 1) {
       const vertexIndex = yStep * stride + xStep;
-      const xValue = lerp(xMin, xMax, xStep / resolution);
-      const sampledHeight = evaluate(xValue, yValue);
+      const uValue = lerp(xMin, xMax, xStep / resolution);
+      const sampledHeight = evaluate(uValue, vValue);
 
-      if (Number.isFinite(sampledHeight)) {
-        positions[vertexOffset] = xValue;
-        positions[vertexOffset + 1] = clamp(sampledHeight, -clampHeight, clampHeight);
-        positions[vertexOffset + 2] = yValue;
-        validVertices[vertexIndex] = 1;
+      const isFinite = Number.isFinite(sampledHeight);
+      const h = isFinite ? clamp(sampledHeight, -clampHeight, clampHeight) : invalidHeight;
+
+      if (orientation === "x") {
+        // x = f(y, z)
+        // World mapping used throughout the scene:
+        // - world.x = math.x
+        // - world.y (up) = math.z
+        // - world.z = math.y
+        // uValue is math.y, vValue is math.z, h is math.x
+        positions[vertexOffset] = h;          // math.x -> world.x
+        positions[vertexOffset + 1] = vValue; // math.z -> world.y (up)
+        positions[vertexOffset + 2] = uValue; // math.y -> world.z
+      } else if (orientation === "y") {
+        // y = f(x, z)
+        // uValue is math.x, vValue is math.z, h is math.y
+        positions[vertexOffset] = uValue;     // math.x -> world.x
+        positions[vertexOffset + 1] = vValue; // math.z -> world.y (up)
+        positions[vertexOffset + 2] = h;      // math.y -> world.z
       } else {
-        positions[vertexOffset] = xValue;
-        positions[vertexOffset + 1] = invalidHeight;
-        positions[vertexOffset + 2] = yValue;
-        validVertices[vertexIndex] = 0;
+        // z = f(x, y)
+        // uValue is math.x, vValue is math.y, h is math.z
+        positions[vertexOffset] = uValue;     // math.x -> world.x
+        positions[vertexOffset + 1] = h;      // math.z -> world.y (up)
+        positions[vertexOffset + 2] = vValue; // math.y -> world.z
       }
 
+      validVertices[vertexIndex] = isFinite ? 1 : 0;
       vertexOffset += 3;
     }
   }

@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { cx } from "@/components/ui/styles";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { useGraphStore } from "@/store/graphStore";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function SceneImportExportDialog() {
   const sceneName = useGraphStore((state) => state.scene.metadata.name);
@@ -18,20 +27,8 @@ export default function SceneImportExportDialog() {
   useEffect(() => {
     if (!dialogState.isOpen) {
       setCopyFeedback("idle");
-      return;
     }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeSceneDialog();
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [closeSceneDialog, dialogState.isOpen]);
+  }, [dialogState.isOpen]);
 
   const importErrors = useMemo(
     () =>
@@ -84,35 +81,22 @@ export default function SceneImportExportDialog() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-backdrop)] backdrop-blur-sm p-6">
-      <div
-        className="panel flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between px-5 py-4 border-b border-[var(--border-subtle)]">
+    <Dialog
+      open={dialogState.isOpen}
+      onOpenChange={(nextOpen) => !nextOpen && closeSceneDialog()}
+    >
+      <DialogContent className="max-w-2xl">
+      <div className="flex max-h-[85vh] flex-col">
+        <DialogHeader>
           <div>
-            <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-              {isExportMode ? "Export Scene" : "Import Scene"}
-            </h3>
-            <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+            <DialogTitle>{isExportMode ? "Export Scene" : "Import Scene"}</DialogTitle>
+            <DialogDescription>
               {isExportMode
                 ? "Copy or download your scene as JSON"
                 : "Paste a scene JSON to replace current scene"}
-            </p>
+            </DialogDescription>
           </div>
-
-            <button
-              type="button"
-              onClick={closeSceneDialog}
-              className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-selection)] transition-colors"
-            >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+        </DialogHeader>
 
         {/* Content */}
         <div className="flex-1 min-h-0 p-5 overflow-y-auto">
@@ -126,6 +110,7 @@ export default function SceneImportExportDialog() {
             }}
             readOnly={isExportMode}
             spellCheck={false}
+            data-autofocus="true"
             className="input h-80 resize-none font-mono text-xs leading-relaxed"
           />
 
@@ -142,7 +127,7 @@ export default function SceneImportExportDialog() {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-[var(--border-subtle)]">
+        <DialogFooter className="items-center justify-between">
           <p
             className={cx(
               "text-[11px]",
@@ -163,37 +148,41 @@ export default function SceneImportExportDialog() {
           <div className="flex items-center gap-2">
             {isExportMode ? (
               <>
-                <button type="button" onClick={handleCopyJson} className="btn">
+                <Button type="button" variant="secondary" size="sm" onClick={handleCopyJson}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                   </svg>
                   Copy
-                </button>
+                </Button>
 
-                <button type="button" onClick={handleDownloadJson} className="btn">
+                <Button type="button" variant="secondary" size="sm" onClick={handleDownloadJson}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                   Download
-                </button>
+                </Button>
               </>
             ) : (
-              <button type="button" onClick={handleImportScene} className="btn btn-primary">
+              <Button type="button" variant="primary" size="sm" onClick={handleImportScene}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="16 16 12 12 8 16" />
                   <line x1="12" y1="12" x2="12" y2="21" />
                   <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3" />
                 </svg>
                 Import
-              </button>
+              </Button>
             )}
+            <Button type="button" variant="secondary" size="sm" onClick={closeSceneDialog}>
+              Close
+            </Button>
           </div>
-        </div>
+        </DialogFooter>
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

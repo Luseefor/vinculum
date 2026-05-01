@@ -1,4 +1,6 @@
 import { compile } from "mathjs";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { formatNonFiniteEvaluationError, validateExpressionSafety } from "./expressionSafety";
 
 interface CompiledMathExpression {
   evaluate: (scope: Record<string, number>) => unknown;
@@ -30,6 +32,15 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
     return { coefficients: null, error: normalized.error };
   }
 
+  const safety = validateExpressionSafety(normalized.expression, {
+    operation: "compile-plane",
+    expressionLabel: "Plane equation",
+    allowedSymbols: Object.keys(getEditorParameterScope())
+  });
+  if (!safety.ok) {
+    return { coefficients: null, error: safety.violation.message };
+  }
+
   let compiledExpression: CompiledMathExpression;
   try {
     compiledExpression = compile(normalized.expression) as CompiledMathExpression;
@@ -48,7 +59,7 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
   if (![d, fx, fy, fz].every(Number.isFinite)) {
     return {
       coefficients: null,
-      error: "Equation could not be evaluated."
+      error: formatNonFiniteEvaluationError()
     };
   }
 
@@ -74,7 +85,14 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
     coefficients.c * 0.5 +
     coefficients.d;
 
-  if (!Number.isFinite(linearityCheck) || Math.abs(linearityCheck - expected) > LINEARITY_TOLERANCE) {
+  if (!Number.isFinite(linearityCheck)) {
+    return {
+      coefficients: null,
+      error: formatNonFiniteEvaluationError()
+    };
+  }
+
+  if (Math.abs(linearityCheck - expected) > LINEARITY_TOLERANCE) {
     return {
       coefficients: null,
       error: "Equation must be linear in x, y, z."
@@ -168,7 +186,7 @@ function normalizePlaneEquation(equation: string): { expression: string; error: 
 
 function evaluateExpression(expression: CompiledMathExpression, x: number, y: number, z: number): number {
   try {
-    const value = expression.evaluate({ x, y, z });
+    const value = expression.evaluate({ x, y, z, ...getEditorParameterScope() });
     const numeric = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numeric) ? numeric : Number.NaN;
   } catch {

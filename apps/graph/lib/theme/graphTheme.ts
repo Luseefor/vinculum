@@ -31,10 +31,10 @@ export interface GraphThemeTokens {
 
 const DARK_THEME_TOKENS: GraphThemeTokens = {
   surfaceCanvas: "#131316",
-  gridMinor: "#252528",
-  gridMajor: "#3a3a40",
-  axisLine: "#6a6a75",
-  axisLabel: "#8a8a95",
+  gridMinor: "#1b2438",
+  gridMajor: "#2c3c5f",
+  axisLine: "#526691",
+  axisLabel: "#7f98c8",
   axisOrigin: "#64748b",
   axisNegativeRgb: [0.17, 0.2, 0.27],
   axisXPositiveRgb: [0.62, 0.37, 0.37],

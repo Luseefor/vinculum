@@ -7,6 +7,15 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom: ResizeObserver for layout-dependent overlays (e.g. 2D cursor tooltip)
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

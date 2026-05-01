@@ -18,12 +18,15 @@ export interface SurfaceAppearance {
   wireframe: boolean;
 }
 
+export type SurfaceOrientation = "z" | "y" | "x";
+
 export interface SurfaceGraphObject extends GraphObjectBase {
   kind: "surface";
   equation: string;
   domain: SurfaceDomain;
   resolution: number;
   appearance: SurfaceAppearance;
+  orientation?: SurfaceOrientation;
 }
 
 export interface ParametricCurveObject extends GraphObjectBase {

@@ -2,6 +2,8 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
+export const cn = cx;
+
 export const ui = {
   // Panels
   panel: "panel",
