@@ -12,6 +12,7 @@ export function createDefaultViewport2D(): Viewport2D {
 export function createInitialUiState(selectedObjectId: string | null): GraphUiState {
   return {
     selectedObjectId,
+    selectedMeasurementId: null,
     sceneDialog: {
       isOpen: false,
       mode: "export",

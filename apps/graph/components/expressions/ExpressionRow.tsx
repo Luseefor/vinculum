@@ -333,7 +333,7 @@ export default function ExpressionRow({
   return (
     <div
       className={cx(
-        "group px-3 py-3 transition-colors",
+        "group px-3 py-2.5 transition-colors",
         isSelected && "expr-row--selected shadow-[inset_2px_0_0_var(--accent)]",
         !isSelected && "expr-row--hoverable",
         rowDraftDiag.status === "error" && "shadow-[inset_2px_0_0_rgb(245_158_11_/_0.65)]"
@@ -341,13 +341,13 @@ export default function ExpressionRow({
       onClick={handleRowClick}
       aria-label={`${object.kind} expression row`}
     >
-      <div className="mb-2.5 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <input
           type="color"
           aria-label="Expression color"
           value={object.color}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch h-5 w-5 shrink-0 rounded-md"
+          className="color-swatch h-6 w-6 shrink-0 rounded-[6px]"
         />
 
         <GraphTypeSelector
@@ -355,7 +355,7 @@ export default function ExpressionRow({
           onChange={(nextKind) => setObjectKind(object.id, nextKind)}
         />
 
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
             onClick={(event) => {
@@ -363,10 +363,10 @@ export default function ExpressionRow({
               toggleObjectVisibility(object.id);
             }}
             className={cx(
-              "flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+              "flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent transition-colors",
               object.visible
-                ? "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-                : "text-[var(--text-tertiary)] opacity-40 hover:bg-[var(--surface-muted)]"
+                ? "text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                : "text-[var(--text-tertiary)] opacity-40 hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]"
             )}
             title={object.visible ? "Hide" : "Show"}
             aria-label={object.visible ? "Hide expression from graph" : "Show expression on graph"}
@@ -389,7 +389,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             title="Inspect"
             aria-label="Open inspector for this expression"
           >
@@ -405,7 +405,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-tertiary)] transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
             title="Remove"
             aria-label="Remove expression"
           >
@@ -444,13 +444,13 @@ export default function ExpressionRow({
           aria-invalid={surfaceDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder={graphMode === "2d" ? placeholder2d : "z = sin(x) * cos(y)"}
-          className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
+          className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
         />
       )}
 
       {object.kind === "parametricCurve" && (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[10px] font-medium text-[var(--text-tertiary)]">
+          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
             x(t)
           </label>
           <input
@@ -479,7 +479,7 @@ export default function ExpressionRow({
             aria-label="Parametric x expression"
             aria-invalid={paramDraftDiag.status === "error" && activeParametricField === "xExpr"}
             aria-describedby={`${inputIdBase}-diagnostic`}
-            className="input h-8 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[11px]"
+            className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
           />
 
           {PARAMETRIC_FIELDS.map((entry) => (
@@ -544,7 +544,7 @@ export default function ExpressionRow({
           aria-invalid={planeDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder="ax + by + cz + d = 0"
-          className="input h-9 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-3 text-[12px]"
+          className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
         />
       )}
 
@@ -586,7 +586,7 @@ function ParametricInput({
 }: ParametricInputProps) {
   return (
     <>
-      <label htmlFor={id} className="text-[10px] font-medium text-[var(--text-tertiary)]">
+      <label htmlFor={id} className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
         {label}
       </label>
       <input
@@ -601,7 +601,7 @@ function ParametricInput({
         aria-label={`Parametric ${label}`}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
-        className="input h-8 rounded-sm border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[11px]"
+        className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
       />
     </>
   );

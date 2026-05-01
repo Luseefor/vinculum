@@ -22,18 +22,18 @@ export default function TessellationSection({ object }: TessellationSectionProps
 
   return (
     <section>
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Tessellation</p>
-      <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-primary)] p-4">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Tessellation</p>
+      <div className="flex flex-col gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold text-[var(--text-secondary)]">Resolution (2-128)</p>
-          <span className="font-mono text-[10px] font-bold text-[var(--accent)]">{object.resolution}</span>
+          <p className="text-[11px] font-semibold text-[var(--text-secondary)]">Resolution (2-128)</p>
+          <span className="font-mono text-[11px] font-semibold text-[var(--accent)]">{object.resolution}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--bg-tertiary)]">
+          <div className="flex flex-1 items-center overflow-hidden rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
             <button
               type="button"
               onClick={() => stepResolution(-1)}
-              className="h-9 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <ChevronLeftIcon />
             </button>
@@ -42,12 +42,12 @@ export default function TessellationSection({ object }: TessellationSectionProps
               value={resolutionDraft}
               onChange={(e) => setResolutionDraft(e.target.value)}
               onBlur={() => updateSurfaceResolution(object.id, Number(resolutionDraft))}
-              className="h-9 flex-1 bg-transparent text-center font-mono text-[11px] font-bold outline-none"
+              className="h-8 flex-1 bg-transparent text-center font-mono text-[13px] font-semibold outline-none"
             />
             <button
               type="button"
               onClick={() => stepResolution(1)}
-              className="h-9 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <ChevronRightIcon />
             </button>

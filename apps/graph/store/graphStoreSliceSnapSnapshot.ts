@@ -71,7 +71,8 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
               world: measurement.point
             })),
           measurementDraft: null,
-          selectedObjectId: resolveSelectedObjectId(snapshot.selection.selectedObjectId, snapshot.objects)
+          selectedObjectId: resolveSelectedObjectId(snapshot.selection.selectedObjectId, snapshot.objects),
+          selectedMeasurementId: null
         }
       }));
     }

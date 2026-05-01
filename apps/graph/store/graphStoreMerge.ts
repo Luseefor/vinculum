@@ -34,6 +34,11 @@ export function mergePersistedGraphStore(
           ? mergedUi.active2dViewport
           : "primary",
       selectedObjectId: resolveSelectedObjectId(mergedUi.selectedObjectId ?? null, normalizedScene.objects),
+      selectedMeasurementId:
+        typeof mergedUi.selectedMeasurementId === "string" &&
+        normalizedScene.measurements.some((measurement) => measurement.id === mergedUi.selectedMeasurementId)
+          ? mergedUi.selectedMeasurementId
+          : null,
       measurementDraft: null,
       probePins: normalizedScene.measurements
         .filter((measurement) => measurement.kind === "pin")

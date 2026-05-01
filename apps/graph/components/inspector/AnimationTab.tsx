@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useEditorStore } from "@/lib/store/editorStore";
 
@@ -92,17 +91,17 @@ export default function AnimationTab() {
   ]);
 
   return (
-    <Card className="border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 shadow-sm">
-      <CardHeader className="p-3 pb-0">
-        <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Animation</h3>
-      </CardHeader>
-      <CardContent className="space-y-2 p-3 pt-3">
+    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <header>
+        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Animation</h3>
+      </header>
+      <div className="space-y-2 pt-3">
         <label className="block">
-          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Parameter</span>
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Parameter</span>
           <select
             value={animation.parameterId ?? ""}
             onChange={(event) => setAnimationParameterId(event.target.value || null)}
-            className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2 text-[11px]"
+            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           >
             <option value="">None</option>
             {parameters.map((parameter) => (
@@ -114,7 +113,7 @@ export default function AnimationTab() {
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Min</span>
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Min</span>
             <Input
               type="text"
               inputMode="decimal"
@@ -135,11 +134,11 @@ export default function AnimationTab() {
                   setMinDraft(String(animation.min));
                 }
               }}
-              className="h-8 text-[11px]"
+              className="h-8 rounded-[6px] text-[13px]"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Max</span>
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Max</span>
             <Input
               type="text"
               inputMode="decimal"
@@ -160,12 +159,12 @@ export default function AnimationTab() {
                   setMaxDraft(String(animation.max));
                 }
               }}
-              className="h-8 text-[11px]"
+              className="h-8 rounded-[6px] text-[13px]"
             />
           </label>
         </div>
         <label className="block">
-          <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Speed</span>
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Speed</span>
           <Input
             type="text"
             inputMode="decimal"
@@ -186,7 +185,7 @@ export default function AnimationTab() {
                 setSpeedDraft(String(animation.speed));
               }
             }}
-            className="h-8 text-[11px]"
+            className="h-8 rounded-[6px] text-[13px]"
           />
         </label>
         <div className="flex items-center gap-2 pt-1">
@@ -197,7 +196,7 @@ export default function AnimationTab() {
             Loop: {animation.loop ? "On" : "Off"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

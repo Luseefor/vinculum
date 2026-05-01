@@ -57,6 +57,7 @@ export type GraphProbePin = { id: string; color: string; world: { x: number; y: 
 
 export interface GraphUiState {
   selectedObjectId: string | null;
+  selectedMeasurementId: string | null;
   sceneDialog: SceneDialogState;
   projectSession: ProjectSessionState;
   graphMode: GraphMode;

@@ -12,6 +12,8 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
   | "setProbePinnedMath"
   | "setProbePinnedWorld"
   | "removeProbePin"
+  | "removeMeasurement"
+  | "selectMeasurement"
   | "clearProbes"
 > {
   const applyMeasurementPoint = (
@@ -22,7 +24,16 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
     if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) {
       return state;
     }
-    if (tool === "addPin" || tool === "probe") {
+    if (tool === "probe") {
+      return {
+        ui: {
+          ...state.ui,
+          measurementDraft: null
+        }
+      };
+    }
+
+    if (tool === "addPin") {
       const nextScene = applySceneCommand(state.scene, {
         type: "ADD_MEASUREMENT",
         payload: {
@@ -38,6 +49,7 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
         ui: {
           ...state.ui,
           measurementDraft: null,
+          selectedMeasurementId: null,
           probePins: extractPins(nextScene)
         }
       };
@@ -102,6 +114,7 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
         ui: {
           ...state.ui,
           canvas2dTool: tool,
+          selectedMeasurementId: null,
           measurementDraft:
             tool === "measureDistance" || tool === "measureAngle" ? state.ui.measurementDraft : null
         }
@@ -113,6 +126,7 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
         ui: {
           ...state.ui,
           canvas3dTool: tool,
+          selectedMeasurementId: null,
           measurementDraft:
             tool === "measureDistance" || tool === "measureAngle" ? state.ui.measurementDraft : null
         }
@@ -157,10 +171,35 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
           scene: nextScene,
           ui: {
             ...state.ui,
+            selectedMeasurementId: state.ui.selectedMeasurementId === id ? null : state.ui.selectedMeasurementId,
             probePins: extractPins(nextScene)
           }
         };
       });
+    },
+    removeMeasurement: (id) => {
+      set((state) => {
+        const nextScene = applySceneCommand(state.scene, {
+          type: "REMOVE_MEASUREMENT",
+          payload: { id }
+        });
+        return {
+          scene: nextScene,
+          ui: {
+            ...state.ui,
+            selectedMeasurementId: state.ui.selectedMeasurementId === id ? null : state.ui.selectedMeasurementId,
+            probePins: extractPins(nextScene)
+          }
+        };
+      });
+    },
+    selectMeasurement: (id) => {
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          selectedMeasurementId: id
+        }
+      }));
     },
 
     clearProbes: () => {

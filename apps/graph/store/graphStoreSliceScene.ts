@@ -23,6 +23,11 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           ui: {
             ...state.ui,
             selectedObjectId: resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects),
+            selectedMeasurementId:
+              state.ui.selectedMeasurementId &&
+              nextScene.measurements.some((measurement) => measurement.id === state.ui.selectedMeasurementId)
+                ? state.ui.selectedMeasurementId
+                : null,
             measurementDraft: null,
             probePins: nextScene.measurements
               .filter((measurement) => measurement.kind === "pin")
@@ -54,6 +59,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
         ui: {
           ...state.ui,
           selectedObjectId: defaultScene.objects[0]?.id ?? null,
+          selectedMeasurementId: null,
           canvas2dTool: "pan",
           canvas3dTool: "pan",
           baseline3dPlane: "xy",

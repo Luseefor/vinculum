@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import type { GraphObject } from "@vinculum/scene/types";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
@@ -21,12 +20,12 @@ export default function AppearanceTab() {
 
   if (!selectedObject) {
     return (
-      <Card className="border-dashed border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 shadow-none">
-        <CardHeader className="p-3">
-          <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Styles</h3>
-          <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Select an object to edit style controls.</p>
-        </CardHeader>
-      </Card>
+      <section className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent p-3">
+        <header>
+          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Styles</h3>
+          <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to edit style controls.</p>
+        </header>
+      </section>
     );
   }
 
@@ -40,23 +39,23 @@ export default function AppearanceTab() {
   }
 
   return (
-    <Card className="border-[var(--border-subtle)] bg-[var(--surface-overlay)]/30 shadow-sm">
-      <CardHeader className="p-3 pb-0">
-        <h3 className="text-[11px] font-semibold text-[var(--text-primary)]">Styles</h3>
-      </CardHeader>
-      <CardContent className="space-y-3 p-3 pt-3">
+    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <header>
+        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Styles</h3>
+      </header>
+      <div className="space-y-3 pt-3">
         <label className="block space-y-1">
-          <span className="text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Color</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Color</span>
           <Input
             type="color"
             value={selectedObject.color}
             onChange={(event) => updateObjectColor(selectedObject.id, event.target.value)}
-            className="h-9 w-full rounded border-[var(--border-subtle)] bg-[var(--surface-bg)] px-2"
+            className="h-8 w-full rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2"
           />
         </label>
         {selectedObject.kind === "plane" && (
-          <div className="flex items-center justify-between rounded-md border border-[var(--border-subtle)] bg-[var(--surface-bg)] px-3 py-2.5 mt-2">
-            <span className="text-[11px] text-[var(--text-secondary)]">Toggle Wireframe</span>
+          <div className="mt-2 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 py-2">
+            <span className="text-[12px] text-[var(--text-secondary)]">Toggle Wireframe</span>
             <Switch
               checked={selectedObject.appearance.wireframe}
               onCheckedChange={() => toggleSurfaceWireframe(selectedObject.id)}
@@ -64,7 +63,7 @@ export default function AppearanceTab() {
             />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

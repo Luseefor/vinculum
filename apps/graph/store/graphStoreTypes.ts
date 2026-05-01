@@ -85,6 +85,8 @@ export interface GraphStoreState {
   setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
   removeProbePin: (id: string) => void;
+  removeMeasurement: (id: string) => void;
+  selectMeasurement: (id: string | null) => void;
   clearProbes: () => void;
   setSketchExtendFraction: (fraction: number) => void;
   setSketchAutoCreate: (enabled: boolean) => void;

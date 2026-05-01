@@ -1,7 +1,6 @@
 "use client";
 
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
-import { cn } from "@/components/ui/styles";
 import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 
@@ -14,32 +13,32 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
   const toggleSurfaceWireframe = useGraphStore((state) => state.toggleSurfaceWireframe);
 
   return (
-    <section className="flex flex-col gap-4">
-      <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Appearance</h4>
+    <section className="flex flex-col gap-3">
+      <h4 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Appearance</h4>
       
-      <div className="flex flex-col gap-4 p-4 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-sm">
+      <div className="flex flex-col gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] mb-3">Material</p>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Material</p>
           
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-tertiary)]">
+            <div className="flex items-center gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
               <input
                 type="color"
                 aria-label="Surface color"
                 value={object.color}
                 onChange={(event) => updateObjectColor(object.id, event.target.value)}
-                className="h-9 w-9 cursor-pointer rounded-md border border-[var(--border-strong)] bg-[var(--surface-raised)] p-0.5"
+                className="h-8 w-8 cursor-pointer rounded-[6px] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-0.5"
               />
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-[var(--text-primary)]">Color</p>
-                <p className="font-mono text-[10px] font-medium text-[var(--text-tertiary)]">{object.color}</p>
+                <p className="text-[12px] font-semibold text-[var(--text-primary)]">Color</p>
+                <p className="font-mono text-[11px] text-[var(--text-tertiary)]">{object.color}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-tertiary)]">
+            <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
               <div>
-                <p className="text-[11px] font-bold text-[var(--text-primary)]">Wireframe</p>
-                <p className="text-[9px] font-medium text-[var(--text-tertiary)]">Render with edge-only topology</p>
+                <p className="text-[12px] font-semibold text-[var(--text-primary)]">Wireframe</p>
+                <p className="text-[11px] text-[var(--text-tertiary)]">Render with edge-only topology</p>
               </div>
               <Switch
                 checked={object.appearance.wireframe}

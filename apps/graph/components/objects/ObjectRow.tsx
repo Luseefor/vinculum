@@ -127,10 +127,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto_auto_auto] items-center gap-3 rounded-lg border px-3 py-2.5 transition-all",
-          selected
-            ? "border-[var(--accent)] bg-[var(--accent-soft)] ring-1 ring-[var(--accent)]/10 shadow-sm"
-            : "border-transparent hover:bg-[var(--surface-muted)]"
+          "group grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 transition-all duration-100 motion-reduce:transition-none outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]",
+          selected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]/60"
         )}
       >
         <span
@@ -141,7 +139,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         <div className="min-w-0 flex-1 overflow-hidden">
           <p
             className={cn(
-              "truncate text-[11px] font-bold tracking-tight",
+              "truncate text-[12px] font-semibold tracking-tight",
               selected ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
             )}
           >
@@ -155,7 +153,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 onChange={(e) => {
                   convertKind(e.target.value as GraphObjectKind);
                 }}
-                className="h-5 rounded border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]"
+                className="h-6 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]"
                 aria-label="Select object type"
               >
                 <option value="surface">Surface</option>
@@ -164,7 +162,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               </select>
             </div>
           ) : (
-            <p className="text-[9px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">{subLabel}</p>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{subLabel}</p>
           )}
         </div>
 
@@ -182,7 +180,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 onToggleVisibility(object.id);
               }
             }}
-            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] active:scale-[0.98]"
             aria-label={object.visible ? "Hide object" : "Show object"}
             aria-pressed={object.visible}
           >
@@ -198,7 +196,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             aria-label={isExpanded ? "Collapse definition" : "Expand definition"}
             aria-expanded={isExpanded}
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-transform",
+              "flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
               isExpanded && "rotate-180"
             )}
           >
@@ -228,7 +226,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 setMenuOpen(true);
               }
             }}
-            className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] active:scale-[0.98]"
           >
             <MoreHorizontalIcon className="h-3.5 w-3.5" />
           </button>
@@ -245,7 +243,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       />
 
       {(isExpanded || emptyCue) && (
-        <div className="mx-3 mb-2 p-3 rounded-md border border-[var(--border-strong)] bg-[var(--bg-primary)] animate-slide-up shadow-sm">
+        <div className="mx-2 mb-2 border-l border-[var(--border-subtle)] pl-2.5 pt-1 animate-slide-up">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
               Mathematical Definition
@@ -254,7 +252,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
 
           <div className="flex flex-col gap-2">
             {(object.kind === "surface" || object.kind === "plane") && (
-              <div className="flex items-center gap-2 bg-[var(--bg-tertiary)] p-1.5 rounded border border-[var(--border-subtle)] focus-within:border-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
                 <input
                   type="text"
                   value={localEq}
@@ -283,7 +281,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ].map((item) => (
                   <div
                     key={item.field}
-                    className="flex items-center gap-2 bg-[var(--bg-tertiary)] p-1.5 rounded border border-[var(--border-subtle)] focus-within:border-[var(--accent)] transition-colors"
+                    className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
                   >
                     <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-10">
                       {item.label}

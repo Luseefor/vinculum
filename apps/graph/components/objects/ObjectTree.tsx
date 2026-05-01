@@ -6,9 +6,10 @@ import ObjectRow from "@/components/objects/ObjectRow";
 
 interface ObjectTreeProps {
   filterQuery?: string;
+  visibleOnly?: boolean;
 }
 
-export default function ObjectTree({ filterQuery = "" }: ObjectTreeProps) {
+export default function ObjectTree({ filterQuery = "", visibleOnly = false }: ObjectTreeProps) {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectObject = useGraphStore((state) => state.selectObject);
@@ -19,10 +20,13 @@ export default function ObjectTree({ filterQuery = "" }: ObjectTreeProps) {
       return objects;
     }
     return objects.filter((object, index) => {
+      if (visibleOnly && !object.visible) {
+        return false;
+      }
       const label = `${object.kind} #${index + 1}`.toLowerCase();
       return label.includes(q) || object.id.toLowerCase().includes(q);
     });
-  }, [filterQuery, objects]);
+  }, [filterQuery, objects, visibleOnly]);
   const objectIndexById = useMemo(() => {
     const map = new Map<string, number>();
     objects.forEach((object, index) => {
@@ -32,12 +36,16 @@ export default function ObjectTree({ filterQuery = "" }: ObjectTreeProps) {
   }, [objects]);
 
   if (objects.length === 0) {
-    return <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No objects in scene.</p>;
+    return (
+      <div className="mx-1 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-3 text-center">
+        <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects in scene.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="space-y-1">
+    <div className="space-y-1.5">
+      <div className="space-y-0.5">
         {filtered.map((object) => {
           const index = objectIndexById.get(object.id) ?? -1;
           return (
