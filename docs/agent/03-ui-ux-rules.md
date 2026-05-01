@@ -1,5 +1,15 @@
-# 03-ui-ux-rules.md — Vinculum-Specific UI/UX Rules
+# 03-ui-ux-rules.md — Vinculum-Specific UI/UX Rules# UI REDESIGN MODE ACTIVE
 
+This project is now in redesign mode.
+
+Agent must:
+- redesign layout
+- restructure interactions
+- remove generic patterns
+
+Agent must NOT:
+- add new features
+- invent new systems
 ## Purpose
 
 This file narrows the broad frontend/design guidance in `06-designx-frontend-skill.md` to Vinculum specifically.
