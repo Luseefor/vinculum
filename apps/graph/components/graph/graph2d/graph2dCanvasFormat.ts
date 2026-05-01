@@ -15,21 +15,21 @@ export function formatCoord(n: number): string {
   if (Math.abs(n) < 1e-10) {
     return "0";
   }
-  if (Math.abs(n) >= 100 || Math.abs(n) < 0.01) {
+  if (Math.abs(n) >= 10000 || Math.abs(n) < 0.001) {
     return n.toExponential(2);
   }
-  return n.toFixed(2);
+  return parseFloat(n.toFixed(4)).toString();
 }
 
 export function formatProbeCoord(n: number): string {
   if (!Number.isFinite(n)) {
     return "NaN";
   }
-  if (Math.abs(n) < 1e-12) {
+  if (Math.abs(n) < 1e-10) {
     return "0";
   }
-  if (Math.abs(n) >= 1e4 || Math.abs(n) < 1e-4) {
-    return n.toExponential(8);
+  if (Math.abs(n) >= 10000 || Math.abs(n) < 0.001) {
+    return n.toExponential(3);
   }
-  return n.toFixed(6);
+  return parseFloat(n.toFixed(4)).toString();
 }

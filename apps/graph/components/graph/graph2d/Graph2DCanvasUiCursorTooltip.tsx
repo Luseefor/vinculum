@@ -38,18 +38,21 @@ export function Graph2DCanvasUiCursorTooltip({
     return () => ro.disconnect();
   }, [containerRef]);
 
+  const x = mousePos.screen.x;
+  const y = mousePos.screen.y;
+  const cw = containerRef.current?.clientWidth || 0;
+  const ch = containerRef.current?.clientHeight || 0;
+  const isNearRight = cw > 0 && x > cw - 200;
+  const isNearBottom = ch > 0 && y > ch - 60;
+
   return (
     <div
-      className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]"
+      className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis"
       style={{
-        left: Math.min(
-          mousePos.screen.x + CURSOR_TOOLTIP_OFFSET_PX,
-          (containerRef.current?.clientWidth || 0) - CURSOR_TOOLTIP_WIDTH_PX
-        ),
-        top: Math.min(
-          mousePos.screen.y + CURSOR_TOOLTIP_OFFSET_PX,
-          (containerRef.current?.clientHeight || 0) - VIEWPORT_BADGE_HEIGHT_PX
-        )
+        left: isNearRight ? undefined : x + CURSOR_TOOLTIP_OFFSET_PX,
+        right: isNearRight ? cw - x + CURSOR_TOOLTIP_OFFSET_PX : undefined,
+        top: isNearBottom ? undefined : y + CURSOR_TOOLTIP_OFFSET_PX,
+        bottom: isNearBottom ? ch - y + CURSOR_TOOLTIP_OFFSET_PX : undefined,
       }}
     >
       ({axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)},{" "}
