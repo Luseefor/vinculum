@@ -6,13 +6,18 @@ import ThemeSync from "@/components/theme/ThemeSync";
 import { MoonIcon, SunIcon } from "@/components/layout/icons";
 import { useGraphStore } from "@/store/graphStore";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export default function LandingPage() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const resolvedTheme = useResolvedTheme();
+
+  useEffect(() => {
+    captureEvent("landing_viewed");
+  }, []);
 
   return (
     <main className="min-h-screen max-h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -47,10 +52,10 @@ export default function LandingPage() {
                 <ThemeAccentPopover showPerformance={false} />
               </PopoverContent>
             </Popover>
-            <Link href="/documentations" className="rounded border border-[var(--border-strong)] px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)]">
+            <Link href="/documentations" onClick={() => captureEvent("landing_open_documentation_clicked")} className="rounded border border-[var(--border-strong)] px-3 py-1.5 text-[13px] font-medium text-[var(--text-secondary)]">
               Open Documentation
             </Link>
-            <Link href="/editor" className="rounded border border-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--accent)]">
+            <Link href="/editor" onClick={() => captureEvent("landing_open_editor_clicked")} className="rounded border border-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--accent)]">
               Open Editor
             </Link>
           </div>
@@ -65,13 +70,13 @@ export default function LandingPage() {
               and export tools ready to use.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/editor" className="rounded bg-[var(--accent)] px-5 py-3 text-[14px] font-semibold text-white">
+              <Link href="/editor" onClick={() => captureEvent("landing_open_editor_clicked")} className="rounded bg-[var(--accent)] px-5 py-3 text-[14px] font-semibold text-white">
                 Open Editor
               </Link>
-              <Link href="/editor?examples=1" className="rounded border border-[var(--border-strong)] px-5 py-3 text-[14px] font-semibold text-[var(--text-secondary)]">
+              <Link href="/editor?examples=1" onClick={() => captureEvent("landing_open_examples_clicked")} className="rounded border border-[var(--border-strong)] px-5 py-3 text-[14px] font-semibold text-[var(--text-secondary)]">
                 Open Examples
               </Link>
-              <Link href="/documentations" className="rounded border border-[var(--border-strong)] px-5 py-3 text-[14px] font-semibold text-[var(--text-secondary)]">
+              <Link href="/documentations" onClick={() => captureEvent("landing_open_documentation_clicked")} className="rounded border border-[var(--border-strong)] px-5 py-3 text-[14px] font-semibold text-[var(--text-secondary)]">
                 Open Documentation
               </Link>
             </div>
@@ -205,10 +210,10 @@ export default function LandingPage() {
               <p className="mt-1 text-[14px] text-[var(--text-secondary)]">Open the editor and continue with a stable production workspace.</p>
             </div>
             <div className="flex gap-2">
-              <Link href="/editor" className="rounded bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-white">
+              <Link href="/editor" onClick={() => captureEvent("landing_open_editor_clicked")} className="rounded bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-white">
                 Open Editor
               </Link>
-              <Link href="/editor?examples=1" className="rounded border border-[var(--border-strong)] px-5 py-2.5 text-[14px] font-semibold text-[var(--text-secondary)]">
+              <Link href="/editor?examples=1" onClick={() => captureEvent("landing_open_examples_clicked")} className="rounded border border-[var(--border-strong)] px-5 py-2.5 text-[14px] font-semibold text-[var(--text-secondary)]">
                 Browse Examples
               </Link>
             </div>

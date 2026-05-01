@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 import "./globals.css";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
+import PostHogPageView from "@/components/analytics/PostHogPageView";
 
 export const metadata: Metadata = {
   title: "Vinculum",
@@ -32,7 +34,14 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PostHogProvider>
+          <Suspense fallback={null}>
+            <PostHogPageView />
+          </Suspense>
+          {children}
+        </PostHogProvider>
+      </body>
     </html>
   );
 }

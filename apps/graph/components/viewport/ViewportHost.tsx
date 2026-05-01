@@ -20,7 +20,7 @@ function Pane({ selectedLabel, snapLabel, children }: { selectedLabel: string; s
     <section className="relative h-full w-full min-w-0 overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
       {/* Bottom-left: scene selection + snap (keeps bottom-right free for zoom/reset controls). */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-[12] flex max-w-[min(320px,calc(100%-4rem))] flex-col justify-end">
-        <div className="mr-auto flex min-w-0 flex-col gap-0.5 rounded-md border border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/85 px-2.5 py-1.5 text-[10px] leading-snug text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
+        <div className="mr-auto flex min-w-0 flex-col gap-0.5 rounded-[5px] border border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/88 px-2 py-1.5 text-[10px] leading-snug text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
           <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Scene</div>
           <div className="flex w-full items-baseline gap-1.5 overflow-hidden">
             <span className="shrink-0 text-[var(--text-tertiary)]">Selected</span>

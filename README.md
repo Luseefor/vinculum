@@ -68,3 +68,15 @@ bun run test:e2e:all-browsers
 
 - [Changelog](CHANGELOG.md)
 - [Roadmap](ROADMAP.md)
+
+## Privacy
+
+Vinculum may collect product usage analytics when PostHog environment variables are configured (`NEXT_PUBLIC_POSTHOG_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`). Analytics are disabled by default and require explicit configuration. When enabled, only safe metadata is tracked (such as button clicks, feature usage, and object counts). The following data is **never** tracked:
+
+- Mathematical expressions or equations
+- Scene JSON or full scene data
+- Project names
+- Personal information
+- Raw error stacks or URLs
+
+To disable analytics, simply omit the `NEXT_PUBLIC_POSTHOG_TOKEN` environment variable.

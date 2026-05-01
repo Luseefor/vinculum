@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import MermaidDiagram from "@/components/documentation/MermaidDiagram";
 import ThemeSync from "@/components/theme/ThemeSync";
@@ -9,6 +9,7 @@ import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { MoonIcon, SunIcon } from "@/components/layout/icons";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 const tocItems = [
   "What is Vinculum?",
@@ -51,6 +52,10 @@ export default function DocumentationClientPage() {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const resolvedTheme = useResolvedTheme();
 
+  useEffect(() => {
+    captureEvent("documentation_viewed");
+  }, []);
+
   return (
     <main className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <ThemeSync />
@@ -87,10 +92,10 @@ export default function DocumentationClientPage() {
               </PopoverContent>
             </Popover>
 
-            <Link href="/" className="rounded-md border border-[var(--border-strong)] bg-[var(--surface-raised)] px-4 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]">
+            <Link href="/" onClick={() => captureEvent("documentation_back_to_landing_clicked")} className="rounded-md border border-[var(--border-strong)] bg-[var(--surface-raised)] px-4 py-2 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]">
               Back to Landing
             </Link>
-            <Link href="/editor" className="rounded-md bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90">
+            <Link href="/editor" onClick={() => captureEvent("documentation_open_editor_clicked")} className="rounded-md bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90">
               Open Editor
             </Link>
           </div>
@@ -104,7 +109,7 @@ export default function DocumentationClientPage() {
                 const id = item.toLowerCase().replace(/[^a-z0-9]+/g, "-");
                 return (
                   <li key={item}>
-                    <a href={`#${id}`} className="block text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]">
+                    <a href={`#${id}`} onClick={() => captureEvent("documentation_section_clicked", { section: item })} className="block text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]">
                       {item}
                     </a>
                   </li>

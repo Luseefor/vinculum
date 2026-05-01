@@ -176,7 +176,9 @@ function drawMeasurementOverlays2d(
         ctx,
         (sa.x + sb.x) / 2,
         (sa.y + sb.y) / 2 - 6,
-        `${Math.hypot(measurement.points[0].x - measurement.points[1].x, measurement.points[0].y - measurement.points[1].y, measurement.points[0].z - measurement.points[1].z).toFixed(4)} u`
+        `${Math.hypot(measurement.points[0].x - measurement.points[1].x, measurement.points[0].y - measurement.points[1].y, measurement.points[0].z - measurement.points[1].z).toFixed(4)} u`,
+        dc.width,
+        dc.height
       );
       ctx.restore();
       continue;
@@ -223,7 +225,9 @@ function drawMeasurementOverlays2d(
       ctx,
       sv.x + Math.cos(midAngle) * (arcRadius + 12),
       sv.y + Math.sin(midAngle) * (arcRadius + 8),
-      Number.isFinite(degrees) ? `${degrees.toFixed(2)} deg` : "Invalid angle"
+      Number.isFinite(degrees) ? `${degrees.toFixed(2)} deg` : "Invalid angle",
+      dc.width,
+      dc.height
     );
     ctx.restore();
   }

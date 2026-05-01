@@ -47,7 +47,7 @@ export function Graph2DCanvasUiCursorTooltip({
 
   return (
     <div
-      className="absolute pointer-events-none rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis"
+      className="absolute pointer-events-none rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis"
       style={{
         left: isNearRight ? undefined : x + CURSOR_TOOLTIP_OFFSET_PX,
         right: isNearRight ? cw - x + CURSOR_TOOLTIP_OFFSET_PX : undefined,

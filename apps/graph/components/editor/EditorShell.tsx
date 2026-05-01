@@ -43,6 +43,7 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDerivedUpdates";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -383,6 +384,7 @@ export default function EditorShell() {
       setRecoveryError(null);
       setRecoveryDialogOpen(true);
       hasCheckedRecoveryRef.current = true;
+      captureEvent("recovery_prompt_shown");
     } catch (error) {
       const message =
         error instanceof LocalProjectRepositoryError
@@ -391,6 +393,7 @@ export default function EditorShell() {
       setRecoveryError(message);
       setRecoveryDialogOpen(true);
       hasCheckedRecoveryRef.current = true;
+      captureEvent("recovery_prompt_shown", { error_type: "read-failed" });
     }
   }, [isGraphStoreHydrated, scene.metadata.updatedAt, scene.objects.length]);
 
@@ -408,6 +411,7 @@ export default function EditorShell() {
     if (!sharedSceneResult.ok || !sharedSceneResult.scene) {
       setSharedSceneError(sharedSceneResult.error ?? "Shared scene link could not be opened.");
       setSharedSceneDialogOpen(true);
+      captureEvent("editor_shared_scene_failed", { error_type: "invalid-payload" });
       return;
     }
 
@@ -421,6 +425,7 @@ export default function EditorShell() {
       pendingSharedSceneRef.current = sharedSceneResult.scene;
       setSharedSceneError(null);
       setSharedSceneDialogOpen(true);
+      captureEvent("editor_shared_scene_detected", { action: "confirmation-required" });
       return;
     }
 
@@ -431,6 +436,7 @@ export default function EditorShell() {
       setCurrentProjectSession,
       setProjectAutosaveStatus
     });
+    captureEvent("editor_shared_scene_detected", { action: "auto-applied" });
   }, [
     clearHistory,
     currentProjectId,
@@ -454,6 +460,7 @@ export default function EditorShell() {
       return;
     }
     setExamplesOpenSignal((current) => current + 1);
+    captureEvent("editor_examples_entry_opened");
   }, [isGraphStoreHydrated]);
 
   useEffect(() => {
@@ -496,6 +503,9 @@ export default function EditorShell() {
 
     if (shouldOpen) {
       setWelcomeDialogOpen(true);
+      captureEvent("editor_opened", { entry_point: "welcome-dialog" });
+    } else {
+      captureEvent("editor_opened", { entry_point: "direct" });
     }
     hasCheckedWelcomeRef.current = true;
   }, [
@@ -561,12 +571,14 @@ export default function EditorShell() {
       setRecoveryError(null);
       setRecoveryDialogOpen(false);
       setRecoveryUpdatedAt(null);
+      captureEvent("recovery_restored");
     } catch (error) {
       const message =
         error instanceof LocalProjectRepositoryError
           ? error.message
           : "Recovery restore failed.";
       setRecoveryError(message);
+      captureEvent("recovery_restored", { success: false, error_type: "restore-failed" });
     }
   }, [clearHistory, replaceSceneDocument, setCurrentProjectSession, setProjectAutosaveStatus]);
 
@@ -576,6 +588,7 @@ export default function EditorShell() {
       setRecoveryError(null);
       setRecoveryDialogOpen(false);
       setRecoveryUpdatedAt(null);
+      captureEvent("recovery_discarded");
     } catch (error) {
       const message =
         error instanceof LocalProjectRepositoryError
@@ -810,7 +823,11 @@ export default function EditorShell() {
             base3d={baseline3dPlane}
             onBase3dChange={setBaseline3dPlane}
             activeToolLabel={activeToolLabel}
-            onToolChange={(tool) => setActiveTool(tool === "select" ? "probe" : tool)}
+            onToolChange={(tool) => {
+              const actualTool = tool === "select" ? "probe" : tool;
+              setActiveTool(actualTool);
+              captureEvent("tool_selected", { tool: actualTool });
+            }}
             inspectorOpen={contextInspectorOpen}
             onToggleInspector={() => {
               setInspectorOpen((open) => {

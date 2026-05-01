@@ -102,7 +102,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const warningBadge = document.createElement("div");
   warningBadge.className =
-    "pointer-events-none absolute left-3 bottom-[5.5rem] z-[18] max-w-[min(260px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
+    "pointer-events-none absolute left-3 bottom-[7.5rem] z-[18] max-w-[min(260px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
   warningBadge.style.display = "none";
   warningBadge.setAttribute("data-graph3d-performance-warning", "true");
   warningBadge.setAttribute("role", "status");
@@ -111,7 +111,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const probeBadge = document.createElement("div");
   probeBadge.className =
-    "pointer-events-none absolute left-3 bottom-3 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
+    "pointer-events-none absolute left-3 bottom-16 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
   probeBadge.style.display = "none";
   probeBadge.setAttribute("data-graph3d-probe", "true");
   container.appendChild(probeBadge);

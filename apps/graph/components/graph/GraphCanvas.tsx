@@ -50,7 +50,7 @@ export default function GraphCanvas() {
           "pointer-events-none absolute left-3 top-3 z-[25] flex max-w-[min(300px,calc(100%-4rem))] min-w-0 flex-col gap-1"
         )}
       >
-        <div className="rounded-md border border-[var(--border-subtle)]/80 bg-[var(--surface-overlay)]/88 px-2 py-1 shadow-sm backdrop-blur-sm">
+        <div className="rounded-[5px] border border-[var(--border-subtle)]/80 bg-[var(--surface-overlay)]/88 px-2 py-1 shadow-sm backdrop-blur-sm">
           <div className="min-w-0 truncate text-[11px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">
             3D Scene
             <span className="font-normal text-[var(--text-tertiary)]"> · </span>
