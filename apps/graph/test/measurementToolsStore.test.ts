@@ -6,6 +6,13 @@ describe("measurement tools store behavior", () => {
     useGraphStore.getState().resetScene();
   });
 
+  it("does not persist probe measurements", () => {
+    const store = useGraphStore.getState();
+    store.setCanvas2dTool("probe");
+    store.setProbePinnedMath({ horizontal: 1, vertical: 2 });
+    expect(useGraphStore.getState().scene.measurements).toHaveLength(0);
+  });
+
   it("creates a pin measurement from add pin tool", () => {
     const store = useGraphStore.getState();
     store.setCanvas2dTool("addPin");
@@ -45,5 +52,17 @@ describe("measurement tools store behavior", () => {
     const before = useGraphStore.getState().scene.measurements;
     useGraphStore.getState().setProbePinnedWorld(null);
     expect(useGraphStore.getState().scene.measurements).toBe(before);
+  });
+
+  it("removes measurements via removeMeasurement action", () => {
+    const store = useGraphStore.getState();
+    store.setCanvas2dTool("addPin");
+    store.setProbePinnedMath({ horizontal: 2, vertical: 3 });
+    const id = useGraphStore.getState().scene.measurements[0]?.id;
+    expect(id).toBeTruthy();
+    if (id) {
+      store.removeMeasurement(id);
+    }
+    expect(useGraphStore.getState().scene.measurements).toHaveLength(0);
   });
 });
