@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
 
 interface WelcomeDialogProps {
   open: boolean;
@@ -23,71 +31,16 @@ export default function WelcomeDialog({
   onContinue,
   onClose
 }: WelcomeDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const previousActiveElement = document.activeElement as HTMLElement | null;
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, input[type="checkbox"], [href], [tabindex]:not([tabindex="-1"])'
-    );
-    focusable?.[0]?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab" || !focusable || focusable.length === 0) {
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      previousActiveElement?.focus?.();
-    };
-  }, [onClose, open]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-[68] flex items-center justify-center bg-[var(--surface-backdrop)] p-6 backdrop-blur-sm"
-      onClick={onClose}
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => !nextOpen && onClose()}
     >
-      <div
-        ref={dialogRef}
-        className="panel w-full max-w-lg overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="welcome-dialog-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-[var(--border-subtle)] px-5 py-4">
-          <h2 id="welcome-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
-            Welcome to Vinculum
-          </h2>
-          <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
-            Open an example or start a blank scene to begin.
-          </p>
-        </div>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Welcome to Vinculum</DialogTitle>
+          <DialogDescription>Open an example or start a blank scene to begin.</DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-3 px-5 py-4">
           <p className="text-[11px] text-[var(--text-secondary)]">
@@ -111,18 +64,18 @@ export default function WelcomeDialog({
           </label>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--border-subtle)] px-5 py-4">
-          <button type="button" onClick={onOpenExamples} className="btn">
+        <DialogFooter className="flex-wrap">
+          <Button type="button" variant="secondary" size="sm" onClick={onOpenExamples}>
             Open example
-          </button>
-          <button type="button" onClick={onStartBlankScene} className="btn">
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={onStartBlankScene}>
             Start blank scene
-          </button>
-          <button type="button" onClick={onContinue} className="btn btn-primary">
+          </Button>
+          <Button type="button" variant="primary" size="sm" onClick={onContinue}>
             Continue
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

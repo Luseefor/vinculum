@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface NewSceneDialogProps {
   open: boolean;
@@ -10,63 +10,29 @@ interface NewSceneDialogProps {
 }
 
 export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocusTrap({ open, containerRef: dialogRef });
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onCancel]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--surface-backdrop)] p-6 backdrop-blur-sm"
-      role="presentation"
-      onClick={onCancel}
-      data-testid="new-scene-dialog-backdrop"
-    >
-      <div
-        className="panel w-full max-w-md overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-scene-title"
-        data-testid="new-scene-dialog"
-        onClick={(event) => event.stopPropagation()}
-        ref={dialogRef}
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
+      <DialogContent
+        className="max-w-md"
+        contentTestId="new-scene-dialog"
+        backdropTestId="new-scene-dialog-backdrop"
+        backdropProps={{ role: "presentation" }}
       >
-        <div className="border-b border-[var(--border-subtle)] px-5 py-4">
-          <h2 id="new-scene-title" className="text-sm font-semibold text-[var(--text-primary)]">
-            New scene
-          </h2>
-          <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+        <DialogHeader>
+          <DialogTitle>New scene</DialogTitle>
+          <DialogDescription className="leading-relaxed">
             This clears all objects and resets the view. This cannot be undone.
-          </p>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-[var(--border-subtle)] px-5 py-4">
-          <button type="button" onClick={onCancel} className="btn">
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="secondary" size="sm" onClick={onCancel} data-autofocus="true">
             Cancel
-          </button>
-          <button type="button" onClick={onConfirm} className="btn btn-primary">
+          </Button>
+          <Button type="button" variant="primary" size="sm" onClick={onConfirm}>
             Create new scene
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

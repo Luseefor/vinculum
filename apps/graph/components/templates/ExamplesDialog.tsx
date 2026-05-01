@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import type { SceneExampleDefinition } from "@/lib/templates/examplesRegistry";
 
 interface ExamplesDialogProps {
@@ -19,64 +29,35 @@ export default function ExamplesDialog({
   onClose,
   onOpenExample
 }: ExamplesDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocusTrap({ open, containerRef: dialogRef });
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-[var(--surface-backdrop)] p-6 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="panel w-full max-w-3xl overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="examples-dialog-title"
-        ref={dialogRef}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-[var(--border-subtle)] px-5 py-4">
-          <h2 id="examples-dialog-title" className="text-sm font-semibold text-[var(--text-primary)]">
-            Examples
-          </h2>
-          <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
-            Open example scenes for surfaces, planes, and parametric curves.
-          </p>
-        </div>
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Examples</DialogTitle>
+          <DialogDescription>Open example scenes for surfaces, planes, and parametric curves.</DialogDescription>
+        </DialogHeader>
 
-        <div className="max-h-96 overflow-y-auto px-5 py-4">
+        <ScrollArea className="max-h-[460px] px-5 py-4">
           {examples.length === 0 ? (
             <p className="text-[12px] text-[var(--text-tertiary)]">No examples are available.</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5">
               {examples.map((example) => (
-                <li key={example.id} className="rounded-lg border border-[var(--border-subtle)] px-3 py-2">
+                <li key={example.id} className="rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[12px] font-semibold text-[var(--text-primary)]">{example.title}</p>
-                      <p className="text-[10px] text-[var(--text-tertiary)]">
-                        {example.category} · {example.recommendedMode.toUpperCase()}
-                      </p>
-                      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{example.description}</p>
+                      <p className="text-[13px] font-semibold text-[var(--text-primary)]">{example.title}</p>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <Badge variant="secondary">{example.category}</Badge>
+                        <Badge variant="outline">{example.recommendedMode.toUpperCase()}</Badge>
+                      </div>
                     </div>
-                    <button type="button" className="btn btn-primary shrink-0" onClick={() => onOpenExample(example.id)}>
+                    <Button type="button" variant="primary" size="sm" className="shrink-0" onClick={() => onOpenExample(example.id)}>
                       Open example
-                    </button>
+                    </Button>
                   </div>
+                  <Separator className="my-2" />
+                  <p className="text-[11px] leading-relaxed text-[var(--text-secondary)]">{example.description}</p>
                 </li>
               ))}
             </ul>
@@ -86,14 +67,14 @@ export default function ExamplesDialog({
               {error}
             </div>
           ) : null}
-        </div>
+        </ScrollArea>
 
-        <div className="flex justify-end border-t border-[var(--border-subtle)] px-5 py-4">
-          <button type="button" data-autofocus="true" onClick={onClose} className="btn">
+        <DialogFooter>
+          <Button type="button" variant="secondary" size="sm" data-autofocus="true" onClick={onClose}>
             Close
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
