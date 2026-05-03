@@ -126,7 +126,9 @@ export default function TopToolbar({
   const [showBrandImageFallback, setShowBrandImageFallback] = useState(false);
   const lastOpenExamplesSignalRef = useRef(openExamplesSignal);
 
-  const scene = useGraphStore((state) => state.scene);
+   const [is3dCanvasAvailable, setIs3dCanvasAvailable] = useState(false);
+
+   const scene = useGraphStore((state) => state.scene);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const themeMode = useGraphStore((state) => state.ui.themeMode);
   const setThemeMode = useGraphStore((state) => state.setThemeMode);
@@ -152,7 +154,7 @@ export default function TopToolbar({
   const clearHistory = useHistoryStore((state) => state.clear);
   const showPerfHud = useEditorStore((state) => state.showPerfHud);
   const headerLogoSrc = themeMode === "dark" ? "/brand/logo.png" : "/brand/logo_horizontal.png";
-  useEffect(() => {
+   useEffect(() => {
     try {
       setProjects(localProjectRepository.listProjects());
       setProjectsLoadError(null);
@@ -165,6 +167,10 @@ export default function TopToolbar({
       }
     }
   }, [projectsVersion]);
+
+  useEffect(() => {
+    setIs3dCanvasAvailable(Boolean(document.querySelector('[data-graph3d-canvas="true"]')));
+  }, [graphMode]);
 
   const refreshProjects = () => {
     setProjectsVersion((version) => version + 1);
@@ -466,12 +472,13 @@ export default function TopToolbar({
 
   const handleExport3dPng = async () => {
     captureEvent("export_3d_png_clicked", { object_count: scene.objects.length });
-    if (graphMode !== "3d") {
-      setActionFeedback("Switch to 3D mode to export 3D PNG.");
+    const canvas = document.querySelector<HTMLCanvasElement>(`[data-graph3d-canvas="true"]`);
+    if (!canvas) {
+      setActionFeedback("3D canvas is not available. Switch to 3D mode and try again.");
       setFileMenuOpen(false);
+      captureEvent("export_failed", { format: "3d_png", error_type: "no_canvas" });
       return;
     }
-    const canvas = document.querySelector<HTMLCanvasElement>(`[data-graph3d-canvas="true"]`);
     const exported = await export3dPngFromCanvas({
       canvas,
       sceneName: scene.metadata.name
@@ -644,7 +651,7 @@ export default function TopToolbar({
                 <DropdownMenuItem onSelect={handleExport2dSvg} disabled={graphMode !== "2d"}>
                   Export 2D SVG
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleExport3dPng} disabled={graphMode !== "3d"}>
+                <DropdownMenuItem onSelect={handleExport3dPng} disabled={!is3dCanvasAvailable}>
                   Export 3D PNG
                 </DropdownMenuItem>
               </DropdownMenuGroup>
