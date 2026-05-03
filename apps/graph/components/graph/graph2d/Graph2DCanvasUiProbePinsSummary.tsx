@@ -29,8 +29,8 @@ export function Graph2DCanvasUiProbePinsSummary({
     <div
       className={
         embedded
-          ? "min-w-0 font-mono text-[10px] text-[var(--text-primary)]"
-          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)]"
+          ? "min-w-0 truncate font-mono text-[10px] text-[var(--text-primary)]"
+          : "max-w-[min(280px,calc(100%-1rem))] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)]"
       }
     >
       <div className="mb-0.5 text-[var(--text-tertiary)] font-medium uppercase tracking-wide">Measurements</div>
@@ -48,10 +48,12 @@ export function Graph2DCanvasUiProbePinsSummary({
       {probePins.slice(-3).reverse().map((p) => {
         const math = projectWorldTo2dPair(p.world, pairForCanvas);
         return (
-          <div key={p.id} className="mt-0.5 first:mt-0 whitespace-nowrap">
+          <div key={p.id} className="mt-0.5 first:mt-0 truncate">
             <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: p.color }} />
-            Pin {axisPair.horizontalLabel}: {formatProbeCoord(math.horizontal)} · {axisPair.verticalLabel}:{" "}
-            {formatProbeCoord(math.vertical)}
+            <span className="truncate">
+              Pin {axisPair.horizontalLabel}: {formatProbeCoord(math.horizontal)} · {axisPair.verticalLabel}:{" "}
+              {formatProbeCoord(math.vertical)}
+            </span>
           </div>
         );
       })}

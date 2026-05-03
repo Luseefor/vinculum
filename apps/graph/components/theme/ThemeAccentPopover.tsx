@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import { MoonIcon, SunIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import type { AccentPreset } from "@/types/graphUi";
-import { useDialogFocusTrap } from "@/lib/a11y/useDialogFocusTrap";
 import { captureEvent } from "@/lib/analytics/posthog";
 
 const accentOptions: AccentPreset[] = ["indigo", "blue", "cyan", "emerald", "green", "amber", "orange", "rose", "pink", "violet"];
@@ -23,8 +21,6 @@ export default function ThemeAccentPopover({
   showPerformance = true,
   context = "landing"
 }: ThemeAccentPopoverProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  useDialogFocusTrap({ open: true, containerRef });
   const themeMode = useGraphStore((state) => state.ui.themeMode);
   const setThemeMode = useGraphStore((state) => state.setThemeMode);
   const accentPreset = useGraphStore((state) => state.ui.accentPreset);
@@ -33,7 +29,7 @@ export default function ThemeAccentPopover({
   const setShowPerfHud = useEditorStore((state) => state.setShowPerfHud);
 
   return (
-    <div id="vinculum-theme-menu" ref={containerRef} className="w-72 p-3.5 flex flex-col gap-3">
+    <div id="vinculum-theme-menu" className="w-72 p-3.5 flex flex-col gap-3">
         <section className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
             <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Appearance</h3>

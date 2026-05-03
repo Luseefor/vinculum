@@ -22,8 +22,8 @@ export function Graph2DCanvasUiCursorCoordsBadge({
     <div
       className={
         embedded
-          ? "min-w-0 font-mono text-[10px] text-[var(--text-primary)]"
-          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg"
+          ? "min-w-0 truncate font-mono text-[10px] text-[var(--text-primary)]"
+          : "max-w-[min(200px,calc(100%-1rem))] truncate rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-lg"
       }
     >
       <span className="text-[var(--text-tertiary)]">Cursor </span>

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { sanitizeProperties } from "@/lib/analytics/posthog";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { sanitizeProperties, captureEvent, isAnalyticsEnabled } from "@/lib/analytics/posthog";
 
 describe("analytics module - sanitizeProperties", () => {
   it("returns undefined when input is undefined", () => {
@@ -85,9 +85,30 @@ describe("analytics module - sanitizeProperties", () => {
 describe("analytics module - captureEvent no-op", () => {
   it("does not throw when analytics is disabled", () => {
     expect(() => {
-      // This will no-op since NEXT_PUBLIC_POSTHOG_TOKEN is not set in test
-      const { captureEvent } = require("@/lib/analytics/posthog");
       captureEvent("landing_viewed");
     }).not.toThrow();
+  });
+});
+
+describe("analytics module - isAnalyticsEnabled", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("returns false when NEXT_PUBLIC_POSTHOG_KEY is missing", () => {
+    delete process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    expect(isAnalyticsEnabled()).toBe(false);
+  });
+
+  it("returns false when NEXT_PUBLIC_POSTHOG_KEY is empty", () => {
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = "";
+    expect(isAnalyticsEnabled()).toBe(false);
   });
 });

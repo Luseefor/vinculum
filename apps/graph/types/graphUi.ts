@@ -4,7 +4,7 @@ export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
 
 export type SceneDialogMode = "import" | "export";
-export type GraphMode = "2d" | "3d";
+export type GraphMode = "2d" | "3d" | "split";
 export type ThemeMode = "system" | "light" | "dark";
 export type UiDensity = "comfortable" | "balanced" | "compact";
 export type AccentPreset =

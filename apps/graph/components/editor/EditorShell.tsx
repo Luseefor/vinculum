@@ -168,7 +168,7 @@ export default function EditorShell() {
             ? "probe"
             : "pan";
   const activeViewType: "2d" | "3d" | "both" =
-    effectiveViewportMode === "split" || effectiveViewportMode === "quad" ? "both" : graphMode;
+    effectiveViewportMode === "split" || effectiveViewportMode === "quad" ? "both" : graphMode === "3d" ? "3d" : "2d";
   const activeLayout: "split" | "quad" = effectiveViewportMode === "quad" ? "quad" : "split";
   const contextInspectorOpen =
     inspectorPinned ||
@@ -778,12 +778,32 @@ export default function EditorShell() {
     window.addEventListener("pointerup", onUp);
   }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
 
+   const [isMobile, setIsMobile] = useState(false);
+
+   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   return (
     <div
       ref={shellRef}
       className="flex h-screen flex-col overflow-hidden bg-[var(--bg-primary)] font-sans"
       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
     >
+      {isMobile ? (
+        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--bg-primary)] px-6 text-center">
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">Desktop Recommended</h1>
+          <p className="max-w-[320px] text-sm text-[var(--text-secondary)]">
+            Vinculum is optimized for desktop and laptop screens. For the best experience, please use a device with a wider screen.
+          </p>
+        </div>
+      ) : (
+        <>
       <ThemeSync />
       <EditorLayoutPremium
         header={
@@ -913,7 +933,6 @@ export default function EditorShell() {
       <Sheet open={inspectorOpen || (inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
         <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
       </Sheet>
-      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
       <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
       
       <input
@@ -934,6 +953,8 @@ export default function EditorShell() {
           event.currentTarget.value = "";
         }}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -44,7 +44,7 @@ export default function GraphCanvas() {
   const basePlane = format3dBasePlaneLabel(baseline3dPlane);
 
   return (
-    <div ref={containerRef} className={`relative h-full w-full overflow-hidden ${cursorClass}`}>
+    <div ref={containerRef} className={`relative h-full w-full overflow-hidden ${cursorClass}`} style={{ touchAction: "none" }}>
       <div
         className={cn(
           "pointer-events-none absolute left-3 top-3 z-[25] flex max-w-[min(300px,calc(100%-4rem))] min-w-0 flex-col gap-1"

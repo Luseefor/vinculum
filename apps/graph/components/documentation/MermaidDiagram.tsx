@@ -11,6 +11,7 @@ interface MermaidDiagramProps {
 export default function MermaidDiagram({ title, code }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasError, setHasError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const theme = useResolvedTheme();
 
@@ -20,18 +21,20 @@ export default function MermaidDiagram({ title, code }: MermaidDiagramProps) {
 
   useEffect(() => {
     if (!mounted || !containerRef.current) return;
-    
+
     let isCancelled = false;
 
     const renderDiagram = async () => {
       try {
+        setIsLoading(true);
         setHasError(false);
+
         const mermaid = (await import("mermaid")).default;
-        
+
         mermaid.initialize({
           startOnLoad: false,
           theme: theme === "dark" ? "dark" : "default",
-          securityLevel: "loose",
+          securityLevel: "strict",
         });
 
         const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
@@ -41,9 +44,13 @@ export default function MermaidDiagram({ title, code }: MermaidDiagramProps) {
           containerRef.current.innerHTML = svg;
         }
       } catch (error) {
-        console.error("Mermaid rendering error:", error);
+        console.error("Mermaid rendering error:", error instanceof Error ? error.message : String(error));
         if (!isCancelled) {
           setHasError(true);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
         }
       }
     };
@@ -61,7 +68,11 @@ export default function MermaidDiagram({ title, code }: MermaidDiagramProps) {
         <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">{title}</h3>
       </div>
       <div className="relative w-full overflow-x-auto p-4 md:p-6">
-        {(!mounted || hasError) ? (
+        {!mounted || isLoading ? (
+          <div className="flex min-h-[100px] items-center justify-center text-[var(--text-muted)] text-[12px]">
+            Loading diagram...
+          </div>
+        ) : hasError ? (
           <pre className="overflow-x-auto rounded border border-[var(--border-subtle)] bg-[var(--bg-primary)] p-4 font-mono text-[12px] text-[var(--text-secondary)]">
             <code>{code}</code>
           </pre>

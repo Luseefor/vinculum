@@ -2,6 +2,7 @@ import { BufferGeometry, Group, Line, LineBasicMaterial, Mesh, MeshBasicMaterial
 import { CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
+import { formatProbeCoord } from "@/components/graph/graph2d/graph2dCanvasFormat";
 
 export type ProbePin = { id: string; color: string; world: { x: number; y: number; z: number } };
 
@@ -26,10 +27,14 @@ export function updateThreeProbeMarkers(
     label.style.fontSize = "10px";
     label.style.padding = "3px 8px";
     label.style.borderRadius = "5px";
-    label.style.border = "1px solid rgba(148,163,184,0.35)";
-    label.style.background = "rgba(15,23,42,0.92)";
-    label.style.color = "#f8fafc";
+    label.style.border = "1px solid var(--border-subtle)";
+    label.style.background = "var(--surface-overlay)";
+    label.style.color = "var(--text-primary)";
+    label.style.opacity = "0.92";
     label.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+    label.style.overflow = "hidden";
+    label.style.textOverflow = "ellipsis";
+    label.style.maxWidth = "220px";
     const labelObj = new CSS2DObject(label);
     probeMarkerLabels.push(labelObj);
     probeMarkersRoot.add(labelObj);
@@ -58,7 +63,7 @@ export function updateThreeProbeMarkers(
     const labelObj = probeMarkerLabels[i];
     labelObj.position.set(pin.world.x, pin.world.y + 0.14, pin.world.z);
     const el = labelObj.element as HTMLElement;
-    el.textContent = `X ${pin.world.x.toFixed(4)} · Y ${pin.world.y.toFixed(4)} · Z ${pin.world.z.toFixed(4)}`;
+    el.textContent = `3D Scene · X ${formatProbeCoord(pin.world.x)} · Y ${formatProbeCoord(pin.world.y)} · Z ${formatProbeCoord(pin.world.z)}`;
     labelObj.visible = true;
   }
 }
@@ -87,9 +92,13 @@ export function updateThreeMeasurementMarkers(
     label.style.padding = "3px 8px";
     label.style.borderRadius = "5px";
     label.style.border = "1px solid rgba(251,146,60,0.45)";
-    label.style.background = "rgba(15,23,42,0.92)";
-    label.style.color = "#f8fafc";
+    label.style.background = "var(--surface-overlay)";
+    label.style.color = "var(--text-primary)";
+    label.style.opacity = "0.92";
     label.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+    label.style.overflow = "hidden";
+    label.style.textOverflow = "ellipsis";
+    label.style.maxWidth = "220px";
     const labelObj = new CSS2DObject(label);
     measurementLabels.push(labelObj);
     measurementRoot.add(labelObj);
@@ -137,7 +146,7 @@ export function updateThreeMeasurementMarkers(
         measurement.points[1].z
       );
     }
-    (measurementLabels[i].element as HTMLElement).textContent = `${measurement.kind === "distance" ? "Distance" : "Angle"} ${formatMeasurementValue(measurement)}`;
+    (measurementLabels[i].element as HTMLElement).textContent = `3D Scene · ${measurement.kind === "distance" ? "Distance" : "Angle"} ${formatMeasurementValue(measurement)}`;
     line.visible = true;
     measurementLabels[i].visible = true;
   }

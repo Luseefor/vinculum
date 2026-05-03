@@ -57,7 +57,7 @@ export default function DocumentationClientPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
+    <main className="min-h-screen overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <ThemeSync />
       <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-10 px-6 py-10 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-6">

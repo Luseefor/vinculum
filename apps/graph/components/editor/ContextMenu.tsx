@@ -93,7 +93,7 @@ export default function ContextMenu({
     <div className="fixed inset-0 z-[65]" onClick={onClose}>
       <div
         ref={menuRef}
-        className="absolute z-[100] min-w-[12rem] max-w-60 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
+        className="absolute z-[100] min-w-[12rem] max-w-60 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
         style={{ left: position.x, top: position.y }}
         onClick={(event) => event.stopPropagation()}
       >

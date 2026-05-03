@@ -1,7 +1,7 @@
 import posthog from "posthog-js";
 
 export function getToken(): string | undefined {
-  return process.env.NEXT_PUBLIC_POSTHOG_TOKEN;
+  return process.env.NEXT_PUBLIC_POSTHOG_KEY;
 }
 
 export function getHost(): string {
