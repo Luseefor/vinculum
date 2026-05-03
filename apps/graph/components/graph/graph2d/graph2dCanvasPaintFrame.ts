@@ -49,7 +49,7 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     return;
   }
 
-  const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const rect = container.getBoundingClientRect();
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;

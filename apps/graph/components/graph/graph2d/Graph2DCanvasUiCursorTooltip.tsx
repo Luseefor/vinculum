@@ -42,17 +42,17 @@ export function Graph2DCanvasUiCursorTooltip({
   const y = mousePos.screen.y;
   const cw = containerRef.current?.clientWidth || 0;
   const ch = containerRef.current?.clientHeight || 0;
-  const isNearRight = cw > 0 && x > cw - 200;
-  const isNearBottom = ch > 0 && y > ch - 60;
+  const isNearRight = cw > 0 && x > cw - CURSOR_TOOLTIP_WIDTH_PX - CURSOR_TOOLTIP_OFFSET_PX;
+  const isNearBottom = ch > 0 && y > ch - VIEWPORT_BADGE_HEIGHT_PX - CURSOR_TOOLTIP_OFFSET_PX;
 
   return (
     <div
-      className="absolute pointer-events-none rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg whitespace-nowrap max-w-[250px] overflow-hidden text-ellipsis"
+      className="absolute pointer-events-none z-[23] max-w-[min(220px,calc(100%-2rem))] truncate rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg"
       style={{
-        left: isNearRight ? undefined : x + CURSOR_TOOLTIP_OFFSET_PX,
-        right: isNearRight ? cw - x + CURSOR_TOOLTIP_OFFSET_PX : undefined,
-        top: isNearBottom ? undefined : y + CURSOR_TOOLTIP_OFFSET_PX,
-        bottom: isNearBottom ? ch - y + CURSOR_TOOLTIP_OFFSET_PX : undefined,
+        left: isNearRight ? undefined : Math.min(x + CURSOR_TOOLTIP_OFFSET_PX, cw - CURSOR_TOOLTIP_WIDTH_PX - CURSOR_TOOLTIP_OFFSET_PX),
+        right: isNearRight ? Math.min(cw - x + CURSOR_TOOLTIP_OFFSET_PX, CURSOR_TOOLTIP_WIDTH_PX) : undefined,
+        top: isNearBottom ? undefined : Math.min(y + CURSOR_TOOLTIP_OFFSET_PX, ch - VIEWPORT_BADGE_HEIGHT_PX - CURSOR_TOOLTIP_OFFSET_PX),
+        bottom: isNearBottom ? Math.min(ch - y + CURSOR_TOOLTIP_OFFSET_PX, VIEWPORT_BADGE_HEIGHT_PX) : undefined,
       }}
     >
       ({axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)},{" "}

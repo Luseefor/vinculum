@@ -15,10 +15,10 @@ export function formatCoord(n: number): string {
   if (Math.abs(n) < 1e-10) {
     return "0";
   }
-  if (Math.abs(n) >= 10000 || Math.abs(n) < 0.001) {
-    return n.toExponential(2);
+  if (Math.abs(n) >= 1000 || Math.abs(n) < 0.01) {
+    return n.toExponential(1);
   }
-  return parseFloat(n.toFixed(4)).toString();
+  return parseFloat(n.toFixed(2)).toString();
 }
 
 export function formatProbeCoord(n: number): string {
@@ -28,8 +28,8 @@ export function formatProbeCoord(n: number): string {
   if (Math.abs(n) < 1e-10) {
     return "0";
   }
-  if (Math.abs(n) >= 10000 || Math.abs(n) < 0.001) {
-    return n.toExponential(3);
+  if (Math.abs(n) >= 1000 || Math.abs(n) < 0.01) {
+    return n.toExponential(2);
   }
-  return parseFloat(n.toFixed(4)).toString();
+  return parseFloat(n.toFixed(3)).toString();
 }

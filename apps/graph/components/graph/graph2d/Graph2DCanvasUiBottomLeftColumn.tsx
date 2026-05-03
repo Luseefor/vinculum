@@ -50,7 +50,7 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
     (probePins.length > 0 || measurements.some((measurement) => measurement.kind !== "pin") || measurementDraft);
 
   return (
-    <div className="absolute bottom-20 left-3 z-[24] flex max-w-[min(480px,calc(100%-4rem))] min-w-0 flex-col gap-1.5">
+    <div className="absolute bottom-24 left-3 z-[24] flex max-h-[calc(100%-7rem)] max-w-[min(480px,calc(100%-4rem))] min-w-0 flex-col gap-1.5 overflow-hidden">
       {sketchFitPreview && (
         <Graph2DCanvasUiSketchFitPreview
           axisPair={axisPair}
@@ -61,8 +61,8 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
           axis2dPairQuadTop={axis2dPairQuadTop}
         />
       )}
-      <div className="flex min-w-0 flex-col gap-1 rounded-[5px] border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
-        <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">2D readout</div>
+      <div className="flex min-w-0 flex-col gap-1 overflow-y-auto rounded-[5px] border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
+        <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">2D Graph • {axisPair.horizontalLabel}{axisPair.verticalLabel}</div>
         <div className="flex min-w-0 flex-col divide-y divide-[var(--border-subtle)]/55">
           {mousePos ? (
             <div className="min-w-0 py-1 first:pt-0">
