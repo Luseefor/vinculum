@@ -80,3 +80,7 @@ Vinculum may collect product usage analytics when PostHog environment variables 
 - Raw error stacks or URLs
 
 To disable analytics, simply omit the `NEXT_PUBLIC_POSTHOG_KEY` environment variable.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
