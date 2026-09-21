@@ -51,10 +51,11 @@ describe("parametric 2D frame regression", () => {
       expect(polyline).not.toBeNull();
 
       const expected = EXPECTED[pair] ?? [];
-      expect(polyline?.length).toBe(expected.length * 2);
+      const points = polyline?.points;
+      expect(points?.length).toBe(expected.length * 2);
       expected.forEach(([expectedH, expectedV], index) => {
-        expect(polyline?.[index * 2]).toBeCloseTo(expectedH, 9);
-        expect(polyline?.[index * 2 + 1]).toBeCloseTo(expectedV, 9);
+        expect(points?.[index * 2]).toBeCloseTo(expectedH, 9);
+        expect(points?.[index * 2 + 1]).toBeCloseTo(expectedV, 9);
       });
     });
   });

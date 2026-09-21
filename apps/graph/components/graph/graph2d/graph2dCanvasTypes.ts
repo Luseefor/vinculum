@@ -53,5 +53,14 @@ export interface RenderableGraph {
   evaluate: ((horizontalValue: number) => number | null) | null;
   implicitEvaluate: ((horizontalValue: number, verticalValue: number) => number | null) | null;
   hatchDomain: { hMin: number; hMax: number; vMin: number; vMax: number } | null;
-  polylineHV: Float64Array | null;
+  polylineHV: ParametricPolyline2D | null;
+}
+
+// Canonical 2D parametric data (S5): projected math-frame points plus the
+// sampler's segment connectivity. Pure data; no Canvas types. Only the
+// parametric path produces non-null values; explicit/implicit paths use the
+// other RenderableGraph fields and are unaffected.
+export interface ParametricPolyline2D {
+  points: Float64Array;
+  connectedSegments: Uint8Array;
 }

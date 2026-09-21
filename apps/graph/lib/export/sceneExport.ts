@@ -164,10 +164,12 @@ export function export2dSvg(input: {
   const graphLines: string[] = [];
 
   for (const graph of renderables) {
-    if (graph.polylineHV && graph.polylineHV.length >= 4) {
+    // SVG export draws parametric points as one polyline (legacy: gaps render
+    // as chords here; canonical branch splitting in SVG export is out of scope).
+    if (graph.polylineHV && graph.polylineHV.points.length >= 4) {
       const points: string[] = [];
-      for (let i = 0; i < graph.polylineHV.length; i += 2) {
-        const screen = graph2dMathToScreen(graph.polylineHV[i], graph.polylineHV[i + 1], dc);
+      for (let i = 0; i < graph.polylineHV.points.length; i += 2) {
+        const screen = graph2dMathToScreen(graph.polylineHV.points[i], graph.polylineHV.points[i + 1], dc);
         points.push(`${screen.x.toFixed(2)},${screen.y.toFixed(2)}`);
       }
       if (points.length >= 2) {

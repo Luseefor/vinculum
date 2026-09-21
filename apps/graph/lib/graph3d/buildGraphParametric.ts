@@ -2,8 +2,8 @@ import type { ParametricCurveObject } from "@vinculum/scene/types";
 import {
   BufferAttribute,
   BufferGeometry,
-  Line,
   LineBasicMaterial,
+  LineSegments,
   Mesh,
   MeshBasicMaterial,
   Object3D,
@@ -11,6 +11,10 @@ import {
 } from "three";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { sampleCurve } from "@/lib/math/sampleCurve";
+
+// Sample cap (8192 in MAX_PARAMETRIC_CURVE_SAMPLES) keeps every vertex index
+// below 65536, so the compact Uint16 segment index below is always sufficient.
+const MAX_CURVE_INDEX = 65536;
 
 export function buildParametric(object: ParametricCurveObject): Object3D | null {
   if (![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim())) {
@@ -37,12 +41,30 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
     return null;
   }
 
+  // S5: render exactly the canonically connected segments — no chord through
+  // invalid samples, no classified cross-pole segment. One indexed
+  // LineSegments draw, no vertex duplication.
+  const sampleCount = sampled.positions.length / 3;
+  if (sampleCount > MAX_CURVE_INDEX) {
+    return null;
+  }
+  const segmentIndex: number[] = [];
+  for (let seg = 0; seg + 1 < sampleCount; seg += 1) {
+    if (sampled.connectedSegments[seg] === 1) {
+      segmentIndex.push(seg, seg + 1);
+    }
+  }
+  if (segmentIndex.length === 0) {
+    return null;
+  }
+
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(sampled.positions, 3));
+  geometry.setIndex(new BufferAttribute(new Uint16Array(segmentIndex), 1));
   geometry.computeBoundingSphere();
-  geometry.setDrawRange(0, sampled.positions.length / 3);
+  geometry.setDrawRange(0, segmentIndex.length);
 
-  if (isDegenerateCurve(sampled.positions)) {
+  if (isDegenerateCurve(sampled.positions, sampled.validSamples)) {
     const pointGeometry = new SphereGeometry(0.12, 14, 14);
     const pointMaterial = new MeshBasicMaterial({
       color: object.color,
@@ -50,7 +72,8 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
       opacity: 0.96
     });
     const point = new Mesh(pointGeometry, pointMaterial);
-    point.position.set(sampled.positions[0] ?? 0, sampled.positions[1] ?? 0, sampled.positions[2] ?? 0);
+    const firstValid = findFirstValidSample(sampled.positions, sampled.validSamples);
+    point.position.set(firstValid[0] ?? 0, firstValid[1] ?? 0, firstValid[2] ?? 0);
     point.userData.vinculumId = object.id;
     return point;
   }
@@ -61,22 +84,43 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
     opacity: 0.95
   });
 
-  const line = new Line(geometry, material);
-  line.userData.vinculumId = object.id;
-  return line;
+  const lines = new LineSegments(geometry, material);
+  lines.userData.vinculumId = object.id;
+  return lines;
 }
 
-function isDegenerateCurve(positions: Float32Array): boolean {
-  if (positions.length < 6) {
+function findFirstValidSample(positions: Float32Array, validSamples: Uint8Array): [number, number, number] {
+  const sampleCount = positions.length / 3;
+  for (let index = 0; index < sampleCount; index += 1) {
+    if (validSamples[index] === 1) {
+      return [positions[index * 3] ?? 0, positions[index * 3 + 1] ?? 0, positions[index * 3 + 2] ?? 0];
+    }
+  }
+  return [positions[0] ?? 0, positions[1] ?? 0, positions[2] ?? 0];
+}
+
+function isDegenerateCurve(positions: Float32Array, validSamples: Uint8Array): boolean {
+  const sampleCount = positions.length / 3;
+  let firstValid = -1;
+  for (let index = 0; index < sampleCount; index += 1) {
+    if (validSamples[index] === 1) {
+      firstValid = index;
+      break;
+    }
+  }
+  if (firstValid < 0) {
     return false;
   }
-  const x0 = positions[0] ?? 0;
-  const y0 = positions[1] ?? 0;
-  const z0 = positions[2] ?? 0;
-  for (let i = 3; i < positions.length; i += 3) {
-    const dx = (positions[i] ?? 0) - x0;
-    const dy = (positions[i + 1] ?? 0) - y0;
-    const dz = (positions[i + 2] ?? 0) - z0;
+  const x0 = positions[firstValid * 3] ?? 0;
+  const y0 = positions[firstValid * 3 + 1] ?? 0;
+  const z0 = positions[firstValid * 3 + 2] ?? 0;
+  for (let index = 0; index < sampleCount; index += 1) {
+    if (validSamples[index] !== 1) {
+      continue;
+    }
+    const dx = (positions[index * 3] ?? 0) - x0;
+    const dy = (positions[index * 3 + 1] ?? 0) - y0;
+    const dz = (positions[index * 3 + 2] ?? 0) - z0;
     if (Math.hypot(dx, dy, dz) > 1e-5) {
       return false;
     }

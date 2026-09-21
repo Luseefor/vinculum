@@ -70,9 +70,10 @@ describe("coordinate frame analysis", () => {
 
     const horizontals: number[] = [];
     const verticals: number[] = [];
-    for (let i = 0; i < (polyline?.length ?? 0); i += 2) {
-      horizontals.push(polyline?.[i] ?? Number.NaN);
-      verticals.push(polyline?.[i + 1] ?? Number.NaN);
+    const points = polyline?.points;
+    for (let i = 0; i < (points?.length ?? 0); i += 2) {
+      horizontals.push(points?.[i] ?? Number.NaN);
+      verticals.push(points?.[i + 1] ?? Number.NaN);
     }
 
     // World-frame sampler positions resolved through the canonical math-axis

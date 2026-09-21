@@ -39,6 +39,6 @@ describe("buildRenderableGraphsFromScene", () => {
     expect(graphs.length).toBeGreaterThanOrEqual(1);
     const g = graphs[0];
     expect(g.polylineHV).not.toBeNull();
-    expect(g.polylineHV!.length).toBeGreaterThanOrEqual(4);
+    expect(g.polylineHV!.points.length).toBeGreaterThanOrEqual(4);
   });
 });
