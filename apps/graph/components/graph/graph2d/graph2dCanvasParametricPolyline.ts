@@ -1,7 +1,7 @@
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { worldIndexForMathAxis } from "@/lib/math/coordinates";
 import { sampleCurve } from "@/lib/math/sampleCurve";
 import type { ParametricCurveObject } from "@vinculum/scene/types";
-import { axisComponentIndex } from "./graph2dCanvasAxis";
 import type { AxisVariable } from "./graph2dCanvasTypes";
 
 export function buildParametricPolylineHV(
@@ -29,8 +29,10 @@ export function buildParametricPolylineHV(
     return null;
   }
 
-  const hi = axisComponentIndex(horizontal);
-  const vi = axisComponentIndex(vertical);
+  // sampleCurve emits WORLD-frame tuples; resolve the requested MATHEMATICAL
+  // axes to world tuple indices (S3 F4 fix). Single conversion, no re-mapping.
+  const hi = worldIndexForMathAxis(horizontal);
+  const vi = worldIndexForMathAxis(vertical);
   const pointCount = sampled.positions.length / 3;
   if (pointCount < 2) {
     return null;

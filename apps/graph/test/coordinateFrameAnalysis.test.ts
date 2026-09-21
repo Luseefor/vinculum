@@ -8,10 +8,11 @@ import type { ParametricCurveObject, SurfaceGraphObject } from "@vinculum/scene/
 // S1-U6: coordinate-system analysis (diagnostic-only, characterization).
 // The unit circle x^2 + y^2 = 1 rendered as (a) a 2D implicit equation and
 // (b) a 3D parametric curve (cos t, sin t, 0) projected into the xy 2D view
-// disagree geometrically under current behavior: the implicit path evaluates
-// in math frame (x, y) while the parametric path reads world-frame sampler
-// positions (x, z-as-up, y) with math-frame component indices.
-// See the S1 engineering report (coordinate-frame inconsistency).
+// must agree geometrically: the implicit path evaluates in math frame (x, y)
+// and, since the S3-U5 F4 fix, the parametric path resolves world-frame
+// sampler positions through the canonical math-axis mapping too.
+// See the S1 engineering report (coordinate-frame inconsistency, now fixed
+// for graph rendering; probe/measurement projection remains a follow-up).
 
 const CIRCLE_IMPLICIT = "x^2 + y^2 = 1";
 
@@ -63,7 +64,7 @@ describe("coordinate frame analysis", () => {
     expect(evaluate?.(0, 0)).toBeCloseTo(-1, 9);
   });
 
-  it("projects the parametric unit circle flat (vertical reads world-up = math z = 0)", () => {
+  it("projects the parametric unit circle as a circle (S3-U5 F4 fix)", () => {
     const polyline = buildParametricPolylineHV(makeCircleCurve(), "x", "y");
     expect(polyline).not.toBeNull();
 
@@ -74,15 +75,19 @@ describe("coordinate frame analysis", () => {
       verticals.push(polyline?.[i + 1] ?? Number.NaN);
     }
 
-    // Horizontal spans the circle diameter; vertical is uniformly zero because
-    // component index 1 reads world-Y (math z), which is 0 for this curve.
+    // World-frame sampler positions resolved through the canonical math-axis
+    // mapping: horizontal spans the diameter and vertical traces sin(t).
     expect(Math.min(...horizontals)).toBeCloseTo(-1, 3);
     expect(Math.max(...horizontals)).toBeCloseTo(1, 3);
-    for (const vertical of verticals) {
-      expect(vertical).toBeCloseTo(0, 9);
+    expect(Math.min(...verticals)).toBeCloseTo(-1, 3);
+    expect(Math.max(...verticals)).toBeCloseTo(1, 3);
+    for (let i = 0; i < horizontals.length; i += 1) {
+      const h = horizontals[i] ?? 0;
+      const v = verticals[i] ?? 0;
+      expect(h * h + v * v).toBeCloseTo(1, 5);
     }
-    // The implicit circle passes through (0, 1); the projected polyline never
-    // reaches vertical 1 -> the two views of the same circle disagree.
-    expect(Math.max(...verticals)).toBeLessThan(0.5);
+    // Both views of the same circle now agree: the implicit circle passes
+    // through (0, 1) and the projected polyline reaches vertical 1.
+    expect(Math.max(...verticals)).toBeGreaterThan(0.99);
   });
 });
