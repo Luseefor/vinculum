@@ -113,7 +113,7 @@ describe("surface pipeline regression", () => {
     expect(Array.from(sampled.indices)).not.toContain(centerIndex);
   });
 
-  it("renders z = tan(x*y) fully triangulated at this resolution (pole aliasing, see S1-U4)", () => {
+  it("renders z = tan(x*y) with pole bridges cut (S4 F2 fix; see S1-U4 note)", () => {
     const compiled = compileSurfaceExpression("tan(x*y)", "z");
     expect(compiled.error).toBeNull();
 
@@ -122,7 +122,11 @@ describe("surface pipeline regression", () => {
       resolution: RESOLUTION,
       clampHeight: 10_000
     });
-    expect(sampled.indices.length).toBe(FULL_INDEX_COUNT);
+    // Pole branches cut the mesh instead of bridging across asymptotes,
+    // while valid sheets on all sides are retained.
+    expect(sampled.indices.length).toBeLessThan(FULL_INDEX_COUNT);
+    expect(sampled.indices.length).toBeGreaterThan(0);
+    expect(sampled.rejectedTriangles).toBeGreaterThan(0);
 
     for (let i = 0; i < sampled.positions.length; i += 1) {
       expect(Number.isFinite(sampled.positions[i])).toBe(true);

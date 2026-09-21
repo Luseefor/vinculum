@@ -59,7 +59,7 @@ describe("surface discontinuity analysis", () => {
     expect(countLongEdges(sampled.positions, sampled.indices, 5)).toBe(0);
   });
 
-  it("spans tan(x) poles with stretched triangles instead of cutting them", () => {
+  it("cuts tan(x) pole straddles instead of spanning them (S4 F2 fix)", () => {
     const compiled = compileSurfaceExpression("tan(x)", "z");
     expect(compiled.error).toBeNull();
     const sampled = sampleSurface(compiled.evaluator, {
@@ -68,11 +68,14 @@ describe("surface discontinuity analysis", () => {
       clampHeight: 10_000
     });
 
-    // Poles at x = +/-pi/2 are fully triangulated: adjacent columns jump from
-    // large positive to large negative heights across one grid step.
-    expect(sampled.indices.length).toBe(RESOLUTION * RESOLUTION * 6);
-    expect(maxTriangleEdgeLength(sampled.positions, sampled.indices)).toBeGreaterThan(10);
-    expect(countLongEdges(sampled.positions, sampled.indices, 5)).toBeGreaterThan(0);
+    // Poles at x = +/-pi/2 cut the mesh: the pre-fix 31.21 straddle class is
+    // gone (retained max 23.2 comes from valid same-branch approach segments
+    // plus the documented diagonal limitation). Detailed bounds live in
+    // surfaceDiscontinuityRegression.test.ts.
+    expect(sampled.indices.length).toBeLessThan(RESOLUTION * RESOLUTION * 6);
+    expect(sampled.indices.length).toBeGreaterThan(0);
+    expect(sampled.rejectedTriangles).toBeGreaterThan(0);
+    expect(maxTriangleEdgeLength(sampled.positions, sampled.indices)).toBeLessThan(28);
   });
 
   it("draws a straight chord across parametric gaps instead of breaking the line", () => {
