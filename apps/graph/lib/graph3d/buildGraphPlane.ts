@@ -33,7 +33,16 @@ export function buildPlane(object: PlaneGraphObject, theme: ResolvedTheme): Grou
   }
 
   const geometry = new BufferGeometry();
-  updateFloat32Attribute(geometry, "position", sampled.positions, 3);
+  // S2 (F5): samplePlane emits math-frame corners; convert to the canonical
+  // math(x,y,z) -> world(x,z,y) mapping used by surface/curve samplers.
+  // Centralization of this conversion into math-core is deferred to S3+.
+  const worldPositions = new Float32Array(sampled.positions.length);
+  for (let i = 0; i + 2 < sampled.positions.length; i += 3) {
+    worldPositions[i] = sampled.positions[i] ?? 0;
+    worldPositions[i + 1] = sampled.positions[i + 2] ?? 0;
+    worldPositions[i + 2] = sampled.positions[i + 1] ?? 0;
+  }
+  updateFloat32Attribute(geometry, "position", worldPositions, 3);
   updateIndexAttributeUint32(geometry, sampled.indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
