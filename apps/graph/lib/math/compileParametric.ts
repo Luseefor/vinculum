@@ -1,6 +1,6 @@
 import { compile } from "mathjs";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { formatNonFiniteEvaluationError, validateExpressionSafety } from "./expressionSafety";
+import { validateExpressionSafety } from "./expressionSafety";
 
 export type ParametricEvaluator = (t: number) => [number, number, number];
 
@@ -120,22 +120,10 @@ function compileAxisExpression(expr: string, label: string) {
     };
   }
 
-  try {
-    const initialValue = compiledExpression.evaluate({ t: 0, ...getEditorParameterScope() });
-    const numeric = typeof initialValue === "number" ? initialValue : Number(initialValue);
-    if (!Number.isFinite(numeric)) {
-      return {
-        expression: null,
-        error: `${label}: ${formatNonFiniteEvaluationError()}`
-      };
-    }
-  } catch (error) {
-    return {
-      expression: null,
-      error: `${label}: ${formatExpressionError(error)}`
-    };
-  }
-
+  // S6: no execution probe here. Compilation answers only whether the
+  // expression is syntactically valid, permitted, and compilable; per-sample
+  // domain validity belongs to the runtime evaluator/sampleCurve (NaN on
+  // throw or non-finite). Never probe at t=0, tMin, or any other fixed point.
   return {
     expression: compiledExpression,
     error: null
