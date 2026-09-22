@@ -124,9 +124,10 @@ export function validateExpressionSafety(expression: string, context: Expression
     }
   };
 
-  // `mathjs` node.forEach skips the root node; inspect the root explicitly.
-  inspectNode(node);
-  node.forEach((childNode: MathNode) => inspectNode(childNode));
+  // S11: `mathjs` node.traverse visits the root and every descendant
+  // exactly once (forEach visits direct children only). Policy enforcement
+  // must reach every node regardless of nesting depth.
+  node.traverse((childNode: MathNode) => inspectNode(childNode));
 
   if (disallowedNodeViolation) {
     reportWarning("Expression safety violation: disallowed node.", buildMonitoringContext(context, disallowedNodeViolation));
@@ -224,8 +225,7 @@ function findFirstUnsupportedFunction(node: MathNode): string | null {
     if (!ALLOWED_FUNCTIONS.has(fnName)) unsupported = fnName;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode) => inspect(childNode));
+  node.traverse((childNode: MathNode) => inspect(childNode));
   return unsupported;
 }
 
@@ -241,8 +241,7 @@ function findFirstUnsupportedSymbol(node: MathNode, allowedSymbols: Set<string>)
     if (!allowedSymbols.has(maybeSymbol.name)) unsupported = maybeSymbol.name;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode, path: string) => {
+  node.traverse((childNode: MathNode, path: string) => {
     // `mathjs` represents function names as a SymbolNode at `fn`.
     // Skip those so we don't accidentally reject whitelisted functions like `sin(...)`.
     if (path === "fn") {
@@ -269,8 +268,7 @@ function findFirstNumericLiteralOutOfRange(node: MathNode): number | null {
     if (magnitude > MAX_LITERAL_MAGNITUDE) outOfRange = magnitude;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode) => inspect(childNode));
+  node.traverse((childNode: MathNode) => inspect(childNode));
 
   return outOfRange;
 }
