@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { OrbitAtomIcon } from "@/components/layout/icons";
 import AdvancedTab from "@/components/inspector/AdvancedTab";
 import AnimationTab from "@/components/inspector/AnimationTab";
@@ -33,6 +33,31 @@ export default function InspectorPanel({
   const measurementCount = useGraphStore((state) => state.scene.measurements.length);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const [tab, setTab] = useState<"properties" | "appearance" | "constraints" | "animation" | "advanced">("properties");
+  const tabIds = ["properties", "appearance", "constraints", "animation", "advanced"] as const;
+  type InspectorTabId = (typeof tabIds)[number];
+  const tabButtonRefs = useRef<Partial<Record<InspectorTabId, HTMLButtonElement | null>>>({});
+
+  const focusTab = (id: InspectorTabId) => {
+    setTab(id);
+    tabButtonRefs.current[id]?.focus();
+  };
+
+  const handleTabListKeyDown = (event: ReactKeyboardEvent) => {
+    const currentIndex = tabIds.indexOf(tab);
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusTab(tabIds[(currentIndex + 1) % tabIds.length] ?? "properties");
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusTab(tabIds[(currentIndex - 1 + tabIds.length) % tabIds.length] ?? "properties");
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusTab("properties");
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusTab("advanced");
+    }
+  };
 
   return (
     <aside
@@ -53,10 +78,10 @@ export default function InspectorPanel({
 
         {mode === "tool" ? (
           <div className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2 text-[12px]">
-            <p className="font-medium text-[var(--accent)]">{activeToolLabel}</p>
+            <p className="font-medium text-[var(--accent-ink)]">{activeToolLabel}</p>
             <p className="text-[var(--text-tertiary)]">Follow viewport steps, then apply or cancel.</p>
             <div className="flex gap-2">
-              <button type="button" onClick={onApplyTool} className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[12px] font-medium text-[var(--accent)] outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]">
+              <button type="button" onClick={onApplyTool} className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[12px] font-medium text-[var(--accent-ink)] outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]">
                 Apply
               </button>
               <button type="button" onClick={onCancelTool} className="h-8 flex-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]">
@@ -66,7 +91,7 @@ export default function InspectorPanel({
           </div>
         ) : null}
 
-        <div className="flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--border-subtle)]">
+        <div className="flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--border-subtle)]" role="tablist" aria-label="Inspector sections" onKeyDown={handleTabListKeyDown}>
           {(
             [
               ["properties", "Props"],
@@ -78,11 +103,19 @@ export default function InspectorPanel({
           ).map(([id, label]) => (
             <button
               key={id}
+              ref={(node) => {
+                tabButtonRefs.current[id] = node;
+              }}
+              role="tab"
+              id={`inspector-tab-${id}`}
+              aria-selected={tab === id}
+              aria-controls={`inspector-panel-${id}`}
+              tabIndex={tab === id ? 0 : -1}
               onClick={() => setTab(id)}
               className={cn(
-                "h-8 min-w-[62px] shrink-0 border-b-2 border-transparent px-1.5 text-[11px] font-semibold uppercase tracking-wide transition-all duration-100 motion-reduce:transition-none active:scale-[0.98]",
+                "h-8 min-w-[62px] shrink-0 border-b-2 border-transparent px-1.5 text-[11px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
                 tab === id
-                  ? "border-[var(--accent)] text-[var(--accent)]"
+                  ? "border-[var(--accent)] text-[var(--accent-ink)]"
                   : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
               )}
             >
@@ -93,11 +126,18 @@ export default function InspectorPanel({
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div key={`${mode}-${tab}-${selectedObjectId ?? "none"}`} className="min-w-0 p-3 transition-opacity duration-100 motion-reduce:transition-none">
+        <div
+          key={`${mode}-${tab}-${selectedObjectId ?? "none"}`}
+          role="tabpanel"
+          id={`inspector-panel-${tab}`}
+          aria-labelledby={`inspector-tab-${tab}`}
+          tabIndex={0}
+          className="min-w-0 p-3 outline-none transition-opacity duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+        >
           {mode === "scene" || !selectedObjectId ? (
             <div className="flex min-h-[200px] flex-col items-center justify-center px-4 text-center">
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
-                <OrbitAtomIcon className="h-4 w-4 text-[var(--accent)]" />
+                <OrbitAtomIcon className="h-4 w-4 text-[var(--accent-ink)]" />
               </div>
               <p className="text-[13px] font-semibold text-[var(--text-primary)]">Scene Context</p>
               <p className="mt-1 max-w-[220px] text-[12px] text-[var(--text-tertiary)]">
@@ -117,7 +157,7 @@ export default function InspectorPanel({
                 <button
                   type="button"
                   onClick={() => addEmptyObject()}
-                  className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Add Object
                 </button>

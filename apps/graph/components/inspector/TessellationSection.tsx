@@ -26,7 +26,7 @@ export default function TessellationSection({ object }: TessellationSectionProps
       <div className="flex flex-col gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-[var(--text-secondary)]">Resolution (2-128)</p>
-          <span className="font-mono text-[11px] font-semibold text-[var(--accent)]">{object.resolution}</span>
+          <span className="font-mono text-[11px] font-semibold text-[var(--accent-ink)]">{object.resolution}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center overflow-hidden rounded-[6px] border border-[var(--border-subtle)] bg-transparent">

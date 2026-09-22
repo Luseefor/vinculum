@@ -615,7 +615,7 @@ export default function TopToolbar({
                 className={cn(
                   "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-all",
                   fileMenuOpen
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                     : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                 )}
               >
@@ -722,7 +722,7 @@ export default function TopToolbar({
               className={cn(
                 "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
                 activeViewType === id
-                  ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                  ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                   : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
               )}
             >
@@ -747,7 +747,7 @@ export default function TopToolbar({
                 className={cn(
                   "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
                   activeLayout === id
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                     : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
                 )}
               >
@@ -923,7 +923,7 @@ export default function TopToolbar({
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-md border transition-all",
                   themeMenuOpen
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                     : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
                 )}
               >
@@ -1004,7 +1004,7 @@ export default function TopToolbar({
                 className={cn(
                   "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
                   activeViewType === id
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                     : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
                 )}
               >

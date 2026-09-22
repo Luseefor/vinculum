@@ -6,7 +6,7 @@ import { cn } from "@/components/ui/styles";
 type BadgeVariant = "default" | "secondary" | "outline";
 
 const badgeVariantClasses: Record<BadgeVariant, string> = {
-  default: "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]",
+  default: "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent-ink)]",
   secondary: "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
   outline: "border-[var(--border-strong)] bg-transparent text-[var(--text-secondary)]"
 };

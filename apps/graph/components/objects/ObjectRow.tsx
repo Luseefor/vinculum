@@ -210,13 +210,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               <span
                 className={cn(
                   "block truncate text-[12px] font-semibold tracking-tight",
-                  selected ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
+                  selected ? "text-[var(--accent-ink)]" : "text-[var(--text-primary)]"
                 )}
               >
                 {title}
               </span>
               <span
-                className="block truncate font-mono text-[10px] font-medium tracking-tight text-[var(--text-tertiary)]"
+                className={cn(
+                  "block truncate font-mono text-[10px] font-medium tracking-tight",
+                  selected ? "text-[var(--accent-ink)]" : "text-[var(--text-tertiary)]"
+                )}
                 title={object.kind === "surface" || object.kind === "plane" ? object.equation : meta.type}
               >
                 {subLabel}
@@ -331,7 +334,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                   placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : "ax + by + cz + d = 0"}
                   spellCheck={false}
                   autoComplete="off"
-                  className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent)] outline-none"
+                  className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
                 />
               </div>
             )}
@@ -367,7 +370,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       }
                       spellCheck={false}
                       autoComplete="off"
-                      className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent)] outline-none"
+                      className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
                     />
                   </div>
                 ))}
@@ -378,7 +381,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 id={`obj-${object.id}-diagnostic`}
                 data-testid="expression-diagnostic"
                 role="alert"
-                className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400"
+                className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-300"
               >
                 {definitionDiagnostic.message}
                 {definitionDiagnostic.suggestion ? ` ${definitionDiagnostic.suggestion}` : ""}

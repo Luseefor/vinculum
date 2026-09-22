@@ -19,14 +19,10 @@ async function startClean(page: Page) {
 }
 
 async function axeScan(page: Page) {
-  // color-contrast is excluded as documented pre-existing debt: ~40 nodes
-  // fail on light-theme tertiary/accent token pairs (e.g. slate-400 10px
-  // kickers, accent on accent-soft) across the whole shell. Remediation
-  // requires a dedicated palette pass; tracked as a deferred S12 finding.
-  // Every other wcag2a/wcag2aa rule must pass clean.
+  // Full WCAG 2A/2AA gate, color-contrast included: S13 resolved the
+  // light/dark tertiary and accent-ink token debt at the token level.
   return new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .disableRules(["color-contrast"])
     .analyze();
 }
 

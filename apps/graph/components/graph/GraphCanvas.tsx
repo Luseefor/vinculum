@@ -57,7 +57,7 @@ export default function GraphCanvas() {
             <span className="font-medium text-[var(--text-secondary)]">{basePlane}</span>
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
-            <span className="rounded bg-[var(--surface-muted)]/80 px-1.5 py-0.5 text-[var(--accent)]">{toolLabel}</span>
+            <span className="rounded bg-[var(--surface-muted)]/80 px-1.5 py-0.5 text-[var(--accent-ink)]">{toolLabel}</span>
           </div>
         </div>
       </div>

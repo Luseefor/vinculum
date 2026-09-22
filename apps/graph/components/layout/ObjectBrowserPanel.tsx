@@ -84,14 +84,14 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             className="h-8 w-full rounded-[6px] border border-[var(--border-strong)] bg-[var(--surface-raised)] pl-8 pr-2 text-[12px] outline-none transition-all focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
           />
         </div>
-        <div className="flex items-center gap-0.5 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-0.5 text-[12px]" role="group" aria-label="Object list filter">
+        <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-0.5 text-[12px]" role="group" aria-label="Object list filter">
           {(["all", "objects", "measurements", "visible"] as const).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setFilter(key)}
               aria-pressed={filter === key}
-              className={`h-7 flex-1 rounded-[5px] px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98] ${filter === key ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
+              className={`h-7 shrink-0 whitespace-nowrap rounded-[5px] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98] ${filter === key ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
             >
               {key}
             </button>
@@ -130,7 +130,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
                 return (
                   <div
                     key={measurement.id}
-                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 text-[12px] ${isSelected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60"}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 text-[12px] ${isSelected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent-ink)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60"}`}
                   >
                     <button
                       type="button"

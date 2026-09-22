@@ -51,7 +51,7 @@ export default function DomainSection({ object }: DomainSectionProps) {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">Domain</h4>
-          <span className="text-[9px] font-bold text-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 rounded-full uppercase">Step control</span>
+          <span className="text-[9px] font-bold text-[var(--accent-ink)] bg-[var(--accent-soft)] px-2 py-0.5 rounded-full uppercase">Step control</span>
         </div>
 
         <div className="flex flex-col gap-5 p-4 rounded-xl border border-[var(--border-strong)] bg-[var(--bg-primary)]">

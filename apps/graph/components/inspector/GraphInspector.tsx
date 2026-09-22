@@ -51,7 +51,7 @@ export default function GraphInspector() {
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: selectedSurfaceObject.color }} />
           <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Surface {selectedTitle}</h3>
         </div>
-        <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+        <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           surface
         </span>
       </div>

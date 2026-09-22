@@ -46,7 +46,7 @@ export default function ThemeAccentPopover({
               className={cn(
                 "h-8 gap-2 text-[10px] font-bold uppercase tracking-wide",
                 themeMode === "light"
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                   : "text-[var(--text-secondary)]"
               )}
               variant="secondary"
@@ -64,7 +64,7 @@ export default function ThemeAccentPopover({
               className={cn(
                 "h-8 gap-2 text-[10px] font-bold uppercase tracking-wide",
                 themeMode === "dark"
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                   : "text-[var(--text-secondary)]"
               )}
               variant="secondary"
@@ -114,7 +114,7 @@ export default function ThemeAccentPopover({
               className={cn(
                 "flex items-center justify-between gap-3 w-full h-8 px-3 rounded-md border text-[10px] font-bold transition",
                 showPerfHud
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
+                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                   : "border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
               )}
             >

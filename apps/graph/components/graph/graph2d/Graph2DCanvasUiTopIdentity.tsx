@@ -33,7 +33,7 @@ export function Graph2DCanvasUiTopIdentity({ pairForCanvas, canvas2dTool }: Grap
           <span className="font-medium text-[var(--text-secondary)]">{plane}</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
-          <span className="rounded bg-[var(--surface-muted)]/80 px-1.5 py-0.5 text-[var(--accent)]">
+          <span className="rounded bg-[var(--surface-muted)]/80 px-1.5 py-0.5 text-[var(--accent-ink)]">
             {toolShortLabel(canvas2dTool)}
           </span>
         </div>
