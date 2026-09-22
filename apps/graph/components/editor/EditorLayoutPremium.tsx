@@ -8,6 +8,8 @@ interface EditorLayoutPremiumProps {
   sceneDivider?: ReactNode;
   workspace: ReactNode;
   inspectorDrawer: ReactNode;
+  inspectorPanel?: ReactNode;
+  inspectorDivider?: ReactNode;
   bottomDivider?: ReactNode;
   bottomDock: ReactNode;
   statusBar: ReactNode;
@@ -19,6 +21,8 @@ export default function EditorLayoutPremium({
   sceneDivider,
   workspace,
   inspectorDrawer,
+  inspectorPanel,
+  inspectorDivider,
   bottomDivider,
   bottomDock,
   statusBar
@@ -35,6 +39,8 @@ export default function EditorLayoutPremium({
             {inspectorDrawer}
           </div>
         </main>
+        {inspectorDivider}
+        {inspectorPanel}
       </div>
       {bottomDivider}
       {bottomDock}

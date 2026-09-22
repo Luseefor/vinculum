@@ -82,6 +82,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
                     max={param.max}
                     step={0.01}
                     value={param.value}
+                    aria-label={`Parameter ${param.id}`}
                     onChange={(e) => setParameterValue(param.id, Number(e.target.value))}
                     className="h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-[var(--surface-muted)] accent-[var(--accent)]"
                   />

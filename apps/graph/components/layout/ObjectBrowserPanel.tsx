@@ -62,37 +62,36 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
       className="flex h-full shrink-0 flex-col border-r border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
       style={{ width }}
     >
-      <div className="flex flex-col gap-2 border-b border-[var(--border-subtle)] px-2.5 py-2">
-        <div className="px-0.5 py-0.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Scene Navigator</p>
-          <div className="mt-1 flex items-center justify-between text-[13px]">
-            <h2 className="font-semibold text-[var(--text-primary)]">Inventory</h2>
-            <span
-              data-testid="scene-object-count"
-              className="flex h-5 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-1.5 font-mono text-[11px] text-[var(--text-muted)]"
-            >
-              {objectCount}
-            </span>
-          </div>
+      <div className="flex flex-col gap-1.5 border-b border-[var(--border-subtle)] px-2 py-2">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Scene Navigator</h2>
+          <span
+            data-testid="scene-object-count"
+            className="flex h-5 min-w-5 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-1.5 font-mono text-[11px] text-[var(--text-muted)]"
+          >
+            {objectCount}
+          </span>
         </div>
 
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search objects..."
-            className="h-9 w-full rounded-[6px] border border-[var(--border-strong)] bg-[var(--surface-raised)] pl-9 pr-3 text-[13px] outline-none transition-all focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+            aria-label="Search objects"
+            className="h-8 w-full rounded-[6px] border border-[var(--border-strong)] bg-[var(--surface-raised)] pl-8 pr-2 text-[12px] outline-none transition-all focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-1 text-[12px]">
+        <div className="flex items-center gap-0.5 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-0.5 text-[12px]" role="group" aria-label="Object list filter">
           {(["all", "objects", "measurements", "visible"] as const).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setFilter(key)}
-              className={`h-8 rounded-[5px] px-2 py-1 text-[11px] font-medium uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98] ${filter === key ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
+              aria-pressed={filter === key}
+              className={`h-7 flex-1 rounded-[5px] px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98] ${filter === key ? "bg-[var(--accent-soft)] text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
             >
               {key}
             </button>
@@ -101,7 +100,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
 
         <Button
           variant="secondary"
-          className="h-9 w-full rounded-[6px] border-[var(--border-strong)] bg-[var(--surface-raised)] text-[12px] font-semibold"
+          className="h-8 w-full rounded-[6px] border-[var(--border-strong)] bg-[var(--surface-raised)] text-[12px] font-semibold"
           onClick={() => {
             addEmptyObject();
             addConsoleEvent("Added new object");
@@ -168,8 +167,8 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
       </ScrollArea>
 
       <div className="border-t border-[var(--border-subtle)] p-2">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Quick Add</p>
-        <div className="grid grid-cols-2 gap-2">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Quick Add</p>
+        <div className="grid grid-cols-2 gap-1.5">
           {[
             { label: "Surface", onClick: () => addSurfaceObject() },
             { label: "Curve", onClick: () => addParametricCurve() },
@@ -181,16 +180,17 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             <button
               key={item.label}
               onClick={item.onClick}
-              className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)] active:scale-[0.98]"
+              className="h-7 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]"
             >
               {item.label}
             </button>
           ))}
         </div>
-        <div className="mt-2 border-t border-[var(--border-subtle)] pt-2 text-[12px] text-[var(--text-secondary)]">
-          <p>Selected: <span className="font-mono">{selectedObjectId ? selectedObjectId.slice(0, 8) : "none"}</span></p>
-          <p>Visible: <span className="font-mono">{visibleCount}</span></p>
-        </div>
+        <p className="mt-2 border-t border-[var(--border-subtle)] pt-1.5 text-[11px] text-[var(--text-tertiary)]">
+          <span className="font-mono">{selectedObjectId ? selectedObjectId.slice(0, 8) : "none"}</span>
+          <span className="mx-1.5">·</span>
+          <span className="font-mono">{visibleCount}</span> visible
+        </p>
       </div>
     </aside>
   );

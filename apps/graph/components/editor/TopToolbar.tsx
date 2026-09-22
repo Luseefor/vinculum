@@ -65,6 +65,24 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { captureEvent } from "@/lib/analytics/posthog";
 
+// Narrow viewports (< lg) get a compact view/tool row instead of the full
+// middle cluster. JS-gated (not CSS-only) so responsive variants never
+// coexist in the DOM and accessible names stay unique.
+function useCompactToolbarBar(): boolean {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(max-width: 1023.5px)");
+    const update = () => setCompact(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return compact;
+}
+
 export default function TopToolbar({
   canUndo,
   canRedo,
@@ -83,7 +101,10 @@ export default function TopToolbar({
   activeToolLabel = "pan",
   onToolChange = () => {},
   inspectorOpen = false,
-  onToggleInspector = () => {}
+  onToggleInspector = () => {},
+  objectsOpen = false,
+  onToggleObjects = () => {},
+  showObjectsToggle = false,
 }: {
   canUndo: boolean;
   canRedo: boolean;
@@ -103,6 +124,9 @@ export default function TopToolbar({
   onToolChange?: (tool: "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw") => void;
   inspectorOpen?: boolean;
   onToggleInspector?: () => void;
+  objectsOpen?: boolean;
+  onToggleObjects?: () => void;
+  showObjectsToggle?: boolean;
 }) {
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -124,6 +148,7 @@ export default function TopToolbar({
   });
   const [projectsVersion, setProjectsVersion] = useState(0);
   const [showBrandImageFallback, setShowBrandImageFallback] = useState(false);
+  const compactBar = useCompactToolbarBar();
   const lastOpenExamplesSignalRef = useRef(openExamplesSignal);
 
    const [is3dCanvasAvailable, setIs3dCanvasAvailable] = useState(false);
@@ -553,11 +578,11 @@ export default function TopToolbar({
         }}
         onOpenExample={handleOpenExample}
       />
-      <header className="z-50 flex h-12 shrink-0 items-center border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-3 font-sans shadow-[0_1px_0_var(--border-subtle)]">
-      <div className="mr-3 flex shrink-0 items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-transparent px-2 py-1">
+      <header className="z-50 flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 font-sans">
+      <div className="flex shrink-0 items-center gap-1.5 pr-1">
         {showBrandImageFallback ? (
           <>
-            <VinculumMark className="h-5 w-5" />
+            <VinculumMark className="h-4 w-4" />
             <span className="text-[11px] font-bold tracking-tight text-[var(--text-primary)] uppercase">Vinculum</span>
           </>
         ) : (
@@ -566,14 +591,16 @@ export default function TopToolbar({
             alt="Vinculum"
             width={160}
             height={28}
-            className="h-5 w-auto object-contain"
+            className="h-4 w-auto object-contain"
             priority
             onError={() => setShowBrandImageFallback(true)}
           />
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent px-1.5 py-1">
+      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+
+      <div className="flex shrink-0 items-center gap-1">
         <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
           <DropdownMenuTrigger>
             {(props) => (
@@ -675,9 +702,10 @@ export default function TopToolbar({
         </div>
       </div>
 
-      <div className="mx-2 hidden min-h-0 min-w-0 flex-1 items-center justify-start lg:flex">
+      {!compactBar ? (
+      <div className="mx-1 hidden min-h-0 min-w-0 flex-1 items-center justify-start lg:flex">
         <div className="flex w-full min-w-0 justify-start overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
-          <div className="flex w-max items-center gap-2">
+          <div className="flex w-max items-center gap-1.5">
         <div
           className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
           role="group"
@@ -778,8 +806,11 @@ export default function TopToolbar({
           </div>
         </div>
       </div>
+      ) : null}
 
-      <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 overflow-x-auto rounded-md border border-[var(--border-subtle)] bg-transparent px-1.5 py-1">
+      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+
+      <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto px-1 py-0.5">
         <Button
           type="button"
           variant="secondary"
@@ -810,7 +841,7 @@ export default function TopToolbar({
         >
           Export
         </Button>
-        <div className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-transparent px-2.5">
+        <div className="hidden h-8 shrink-0 items-center gap-1.5 px-2 lg:flex">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Objects</span>
           <Badge variant="default" className="h-5 rounded">{objectCount}</Badge>
         </div>
@@ -853,6 +884,19 @@ export default function TopToolbar({
             <span className="truncate text-[10px] font-medium text-rose-300" title={autosaveError}>{autosaveError}</span>
           ) : null}
         </div>
+
+        {showObjectsToggle ? (
+          <Button
+            type="button"
+            onClick={onToggleObjects}
+            aria-pressed={objectsOpen}
+            variant={objectsOpen ? "primary" : "secondary"}
+            size="sm"
+            className="uppercase tracking-wide"
+          >
+            Objects
+          </Button>
+        ) : null}
 
         <Button
           type="button"
@@ -943,6 +987,48 @@ export default function TopToolbar({
         </DialogContent>
       </Dialog>
     </header>
+      {compactBar ? (
+        <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1">
+          <div
+            className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
+            role="group"
+            aria-label="View type"
+          >
+            {(["2d", "3d", "both"] as const).map((id) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={activeViewType === id}
+                aria-label={id === "both" ? "2D and 3D together" : `${id.toUpperCase()} only`}
+                onClick={() => onViewTypeChange(id)}
+                className={cn(
+                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                  activeViewType === id
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+                )}
+              >
+                {id === "both" ? "2D+3D" : id.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+            Tool
+            <Select
+              value={activeToolLabel === "select" ? "probe" : activeToolLabel}
+              onChange={(event) => onToolChange(event.target.value as "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw")}
+              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+            >
+              <option value="pan">Pan</option>
+              <option value="probe">Probe</option>
+              <option value="addPin">Pin</option>
+              <option value="measureDistance">Distance</option>
+              <option value="measureAngle">Angle</option>
+              <option value="draw">Sketch</option>
+            </Select>
+          </label>
+        </div>
+      ) : null}
     </>
   );
 }

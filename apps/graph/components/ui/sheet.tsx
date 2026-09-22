@@ -36,9 +36,21 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
         type="button"
         className="absolute inset-0 bg-[var(--surface-backdrop)]"
         onClick={() => onOpenChange(false)}
-        aria-label="Close inspector panel"
+        aria-label={`Close ${title} panel`}
+        tabIndex={-1}
       />
-      <aside className="absolute right-0 top-0 h-full w-[24rem] max-w-[90vw] border-l border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-2xl">
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onOpenChange(false);
+          }
+        }}
+        className="absolute right-0 top-0 h-full w-[24rem] max-w-[90vw] border-l border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-2xl"
+      >
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
           <h2 className="text-xs font-semibold tracking-[0.08em] text-[var(--text-secondary)]">{title}</h2>
           <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>

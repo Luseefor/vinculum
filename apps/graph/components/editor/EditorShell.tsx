@@ -8,6 +8,7 @@ import ContextMenu from "@/components/editor/ContextMenu";
 import EditorHeader from "@/components/editor/EditorHeader";
 import EditorLayoutPremium from "@/components/editor/EditorLayoutPremium";
 import InspectorPremium from "@/components/editor/InspectorPremium";
+import InspectorShell from "@/components/editor/InspectorShell";
 import SceneNavigatorPremium from "@/components/editor/SceneNavigatorPremium";
 import StatusBar from "@/components/editor/StatusBar";
 import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
@@ -326,13 +327,21 @@ export default function EditorShell() {
         setCommandPaletteOpen(true);
       }
       if (event.key === "Escape") {
-        setCommandPaletteOpen(false);
-        setContextMenu((state) => ({ ...state, open: false }));
+        // Functional updates return identical state when nothing is open so
+        // idle keypresses never force a shell re-render (which would churn
+        // downstream effect subscriptions such as drawer Escape handlers).
+        setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
+        setContextMenu((state) => (state.open ? { ...state, open: false } : state));
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const [narrowRailMode, setNarrowRailMode] = useState(false);
+  // Narrow-mode drawers open only on explicit user action so a fresh narrow
+  // load never starts with canvas-blocking overlays.
+  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);
 
   useEffect(() => {
     const node = shellRef.current;
@@ -341,6 +350,7 @@ export default function EditorShell() {
       const width = entries[0]?.contentRect.width ?? window.innerWidth;
       const inspectorDrawer = width <= 1100;
       setInspectorDrawerMode(inspectorDrawer);
+      setNarrowRailMode(width < 1024);
       setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false });
     });
     observer.observe(node);
@@ -778,32 +788,12 @@ export default function EditorShell() {
     window.addEventListener("pointerup", onUp);
   }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
 
-   const [isMobile, setIsMobile] = useState(false);
-
-   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
   return (
     <div
       ref={shellRef}
       className="flex h-screen flex-col overflow-hidden bg-[var(--bg-primary)] font-sans"
       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
     >
-      {isMobile ? (
-        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--bg-primary)] px-6 text-center">
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">Desktop Recommended</h1>
-          <p className="max-w-[320px] text-sm text-[var(--text-secondary)]">
-            Vinculum is optimized for desktop and laptop screens. For the best experience, please use a device with a wider screen.
-          </p>
-        </div>
-      ) : (
-        <>
       <ThemeSync />
       <EditorLayoutPremium
         header={
@@ -858,11 +848,20 @@ export default function EditorShell() {
                 return next;
               });
             }}
+            objectsOpen={narrowRailMode ? narrowObjectsOpen : !leftCollapsed}
+            onToggleObjects={() => {
+              if (narrowRailMode) {
+                setNarrowObjectsOpen((open) => !open);
+                return;
+              }
+              toggleLeftPanel();
+            }}
+            showObjectsToggle={narrowRailMode}
           />
         }
-        sceneNavigator={leftCollapsed ? null : <SceneNavigatorPremium width={leftWidth} />}
+        sceneNavigator={leftCollapsed || narrowRailMode ? null : <SceneNavigatorPremium width={leftWidth} />}
         sceneDivider={
-          leftCollapsed ? null : <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
+          leftCollapsed || narrowRailMode ? null : <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
         }
         workspace={
           <>
@@ -891,7 +890,7 @@ export default function EditorShell() {
         }
         inspectorDrawer={
           <ContextInspectorDrawer
-            open={!inspectorDrawerMode && !rightCollapsed && contextInspectorOpen}
+            open={!narrowRailMode && inspectorDrawerMode && !rightCollapsed && contextInspectorOpen}
             pinned={inspectorPinned}
             width={rightWidth}
             onTogglePinned={() => setInspectorPinned((v) => !v)}
@@ -901,6 +900,36 @@ export default function EditorShell() {
             }}
             onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)}
           />
+        }
+        inspectorDivider={
+          !inspectorDrawerMode && !rightCollapsed && contextInspectorOpen ? (
+            <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "right")} />
+          ) : null
+        }
+        inspectorPanel={
+          !inspectorDrawerMode && !rightCollapsed && contextInspectorOpen ? (
+            <div className="flex min-h-0 shrink-0 flex-col bg-[var(--editor-shell)]" style={{ width: rightWidth }}>
+              <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Inspector</span>
+                <button
+                  type="button"
+                  aria-label="Close inspector"
+                  onClick={() => {
+                    setInspectorOpen(false);
+                    setUserClosedInspector(true);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-tertiary)] outline-none transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                >
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <InspectorShell width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
+              </div>
+            </div>
+          ) : null
         }
         bottomDivider={<div className="divider-y" onPointerDown={startBottomResize} />}
         bottomDock={<BottomDockPremium height={bottomPanelCollapsed ? 0 : bottomPanelHeight} />}
@@ -930,8 +959,11 @@ export default function EditorShell() {
         onContinue={handleCloseWelcome}
         onClose={handleCloseWelcome}
       />
-      <Sheet open={inspectorOpen || (inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
+      <Sheet open={inspectorOpen || (!narrowRailMode && inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
         <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
+      </Sheet>
+      <Sheet open={narrowRailMode && narrowObjectsOpen} onOpenChange={setNarrowObjectsOpen} title="Objects">
+        <SceneNavigatorPremium width={Math.min(leftWidth, 320)} />
       </Sheet>
       <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
       
@@ -953,8 +985,6 @@ export default function EditorShell() {
           event.currentTarget.value = "";
         }}
       />
-        </>
-      )}
     </div>
   );
 }

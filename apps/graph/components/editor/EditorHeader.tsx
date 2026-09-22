@@ -22,6 +22,9 @@ interface EditorHeaderProps {
   onToolChange: (tool: "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw") => void;
   inspectorOpen: boolean;
   onToggleInspector: () => void;
+  objectsOpen: boolean;
+  onToggleObjects: () => void;
+  showObjectsToggle: boolean;
 }
 
 export default function EditorHeader(props: EditorHeaderProps) {

@@ -10,7 +10,6 @@ import PropertiesTab from "@/components/inspector/PropertiesTab";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
-import { useEditorStore } from "@/lib/store/editorStore";
 
 interface InspectorPanelProps {
   width?: number;
@@ -32,8 +31,6 @@ export default function InspectorPanel({
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const measurementCount = useGraphStore((state) => state.scene.measurements.length);
-  const graphMode = useGraphStore((state) => state.ui.graphMode);
-  const viewportMode = useEditorStore((state) => state.viewportMode);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const [tab, setTab] = useState<"properties" | "appearance" | "constraints" | "animation" | "advanced">("properties");
 
@@ -98,39 +95,36 @@ export default function InspectorPanel({
       <ScrollArea className="min-h-0 flex-1">
         <div key={`${mode}-${tab}-${selectedObjectId ?? "none"}`} className="min-w-0 p-3 transition-opacity duration-100 motion-reduce:transition-none">
           {mode === "scene" || !selectedObjectId ? (
-            <div className="flex min-h-[240px] flex-col items-center justify-center px-4 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
-                <OrbitAtomIcon className="h-5 w-5 text-[var(--accent)]" />
+            <div className="flex min-h-[200px] flex-col items-center justify-center px-4 text-center">
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
+                <OrbitAtomIcon className="h-4 w-4 text-[var(--accent)]" />
               </div>
-              <p className="text-[14px] font-semibold text-[var(--text-primary)]">Scene Context</p>
-              <p className="mt-1 max-w-[220px] text-[13px] text-[var(--text-tertiary)]">
+              <p className="text-[13px] font-semibold text-[var(--text-primary)]">Scene Context</p>
+              <p className="mt-1 max-w-[220px] text-[12px] text-[var(--text-tertiary)]">
                 Select an object or activate a tool to show actionable controls here.
               </p>
-              <div className="mt-4 grid w-full max-w-[240px] grid-cols-2 gap-2 text-left">
-                <SceneStat label="Objects" value={String(objectCount)} />
-                <SceneStat label="Measures" value={String(measurementCount)} />
-                <SceneStat label="Tool" value={activeToolLabel} />
-                <SceneStat label="View" value={`${graphMode.toUpperCase()} · ${viewportMode.toUpperCase()}`} />
-              </div>
+              <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+                {objectCount} {objectCount === 1 ? "object" : "objects"} · {measurementCount} {measurementCount === 1 ? "measure" : "measures"} · {activeToolLabel}
+              </p>
               <div className="mt-3 flex w-full max-w-[240px] gap-2">
                 <button
                   type="button"
                   onClick={onOpenExamples}
-                  className="h-8 flex-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  className="h-8 flex-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Examples
                 </button>
                 <button
                   type="button"
                   onClick={() => addEmptyObject()}
-                  className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Add Object
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {tab === "properties" && <PropertiesTab />}
               {tab === "appearance" && <AppearanceTab />}
               {tab === "constraints" && <ConstraintsTab />}
@@ -141,14 +135,5 @@ export default function InspectorPanel({
         </div>
       </ScrollArea>
     </aside>
-  );
-}
-
-function SceneStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1">
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{label}</p>
-      <p className="truncate text-[11px] font-semibold text-[var(--text-primary)]">{value}</p>
-    </div>
   );
 }

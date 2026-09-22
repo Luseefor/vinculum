@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
+import {
+  getParametricAxisDiagnostics,
+  getPlaneEquationDiagnostics,
+  getSurfaceEquationDiagnostics,
+  type ExpressionDiagnostic
+} from "@/lib/math/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
 
@@ -78,11 +84,53 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const meta = getObjectRowDisplayMeta(object);
   const title = `${meta.label} #${index + 1}`;
   const emptyCue = isExpressionRowEmpty(object);
+  const equationSnippet = useMemo(() => {
+    if (object.kind !== "surface" && object.kind !== "plane") {
+      return null;
+    }
+    const compact = object.equation.replace(/\s+/g, " ").trim();
+    if (!compact) {
+      return null;
+    }
+    return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+  }, [object]);
   const subLabel = emptyCue
     ? meta.type
-    : object.kind === "surface"
-      ? `${(object.orientation || "z").toUpperCase()}= f(...)`
-      : meta.type;
+    : (equationSnippet ?? meta.type);
+
+  // Inline definition diagnostics (display only; commits stay immediate).
+  // Errors appear only for non-empty drafts so fresh rows stay quiet.
+  const definitionDiagnostic: ExpressionDiagnostic | null = useMemo(() => {
+    if (object.kind === "surface") {
+      if (!localEq.trim()) {
+        return null;
+      }
+      const diag = getSurfaceEquationDiagnostics(localEq, object.orientation || "z");
+      return diag.status === "error" ? diag : null;
+    }
+    if (object.kind === "plane") {
+      if (!localEq.trim()) {
+        return null;
+      }
+      const diag = getPlaneEquationDiagnostics(localEq);
+      return diag.status === "error" ? diag : null;
+    }
+    const fields = [
+      { field: "xExpr" as const, value: localX },
+      { field: "yExpr" as const, value: localY },
+      { field: "zExpr" as const, value: localZ }
+    ];
+    for (const entry of fields) {
+      if (!entry.value.trim()) {
+        continue;
+      }
+      const diag = getParametricAxisDiagnostics({ field: entry.field, xExpr: localX, yExpr: localY, zExpr: localZ });
+      if (diag.status === "error") {
+        return { ...diag, fieldContext: entry.field };
+      }
+    }
+    return null;
+  }, [object, localEq, localX, localY, localZ]);
 
   const convertKind = (kind: GraphObjectKind) => {
     setObjectKind(object.id, kind);
@@ -104,18 +152,6 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   return (
     <div className="flex flex-col gap-1 font-sans">
       <div
-        onClick={() => onSelect(object.id)}
-        role="button"
-        tabIndex={0}
-        aria-label={selected ? `Selected ${title}` : `Select ${title}`}
-        aria-pressed={selected}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onSelect(object.id);
-          }
-        }}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -127,29 +163,29 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 transition-all duration-100 motion-reduce:transition-none outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]",
+          "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 transition-all duration-100 motion-reduce:transition-none",
           selected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]/60"
         )}
       >
         <span
           className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm"
+          aria-hidden="true"
           style={{ backgroundColor: object.color }}
         />
 
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <p
-            className={cn(
-              "truncate text-[12px] font-semibold tracking-tight",
-              selected ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
-            )}
-          >
-            {title}
-          </p>
-          {emptyCue ? (
+        {emptyCue ? (
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => onSelect(object.id)}
+              aria-label={selected ? `Selected ${title}` : `Select ${title}`}
+              aria-pressed={selected}
+              className="block w-full cursor-pointer overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
+            >
+              <span className="block truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>            </button>
             <div className="mt-0.5">
               <select
                 value={object.kind}
-                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
                   convertKind(e.target.value as GraphObjectKind);
                 }}
@@ -161,12 +197,35 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="plane">Plane</option>
               </select>
             </div>
-          ) : (
-            <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{subLabel}</p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSelect(object.id)}
+            aria-label={selected ? `Selected ${title}` : `Select ${title}`}
+            aria-pressed={selected}
+            className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
+          >
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <span
+                className={cn(
+                  "block truncate text-[12px] font-semibold tracking-tight",
+                  selected ? "text-[var(--accent)]" : "text-[var(--text-primary)]"
+                )}
+              >
+                {title}
+              </span>
+              <span
+                className="block truncate font-mono text-[10px] font-medium tracking-tight text-[var(--text-tertiary)]"
+                title={object.kind === "surface" || object.kind === "plane" ? object.equation : meta.type}
+              >
+                {subLabel}
+              </span>
+            </div>
+          </button>
+        )}
 
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={(e) => {
@@ -256,6 +315,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <input
                   type="text"
                   value={localEq}
+                  aria-label="Equation"
+                  aria-invalid={definitionDiagnostic !== null}
+                  aria-describedby={definitionDiagnostic ? `obj-${object.id}-diagnostic` : undefined}
                   onChange={(e) => {
                     const next = e.target.value;
                     setLocalEq(next);
@@ -267,6 +329,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     else updatePlaneEquation(object.id, localEq);
                   }}
                   placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : "ax + by + cz + d = 0"}
+                  spellCheck={false}
+                  autoComplete="off"
                   className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent)] outline-none"
                 />
               </div>
@@ -289,6 +353,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     <input
                       type="text"
                       value={item.val}
+                      aria-label={`Parametric ${item.label}`}
+                      aria-invalid={definitionDiagnostic?.fieldContext === item.field}
+                      aria-describedby={definitionDiagnostic?.fieldContext === item.field ? `obj-${object.id}-diagnostic` : undefined}
                       onChange={(e) => {
                         const next = e.target.value;
                         item.set(next);
@@ -298,12 +365,25 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       placeholder={
                         item.field === "xExpr" ? "0" : item.field === "yExpr" ? "cos(t)" : "sin(t)"
                       }
+                      spellCheck={false}
+                      autoComplete="off"
                       className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent)] outline-none"
                     />
                   </div>
                 ))}
               </div>
             )}
+            {definitionDiagnostic ? (
+              <p
+                id={`obj-${object.id}-diagnostic`}
+                data-testid="expression-diagnostic"
+                role="alert"
+                className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-600 dark:text-amber-400"
+              >
+                {definitionDiagnostic.message}
+                {definitionDiagnostic.suggestion ? ` ${definitionDiagnostic.suggestion}` : ""}
+              </p>
+            ) : null}
           </div>
         </div>
       )}
