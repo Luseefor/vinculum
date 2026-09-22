@@ -88,17 +88,23 @@ describe("3d sync rebuild triggers", () => {
     expect(harness.root.children.length).toBe(1);
   });
 
-  it("rebuilds the node on visibility toggle because visible is part of the structure signature", () => {
+  it("reuses the cached node on visibility toggle without rebuilding (S7 F6 regression)", () => {
     const harness = createHarness();
     harness.sync([makeSurface()]);
     const node = harness.nodes.get("surface-1");
     expect(node?.visible).toBe(true);
 
     harness.sync([makeSurface({ visible: false })]);
-    const nextNode = harness.nodes.get("surface-1");
-    expect(nextNode).toBeDefined();
-    expect(nextNode).not.toBe(node);
-    expect(nextNode?.visible).toBe(false);
+    const hiddenNode = harness.nodes.get("surface-1");
+    expect(hiddenNode).toBeDefined();
+    expect(hiddenNode).toBe(node);
+    expect(hiddenNode?.visible).toBe(false);
+    expect(harness.root.children.length).toBe(1);
+
+    harness.sync([makeSurface({ visible: true })]);
+    const shownNode = harness.nodes.get("surface-1");
+    expect(shownNode).toBe(node);
+    expect(shownNode?.visible).toBe(true);
     expect(harness.root.children.length).toBe(1);
   });
 

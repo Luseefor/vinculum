@@ -47,11 +47,18 @@ export function syncThreeSceneObjects(
     const nextStructure = `${theme}:${parameterSignature}:${getGraphObjectStructureSignature(object)}`;
     const prevSignature = objectSignatures.get(object.id);
     const prevStructure = objectStructureSignatures.get(object.id);
+    // S7 (F6): visibility is presentation state, not geometry identity, so it is
+    // excluded from both signatures. Synchronize it on the cached node before
+    // any signature-based early-out, otherwise a visibility-only change would
+    // reuse the node but leave a stale `.visible`.
+    const prevNode = objectNodes.get(object.id);
+    if (prevNode) {
+      prevNode.visible = object.visible;
+    }
     if (prevSignature === nextSignature) {
       continue;
     }
 
-    const prevNode = objectNodes.get(object.id);
     if (prevNode && prevStructure === nextStructure) {
       applyObjectColorToNode(prevNode, object.color);
       prevNode.visible = object.visible;

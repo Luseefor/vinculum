@@ -64,7 +64,6 @@ export function getRenderDescriptorSignature(descriptor: GraphObjectRenderDescri
   return JSON.stringify({
     id: descriptor.id,
     kind: descriptor.kind,
-    visible: descriptor.visible,
     color: descriptor.color,
     payload: descriptor.payload
   });
@@ -74,7 +73,6 @@ export function getStructureDescriptorSignature(descriptor: GraphObjectRenderDes
   return JSON.stringify({
     id: descriptor.id,
     kind: descriptor.kind,
-    visible: descriptor.visible,
     payload: descriptor.payload
   });
 }
