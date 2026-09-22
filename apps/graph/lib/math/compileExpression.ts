@@ -5,7 +5,6 @@ import type { CompiledSurfaceExpression, SurfaceEvaluator } from "./compileExpre
 import { formatExpressionError } from "./expressionErrorFormat";
 import { getEffectiveSurfaceOrientation } from "./surfaceExpressionOrientation";
 import {
-  formatNonFiniteEvaluationError,
   validateExpressionSafety
 } from "./expressionSafety";
 
@@ -132,18 +131,13 @@ export function compileSurfaceExpression(
     return scope;
   };
 
+  // S9 (F1): smoke-evaluate once to catch evaluator-construction failure,
+  // but never reject a non-finite mathematical result. A throw here means
+  // the compiled expression cannot evaluate at all (arity/type failure),
+  // which stays a compile error; NaN/Infinity at one arbitrary point is a
+  // sampling-domain concern handled per sample by the evaluator below.
   try {
-    const initialValue = compiledExpression.evaluate(getScope(0, 0));
-    const numeric = typeof initialValue === "number" ? initialValue : Number(initialValue);
-    if (!Number.isFinite(numeric)) {
-      const nonFiniteResult: CompiledSurfaceExpression = {
-        evaluator: NAN_EVALUATOR,
-        error: formatNonFiniteEvaluationError(),
-        effectiveOrientation
-      };
-      setCachedSurfaceCompile(cacheKey, nonFiniteResult);
-      return nonFiniteResult;
-    }
+    compiledExpression.evaluate(getScope(0, 0));
   } catch (error) {
     reportWarning("Surface expression validation evaluate failed.", {
       featureArea: "expression-eval",

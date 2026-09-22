@@ -81,9 +81,11 @@ describe("surface pipeline regression", () => {
     expect(sampled.positions[centerIndex * 3 + 1]).toBeCloseTo(0, 9);
   });
 
-  it("rejects z = 1/(x^2+y^2) at compile time because the (0,0) probe is singular", () => {
+  it("accepts z = 1/(x^2+y^2) at compile time; the (0,0) singularity is a sampling-domain concern (S9 F1 fix)", () => {
     const compiled = compileSurfaceExpression("1/(x^2+y^2)", "z");
-    expect(compiled.error).not.toBeNull();
+    expect(compiled.error).toBeNull();
+    expect(compiled.evaluator(0, 0)).toBeNaN();
+    expect(compiled.evaluator(1, 0)).toBeCloseTo(1, 12);
   });
 
   it("excludes singular vertices from indices at the sampler level", () => {
