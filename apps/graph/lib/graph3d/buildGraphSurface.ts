@@ -6,9 +6,12 @@ import {
   LineBasicMaterial,
   LineSegments,
   Mesh,
-  MeshStandardMaterial
+  MeshStandardMaterial,
+  Sphere,
+  Vector3
 } from "three";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+import { computeIndexedBoundingSphereData } from "@/lib/math/indexedBounds";
 import { sampleSurface } from "@/lib/math/sampleSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
@@ -55,7 +58,16 @@ export function buildSurface(
   updateFloat32Attribute(geometry, "position", sampled.positions, 3);
   updateIndexAttribute(geometry, sampled.indices);
   geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
+  // S8 (F7): bound INDEXED/RENDERED vertices only. Dead placeholder positions
+  // (non-finite samples kept at invalidHeight) must not distort the sphere.
+  // Do NOT call computeBoundingSphere() here: it scans ALL stored positions.
+  const indexedBounds = computeIndexedBoundingSphereData(sampled.positions, sampled.indices);
+  if (indexedBounds) {
+    geometry.boundingSphere = new Sphere(
+      new Vector3(indexedBounds.centerX, indexedBounds.centerY, indexedBounds.centerZ),
+      indexedBounds.radius
+    );
+  }
   geometry.setDrawRange(0, geometry.getIndex()?.count ?? 0);
 
   const group = new Group();
