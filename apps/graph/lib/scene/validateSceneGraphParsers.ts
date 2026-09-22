@@ -15,6 +15,7 @@ import {
   requireString
 } from "./validateScenePrimitives";
 import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 
 export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
@@ -99,8 +100,37 @@ function parseSurfaceGraphObject(
     objectKind: "surface"
   });
   if (!safety.ok) {
-    errors.push(`objects[${objectIndex}].equation: ${safety.violation.message}`);
-    return null;
+    // S10: the explicit-axis body may still be a supported implicit
+    // equation (e.g. "1/x = 1") that no strip rule reduces. Accept it only
+    // when the raw string is exactly one mathematical equality whose sides
+    // independently satisfy expression safety; otherwise keep the original
+    // explicit-path error. In particular a second "=" (chained equality or
+    // "==") never splits, so `x = y = 1` still reports the explicit error.
+    const parts = splitSingleEquation(equation);
+    if (!parts) {
+      errors.push(`objects[${objectIndex}].equation: ${safety.violation.message}`);
+      return null;
+    }
+    const lhsSafety = validateExpressionSafety(parts.lhs, {
+      operation: "validate-surface-expression",
+      expressionLabel: "Surface equation",
+      objectId: id,
+      objectKind: "surface"
+    });
+    if (!lhsSafety.ok) {
+      errors.push(`objects[${objectIndex}].equation: ${lhsSafety.violation.message}`);
+      return null;
+    }
+    const rhsSafety = validateExpressionSafety(parts.rhs, {
+      operation: "validate-surface-expression",
+      expressionLabel: "Surface equation",
+      objectId: id,
+      objectKind: "surface"
+    });
+    if (!rhsSafety.ok) {
+      errors.push(`objects[${objectIndex}].equation: ${rhsSafety.violation.message}`);
+      return null;
+    }
   }
 
   return {
@@ -217,14 +247,22 @@ function parsePlaneGraphObject(
     return null;
   }
 
-  const safety = validateExpressionSafety(equation, {
-    operation: "validate-plane-expression",
-    expressionLabel: "Plane equation",
-    objectId: id,
-    objectKind: "plane"
-  });
-  if (!safety.ok) {
-    errors.push(`objects[${objectIndex}].equation: ${safety.violation.message}`);
+  // S10: plane persistence validation must match the live plane compiler.
+  // Chained/comparison equality (`x = y = 1`, `x == 1`) is rejected up
+  // front: mathematical plane grammar allows exactly one separator, and the
+  // live probe evaluates assignments in scope, so the compiler alone would
+  // otherwise accept chained forms. All other equations delegate to the
+  // authoritative plane compiler, which performs the same normalization,
+  // safety, coefficient-extraction, and linearity verification as the live
+  // path (including its parameter context).
+  const separatorCount = (equation.match(/=/g) ?? []).length;
+  if (separatorCount > 1) {
+    errors.push(`objects[${objectIndex}].equation: Equation must contain exactly one '='.`);
+    return null;
+  }
+  const planeCompiled = compilePlaneEquation(equation);
+  if (planeCompiled.error) {
+    errors.push(`objects[${objectIndex}].equation: ${planeCompiled.error}`);
     return null;
   }
 
@@ -256,4 +294,21 @@ function parseSurfaceOrientation(
 
   errors.push(`${path} must be one of: x, y, z.`);
   return undefined;
+}
+
+// S10: minimal equation-syntax decomposition for validation only. Splits
+// exactly one mathematical equality with non-empty sides; never decides
+// whether the equation is a plane, implicit graph, or explicit surface.
+// In particular `==` (two separators) never splits.
+function splitSingleEquation(equation: string): { lhs: string; rhs: string } | null {
+  const firstSeparator = equation.indexOf("=");
+  if (firstSeparator < 0 || equation.indexOf("=", firstSeparator + 1) !== -1) {
+    return null;
+  }
+  const lhs = equation.slice(0, firstSeparator).trim();
+  const rhs = equation.slice(firstSeparator + 1).trim();
+  if (!lhs || !rhs) {
+    return null;
+  }
+  return { lhs, rhs };
 }
