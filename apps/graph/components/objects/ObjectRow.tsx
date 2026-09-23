@@ -7,6 +7,7 @@ import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import {
   getParametricAxisDiagnostics,
+  getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics,
   type ExpressionDiagnostic
@@ -31,6 +32,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
 
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -48,7 +50,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
 
   useEffect(() => {
     if (object.kind === "surface" || object.kind === "plane") setLocalEq(object.equation);
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       setLocalX(object.xExpr);
       setLocalY(object.yExpr);
       setLocalZ(object.zExpr);
@@ -126,11 +128,13 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       { field: "yExpr" as const, value: localY },
       { field: "zExpr" as const, value: localZ }
     ];
+    const getAxisDiagnostics =
+      object.kind === "parametricSurface" ? getParametricSurfaceAxisDiagnostics : getParametricAxisDiagnostics;
     for (const entry of fields) {
       if (!entry.value.trim()) {
         continue;
       }
-      const diag = getParametricAxisDiagnostics({ field: entry.field, xExpr: localX, yExpr: localY, zExpr: localZ });
+      const diag = getAxisDiagnostics({ field: entry.field, xExpr: localX, yExpr: localY, zExpr: localZ });
       if (diag.status === "error") {
         return { ...diag, fieldContext: entry.field };
       }
@@ -170,7 +174,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       return;
     }
     const target =
-      object.kind === "parametricCurve" ? xExprInputRef.current : eqInputRef.current;
+      object.kind === "parametricCurve" || object.kind === "parametricSurface"
+        ? xExprInputRef.current
+        : eqInputRef.current;
     if (!target) {
       return;
     }
@@ -246,6 +252,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               >
                 <option value="surface">Surface</option>
                 <option value="parametricCurve">Curve</option>
+                <option value="parametricSurface">Parametric Surface</option>
                 <option value="plane">Plane</option>
               </select>
             </div>
@@ -400,12 +407,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               </div>
             )}
 
-            {object.kind === "parametricCurve" && (
+            {(object.kind === "parametricCurve" || object.kind === "parametricSurface") && (
               <div className="flex flex-col gap-1.5">
                 {[
-                  { label: "x(t) =", val: localX, set: setLocalX, field: "xExpr" as const },
-                  { label: "y(t) =", val: localY, set: setLocalY, field: "yExpr" as const },
-                  { label: "z(t) =", val: localZ, set: setLocalZ, field: "zExpr" as const }
+                  { label: object.kind === "parametricSurface" ? "x(u,v) =" : "x(t) =", val: localX, set: setLocalX, field: "xExpr" as const },
+                  { label: object.kind === "parametricSurface" ? "y(u,v) =" : "y(t) =", val: localY, set: setLocalY, field: "yExpr" as const },
+                  { label: object.kind === "parametricSurface" ? "z(u,v) =" : "z(t) =", val: localZ, set: setLocalZ, field: "zExpr" as const }
                 ].map((item) => (
                   <div
                     key={item.field}
@@ -424,18 +431,36 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       onChange={(e) => {
                         const next = e.target.value;
                         item.set(next);
-                        updateParametricExpression(object.id, item.field, next);
+                        if (object.kind === "parametricSurface") {
+                          updateParametricSurfaceExpression(object.id, item.field, next);
+                        } else {
+                          updateParametricExpression(object.id, item.field, next);
+                        }
                       }}
                       onBlur={() => {
                         const committed =
                           item.field === "xExpr" ? object.xExpr : item.field === "yExpr" ? object.yExpr : object.zExpr;
                         if (item.val !== committed) {
-                          updateParametricExpression(object.id, item.field, item.val);
+                          if (object.kind === "parametricSurface") {
+                            updateParametricSurfaceExpression(object.id, item.field, item.val);
+                          } else {
+                            updateParametricExpression(object.id, item.field, item.val);
+                          }
                         }
                       }}
                       onKeyDown={handleEquationKeyDown}
                       placeholder={
-                        item.field === "xExpr" ? "0" : item.field === "yExpr" ? "cos(t)" : "sin(t)"
+                        object.kind === "parametricSurface"
+                          ? item.field === "xExpr"
+                            ? "u"
+                            : item.field === "yExpr"
+                              ? "v"
+                              : "u * v"
+                          : item.field === "xExpr"
+                            ? "0"
+                            : item.field === "yExpr"
+                              ? "cos(t)"
+                              : "sin(t)"
                       }
                       spellCheck={false}
                       autoComplete="off"

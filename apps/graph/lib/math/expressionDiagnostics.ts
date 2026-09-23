@@ -2,6 +2,7 @@ import { validateExpressionSafety, type ExpressionSafetyFailureCode } from "./ex
 import { compileSurfaceExpression, getEffectiveSurfaceOrientation } from "./compileExpression";
 import { compilePlaneEquation } from "./samplePlane";
 import { compileParametricExpressions } from "./compileParametric";
+import { compileParametricSurfaceExpressions } from "./compileParametricSurface";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export type ExpressionDiagnosticStatus = "valid" | "warning" | "error";
@@ -28,7 +29,7 @@ function mapSafetyViolationToDiagnostic(code: ExpressionSafetyFailureCode): { me
     case "unsupported-function":
       return { message: "Unsupported function.", suggestion: UNSUPPORTED_SUGGESTION };
     case "unsupported-symbol":
-      return { message: "Unsupported function.", suggestion: UNSUPPORTED_SUGGESTION };
+      return { message: "Unsupported symbol." };
     case "expression-too-complex":
       return { message: "Expression is too complex to render safely." };
     case "expression-disallowed-node":
@@ -41,11 +42,12 @@ function mapSafetyViolationToDiagnostic(code: ExpressionSafetyFailureCode): { me
 }
 
 function stripLabelPrefix(error: string): string {
-  // compileParametricErrors often look like "x(t): ..." or "y(t): ..."
+  // compileParametricErrors often look like "x(t): ..." or "y(t): ...";
+  // parametric-surface errors look like "x(u,v): ...".
   const idx = error.indexOf(":");
   if (idx >= 0 && idx < error.length - 1) {
     const maybeLabel = error.slice(0, idx).trim();
-    if (/(x\\(t\\)|y\\(t\\)|z\\(t\\)|Parametric)/i.test(maybeLabel)) {
+    if (/(x\(t\)|y\(t\)|z\(t\)|x\(u,v\)|y\(u,v\)|z\(u,v\)|Parametric)/i.test(maybeLabel)) {
       return error.slice(idx + 1).trim();
     }
   }
@@ -145,5 +147,41 @@ export function getParametricAxisDiagnostics(params: {
   }
 
   return { status: "valid", message: "", fieldContext: `parametric.${field}` };
+}
+
+export function getParametricSurfaceAxisDiagnostics(params: {
+  field: "xExpr" | "yExpr" | "zExpr";
+  xExpr: string;
+  yExpr: string;
+  zExpr: string;
+}): ExpressionDiagnostic {
+  const { field, xExpr, yExpr, zExpr } = params;
+
+  const axisExpr = field === "xExpr" ? xExpr : field === "yExpr" ? yExpr : zExpr;
+  const safety = validateExpressionSafety(axisExpr, {
+    operation: "diagnostics-parametric-surface-axis",
+    expressionLabel: `Parametric surface ${field}`,
+    allowedSymbols: [...Object.keys(getEditorParameterScope()), "u", "v"]
+  });
+  if (!safety.ok) {
+    const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+    return toSafeDiagnostics({
+      status: "error",
+      message: mapped.message,
+      suggestion: mapped.suggestion,
+      fieldContext: `parametricSurface.${field}`
+    });
+  }
+
+  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr);
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: stripLabelPrefix(compiled.error),
+      fieldContext: `parametricSurface.${field}`
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: `parametricSurface.${field}` };
 }
 

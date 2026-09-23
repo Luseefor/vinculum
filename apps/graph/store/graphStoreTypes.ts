@@ -3,6 +3,7 @@ import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObjectKind,
   ParametricCurveObject,
+  ParametricSurfaceObject,
   PlaneGraphObject,
   SurfaceDomain,
   SurfaceGraphObject,
@@ -26,6 +27,11 @@ export type ParametricExpressionField = keyof Pick<
   "xExpr" | "yExpr" | "zExpr" | "tMin" | "tMax" | "samples"
 >;
 
+export type ParametricSurfaceField = keyof Pick<
+  ParametricSurfaceObject,
+  "xExpr" | "yExpr" | "zExpr" | "resolution"
+> | keyof Pick<ParametricSurfaceObject["domain"], "uMin" | "uMax" | "vMin" | "vMax">;
+
 export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -33,6 +39,7 @@ export interface GraphStoreState {
   addSurfaceObject: () => string;
   addParametricCurve: () => string;
   addPlaneObject: () => string;
+  addParametricSurface: () => string;
   addEmptyObject: () => string;
   insertObjectAfter: (id: string, kind: GraphObjectKind) => string;
   setObjectKind: (id: string, kind: GraphObjectKind) => void;
@@ -41,6 +48,11 @@ export interface GraphStoreState {
   updateParametricExpression: (
     id: string,
     field: ParametricExpressionField,
+    value: string | number
+  ) => void;
+  updateParametricSurfaceExpression: (
+    id: string,
+    field: ParametricSurfaceField,
     value: string | number
   ) => void;
   updatePlaneEquation: (id: string, equation: string) => void;

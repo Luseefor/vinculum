@@ -14,10 +14,13 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     }
     return { label: "Plane", type: "Plane" };
   }
-  if (object.kind === "parametricCurve") {
+  if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
     const allEmpty = ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
     if (allEmpty) {
       return { label: "Expression", type: "Choose type in menu" };
+    }
+    if (object.kind === "parametricSurface") {
+      return { label: "Parametric Surface", type: "Parametric Surface" };
     }
     const normalized = [object.xExpr, object.yExpr, object.zExpr].map((v) => v.replace(/\s+/g, ""));
     const isPoint = normalized.every((v) => v === "0" || v === "0.0");

@@ -1,5 +1,7 @@
 import type {
   ParametricCurveObject,
+  ParametricSurfaceDomain,
+  ParametricSurfaceObject,
   PlaneAppearance,
   PlaneGraphObject,
   SurfaceAppearance,
@@ -47,6 +49,32 @@ export const defaultCurveSamples = 220;
 export const defaultPlaneEquation = "x + y + z - 1 = 0";
 export const defaultPlaneSize = 12;
 
+// Parametric surfaces sample a (resolution + 1) x (resolution + 1) grid, so
+// one resolution serves both parameter directions (same convention as the
+// explicit-surface grid). At the cap, 129 x 129 = 16641 vertices stay under
+// the Uint16 index limit (65536) and ~200KB under the 2MB position budget.
+export const MIN_PARAMETRIC_SURFACE_RESOLUTION = 2;
+export const MAX_PARAMETRIC_SURFACE_RESOLUTION = 128;
+export const defaultParametricSurfaceResolution = 48;
+
+export function normalizeParametricSurfaceResolution(value: number): number {
+  const normalized = Math.floor(value);
+  return Math.min(MAX_PARAMETRIC_SURFACE_RESOLUTION, Math.max(MIN_PARAMETRIC_SURFACE_RESOLUTION, normalized));
+}
+
+export const defaultParametricSurfaceExpressions = {
+  xExpr: "u",
+  yExpr: "v",
+  zExpr: "0"
+};
+
+export const defaultParametricSurfaceDomain: ParametricSurfaceDomain = {
+  uMin: -5,
+  uMax: 5,
+  vMin: -5,
+  vMax: 5
+};
+
 const defaultSurfaceAppearance: SurfaceAppearance = {
   wireframe: false
 };
@@ -87,6 +115,19 @@ interface CreateDefaultPlaneGraphOptions {
   visible?: boolean;
   color?: string;
   appearance?: Partial<PlaneAppearance>;
+}
+
+interface CreateDefaultParametricSurfaceOptions {
+  id: string;
+  index?: number;
+  xExpr?: string;
+  yExpr?: string;
+  zExpr?: string;
+  domain?: Partial<ParametricSurfaceDomain>;
+  resolution?: number;
+  visible?: boolean;
+  color?: string;
+  appearance?: Partial<SurfaceAppearance>;
 }
 
 export function createDefaultSurfaceGraph(options: CreateDefaultSurfaceGraphOptions): SurfaceGraphObject {
@@ -141,6 +182,36 @@ export function createDefaultPlaneGraph(options: CreateDefaultPlaneGraphOptions)
     color: options.color ?? pickDefaultGraphColor(options.index),
     appearance: {
       ...defaultPlaneAppearance,
+      ...options.appearance
+    }
+  };
+}
+
+export function createDefaultParametricSurfaceGraph(
+  options: CreateDefaultParametricSurfaceOptions
+): ParametricSurfaceObject {
+  const baseDomain = {
+    ...defaultParametricSurfaceDomain,
+    ...options.domain
+  };
+
+  return {
+    id: options.id,
+    kind: "parametricSurface",
+    xExpr: options.xExpr ?? defaultParametricSurfaceExpressions.xExpr,
+    yExpr: options.yExpr ?? defaultParametricSurfaceExpressions.yExpr,
+    zExpr: options.zExpr ?? defaultParametricSurfaceExpressions.zExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index),
+    domain: {
+      uMin: baseDomain.uMin,
+      uMax: baseDomain.uMax,
+      vMin: baseDomain.vMin,
+      vMax: baseDomain.vMax
+    },
+    resolution: normalizeParametricSurfaceResolution(options.resolution ?? defaultParametricSurfaceResolution),
+    appearance: {
+      ...defaultSurfaceAppearance,
       ...options.appearance
     }
   };

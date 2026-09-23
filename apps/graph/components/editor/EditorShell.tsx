@@ -81,6 +81,7 @@ export default function EditorShell() {
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const setWorkspace = useGraphStore((state) => state.setWorkspace);
@@ -795,6 +796,13 @@ export default function EditorShell() {
       }
       return;
     }
+    if (commandId === "add-parametric-surface") {
+      const createdId = addParametricSurface();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
     if (commandId === "add-plane") {
       const createdId = addPlaneObject();
       if (createdId) {
@@ -813,7 +821,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;

@@ -72,6 +72,11 @@ test.describe("Workspace shell accessibility", () => {
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Objects" })).toBeVisible();
+    // Let drawer/pressed-state CSS transitions settle before the contrast
+    // scan: mid-transition blended colors otherwise read as violations,
+    // especially under loaded long sessions (matches the 800ms settle in
+    // the populated-inspector test above).
+    await page.waitForTimeout(600);
     const results = await axeScan(page);
     expect(results.violations).toEqual([]);
     await page.keyboard.press("Escape");

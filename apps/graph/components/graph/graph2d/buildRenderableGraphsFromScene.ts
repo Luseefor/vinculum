@@ -34,6 +34,14 @@ export function buildRenderableGraphsFromScene(objects: GraphObject[], axisPair:
       continue;
     }
 
+    // S17: parametric surfaces have no single-equation axis-pair projection,
+    // so they render in 3D views only. Skipping here (before `obj.equation`
+    // access, which this kind does not define) keeps 2D rendering safe;
+    // export2dSvg warns per skipped visible object so SVG export stays honest.
+    if (obj.kind === "parametricSurface") {
+      continue;
+    }
+
     const expr = obj.equation;
     const trimmed = expr.trim();
     if (!trimmed) {

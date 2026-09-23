@@ -1,11 +1,12 @@
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
+import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { createSceneDocument, type SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 
-export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Sketch examples";
+export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Sketch examples";
 export type ExampleRecommendedMode = "2d" | "3d";
 
 export interface SceneExampleDefinition {
@@ -97,8 +98,67 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
       })
   },
   {
-    id: "sketch-style-wave",
-    title: "Sketch-style Wave",
+    id: "parametric-sphere",
+    title: "Parametric Sphere",
+    description: "Unit sphere parameterized by u (polar) and v (azimuth).",
+    category: "Parametric surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Parametric Sphere" },
+        objects: [
+          createParametricSurfaceGraph({
+            xExpr: "sin(u) * cos(v)",
+            yExpr: "sin(u) * sin(v)",
+            zExpr: "cos(u)",
+            domain: { uMin: 0, uMax: 3.1415926536, vMin: 0, vMax: 6.2831853072 },
+            resolution: 48
+          })
+        ]
+      })
+  },
+  {
+    id: "parametric-torus",
+    title: "Parametric Torus",
+    description: "Torus with major radius 2 and minor radius 0.5.",
+    category: "Parametric surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Parametric Torus" },
+        objects: [
+          createParametricSurfaceGraph({
+            xExpr: "(2 + 0.5 * cos(v)) * cos(u)",
+            yExpr: "(2 + 0.5 * cos(v)) * sin(u)",
+            zExpr: "0.5 * sin(v)",
+            domain: { uMin: 0, uMax: 6.2831853072, vMin: 0, vMax: 6.2831853072 },
+            resolution: 48
+          })
+        ]
+      })
+  },
+  {
+    id: "parametric-saddle",
+    title: "Parametric Saddle",
+    description: "Saddle patch x = u, y = v, z = u * v over an asymmetric domain.",
+    category: "Parametric surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Parametric Saddle" },
+        objects: [
+          createParametricSurfaceGraph({
+            xExpr: "u",
+            yExpr: "v",
+            zExpr: "u * v",
+            domain: { uMin: -3, uMax: 2, vMin: -2, vMax: 4 },
+            resolution: 48
+          })
+        ]
+      })
+  },
+  {
+    id: "sketch-style-wave",    title: "Sketch-style Wave",
     description: "2D-style fitted polynomial curve sample.",
     category: "Sketch examples",
     recommendedMode: "2d",

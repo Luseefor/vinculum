@@ -1,4 +1,5 @@
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
+import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
@@ -16,6 +17,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addSurfaceObject"
   | "addParametricCurve"
   | "addPlaneObject"
+  | "addParametricSurface"
   | "addEmptyObject"
   | "insertObjectAfter"
   | "setObjectKind"
@@ -31,6 +33,10 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
     addPlaneObject: () => {
       return appendObject(set, (index) => createPlaneGraph({ colorIndex: index }));
+    },
+
+    addParametricSurface: () => {
+      return appendObject(set, (index) => createParametricSurfaceGraph({ colorIndex: index }));
     },
 
     addEmptyObject: () => {

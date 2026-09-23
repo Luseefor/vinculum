@@ -15,7 +15,7 @@ export interface IndexedBoundingSphereData {
 
 export function computeIndexedBoundingSphereData(
   positions: Float32Array,
-  indices: Uint16Array
+  indices: Uint16Array | Uint32Array
 ): IndexedBoundingSphereData | null {
   if (indices.length === 0) {
     return null;

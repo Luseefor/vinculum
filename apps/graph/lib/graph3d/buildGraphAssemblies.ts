@@ -3,6 +3,7 @@ import { Group, type Object3D } from "three";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { buildParametric } from "./buildGraphParametric";
+import { buildParametricSurface } from "./buildGraphParametricSurface";
 import { buildPlane } from "./buildGraphPlane";
 import { buildSurface } from "./buildGraphSurface";
 
@@ -39,6 +40,9 @@ function buildOne(
   }
   if (object.kind === "parametricCurve") {
     return buildParametric(object);
+  }
+  if (object.kind === "parametricSurface") {
+    return buildParametricSurface(object, theme, tokens);
   }
   if (object.kind === "plane") {
     return buildPlane(object, theme);

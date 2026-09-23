@@ -1,4 +1,5 @@
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
+import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import {
@@ -39,6 +40,18 @@ export function createEmptyGraphObject(
     });
   }
 
+  if (kind === "parametricSurface") {
+    return createParametricSurfaceGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      xExpr: "",
+      yExpr: "",
+      zExpr: ""
+    });
+  }
+
   if (kind === "plane") {
     return createPlaneGraph({
       colorIndex,
@@ -69,6 +82,15 @@ export function createGraphObject(
 ): GraphObject {
   if (kind === "parametricCurve") {
     return createParametricCurve({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible
+    });
+  }
+
+  if (kind === "parametricSurface") {
+    return createParametricSurfaceGraph({
       colorIndex,
       id: options.id,
       color: options.color,

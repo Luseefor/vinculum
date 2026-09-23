@@ -110,6 +110,18 @@ export function cloneGraphObject(object: GraphObject): GraphObject {
     };
   }
 
+  if (object.kind === "parametricSurface") {
+    return {
+      ...object,
+      domain: {
+        ...object.domain
+      },
+      appearance: {
+        ...object.appearance
+      }
+    };
+  }
+
   return {
     ...object,
     appearance: {

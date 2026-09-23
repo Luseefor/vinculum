@@ -163,6 +163,16 @@ export function export2dSvg(input: {
   const warnings: string[] = [];
   const graphLines: string[] = [];
 
+  // S17: parametric surfaces intentionally produce no 2D renderable (no
+  // single-equation axis-pair projection). Warn per skipped visible object
+  // so SVG export never silently drops scene content.
+  const renderedIds = new Set(renderables.map((graph) => graph.id));
+  for (const object of input.objects) {
+    if (object.visible && object.kind === "parametricSurface" && !renderedIds.has(object.id)) {
+      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
+    }
+  }
+
   for (const graph of renderables) {
     // SVG export draws parametric points as one polyline (legacy: gaps render
     // as chords here; canonical branch splitting in SVG export is out of scope).

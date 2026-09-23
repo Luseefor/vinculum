@@ -47,6 +47,23 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "parametricSurface") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        xExpr: object.xExpr,
+        yExpr: object.yExpr,
+        zExpr: object.zExpr,
+        domain: object.domain,
+        resolution: object.resolution,
+        appearance: object.appearance
+      }
+    };
+  }
+
   return {
     id: object.id,
     kind: object.kind,

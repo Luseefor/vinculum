@@ -8,7 +8,7 @@ Expression evaluation is sandboxed and validated before rendering.
 
 Commonly allowed:
 
-- Variables: `x`, `y`, `z`, `t`
+- Variables: `x`, `y`, `z`, `t`, plus `u`, `v` inside parametric-surface coordinate expressions
 - Constants: `pi`, `e`
 - Functions (examples): `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sqrt`, `abs`, `exp`, `log`/`ln`, `pow`, `floor`/`ceil`/`round`, `sign`, `max`/`min`
 
@@ -21,6 +21,10 @@ Vinculum enforces:
 - Maximum expression length: `2048` characters
 - Maximum inspected AST node count: `2500`
 - Maximum parametric curve samples: `8192`
+- Maximum surface resolution: `128` (explicit and parametric surfaces)
+- Maximum parametric-surface grid: `129 × 129` vertices (~200KB positions, within a 2MB allocation budget)
+
+Parametric surfaces render in 3D views only; 2D plotting and 2D SVG export skip them (SVG export reports a warning per skipped object).
 
 ## Browser storage limits
 

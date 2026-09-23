@@ -12,12 +12,14 @@ export default function AddObjectMenu() {
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
 
   const selectedObject = useMemo(
@@ -36,6 +38,26 @@ export default function AddObjectMenu() {
       addConsoleEvent(message);
     },
     [addConsoleEvent, addSurfaceObject, requestEquationFocus, updateSurfaceDomain, updateSurfaceEquation]
+  );
+
+  const createParametricSurfaceTemplate = useCallback(
+    (
+      expressions: { xExpr: string; yExpr: string; zExpr: string },
+      domain: { uMin: number; uMax: number; vMin: number; vMax: number },
+      message: string
+    ) => {
+      const id = addParametricSurface();
+      updateParametricSurfaceExpression(id, "xExpr", expressions.xExpr);
+      updateParametricSurfaceExpression(id, "yExpr", expressions.yExpr);
+      updateParametricSurfaceExpression(id, "zExpr", expressions.zExpr);
+      updateParametricSurfaceExpression(id, "uMin", domain.uMin);
+      updateParametricSurfaceExpression(id, "uMax", domain.uMax);
+      updateParametricSurfaceExpression(id, "vMin", domain.vMin);
+      updateParametricSurfaceExpression(id, "vMax", domain.vMax);
+      requestEquationFocus(id);
+      addConsoleEvent(message);
+    },
+    [addConsoleEvent, addParametricSurface, requestEquationFocus, updateParametricSurfaceExpression]
   );
 
   const createAndFocus = useCallback(
@@ -66,6 +88,13 @@ export default function AddObjectMenu() {
               createAndFocus(() => addSurfaceObject());
               addConsoleEvent("Created surface from Add menu");
             }
+          },
+          {
+            label: "Parametric Surface",
+            onClick: () => {
+              createAndFocus(() => addParametricSurface());
+              addConsoleEvent("Created parametric surface from Add menu");
+            }
           }
         ]
       },
@@ -77,6 +106,30 @@ export default function AddObjectMenu() {
             onClick: () => {
               createAndFocus(() => addPlaneObject());
               addConsoleEvent("Created plane from Add menu");
+            }
+          },
+          {
+            label: "Parametric Sphere",
+            onClick: () => {
+              createParametricSurfaceTemplate(
+                { xExpr: "sin(u) * cos(v)", yExpr: "sin(u) * sin(v)", zExpr: "cos(u)" },
+                { uMin: 0, uMax: 3.1415926536, vMin: 0, vMax: 6.2831853072 },
+                "Created parametric sphere template"
+              );
+            }
+          },
+          {
+            label: "Parametric Torus",
+            onClick: () => {
+              createParametricSurfaceTemplate(
+                {
+                  xExpr: "(2 + 0.5 * cos(v)) * cos(u)",
+                  yExpr: "(2 + 0.5 * cos(v)) * sin(u)",
+                  zExpr: "0.5 * sin(v)"
+                },
+                { uMin: 0, uMax: 6.2831853072, vMin: 0, vMax: 6.2831853072 },
+                "Created parametric torus template"
+              );
             }
           },
           {
@@ -147,9 +200,11 @@ export default function AddObjectMenu() {
     [
       addConsoleEvent,
       addParametricCurve,
+      addParametricSurface,
       addPlaneObject,
       addSurfaceObject,
       createAndFocus,
+      createParametricSurfaceTemplate,
       createSurfaceTemplate,
       requestEquationFocus,
       selectedObject,

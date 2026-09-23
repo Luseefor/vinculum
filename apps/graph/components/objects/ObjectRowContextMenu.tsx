@@ -8,6 +8,7 @@ import { Portal } from "@/components/ui/portal";
 const CONVERT_OPTIONS = [
   { kind: "surface" as const, label: "Surface" },
   { kind: "parametricCurve" as const, label: "Parametric curve" },
+  { kind: "parametricSurface" as const, label: "Parametric surface" },
   { kind: "plane" as const, label: "Plane" }
 ] as const;
 

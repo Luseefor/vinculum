@@ -25,6 +25,7 @@ From the **object browser** (left rail), add:
 - **Surface** (implicit equation)
 - **Plane**
 - **Curve** (parametric curve)
+- **Parametric Surface** (`x(u,v)`, `y(u,v)`, `z(u,v)` with `u`/`v` ranges; 3D views only)
 
 You can also open **Examples** to load a ready-made scene.
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import type { GraphObject, ParametricCurveObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
 
@@ -28,6 +28,14 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <ParametricCurveInspector object={selectedObject} />
+      </section>
+    );
+  }
+
+  if (selectedObject.kind === "parametricSurface") {
+    return (
+      <section id="graph-inspector">
+        <ParametricSurfaceInspector object={selectedObject} />
       </section>
     );
   }
@@ -130,8 +138,107 @@ function ParametricCurveInspector({ object }: { object: ParametricCurveObject })
   );
 }
 
-function PlaneInspector() {
+function ParametricSurfaceInspector({ object }: { object: ParametricSurfaceObject }) {
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+
   return (
+    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <header className="pb-3">
+        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Parametric Surface</h3>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          Edit x(u,v), y(u,v), z(u,v) in the list. Parameter ranges and resolution apply to the 3D views.
+        </p>
+      </header>
+      <div>
+        <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Parameter ranges</h4>
+        <div className="grid grid-cols-2 gap-2.5">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">u min</span>
+            <Input
+              type="number"
+              value={object.domain.uMin}
+              step="any"
+              aria-label="u min"
+              onChange={(event) => {
+                const v = Number(event.target.value);
+                if (Number.isFinite(v)) {
+                  updateParametricSurfaceExpression(object.id, "uMin", v);
+                }
+              }}
+              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">u max</span>
+            <Input
+              type="number"
+              value={object.domain.uMax}
+              step="any"
+              aria-label="u max"
+              onChange={(event) => {
+                const v = Number(event.target.value);
+                if (Number.isFinite(v)) {
+                  updateParametricSurfaceExpression(object.id, "uMax", v);
+                }
+              }}
+              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">v min</span>
+            <Input
+              type="number"
+              value={object.domain.vMin}
+              step="any"
+              aria-label="v min"
+              onChange={(event) => {
+                const v = Number(event.target.value);
+                if (Number.isFinite(v)) {
+                  updateParametricSurfaceExpression(object.id, "vMin", v);
+                }
+              }}
+              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">v max</span>
+            <Input
+              type="number"
+              value={object.domain.vMax}
+              step="any"
+              aria-label="v max"
+              onChange={(event) => {
+                const v = Number(event.target.value);
+                if (Number.isFinite(v)) {
+                  updateParametricSurfaceExpression(object.id, "vMax", v);
+                }
+              }}
+              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            />
+          </label>
+        </div>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Resolution</span>
+          <Input
+            type="number"
+            min={2}
+            value={object.resolution}
+            aria-label="Resolution"
+            onChange={(event) => {
+              const v = Number(event.target.value);
+              if (Number.isFinite(v)) {
+                updateParametricSurfaceExpression(object.id, "resolution", v);
+              }
+            }}
+            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function PlaneInspector() {  return (
     <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
       <header className="pb-3">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>

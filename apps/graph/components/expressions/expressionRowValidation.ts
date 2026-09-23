@@ -1,4 +1,5 @@
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import type { ExpressionValidationState } from "@/types/graphUi";
@@ -12,6 +13,12 @@ export function getExpressionRowValidation(object: GraphObject): ExpressionValid
   if (object.kind === "parametricCurve") {
     return {
       error: compileParametricExpressions(object.xExpr, object.yExpr, object.zExpr).error
+    };
+  }
+
+  if (object.kind === "parametricSurface") {
+    return {
+      error: compileParametricSurfaceExpressions(object.xExpr, object.yExpr, object.zExpr).error
     };
   }
 

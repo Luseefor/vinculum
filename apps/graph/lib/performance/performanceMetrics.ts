@@ -63,6 +63,11 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
       surfaceResolutionMax = Math.max(surfaceResolutionMax, o.resolution);
     } else if (o.kind === "parametricCurve") {
       parametricSamplesMax = Math.max(parametricSamplesMax, o.samples);
+    } else if (o.kind === "parametricSurface") {
+      // Parametric surfaces sample a resolution x resolution grid like
+      // explicit surfaces, so they feed the same surface-resolution pressure
+      // (same 128 cap) rather than growing a parallel metric.
+      surfaceResolutionMax = Math.max(surfaceResolutionMax, o.resolution);
     }
   }
 

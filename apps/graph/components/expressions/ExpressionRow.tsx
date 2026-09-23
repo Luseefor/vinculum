@@ -9,16 +9,23 @@ import GraphTypeSelector from "./GraphTypeSelector";
 import type { ExpressionDiagnostic } from "@/lib/math/expressionDiagnostics";
 import {
   getParametricAxisDiagnostics,
+  getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics
 } from "@/lib/math/expressionDiagnostics";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 
-const PARAMETRIC_FIELDS = [
+const PARAMETRIC_CURVE_FIELDS = [
   { label: "y(t)", field: "yExpr" as const },
   { label: "z(t)", field: "zExpr" as const }
+];
+
+const PARAMETRIC_SURFACE_FIELDS = [
+  { label: "y(u,v)", field: "yExpr" as const },
+  { label: "z(u,v)", field: "zExpr" as const }
 ];
 
 export default function ExpressionRow({
@@ -39,6 +46,7 @@ export default function ExpressionRow({
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
 
   const EXPRESSION_DEBOUNCE_MS = 350;
@@ -55,17 +63,24 @@ export default function ExpressionRow({
     object.kind === "plane" ? getPlaneEquationDiagnostics(object.equation) : { status: "valid", message: "" }
   );
 
-  const [xDraft, setXDraft] = useState(object.kind === "parametricCurve" ? object.xExpr : "");
-  const [yDraft, setYDraft] = useState(object.kind === "parametricCurve" ? object.yExpr : "");
-  const [zDraft, setZDraft] = useState(object.kind === "parametricCurve" ? object.zExpr : "");
+  const parametricObject =
+    object.kind === "parametricCurve" || object.kind === "parametricSurface" ? object : null;
+
+  const [xDraft, setXDraft] = useState(parametricObject ? parametricObject.xExpr : "");
+  const [yDraft, setYDraft] = useState(parametricObject ? parametricObject.yExpr : "");
+  const [zDraft, setZDraft] = useState(parametricObject ? parametricObject.zExpr : "");
   const [activeParametricField, setActiveParametricField] = useState<"xExpr" | "yExpr" | "zExpr">("xExpr");
   const [paramDraftDiag, setParamDraftDiag] = useState<ExpressionDiagnostic>(() => {
-    if (object.kind !== "parametricCurve") return { status: "valid", message: "" };
-    return getParametricAxisDiagnostics({
+    if (!parametricObject) return { status: "valid", message: "" };
+    const getInitialAxisDiagnostics =
+      parametricObject.kind === "parametricSurface"
+        ? getParametricSurfaceAxisDiagnostics
+        : getParametricAxisDiagnostics;
+    return getInitialAxisDiagnostics({
       field: "xExpr",
-      xExpr: object.xExpr,
-      yExpr: object.yExpr,
-      zExpr: object.zExpr
+      xExpr: parametricObject.xExpr,
+      yExpr: parametricObject.yExpr,
+      zExpr: parametricObject.zExpr
     });
   });
 
@@ -81,11 +96,13 @@ export default function ExpressionRow({
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       setXDraft(object.xExpr);
       setYDraft(object.yExpr);
       setZDraft(object.zExpr);
-      const diagX = getParametricAxisDiagnostics({
+      const getAxisDiagnostics =
+        object.kind === "parametricSurface" ? getParametricSurfaceAxisDiagnostics : getParametricAxisDiagnostics;
+      const diagX = getAxisDiagnostics({
         field: "xExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -97,7 +114,7 @@ export default function ExpressionRow({
         return;
       }
 
-      const diagY = getParametricAxisDiagnostics({
+      const diagY = getAxisDiagnostics({
         field: "yExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -109,7 +126,7 @@ export default function ExpressionRow({
         return;
       }
 
-      const diagZ = getParametricAxisDiagnostics({
+      const diagZ = getAxisDiagnostics({
         field: "zExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -170,14 +187,20 @@ export default function ExpressionRow({
 
   const commitParametricAxisIfValid = (field: "xExpr" | "yExpr" | "zExpr", nextValue: string) => {
     const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
-    if (!current || current.kind !== "parametricCurve") return;
-    const compiled = compileParametricExpressions(
+    if (!current || (current.kind !== "parametricCurve" && current.kind !== "parametricSurface")) return;
+    const compileForKind =
+      current.kind === "parametricSurface" ? compileParametricSurfaceExpressions : compileParametricExpressions;
+    const compiled = compileForKind(
       field === "xExpr" ? nextValue : xDraft,
       field === "yExpr" ? nextValue : yDraft,
       field === "zExpr" ? nextValue : zDraft
     );
     if (compiled.error) return;
     if (current[field] === nextValue) return;
+    if (current.kind === "parametricSurface") {
+      updateParametricSurfaceExpression(object.id, field, nextValue);
+      return;
+    }
     updateParametricExpression(object.id, field, nextValue);
   };
 
@@ -200,16 +223,22 @@ export default function ExpressionRow({
         return;
       }
 
-      if (object.kind === "parametricCurve") {
-        const compiled = compileParametricExpressions(latest.xDraft, latest.yDraft, latest.zDraft);
+      if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
+        const compileForKind =
+          object.kind === "parametricSurface" ? compileParametricSurfaceExpressions : compileParametricExpressions;
+        const compiled = compileForKind(latest.xDraft, latest.yDraft, latest.zDraft);
         if (compiled.error) return;
 
         const field = latest.activeParametricField;
         const nextValue = field === "xExpr" ? latest.xDraft : field === "yExpr" ? latest.yDraft : latest.zDraft;
         const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
-        if (!current || current.kind !== "parametricCurve") return;
+        if (!current || current.kind !== object.kind) return;
         if (current[field] === nextValue) return;
 
+        if (object.kind === "parametricSurface") {
+          updateParametricSurfaceExpression(object.id, field, nextValue);
+          return;
+        }
         updateParametricExpression(object.id, field, nextValue);
       }
     }, EXPRESSION_DEBOUNCE_MS);
@@ -224,7 +253,7 @@ export default function ExpressionRow({
       commitPlaneIfValid(planeDraft);
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       if (inputId.endsWith("-xExpr")) commitParametricAxisIfValid("xExpr", xDraft);
       if (inputId.endsWith("-yExpr")) commitParametricAxisIfValid("yExpr", yDraft);
       if (inputId.endsWith("-zExpr")) commitParametricAxisIfValid("zExpr", zDraft);
@@ -242,21 +271,23 @@ export default function ExpressionRow({
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
+      const getRevertAxisDiagnostics =
+        object.kind === "parametricSurface" ? getParametricSurfaceAxisDiagnostics : getParametricAxisDiagnostics;
       if (inputId.endsWith("-xExpr")) {
         setXDraft(object.xExpr);
         setActiveParametricField("xExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "xExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "xExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
       }
       if (inputId.endsWith("-yExpr")) {
         setYDraft(object.yExpr);
         setActiveParametricField("yExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "yExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "yExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
       }
       if (inputId.endsWith("-zExpr")) {
         setZDraft(object.zExpr);
         setActiveParametricField("zExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "zExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "zExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
       }
     }
   };
@@ -448,10 +479,10 @@ export default function ExpressionRow({
         />
       )}
 
-      {object.kind === "parametricCurve" && (
+      {(object.kind === "parametricCurve" || object.kind === "parametricSurface") && (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
           <label htmlFor={`${inputIdBase}-xExpr`} className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-            x(t)
+            {object.kind === "parametricSurface" ? "x(u,v)" : "x(t)"}
           </label>
           <input
             id={`${inputIdBase}-xExpr`}
@@ -463,7 +494,11 @@ export default function ExpressionRow({
               const next = event.target.value;
               setXDraft(next);
               setActiveParametricField("xExpr");
-              setParamDraftDiag(getParametricAxisDiagnostics({ field: "xExpr", xExpr: next, yExpr: yDraft, zExpr: zDraft }));
+              setParamDraftDiag(
+                (object.kind === "parametricSurface"
+                  ? getParametricSurfaceAxisDiagnostics
+                  : getParametricAxisDiagnostics)({ field: "xExpr", xExpr: next, yExpr: yDraft, zExpr: zDraft })
+              );
               scheduleDebouncedCommit();
             }}
             onBlur={() => {
@@ -482,7 +517,7 @@ export default function ExpressionRow({
             className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
           />
 
-          {PARAMETRIC_FIELDS.map((entry) => (
+          {(object.kind === "parametricSurface" ? PARAMETRIC_SURFACE_FIELDS : PARAMETRIC_CURVE_FIELDS).map((entry) => (
             <ParametricInput
               key={entry.field}
               id={`${inputIdBase}-${entry.field}`}
@@ -491,14 +526,18 @@ export default function ExpressionRow({
               onFocus={() => onSelect(object.id)}
               onChange={(event) => {
                 const next = event.target.value;
+                const getChangeAxisDiagnostics =
+                  object.kind === "parametricSurface"
+                    ? getParametricSurfaceAxisDiagnostics
+                    : getParametricAxisDiagnostics;
                 if (entry.field === "yExpr") {
                   setYDraft(next);
                   setActiveParametricField("yExpr");
-                  setParamDraftDiag(getParametricAxisDiagnostics({ field: "yExpr", xExpr: xDraft, yExpr: next, zExpr: zDraft }));
+                  setParamDraftDiag(getChangeAxisDiagnostics({ field: "yExpr", xExpr: xDraft, yExpr: next, zExpr: zDraft }));
                 } else {
                   setZDraft(next);
                   setActiveParametricField("zExpr");
-                  setParamDraftDiag(getParametricAxisDiagnostics({ field: "zExpr", xExpr: xDraft, yExpr: yDraft, zExpr: next }));
+                  setParamDraftDiag(getChangeAxisDiagnostics({ field: "zExpr", xExpr: xDraft, yExpr: yDraft, zExpr: next }));
                 }
                 scheduleDebouncedCommit();
               }}

@@ -29,7 +29,7 @@ export default function AppearanceTab() {
     );
   }
 
-  if (selectedObject.kind === "surface") {
+  if (selectedObject.kind === "surface" || selectedObject.kind === "parametricSurface") {
     return (
       <div className="flex flex-col gap-6">
         <TessellationSection object={selectedObject} />

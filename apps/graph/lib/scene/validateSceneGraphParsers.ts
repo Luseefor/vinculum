@@ -1,7 +1,10 @@
-import type { GraphObject, ParametricCurveObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import {
+  MAX_PARAMETRIC_SURFACE_RESOLUTION,
   MAX_SURFACE_RESOLUTION,
+  MIN_PARAMETRIC_SURFACE_RESOLUTION,
   MIN_SURFACE_RESOLUTION,
+  normalizeParametricSurfaceResolution,
   normalizeSurfaceResolution
 } from "@vinculum/scene/defaults";
 import {
@@ -39,6 +42,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "parametricCurve") {
     return parseParametricCurveObject(rawObject, objectIndex, id, color, visible, errors);
+  }
+
+  if (kind === "parametricSurface") {
+    return parseParametricSurfaceObject(rawObject, objectIndex, id, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -224,8 +231,93 @@ function parseParametricCurveObject(
   };
 }
 
-function parsePlaneGraphObject(
+function parseParametricSurfaceObject(
   rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  color: string,
+  visible: boolean,
+  errors: string[]
+): ParametricSurfaceObject | null {
+  const xExpr = requireString(rawObject.xExpr, `objects[${objectIndex}].xExpr`, errors);
+  const yExpr = requireString(rawObject.yExpr, `objects[${objectIndex}].yExpr`, errors);
+  const zExpr = requireString(rawObject.zExpr, `objects[${objectIndex}].zExpr`, errors);
+
+  const domainPath = `objects[${objectIndex}].domain`;
+  if (!isRecord(rawObject.domain)) {
+    errors.push(`${domainPath} must be an object.`);
+    return null;
+  }
+
+  const uMin = parseFiniteNumber(rawObject.domain.uMin, `${domainPath}.uMin`, errors);
+  const uMax = parseFiniteNumber(rawObject.domain.uMax, `${domainPath}.uMax`, errors);
+  const vMin = parseFiniteNumber(rawObject.domain.vMin, `${domainPath}.vMin`, errors);
+  const vMax = parseFiniteNumber(rawObject.domain.vMax, `${domainPath}.vMax`, errors);
+
+  const resolution = parseInteger(
+    rawObject.resolution,
+    `objects[${objectIndex}].resolution`,
+    errors,
+    MIN_PARAMETRIC_SURFACE_RESOLUTION,
+    MAX_PARAMETRIC_SURFACE_RESOLUTION
+  );
+
+  const appearancePath = `objects[${objectIndex}].appearance`;
+  if (!isRecord(rawObject.appearance)) {
+    errors.push(`${appearancePath} must be an object.`);
+    return null;
+  }
+
+  const wireframe = parseBoolean(rawObject.appearance.wireframe, `${appearancePath}.wireframe`, errors);
+
+  if (!xExpr || !yExpr || !zExpr || uMin === null || uMax === null || vMin === null || vMax === null || resolution === null || wireframe === null) {
+    return null;
+  }
+
+  // S17: mirror the parametric-curve parser — syntax/function/literal safety
+  // per axis (u/v ride the compiler's allowed symbols; the parser checks
+  // structure only). No finiteness probe: x = 1/u stays valid over domains
+  // containing u = 0; pointwise validity belongs to the sampler.
+  const axisSafety: Array<{ expr: string; label: string; path: string }> = [
+    { expr: xExpr, label: "Parametric surface x(u,v)", path: `objects[${objectIndex}].xExpr` },
+    { expr: yExpr, label: "Parametric surface y(u,v)", path: `objects[${objectIndex}].yExpr` },
+    { expr: zExpr, label: "Parametric surface z(u,v)", path: `objects[${objectIndex}].zExpr` }
+  ];
+  for (const axis of axisSafety) {
+    const safety = validateExpressionSafety(axis.expr, {
+      operation: "validate-parametric-surface-expression",
+      expressionLabel: axis.label,
+      objectId: id,
+      objectKind: "parametricSurface"
+    });
+    if (!safety.ok) {
+      errors.push(`${axis.path}: ${safety.violation.message}`);
+      return null;
+    }
+  }
+
+  return {
+    id,
+    kind: "parametricSurface",
+    xExpr,
+    yExpr,
+    zExpr,
+    visible,
+    color,
+    domain: {
+      uMin,
+      uMax,
+      vMin,
+      vMax
+    },
+    resolution: normalizeParametricSurfaceResolution(resolution),
+    appearance: {
+      wireframe
+    }
+  };
+}
+
+function parsePlaneGraphObject(  rawObject: Record<string, unknown>,
   objectIndex: number,
   id: string,
   color: string,

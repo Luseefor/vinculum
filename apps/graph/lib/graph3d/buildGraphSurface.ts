@@ -1,21 +1,10 @@
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
-import {
-  BufferGeometry,
-  DoubleSide,
-  Group,
-  LineBasicMaterial,
-  LineSegments,
-  Mesh,
-  MeshStandardMaterial,
-  Sphere,
-  Vector3
-} from "three";
+import { Group } from "three";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { computeIndexedBoundingSphereData } from "@/lib/math/indexedBounds";
 import { sampleSurface } from "@/lib/math/sampleSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
-import { updateFloat32Attribute, updateIndexAttribute } from "./bufferGeometryAttributes";
+import { buildIndexedSurfaceMeshGroup } from "./buildIndexedSurfaceMesh";
 import { buildImplicitSurfaceContour } from "./buildImplicitSurfaceContour";
 
 export function buildSurface(
@@ -50,56 +39,17 @@ export function buildSurface(
     return null;
   }
 
-  if (!sampled || sampled.indices.length === 0) {
+  if (!sampled) {
     return null;
   }
 
-  const geometry = new BufferGeometry();
-  updateFloat32Attribute(geometry, "position", sampled.positions, 3);
-  updateIndexAttribute(geometry, sampled.indices);
-  geometry.computeVertexNormals();
-  // S8 (F7): bound INDEXED/RENDERED vertices only. Dead placeholder positions
-  // (non-finite samples kept at invalidHeight) must not distort the sphere.
-  // Do NOT call computeBoundingSphere() here: it scans ALL stored positions.
-  const indexedBounds = computeIndexedBoundingSphereData(sampled.positions, sampled.indices);
-  if (indexedBounds) {
-    geometry.boundingSphere = new Sphere(
-      new Vector3(indexedBounds.centerX, indexedBounds.centerY, indexedBounds.centerZ),
-      indexedBounds.radius
-    );
-  }
-  geometry.setDrawRange(0, geometry.getIndex()?.count ?? 0);
-
-  const group = new Group();
-  group.userData.vinculumId = object.id;
-
-  const material = new MeshStandardMaterial({
+  return buildIndexedSurfaceMeshGroup({
+    id: object.id,
     color: object.color,
-    roughness: tokens.sceneSurfaceRoughness,
-    metalness: tokens.sceneSurfaceMetalness,
     wireframe: object.appearance.wireframe,
-    side: DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1
+    positions: sampled.positions,
+    indices: sampled.indices,
+    theme,
+    tokens
   });
-
-  const mesh = new Mesh(geometry, material);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  group.add(mesh);
-
-  if (!object.appearance.wireframe) {
-    const edgeMaterial = new LineBasicMaterial({
-      color: theme === "dark" ? "#f8fafc" : "#0f172a",
-      transparent: true,
-      opacity: theme === "dark" ? 0.1 : 0.12,
-      depthWrite: false
-    });
-    const edges = new LineSegments(geometry, edgeMaterial);
-    edges.renderOrder = 5;
-    group.add(edges);
-  }
-
-  return group;
 }

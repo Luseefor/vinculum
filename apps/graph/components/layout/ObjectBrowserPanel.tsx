@@ -27,10 +27,12 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const workspace = useGraphStore((state) => state.ui.workspace);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
@@ -68,6 +70,32 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
     updateParametricExpression(id, "tMax", 1);
     updateParametricExpression(id, "samples", 2);
     addConsoleEvent("Created point marker preset");
+    return id;
+  };
+
+  const createParametricSphere = () => {
+    const id = addParametricSurface();
+    updateParametricSurfaceExpression(id, "xExpr", "sin(u) * cos(v)");
+    updateParametricSurfaceExpression(id, "yExpr", "sin(u) * sin(v)");
+    updateParametricSurfaceExpression(id, "zExpr", "cos(u)");
+    updateParametricSurfaceExpression(id, "uMin", 0);
+    updateParametricSurfaceExpression(id, "uMax", 3.1415926536);
+    updateParametricSurfaceExpression(id, "vMin", 0);
+    updateParametricSurfaceExpression(id, "vMax", 6.2831853072);
+    addConsoleEvent("Created parametric sphere preset");
+    return id;
+  };
+
+  const createParametricTorus = () => {
+    const id = addParametricSurface();
+    updateParametricSurfaceExpression(id, "xExpr", "(2 + 0.5 * cos(v)) * cos(u)");
+    updateParametricSurfaceExpression(id, "yExpr", "(2 + 0.5 * cos(v)) * sin(u)");
+    updateParametricSurfaceExpression(id, "zExpr", "0.5 * sin(v)");
+    updateParametricSurfaceExpression(id, "uMin", 0);
+    updateParametricSurfaceExpression(id, "uMax", 6.2831853072);
+    updateParametricSurfaceExpression(id, "vMin", 0);
+    updateParametricSurfaceExpression(id, "vMax", 6.2831853072);
+    addConsoleEvent("Created parametric torus preset");
     return id;
   };
 
@@ -187,8 +215,11 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           {[
             { label: "Surface", onClick: () => createAndFocus(() => addSurfaceObject()) },
             { label: "Curve", onClick: () => createAndFocus(() => addParametricCurve()) },
+            { label: "Parametric Surface", onClick: () => createAndFocus(() => addParametricSurface()) },
             { label: "Sphere", onClick: () => createAndFocus(createSphere) },
             { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
+            { label: "Parametric Sphere", onClick: () => createAndFocus(createParametricSphere) },
+            { label: "Parametric Torus", onClick: () => createAndFocus(createParametricTorus) },
             { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
             { label: "Point", onClick: () => createAndFocus(createPoint) }
           ]

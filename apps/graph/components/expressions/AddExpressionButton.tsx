@@ -8,6 +8,7 @@ import { useGraphStore } from "@/store/graphStore";
 const ADD_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
   { label: "Surface", value: "surface" },
   { label: "Curve", value: "parametricCurve" },
+  { label: "Parametric Surface", value: "parametricSurface" },
   { label: "Plane", value: "plane" }
 ];
 
