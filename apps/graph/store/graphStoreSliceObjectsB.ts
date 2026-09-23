@@ -4,7 +4,12 @@ import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceB(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "toggleObjectVisibility" | "setObjectVisibility" | "selectObject" | "removeObject"
+  | "toggleObjectVisibility"
+  | "setObjectVisibility"
+  | "selectObject"
+  | "removeObject"
+  | "requestEquationFocus"
+  | "clearEquationFocus"
 > {
   return {
     toggleObjectVisibility: (id) => {
@@ -80,7 +85,37 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
           scene: nextScene,
           ui: {
             ...state.ui,
-            selectedObjectId: nextSelectedObjectId
+            selectedObjectId: nextSelectedObjectId,
+            focusEquationForObjectId:
+              state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId
+          }
+        };
+      });
+    },
+
+    requestEquationFocus: (id) => {
+      set((state) => {
+        if (!state.scene.objects.some((object) => object.id === id)) {
+          return state;
+        }
+        return {
+          ui: {
+            ...state.ui,
+            focusEquationForObjectId: id
+          }
+        };
+      });
+    },
+
+    clearEquationFocus: () => {
+      set((state) => {
+        if (state.ui.focusEquationForObjectId === null) {
+          return state;
+        }
+        return {
+          ui: {
+            ...state.ui,
+            focusEquationForObjectId: null
           }
         };
       });

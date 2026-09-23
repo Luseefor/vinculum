@@ -39,6 +39,7 @@ export function mergePersistedGraphStore(
         normalizedScene.measurements.some((measurement) => measurement.id === mergedUi.selectedMeasurementId)
           ? mergedUi.selectedMeasurementId
           : null,
+      focusEquationForObjectId: null,
       measurementDraft: null,
       probePins: normalizedScene.measurements
         .filter((measurement) => measurement.kind === "pin")

@@ -81,6 +81,7 @@ export default function EditorShell() {
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
 
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
@@ -261,15 +262,6 @@ export default function EditorShell() {
     addConsoleEvent("Redo");
   }, [addConsoleEvent, applySceneSnapshot, redoHistory]);
 
-  const runCommand = useCallback((commandId: string) => {
-    if (commandId === "undo") { runUndo(); return; }
-    if (commandId === "redo") { runRedo(); return; }
-    if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
-    if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
-    if (commandId === "switch-split") { setViewportMode("split"); return; }
-    if (commandId === "switch-quad") { setViewportMode("quad"); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode]);
-
   useEffect(() => {
     const currentSnapshot = getCurrentSceneSnapshot();
     const previousSnapshot = lastSceneSnapshotRef.current;
@@ -321,10 +313,20 @@ export default function EditorShell() {
   }, [addConsoleEvent, constraints, scene.objects, setObjectVisibility, updateObjectColor]);
 
   useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      const tag = target.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
+      const mod = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
+      if (mod && (key === "k" || (event.shiftKey && key === "p"))) {
         event.preventDefault();
         setCommandPaletteOpen(true);
+        return;
       }
       if (event.key === "Escape") {
         // Functional updates return identical state when nothing is open so
@@ -332,11 +334,33 @@ export default function EditorShell() {
         // downstream effect subscriptions such as drawer Escape handlers).
         setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
         setContextMenu((state) => (state.open ? { ...state, open: false } : state));
+        return;
+      }
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        const selectedId = useGraphStore.getState().ui.selectedObjectId;
+        if (selectedId) {
+          event.preventDefault();
+          removeObject(selectedId);
+        }
+        return;
+      }
+      if (event.key === "/") {
+        const search = document.getElementById("object-search-input");
+        if (search instanceof HTMLInputElement) {
+          event.preventDefault();
+          search.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [removeObject]);
 
   const [narrowRailMode, setNarrowRailMode] = useState(false);
   // Narrow-mode drawers open only on explicit user action so a fresh narrow
@@ -727,8 +751,48 @@ export default function EditorShell() {
     setViewportFallbackMessage("Scene JSON exported.");
   }, [scene]);
 
-  const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {
-    const shell = shellRef.current;
+  const runCommand = useCallback((commandId: string) => {
+    if (commandId === "undo") { runUndo(); return; }
+    if (commandId === "redo") { runRedo(); return; }
+    if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
+    if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
+    if (commandId === "switch-split") { setViewportMode("split"); return; }
+    if (commandId === "switch-quad") { setViewportMode("quad"); return; }
+    if (commandId === "add-surface") {
+      const createdId = addSurfaceObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-curve") {
+      const createdId = addParametricCurve();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-plane") {
+      const createdId = addPlaneObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "delete-selected") {
+      const selectedId = useGraphStore.getState().ui.selectedObjectId;
+      if (selectedId) {
+        removeObject(selectedId);
+      }
+      return;
+    }
+    if (commandId === "toggle-snap") { setSnapEnabled(!snapEnabled); return; }
+    if (commandId === "reset-view") { handleViewportResetView(); return; }
+    if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
+    if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+
+  const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
     const divider = event.currentTarget;
     divider.setPointerCapture(event.pointerId);
@@ -966,6 +1030,7 @@ export default function EditorShell() {
         <SceneNavigatorPremium width={Math.min(leftWidth, 320)} />
       </Sheet>
       <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
       
       <input
         ref={importInputRef}

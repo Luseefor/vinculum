@@ -30,13 +30,23 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
+
+  const createAndFocus = (create: () => string) => {
+    const id = create();
+    if (id) {
+      requestEquationFocus(id);
+    }
+    return id;
+  };
 
   const createSphere = () => {
     const id = addSurfaceObject();
     updateSurfaceEquation(id, "sqrt(max(0, 9 - x^2 - y^2))");
     updateSurfaceDomain(id, { xMin: -3, xMax: 3, yMin: -3, yMax: 3 });
     addConsoleEvent("Created sphere surface preset");
+    return id;
   };
 
   const createCylinder = () => {
@@ -44,6 +54,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
     updateSurfaceEquation(id, "sqrt(max(0, 4 - x^2))");
     updateSurfaceDomain(id, { xMin: -2, xMax: 2, yMin: -6, yMax: 6 });
     addConsoleEvent("Created cylinder surface preset");
+    return id;
   };
 
   const createPoint = () => {
@@ -55,6 +66,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
     updateParametricExpression(id, "tMax", 1);
     updateParametricExpression(id, "samples", 2);
     addConsoleEvent("Created point marker preset");
+    return id;
   };
 
   return (
@@ -76,6 +88,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
         <div className="relative">
           <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
+            id="object-search-input"
             type="text"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -102,7 +115,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           variant="secondary"
           className="h-8 w-full rounded-[6px] border-[var(--border-strong)] bg-[var(--surface-raised)] text-[12px] font-semibold"
           onClick={() => {
-            addEmptyObject();
+            createAndFocus(() => addEmptyObject());
             addConsoleEvent("Added new object");
           }}
         >
@@ -170,12 +183,12 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Quick Add</p>
         <div className="grid grid-cols-2 gap-1.5">
           {[
-            { label: "Surface", onClick: () => addSurfaceObject() },
-            { label: "Curve", onClick: () => addParametricCurve() },
-            { label: "Sphere", onClick: createSphere },
-            { label: "Cylinder", onClick: createCylinder },
-            { label: "Plane", onClick: () => addPlaneObject() },
-            { label: "Point", onClick: createPoint }
+            { label: "Surface", onClick: () => createAndFocus(() => addSurfaceObject()) },
+            { label: "Curve", onClick: () => createAndFocus(() => addParametricCurve()) },
+            { label: "Sphere", onClick: () => createAndFocus(createSphere) },
+            { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
+            { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
+            { label: "Point", onClick: () => createAndFocus(createPoint) }
           ].map((item) => (
             <button
               key={item.label}

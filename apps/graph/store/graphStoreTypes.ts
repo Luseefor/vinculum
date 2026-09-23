@@ -47,6 +47,8 @@ export interface GraphStoreState {
   setObjectVisibility: (id: string, visible: boolean) => void;
   selectObject: (id: string) => void;
   removeObject: (id: string) => void;
+  requestEquationFocus: (id: string) => void;
+  clearEquationFocus: () => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

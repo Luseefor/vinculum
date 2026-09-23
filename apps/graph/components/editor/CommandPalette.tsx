@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -14,6 +14,8 @@ interface CommandPaletteProps {
 const COMMANDS = [
   { id: "add-surface", label: "Add Surface" },
   { id: "add-curve", label: "Add 3D Curve" },
+  { id: "add-plane", label: "Add Plane" },
+  { id: "delete-selected", label: "Delete Selected Object" },
   { id: "toggle-2d", label: "Switch to 2D" },
   { id: "toggle-3d", label: "Switch to 3D" },
   { id: "switch-split", label: "Switch to Split View" },
@@ -72,6 +74,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <DialogContent className="max-w-xl self-start mt-[10vh] p-0 border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-[var(--shadow-floating)]" contentProps={{ onClick: (event) => event.stopPropagation() }}>
+        <DialogTitle className="sr-only">Command palette</DialogTitle>
         <div className="border-b border-[var(--border-subtle)] p-3">
           <Input
             autoFocus

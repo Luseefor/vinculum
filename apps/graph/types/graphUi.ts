@@ -58,6 +58,8 @@ export type GraphProbePin = { id: string; color: string; world: { x: number; y: 
 export interface GraphUiState {
   selectedObjectId: string | null;
   selectedMeasurementId: string | null;
+  /** Transient request to focus an object's primary equation input after creation. Cleared on consume. */
+  focusEquationForObjectId: string | null;
   sceneDialog: SceneDialogState;
   projectSession: ProjectSessionState;
   graphMode: GraphMode;

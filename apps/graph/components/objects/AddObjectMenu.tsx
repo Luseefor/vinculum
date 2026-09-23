@@ -13,6 +13,7 @@ export default function AddObjectMenu() {
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
@@ -31,9 +32,20 @@ export default function AddObjectMenu() {
       if (domain) {
         updateSurfaceDomain(id, domain);
       }
+      requestEquationFocus(id);
       addConsoleEvent(message);
     },
-    [addConsoleEvent, addSurfaceObject, updateSurfaceDomain, updateSurfaceEquation]
+    [addConsoleEvent, addSurfaceObject, requestEquationFocus, updateSurfaceDomain, updateSurfaceEquation]
+  );
+
+  const createAndFocus = useCallback(
+    (create: () => string) => {
+      const id = create();
+      if (id) {
+        requestEquationFocus(id);
+      }
+    },
+    [requestEquationFocus]
   );
 
   const sections = useMemo(
@@ -44,14 +56,14 @@ export default function AddObjectMenu() {
           {
             label: "2D / 3D Curve",
             onClick: () => {
-              addParametricCurve();
+              createAndFocus(() => addParametricCurve());
               addConsoleEvent("Created parametric curve from Add menu");
             }
           },
           {
             label: "Surface",
             onClick: () => {
-              addSurfaceObject();
+              createAndFocus(() => addSurfaceObject());
               addConsoleEvent("Created surface from Add menu");
             }
           }
@@ -63,7 +75,7 @@ export default function AddObjectMenu() {
           {
             label: "Plane",
             onClick: () => {
-              addPlaneObject();
+              createAndFocus(() => addPlaneObject());
               addConsoleEvent("Created plane from Add menu");
             }
           },
@@ -107,6 +119,7 @@ export default function AddObjectMenu() {
             onClick: () => {
               const id = addPlaneObject();
               updatePlaneEquation(id, "z = 0");
+              requestEquationFocus(id);
               addConsoleEvent("Created slice plane at z=0");
             }
           },
@@ -124,6 +137,7 @@ export default function AddObjectMenu() {
               updateParametricExpression(id, "tMin", selectedObject.tMin);
               updateParametricExpression(id, "tMax", selectedObject.tMax);
               updateParametricExpression(id, "samples", selectedObject.samples);
+              requestEquationFocus(id);
               addConsoleEvent("Projected selected parametric curve onto z=0");
             }
           }
@@ -135,7 +149,9 @@ export default function AddObjectMenu() {
       addParametricCurve,
       addPlaneObject,
       addSurfaceObject,
+      createAndFocus,
       createSurfaceTemplate,
+      requestEquationFocus,
       selectedObject,
       updateParametricExpression,
       updatePlaneEquation

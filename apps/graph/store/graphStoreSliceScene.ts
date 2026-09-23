@@ -28,6 +28,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
               nextScene.measurements.some((measurement) => measurement.id === state.ui.selectedMeasurementId)
                 ? state.ui.selectedMeasurementId
                 : null,
+            focusEquationForObjectId: null,
             measurementDraft: null,
             probePins: nextScene.measurements
               .filter((measurement) => measurement.kind === "pin")
@@ -60,6 +61,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           ...state.ui,
           selectedObjectId: defaultScene.objects[0]?.id ?? null,
           selectedMeasurementId: null,
+          focusEquationForObjectId: null,
           canvas2dTool: "pan",
           canvas3dTool: "pan",
           baseline3dPlane: "xy",

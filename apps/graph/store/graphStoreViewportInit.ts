@@ -13,6 +13,7 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
   return {
     selectedObjectId,
     selectedMeasurementId: null,
+    focusEquationForObjectId: null,
     sceneDialog: {
       isOpen: false,
       mode: "export",

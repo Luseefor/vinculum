@@ -93,18 +93,21 @@ export default function ContextMenu({
     <div className="fixed inset-0 z-[65]" onClick={onClose}>
       <div
         ref={menuRef}
+        role="menu"
+        aria-label="Scene context menu"
         className="absolute z-[100] min-w-[12rem] max-w-60 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
         style={{ left: position.x, top: position.y }}
         onClick={(event) => event.stopPropagation()}
       >
         {items.map((item) => {
           if (item.id.startsWith("separator")) {
-            return <div key={item.id} className="my-1 h-px bg-[var(--border-subtle)]" />;
+            return <div key={item.id} role="separator" className="my-1 h-px bg-[var(--border-subtle)]" />;
           }
           return (
             <Button
               key={item.id}
               type="button"
+              role="menuitem"
               variant="ghost"
               className="w-full justify-start rounded px-2 py-1.5 text-left text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
               onClick={() => {

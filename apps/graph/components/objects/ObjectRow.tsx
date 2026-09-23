@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
@@ -34,6 +34,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const removeObject = useGraphStore((state) => state.removeObject);
+  const insertObjectAfter = useGraphStore((state) => state.insertObjectAfter);
+  const focusEquationForObjectId = useGraphStore((state) => state.ui.focusEquationForObjectId);
+  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
+  const clearEquationFocus = useGraphStore((state) => state.clearEquationFocus);
+  const eqInputRef = useRef<HTMLInputElement>(null);
+  const xExprInputRef = useRef<HTMLInputElement>(null);
 
   const [localEq, setLocalEq] = useState("");
   const [localX, setLocalX] = useState("");
@@ -149,6 +155,51 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     }
   }, [emptyCue, object.id]);
 
+  // Creation-focus contract: a fresh row expands and focuses its primary
+  // equation input so the user can type immediately. Consumed once.
+  // Sequenced across commits: expand first, then focus once the input is
+  // mounted (refs attach during commit, so no rAF timing is involved).
+  const wantsFocus = focusEquationForObjectId === object.id;
+  useEffect(() => {
+    if (wantsFocus && !isExpanded) {
+      setIsExpanded(true);
+    }
+  }, [wantsFocus, isExpanded, object.id]);
+  useEffect(() => {
+    if (!wantsFocus || !isExpanded) {
+      return;
+    }
+    const target =
+      object.kind === "parametricCurve" ? xExprInputRef.current : eqInputRef.current;
+    if (!target) {
+      return;
+    }
+    target.focus({ preventScroll: true });
+    target.select();
+    clearEquationFocus();
+  }, [wantsFocus, isExpanded, object.id, object.kind, clearEquationFocus]);
+
+  const handleCreateNext = () => {
+    const nextId = insertObjectAfter(object.id, object.kind);
+    if (nextId) {
+      requestEquationFocus(nextId);
+    }
+  };
+
+  const handleEquationKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.repeat || event.nativeEvent.isComposing) {
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      handleCreateNext();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.currentTarget.blur();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-1 font-sans">
       <div
@@ -180,6 +231,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               onClick={() => onSelect(object.id)}
               aria-label={selected ? `Selected ${title}` : `Select ${title}`}
               aria-pressed={selected}
+              data-object-row-select={object.id}
               className="block w-full cursor-pointer overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
             >
               <span className="block truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>            </button>
@@ -204,6 +256,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             onClick={() => onSelect(object.id)}
             aria-label={selected ? `Selected ${title}` : `Select ${title}`}
             aria-pressed={selected}
+            data-object-row-select={object.id}
             className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
           >
             <div className="min-w-0 flex-1 overflow-hidden">
@@ -245,6 +298,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] active:scale-[0.98]"
             aria-label={object.visible ? "Hide object" : "Show object"}
             aria-pressed={object.visible}
+            title={object.visible ? "Hide object" : "Show object"}
           >
             {object.visible ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeOffIcon className="h-3.5 w-3.5" />}
           </button>
@@ -257,6 +311,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             }}
             aria-label={isExpanded ? "Collapse definition" : "Expand definition"}
             aria-expanded={isExpanded}
+            title={isExpanded ? "Collapse definition" : "Expand definition"}
             className={cn(
               "flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
               isExpanded && "rotate-180"
@@ -271,6 +326,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             aria-label="Object actions"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
+            title="Object actions"
             onClick={(e) => {
               e.stopPropagation();
               onSelect(object.id);
@@ -316,6 +372,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             {(object.kind === "surface" || object.kind === "plane") && (
               <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
                 <input
+                  ref={eqInputRef}
                   type="text"
                   value={localEq}
                   aria-label="Equation"
@@ -328,9 +385,13 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     else updatePlaneEquation(object.id, next);
                   }}
                   onBlur={() => {
-                    if (object.kind === "surface") updateSurfaceEquation(object.id, localEq);
-                    else updatePlaneEquation(object.id, localEq);
+                    if (object.kind === "surface" && localEq !== object.equation) {
+                      updateSurfaceEquation(object.id, localEq);
+                    } else if (object.kind === "plane" && localEq !== object.equation) {
+                      updatePlaneEquation(object.id, localEq);
+                    }
                   }}
+                  onKeyDown={handleEquationKeyDown}
                   placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : "ax + by + cz + d = 0"}
                   spellCheck={false}
                   autoComplete="off"
@@ -354,6 +415,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       {item.label}
                     </span>
                     <input
+                      ref={item.field === "xExpr" ? xExprInputRef : undefined}
                       type="text"
                       value={item.val}
                       aria-label={`Parametric ${item.label}`}
@@ -364,7 +426,14 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                         item.set(next);
                         updateParametricExpression(object.id, item.field, next);
                       }}
-                      onBlur={() => updateParametricExpression(object.id, item.field, item.val)}
+                      onBlur={() => {
+                        const committed =
+                          item.field === "xExpr" ? object.xExpr : item.field === "yExpr" ? object.yExpr : object.zExpr;
+                        if (item.val !== committed) {
+                          updateParametricExpression(object.id, item.field, item.val);
+                        }
+                      }}
+                      onKeyDown={handleEquationKeyDown}
                       placeholder={
                         item.field === "xExpr" ? "0" : item.field === "yExpr" ? "cos(t)" : "sin(t)"
                       }

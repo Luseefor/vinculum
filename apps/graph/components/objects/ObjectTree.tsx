@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import ObjectRow from "@/components/objects/ObjectRow";
 
@@ -9,11 +9,25 @@ interface ObjectTreeProps {
   visibleOnly?: boolean;
 }
 
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+}
+
 export default function ObjectTree({ filterQuery = "", visibleOnly = false }: ObjectTreeProps) {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectObject = useGraphStore((state) => state.selectObject);
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
+  const listRef = useRef<HTMLDivElement>(null);
   const filtered = useMemo(() => {
     const q = filterQuery.trim().toLowerCase();
     if (!q) {
@@ -43,8 +57,53 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
     );
   }
 
+  const focusRowAt = (rowIndex: number) => {
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>("[data-object-row-select]")];
+    const target = buttons[rowIndex];
+    if (!target) {
+      return;
+    }
+    target.focus();
+    const id = target.getAttribute("data-object-row-select");
+    if (id) {
+      selectObject(id);
+    }
+  };
+
+  const handleListKeyDown = (event: ReactKeyboardEvent) => {
+    if (isTextEditingTarget(event.target)) {
+      return;
+    }
+    const container = listRef.current;
+    if (!container) {
+      return;
+    }
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>("[data-object-row-select]")];
+    if (buttons.length === 0) {
+      return;
+    }
+    const activeIndex = buttons.findIndex((button) => button === document.activeElement);
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusRowAt(activeIndex === -1 ? 0 : Math.min(activeIndex + 1, buttons.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusRowAt(activeIndex === -1 ? buttons.length - 1 : Math.max(activeIndex - 1, 0));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusRowAt(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusRowAt(buttons.length - 1);
+    }
+  };
+
   return (
-    <div className="space-y-1.5">
+    <div ref={listRef} onKeyDown={handleListKeyDown} className="space-y-1.5">
       <div className="space-y-0.5">
         {filtered.map((object) => {
           const index = objectIndexById.get(object.id) ?? -1;

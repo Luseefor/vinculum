@@ -50,6 +50,8 @@ export const useGraphStore = create<GraphStoreState>()(
         scene: state.scene,
         ui: {
           ...state.ui,
+          // Transient interaction requests never persist across sessions.
+          focusEquationForObjectId: null,
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,
