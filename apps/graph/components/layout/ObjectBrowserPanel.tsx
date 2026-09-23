@@ -29,6 +29,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
+  const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
@@ -232,6 +233,8 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             { label: "Curve", onClick: () => createAndFocus(() => addParametricCurve()) },
             { label: "Parametric Surface", onClick: () => createAndFocus(() => addParametricSurface()) },
             { label: "Implicit Surface", onClick: () => createAndFocus(() => addImplicitSurface()) },
+            { label: "2D Vector Field", onClick: () => createAndFocus(() => addVectorFieldObject("2d")) },
+            { label: "3D Vector Field", onClick: () => createAndFocus(() => addVectorFieldObject("3d")) },
             { label: "Sphere", onClick: () => createAndFocus(createSphere) },
             { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
             { label: "Parametric Sphere", onClick: () => createAndFocus(createParametricSphere) },

@@ -1,14 +1,21 @@
-import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
   MAX_SURFACE_RESOLUTION,
+  MAX_VECTOR_FIELD_2D_DENSITY,
+  MAX_VECTOR_FIELD_3D_DENSITY,
+  MAX_VECTOR_FIELD_SCALE,
   MIN_IMPLICIT_SURFACE_RESOLUTION,
   MIN_PARAMETRIC_SURFACE_RESOLUTION,
   MIN_SURFACE_RESOLUTION,
+  MIN_VECTOR_FIELD_DENSITY,
+  MIN_VECTOR_FIELD_SCALE,
   normalizeImplicitSurfaceResolution,
   normalizeParametricSurfaceResolution,
-  normalizeSurfaceResolution
+  normalizeSurfaceResolution,
+  normalizeVectorFieldDensity,
+  normalizeVectorFieldScale
 } from "@vinculum/scene/defaults";
 import {
   isRecord,
@@ -23,6 +30,7 @@ import {
 import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/math/expressionSafety";
 import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
@@ -56,6 +64,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "implicitSurface") {
     return parseImplicitSurfaceObject(rawObject, objectIndex, id, color, visible, errors);
+  }
+
+  if (kind === "vectorField") {
+    return parseVectorFieldObject(rawObject, objectIndex, id, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -418,8 +430,181 @@ function parseImplicitSurfaceObject(
   };
 }
 
-function parsePlaneGraphObject(  rawObject: Record<string, unknown>,
+// S20: one canonical vectorField kind with a fixed dimension. Components
+// use P/Q/R terminology. scale/normalize are render-only (never structure
+// identity). Empty components reject at import (like parametric axes);
+// the editor's transient empty creation state is handled downstream by the
+// non-renderable path, never by the parser.
+function parseVectorFieldObject(
+  rawObject: Record<string, unknown>,
   objectIndex: number,
+  id: string,
+  color: string,
+  visible: boolean,
+  errors: string[]
+): VectorFieldObject | null {
+  const dimensionPath = `objects[${objectIndex}].dimension`;
+  const dimensionRaw = rawObject.dimension;
+  if (dimensionRaw !== "2d" && dimensionRaw !== "3d") {
+    errors.push(`${dimensionPath} must be one of: 2d, 3d.`);
+    return null;
+  }
+  const dimension = dimensionRaw;
+
+  const pExpr = requireString(rawObject.pExpr, `objects[${objectIndex}].pExpr`, errors);
+  const qExpr = requireString(rawObject.qExpr, `objects[${objectIndex}].qExpr`, errors);
+  const rExpr = requireString(rawObject.rExpr, `objects[${objectIndex}].rExpr`, errors);
+
+  const domainPath = `objects[${objectIndex}].domain`;
+  if (!isRecord(rawObject.domain)) {
+    errors.push(`${domainPath} must be an object.`);
+    return null;
+  }
+
+  const xMin = parseFiniteNumber(rawObject.domain.xMin, `${domainPath}.xMin`, errors);
+  const xMax = parseFiniteNumber(rawObject.domain.xMax, `${domainPath}.xMax`, errors);
+  const yMin = parseFiniteNumber(rawObject.domain.yMin, `${domainPath}.yMin`, errors);
+  const yMax = parseFiniteNumber(rawObject.domain.yMax, `${domainPath}.yMax`, errors);
+  const zMin =
+    dimension === "3d" ? parseFiniteNumber(rawObject.domain.zMin, `${domainPath}.zMin`, errors) : 0;
+  const zMax =
+    dimension === "3d" ? parseFiniteNumber(rawObject.domain.zMax, `${domainPath}.zMax`, errors) : 0;
+
+  const density = parseInteger(
+    rawObject.density,
+    `objects[${objectIndex}].density`,
+    errors,
+    MIN_VECTOR_FIELD_DENSITY,
+    dimension === "2d" ? MAX_VECTOR_FIELD_2D_DENSITY : MAX_VECTOR_FIELD_3D_DENSITY
+  );
+
+  let scale = parseFiniteNumber(rawObject.scale, `objects[${objectIndex}].scale`, errors);
+  if (scale !== null && (scale < MIN_VECTOR_FIELD_SCALE || scale > MAX_VECTOR_FIELD_SCALE)) {
+    errors.push(
+      `objects[${objectIndex}].scale must be between ${MIN_VECTOR_FIELD_SCALE} and ${MAX_VECTOR_FIELD_SCALE}.`
+    );
+    scale = null;
+  }
+
+  const normalizeVectors = parseBoolean(rawObject.normalize, `objects[${objectIndex}].normalize`, errors);
+
+  // Empty components reject explicitly (fail closed): unlike the silent
+  // drop path, an import carrying an empty P/Q/R is malformed.
+  let emptyComponent = false;
+  if (typeof pExpr === "string" && !pExpr.trim()) {
+    errors.push(`objects[${objectIndex}].pExpr cannot be empty.`);
+    emptyComponent = true;
+  }
+  if (typeof qExpr === "string" && !qExpr.trim()) {
+    errors.push(`objects[${objectIndex}].qExpr cannot be empty.`);
+    emptyComponent = true;
+  }
+  if (dimension === "3d" && typeof rExpr === "string" && !rExpr.trim()) {
+    errors.push(`objects[${objectIndex}].rExpr cannot be empty for dimension "3d".`);
+    emptyComponent = true;
+  }
+  if (emptyComponent) {
+    return null;
+  }
+
+  if (
+    !pExpr ||
+    !qExpr ||
+    rExpr === null ||
+    xMin === null ||
+    xMax === null ||
+    yMin === null ||
+    yMax === null ||
+    zMin === null ||
+    zMax === null ||
+    density === null ||
+    scale === null ||
+    normalizeVectors === null
+  ) {
+    return null;
+  }
+
+  // R belongs to 3D only: a 2D field carrying an R component is malformed
+  // (fail closed rather than silently ignoring mathematics). 3D emptiness
+  // is rejected above.
+  if (dimension === "2d" && rExpr.trim() !== "") {
+    errors.push(`objects[${objectIndex}].rExpr requires dimension "3d".`);
+    return null;
+  }
+
+  // S11 safety per component, mirroring the parametric-surface parser:
+  // syntax/function/literal structure only, no finiteness probe (P = 1/x
+  // stays valid over domains containing x = 0; pointwise validity belongs
+  // to the sampler). Full compiler checks run on the live path (Slice 2).
+  const componentSafety: Array<{ expr: string; label: string; path: string }> = [
+    { expr: pExpr, label: "Vector field P", path: `objects[${objectIndex}].pExpr` },
+    { expr: qExpr, label: "Vector field Q", path: `objects[${objectIndex}].qExpr` },
+    ...(dimension === "3d"
+      ? [{ expr: rExpr, label: "Vector field R", path: `objects[${objectIndex}].rExpr` }]
+      : [])
+  ];
+  for (const component of componentSafety) {
+    const safety = validateExpressionSafety(component.expr, {
+      operation: "validate-vector-field-expression",
+      expressionLabel: component.label,
+      objectId: id,
+      objectKind: "vectorField"
+    });
+    if (!safety.ok) {
+      errors.push(`${component.path}: ${safety.violation.message}`);
+      return null;
+    }
+  }
+
+  // Authoritative field compiler: same normalization, reserved-local, and
+  // parameter-context checks as the live path, so unknown symbols (zzz)
+  // and reserved locals (t) reject at import instead of arriving broken.
+  const fieldCompiled = compileVectorFieldExpressions(
+    dimension,
+    pExpr,
+    qExpr,
+    rExpr,
+    getEditorParameterScope()
+  );
+  if (fieldCompiled.error) {
+    errors.push(`objects[${objectIndex}]: ${fieldCompiled.error}`);
+    return null;
+  }
+
+  if (dimension === "2d") {
+    return {
+      id,
+      kind: "vectorField",
+      dimension: "2d",
+      pExpr,
+      qExpr,
+      rExpr,
+      visible,
+      color,
+      domain: { xMin, xMax, yMin, yMax },
+      density: normalizeVectorFieldDensity(density, dimension),
+      scale: normalizeVectorFieldScale(scale),
+      normalize: normalizeVectors
+    };
+  }
+
+  return {
+    id,
+    kind: "vectorField",
+    dimension: "3d",
+    pExpr,
+    qExpr,
+    rExpr,
+    visible,
+    color,
+    domain: { xMin, xMax, yMin, yMax, zMin, zMax },
+    density: normalizeVectorFieldDensity(density, dimension),
+    scale: normalizeVectorFieldScale(scale),
+    normalize: normalizeVectors
+  };
+}
+
+function parsePlaneGraphObject(  rawObject: Record<string, unknown>,  objectIndex: number,
   id: string,
   color: string,
   visible: boolean,

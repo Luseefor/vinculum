@@ -1,5 +1,6 @@
 import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
 import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
+import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
 import {
   isGeometryComputeRequest,
   type GeometryComputeRequest,
@@ -93,6 +94,31 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       rejectedTriangles: 0
     };
   }
+  if (request.kind === "vectorField") {
+    // S20: the worker runs the same pure sampler the 2D path and unit
+    // tests use (parity is structural). Buffers compact to valid samples.
+    const computed = computeVectorFieldData({
+      dimension: request.payload.dimension,
+      pExpr: request.payload.pExpr,
+      qExpr: request.payload.qExpr,
+      rExpr: request.payload.rExpr,
+      domain: request.payload.domain,
+      density: request.payload.density,
+      params: request.params
+    });
+    if (computed.status !== "ok") {
+      return computed;
+    }
+    return {
+      status: "ok",
+      positions: computed.positions,
+      vectors: computed.vectors,
+      magnitudes: computed.magnitudes,
+      validCount: computed.validCount,
+      totalSamples: computed.totalSamples,
+      maxMagnitude: computed.maxMagnitude
+    };
+  }
   const computed = computeParametricSurfaceData({
     xExpr: request.payload.xExpr,
     yExpr: request.payload.yExpr,
@@ -123,6 +149,13 @@ function collectTransferBuffers(
   }
   // Freshly allocated result buffers (never SharedArrayBuffers): safe to
   // transfer. The worker drops all references by returning here.
+  if ("vectors" in result) {
+    return [
+      result.positions.buffer as Transferable,
+      result.vectors.buffer as Transferable,
+      result.magnitudes.buffer as Transferable
+    ];
+  }
   return [result.positions.buffer as Transferable, result.indices.buffer as Transferable];
 }
 

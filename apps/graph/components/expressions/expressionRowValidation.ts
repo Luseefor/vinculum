@@ -1,6 +1,7 @@
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
@@ -35,5 +36,26 @@ export function getExpressionRowValidation(object: GraphObject): ExpressionValid
     };
   }
 
+  if (object.kind === "vectorField") {
+    // S20: whole-field compile (unknown symbols, reserved locals, empty
+    // components). Empty components stay valid-but-unrendered downstream;
+    // report only the first hard error here, like the surface paths.
+    const compiled = compileVectorFieldExpressions(
+      object.dimension,
+      object.pExpr,
+      object.qExpr,
+      object.rExpr,
+      getEditorParameterScope()
+    );
+    if (compiled.error && !isEmptyComponentError(compiled.error)) {
+      return { error: compiled.error };
+    }
+    return { error: null };
+  }
+
   return { error: compilePlaneEquation(object.equation).error };
+}
+
+function isEmptyComponentError(error: string): boolean {
+  return /^[PQR]\(x,y(,z)?\) cannot be empty\.$/.test(error);
 }

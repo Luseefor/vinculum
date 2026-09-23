@@ -10,6 +10,7 @@ import {
 import { graph2dMathToScreen } from "@/components/graph/graph2d/graph2dCanvasTransforms";
 import type { Axis2DPair, Viewport2DFrame } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
@@ -151,7 +152,7 @@ export function export2dSvg(input: {
   }
 
   const axisSpec = getAxisPairSpec(input.axisPair);
-  const renderables = buildRenderableGraphsFromScene(input.objects, axisSpec);
+  const renderables = buildRenderableGraphsFromScene(input.objects, axisSpec, getEditorParameterScope());
   const dc = {
     width,
     height,
@@ -166,12 +167,17 @@ export function export2dSvg(input: {
   // S17: parametric surfaces intentionally produce no 2D renderable (no
   // single-equation axis-pair projection). S18: true implicit 3D surfaces
   // follow the same policy. Warn per skipped visible object so SVG export
-  // never silently drops scene content.
+  // never silently drops scene content. S20: 3D vector fields join the
+  // warn/skip set (no per-pane arrow projection in SVG); 2D field arrows
+  // are not yet represented either and warn via the renderable fallback
+  // below. Arrow-to-SVG export stays explicitly out of scope.
   const renderedIds = new Set(renderables.map((graph) => graph.id));
   for (const object of input.objects) {
     if (
       object.visible &&
-      (object.kind === "parametricSurface" || object.kind === "implicitSurface") &&
+      (object.kind === "parametricSurface" ||
+        object.kind === "implicitSurface" ||
+        (object.kind === "vectorField" && object.dimension === "3d")) &&
       !renderedIds.has(object.id)
     ) {
       warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionFocusDirection, ExpressionRemoveReason } from "@/types/graphUi";
 import ExpressionRow from "./ExpressionRow";
@@ -73,8 +73,8 @@ export default function ExpressionList() {
   );
 
   const insertBelow = useCallback(
-    (id: string, kind: GraphObjectKind) => {
-      const createdId = insertObjectAfter(id, kind);
+    (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => {
+      const createdId = insertObjectAfter(id, kind, dimension);
       if (createdId) {
         setPendingFocusId(createdId);
       }

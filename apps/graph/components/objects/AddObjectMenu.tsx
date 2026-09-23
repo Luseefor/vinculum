@@ -14,6 +14,7 @@ export default function AddObjectMenu() {
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
+  const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
@@ -123,6 +124,20 @@ export default function AddObjectMenu() {
             onClick: () => {
               createAndFocus(() => addImplicitSurface());
               addConsoleEvent("Created implicit surface from Add menu");
+            }
+          },
+          {
+            label: "2D Vector Field",
+            onClick: () => {
+              createAndFocus(() => addVectorFieldObject("2d"));
+              addConsoleEvent("Created 2D vector field from Add menu");
+            }
+          },
+          {
+            label: "3D Vector Field",
+            onClick: () => {
+              createAndFocus(() => addVectorFieldObject("3d"));
+              addConsoleEvent("Created 3D vector field from Add menu");
             }
           }
         ]
@@ -251,6 +266,7 @@ export default function AddObjectMenu() {
       addParametricCurve,
       addParametricSurface,
       addImplicitSurface,
+      addVectorFieldObject,
       addPlaneObject,
       addSurfaceObject,
       createAndFocus,

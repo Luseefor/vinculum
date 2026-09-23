@@ -17,12 +17,15 @@ export interface WorkspaceContent {
 export const WORKSPACE_CONTENT: Record<WorkspaceId, WorkspaceContent> = {
   geometry: {
     label: "Geometry Studio",
-    quickAddOrder: ["Plane", "Point", "Curve", "Surface", "Parametric Surface", "Implicit Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
+    // S20: 3D fields available without displacing Point/Plane/Surface;
+    // 2D fields listed last (same canonical list, no filtering).
+    quickAddOrder: ["Plane", "Point", "Curve", "Surface", "Parametric Surface", "Implicit Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus", "Implicit Sphere", "3D Vector Field", "2D Vector Field"],
     emptyHint: "Add a geometric object to begin."
   },
   math: {
     label: "Math Lab",
-    quickAddOrder: ["Surface", "Parametric Surface", "Implicit Surface", "Curve", "Plane", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
+    // S20: vector fields high priority in Math Lab.
+    quickAddOrder: ["2D Vector Field", "3D Vector Field", "Surface", "Parametric Surface", "Implicit Surface", "Curve", "Plane", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
     emptyHint: "Add an equation or graph to begin."
   }
 };

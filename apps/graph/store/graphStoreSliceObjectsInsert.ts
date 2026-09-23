@@ -3,6 +3,7 @@ import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
+import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import type { SceneCommand } from "@/lib/scene/commands";
 import { appendObject } from "./graphStoreAppendObject";
@@ -20,6 +21,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addPlaneObject"
   | "addParametricSurface"
   | "addImplicitSurface"
+  | "addVectorFieldObject"
   | "addEmptyObject"
   | "insertObjectAfter"
   | "setObjectKind"
@@ -45,15 +47,19 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
       return appendObject(set, (index) => createImplicitSurfaceGraph({ colorIndex: index }));
     },
 
+    addVectorFieldObject: (dimension) => {
+      return appendObject(set, (index) => createVectorFieldGraph({ colorIndex: index, dimension }));
+    },
+
     addEmptyObject: () => {
       return appendObject(set, (index) => createSurfaceGraph({ colorIndex: index, equation: "" }));
     },
 
-    insertObjectAfter: (id, kind) => {
+    insertObjectAfter: (id, kind, dimension) => {
       let createdObjectId = "";
 
       set((state) => {
-        const nextObject = createGraphObject(kind, state.scene.objects.length);
+        const nextObject = createGraphObject(kind, state.scene.objects.length, { dimension });
         createdObjectId = nextObject.id;
 
         const insertIndex = state.scene.objects.findIndex((object) => object.id === id);
@@ -79,7 +85,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
       return createdObjectId;
     },
 
-    setObjectKind: (id, kind) => {
+    setObjectKind: (id, kind, dimension) => {
       set((state) => {
         const index = state.scene.objects.findIndex((object) => object.id === id);
         if (index === -1) {
@@ -91,17 +97,21 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
           return state;
         }
 
+        // Vector conversions need a dimension: explicit choice wins, else
+        // preserve the current field's dimension, else default to 2D.
+        const vectorDimension =
+          dimension ??
+          (currentObject.kind === "vectorField" ? currentObject.dimension : "2d");
+        const objectOptions = {
+          id: currentObject.id,
+          color: currentObject.color,
+          visible: currentObject.visible,
+          ...(kind === "vectorField" ? { dimension: vectorDimension } : {})
+        };
+
         const replacement = isGraphObjectWithoutExpressions(currentObject)
-          ? createEmptyGraphObject(kind, index, {
-              id: currentObject.id,
-              color: currentObject.color,
-              visible: currentObject.visible
-            })
-          : createGraphObject(kind, index, {
-              id: currentObject.id,
-              color: currentObject.color,
-              visible: currentObject.visible
-            });
+          ? createEmptyGraphObject(kind, index, objectOptions)
+          : createGraphObject(kind, index, objectOptions);
 
         const command: SceneCommand = {
           type: "UPDATE_OBJECT",

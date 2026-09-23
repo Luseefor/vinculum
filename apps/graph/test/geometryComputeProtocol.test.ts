@@ -231,3 +231,183 @@ describe("isGeometryComputeResponse", () => {
     expect(isGeometryComputeResponse(withoutStructure)).toBe(false);
   });
 });
+
+describe("vectorField protocol (S20 Slice 3)", () => {
+  const vectorPayload2D = {
+    dimension: "2d",
+    pExpr: "x",
+    qExpr: "y",
+    rExpr: "",
+    domain: { xMin: -5, xMax: 5, yMin: -5, yMax: 5 },
+    density: 16
+  };
+
+  function makeVectorRequest(overrides: Record<string, unknown> = {}) {
+    return {
+      requestId: 7,
+      objectId: "vf-1",
+      generation: 1,
+      kind: "vectorField",
+      params: {},
+      structure: "dark::vf",
+      payload: { ...vectorPayload2D },
+      ...overrides
+    };
+  }
+
+  function makeVectorResponse(overrides: Record<string, unknown> = {}) {
+    return {
+      requestId: 7,
+      objectId: "vf-1",
+      generation: 1,
+      kind: "vectorField",
+      structure: "dark::vf",
+      result: {
+        status: "ok",
+        positions: new Float32Array([0, 0, 0, 1, 1, 0]),
+        vectors: new Float32Array([1, 0, 0, 0, 1, 0]),
+        magnitudes: new Float32Array([1, 1]),
+        validCount: 2,
+        totalSamples: 2,
+        maxMagnitude: 1
+      },
+      ...overrides
+    };
+  }
+
+  it("accepts valid 2D and 3D vector requests and responses", () => {
+    expect(isGeometryComputeRequest(makeVectorRequest())).toBe(true);
+    expect(
+      isGeometryComputeRequest({
+        ...makeVectorRequest(),
+        payload: {
+          dimension: "3d",
+          pExpr: "x",
+          qExpr: "y",
+          rExpr: "z",
+          domain: { xMin: -1, xMax: 1, yMin: -1, yMax: 1, zMin: -1, zMax: 1 },
+          density: 8
+        }
+      })
+    ).toBe(true);
+    expect(isGeometryComputeResponse(makeVectorResponse())).toBe(true);
+  });
+
+  it("rejects malformed vector payloads", () => {
+    expect(
+      isGeometryComputeRequest({ ...makeVectorRequest(), payload: { ...vectorPayload2D, dimension: "4d" } })
+    ).toBe(false);
+    expect(
+      isGeometryComputeRequest({ ...makeVectorRequest(), payload: { ...vectorPayload2D, density: Number.NaN } })
+    ).toBe(false);
+    expect(
+      isGeometryComputeRequest({
+        ...makeVectorRequest(),
+        payload: { ...vectorPayload2D, domain: { ...vectorPayload2D.domain, xMax: Number.POSITIVE_INFINITY } }
+      })
+    ).toBe(false);
+    expect(
+      isGeometryComputeRequest({ ...makeVectorRequest(), payload: { ...vectorPayload2D, pExpr: 42 } })
+    ).toBe(false);
+    // S20-R4: R on 2D and out-of-range densities fail closed at the gate.
+    expect(
+      isGeometryComputeRequest({ ...makeVectorRequest(), payload: { ...vectorPayload2D, rExpr: "z" } })
+    ).toBe(false);
+    for (const density of [0, 1, 33]) {
+      expect(
+        isGeometryComputeRequest({ ...makeVectorRequest(), payload: { ...vectorPayload2D, density } })
+      ).toBe(false);
+    }
+    expect(
+      isGeometryComputeRequest({
+        ...makeVectorRequest(),
+        payload: {
+          dimension: "3d",
+          pExpr: "x",
+          qExpr: "y",
+          rExpr: "z",
+          domain: { xMin: -1, xMax: 1, yMin: -1, yMax: 1, zMin: -1, zMax: 1 },
+          density: 13
+        }
+      })
+    ).toBe(false);
+  });
+
+  it("rejects malformed vector ok results", () => {
+    // Mismatched vector length.
+    expect(
+      isGeometryComputeResponse({
+        ...makeVectorResponse(),
+        result: {
+          status: "ok",
+          positions: new Float32Array([0, 0, 0, 1, 1, 0]),
+          vectors: new Float32Array([1, 0, 0]),
+          magnitudes: new Float32Array([1, 1]),
+          validCount: 2,
+          totalSamples: 2,
+          maxMagnitude: 1
+        }
+      })
+    ).toBe(false);
+    // Mismatched magnitude length.
+    expect(
+      isGeometryComputeResponse({
+        ...makeVectorResponse(),
+        result: {
+          status: "ok",
+          positions: new Float32Array([0, 0, 0, 1, 1, 0]),
+          vectors: new Float32Array([1, 0, 0, 0, 1, 0]),
+          magnitudes: new Float32Array([1]),
+          validCount: 2,
+          totalSamples: 2,
+          maxMagnitude: 1
+        }
+      })
+    ).toBe(false);
+    // Non-Float32 vectors.
+    expect(
+      isGeometryComputeResponse({
+        ...makeVectorResponse(),
+        result: {
+          status: "ok",
+          positions: new Float32Array([0, 0, 0, 1, 1, 0]),
+          vectors: new Float64Array([1, 0, 0, 0, 1, 0]),
+          magnitudes: new Float32Array([1, 1]),
+          validCount: 2,
+          totalSamples: 2,
+          maxMagnitude: 1
+        }
+      })
+    ).toBe(false);
+    // Empty buffers.
+    expect(
+      isGeometryComputeResponse({
+        ...makeVectorResponse(),
+        result: {
+          status: "ok",
+          positions: new Float32Array(0),
+          vectors: new Float32Array(0),
+          magnitudes: new Float32Array(0),
+          validCount: 0,
+          totalSamples: 0,
+          maxMagnitude: 0
+        }
+      })
+    ).toBe(false);
+    // Ragged positions.
+    expect(
+      isGeometryComputeResponse({
+        ...makeVectorResponse(),
+        result: {
+          status: "ok",
+          positions: new Float32Array([0, 0, 0, 1]),
+          vectors: new Float32Array([1, 0, 0, 0]),
+          magnitudes: new Float32Array([1]),
+          validCount: 1,
+          totalSamples: 1,
+          maxMagnitude: 1
+        }
+      })
+    ).toBe(false);
+  });
+});

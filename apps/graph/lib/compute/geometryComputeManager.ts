@@ -5,7 +5,8 @@ import {
   type GeometryComputeRequest,
   type GeometryComputeResponse,
   type ImplicitSurfaceComputePayload,
-  type ParametricSurfaceComputePayload
+  type ParametricSurfaceComputePayload,
+  type VectorFieldComputePayload
 } from "./geometryComputeProtocol";
 import { useGeometryComputeStore } from "./geometryComputeStatus";
 
@@ -68,6 +69,13 @@ export interface GeometryComputeManager {
           objectId: string;
           kind: "parametricSurface";
           payload: ParametricSurfaceComputePayload;
+          params: Record<string, number>;
+          structure: string;
+        }
+      | {
+          objectId: string;
+          kind: "vectorField";
+          payload: VectorFieldComputePayload;
           params: Record<string, number>;
           structure: string;
         }
@@ -183,17 +191,29 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
     if (response.result.status === "ok" || response.result.status === "empty") {
       useGeometryComputeStore.getState().clearStatus(response.objectId);
     } else {
+      // S20-R6: budget wording follows the job kind (fields never emit
+      // budget-exceeded today, but the path is generic).
       const message =
         response.result.status === "budget-exceeded"
-          ? "Surface too complex at this resolution; lower it."
+          ? response.kind === "vectorField"
+            ? "Field too dense at this density; lower it."
+            : "Surface too complex at this resolution; lower it."
           : response.result.error;
       useGeometryComputeStore.getState().setStatus(response.objectId, "error", message);
       if (response.result.status === "budget-exceeded") {
         // S18 parity: budget aborts are reported, like the sync builder.
-        reportWarning("Implicit surface extraction exceeded the triangle budget.", {
-          featureArea: "3d-viewport",
-          operation: "implicit-surface-budget-exceeded"
-        });
+        reportWarning(
+          response.kind === "vectorField"
+            ? "Vector field sampling exceeded the sample budget."
+            : "Implicit surface extraction exceeded the triangle budget.",
+          {
+            featureArea: "3d-viewport",
+            operation:
+              response.kind === "vectorField"
+                ? "vector-field-budget-exceeded"
+                : "implicit-surface-budget-exceeded"
+          }
+        );
       }
     }
     try {
@@ -260,7 +280,9 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
       const request: GeometryComputeRequest =
         input.kind === "implicitSurface"
           ? { ...base, kind: input.kind, payload: input.payload }
-          : { ...base, kind: input.kind, payload: input.payload };
+          : input.kind === "parametricSurface"
+            ? { ...base, kind: input.kind, payload: input.payload }
+            : { ...base, kind: input.kind, payload: input.payload };
       // Queue coalescing: at most one queued (not yet started) request per
       // object. A newer request replaces obsolete queued versions; the
       // in-flight request, if any, resolves via stale suppression.

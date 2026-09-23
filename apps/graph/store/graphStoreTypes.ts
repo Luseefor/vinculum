@@ -8,7 +8,10 @@ import type {
   PlaneGraphObject,
   SurfaceDomain,
   SurfaceGraphObject,
-  SurfaceOrientation
+  SurfaceOrientation,
+  VectorFieldDimension,
+  VectorFieldObject,
+  VectorFieldObject3D
 } from "@vinculum/scene/types";
 import type {
   Active2dViewportSlot,
@@ -37,6 +40,10 @@ export type ImplicitSurfaceField =
   | keyof Pick<ImplicitSurfaceObject, "equation" | "resolution">
   | keyof Pick<ImplicitSurfaceObject["domain"], "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax">;
 
+export type VectorFieldField =
+  | keyof Pick<VectorFieldObject, "pExpr" | "qExpr" | "rExpr" | "density" | "scale" | "normalize">
+  | keyof Pick<VectorFieldObject3D["domain"], "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax">;
+
 export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -46,9 +53,10 @@ export interface GraphStoreState {
   addPlaneObject: () => string;
   addParametricSurface: () => string;
   addImplicitSurface: () => string;
+  addVectorFieldObject: (dimension: VectorFieldDimension) => string;
   addEmptyObject: () => string;
-  insertObjectAfter: (id: string, kind: GraphObjectKind) => string;
-  setObjectKind: (id: string, kind: GraphObjectKind) => void;
+  insertObjectAfter: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => string;
+  setObjectKind: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
   updateSurfaceOrientation: (id: string, orientation: SurfaceOrientation) => void;
   updateParametricExpression: (
@@ -65,6 +73,11 @@ export interface GraphStoreState {
     id: string,
     field: ImplicitSurfaceField,
     value: string | number
+  ) => void;
+  updateVectorFieldExpression: (
+    id: string,
+    field: VectorFieldField,
+    value: string | number | boolean
   ) => void;
   updatePlaneEquation: (id: string, equation: string) => void;
   toggleObjectVisibility: (id: string) => void;

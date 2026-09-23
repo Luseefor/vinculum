@@ -49,6 +49,31 @@ export function worldToMath3D(point: WorldPoint3): MathPoint3 {
   };
 }
 
+// Direction-only twin of mathToWorld3D: a mathematical vector (dx, dy, dz)
+// maps to world (dx, dz, dy) with NO translation and NO sign changes. The
+// body is identical to the point map by construction (same linear axis
+// permutation); the separate name exists so a future "fix" to one cannot
+// silently break the other. S20 pins (4,5,6) -> (4,6,5) independently.
+export interface MathVector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface WorldVector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export function mathVectorToWorld3D(vector: MathVector3): WorldVector3 {
+  return {
+    x: vector.x,
+    y: vector.z,
+    z: vector.y
+  };
+}
+
 export function projectMathToPair2D(point: MathPoint3, pair: MathAxisPair): PairPoint2D {
   if (pair === "xz") {
     return {

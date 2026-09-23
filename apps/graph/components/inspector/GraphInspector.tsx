@@ -2,7 +2,12 @@
 
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
+import {
+  MAX_VECTOR_FIELD_2D_DENSITY,
+  MAX_VECTOR_FIELD_3D_DENSITY,
+  MIN_VECTOR_FIELD_DENSITY
+} from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
 
@@ -56,6 +61,16 @@ export default function GraphInspector() {
     );
   }
 
+  // S20: full field inspector — sampling box, density, and appearance
+  // hints. Scale/normalize/color live under the Styles tab.
+  if (selectedObject.kind === "vectorField") {
+    return (
+      <section id="graph-inspector">
+        <VectorFieldInspector object={selectedObject} objects={objects} />
+      </section>
+    );
+  }
+
   const selectedSurfaceObject: SurfaceGraphObject = selectedObject;
   const selectedIndex = objects.findIndex((object) => object.id === selectedSurfaceObject.id);
   const selectedTitle = selectedIndex >= 0 ? `#${selectedIndex + 1}` : "";
@@ -81,8 +96,111 @@ export default function GraphInspector() {
   );
 }
 
-function ParametricCurveInspector({ object }: { object: ParametricCurveObject }) {
-  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+function VectorFieldInspector({ object, objects }: { object: VectorFieldObject; objects: GraphObject[] }) {
+  const updateVectorFieldExpression = useGraphStore((state) => state.updateVectorFieldExpression);
+  const selectedIndex = objects.findIndex((candidate) => candidate.id === object.id);
+  const selectedTitle = selectedIndex >= 0 ? `#${selectedIndex + 1}` : "";
+  const coords = object.dimension === "2d" ? "x,y" : "x,y,z";
+
+  const rangeFields =
+    object.dimension === "3d"
+      ? [
+          { key: "xMin" as const, label: "x min" },
+          { key: "xMax" as const, label: "x max" },
+          { key: "yMin" as const, label: "y min" },
+          { key: "yMax" as const, label: "y max" },
+          { key: "zMin" as const, label: "z min" },
+          { key: "zMax" as const, label: "z max" }
+        ]
+      : [
+          { key: "xMin" as const, label: "x min" },
+          { key: "xMax" as const, label: "x max" },
+          { key: "yMin" as const, label: "y min" },
+          { key: "yMax" as const, label: "y max" }
+        ];
+
+  const densityMax = object.dimension === "2d" ? MAX_VECTOR_FIELD_2D_DENSITY : MAX_VECTOR_FIELD_3D_DENSITY;
+
+  const readDomain = (key: "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax"): number => {
+    if (object.dimension === "2d") {
+      // Unreachable: 2D grids omit z keys by construction above.
+      if (key === "zMin" || key === "zMax") {
+        return 0;
+      }
+      return object.domain[key];
+    }
+    return object.domain[key];
+  };
+
+  return (
+    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <header className="pb-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: object.color }} />
+          <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">
+            Vector Field {selectedTitle}
+          </h3>
+          <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            {object.dimension === "2d" ? "2D field" : "3D field"}
+          </span>
+        </div>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          Edit P, Q{object.dimension === "3d" ? ", R" : ""} in the list. The sampling domain and
+          density define the fixed mathematical grid ({object.dimension === "2d" ? "2D" : "3D"} fields
+          sample F({coords}) on a bounded lattice).
+        </p>
+      </header>
+      <div>
+        <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+          Sampling domain
+        </h4>
+        <div className="grid grid-cols-2 gap-2.5">
+          {rangeFields.map((entry) => (
+            <label key={entry.key} className="block">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                {entry.label}
+              </span>
+              <Input
+                type="number"
+                value={readDomain(entry.key)}
+                step="any"
+                aria-label={entry.label}
+                onChange={(event) => {
+                  const v = Number(event.target.value);
+                  if (Number.isFinite(v)) {
+                    updateVectorFieldExpression(object.id, entry.key, v);
+                  }
+                }}
+                className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              />
+            </label>
+          ))}
+        </div>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            Density per axis ({MIN_VECTOR_FIELD_DENSITY}-{densityMax})
+          </span>
+          <Input
+            type="number"
+            min={MIN_VECTOR_FIELD_DENSITY}
+            max={densityMax}
+            value={object.density}
+            aria-label="Density"
+            onChange={(event) => {
+              const v = Number(event.target.value);
+              if (Number.isFinite(v)) {
+                updateVectorFieldExpression(object.id, "density", v);
+              }
+            }}
+            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function ParametricCurveInspector({ object }: { object: ParametricCurveObject }) {  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
 
   return (
     <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">

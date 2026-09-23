@@ -3,11 +3,12 @@ import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
+import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { createSceneDocument, type SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 
-export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Implicit surfaces" | "Sketch examples";
+export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Implicit surfaces" | "Vector fields" | "Sketch examples";
 export type ExampleRecommendedMode = "2d" | "3d";
 
 export interface SceneExampleDefinition {
@@ -247,6 +248,80 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
             tMax: 4,
             samples: 240
           })
+        ]
+      })
+  },
+  {
+    id: "vector-field-2d-radial",
+    title: "2D Radial Field",
+    description: "Source field F(x,y) = <x, y> over a square domain.",
+    category: "Vector fields",
+    recommendedMode: "2d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "2D Radial Field" },
+        objects: [createVectorFieldGraph({ dimension: "2d", pExpr: "x", qExpr: "y" })]
+      })
+  },
+  {
+    id: "vector-field-2d-rotation",
+    title: "2D Rotation Field",
+    description: "Counterclockwise rotation F(x,y) = <-y, x>.",
+    category: "Vector fields",
+    recommendedMode: "2d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "2D Rotation Field" },
+        objects: [createVectorFieldGraph({ dimension: "2d", pExpr: "-y", qExpr: "x" })]
+      })
+  },
+  {
+    id: "vector-field-2d-saddle",
+    title: "2D Saddle Field",
+    description: "Saddle field F(x,y) = <x, -y>.",
+    category: "Vector fields",
+    recommendedMode: "2d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "2D Saddle Field" },
+        objects: [createVectorFieldGraph({ dimension: "2d", pExpr: "x", qExpr: "-y" })]
+      })
+  },
+  {
+    id: "vector-field-3d-radial",
+    title: "3D Radial Field",
+    description: "Source field F(x,y,z) = <x, y, z> as instanced arrows.",
+    category: "Vector fields",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "3D Radial Field" },
+        objects: [createVectorFieldGraph({ dimension: "3d", pExpr: "x", qExpr: "y", rExpr: "z" })]
+      })
+  },
+  {
+    id: "vector-field-3d-rotation",
+    title: "3D Rotation Field",
+    description: "Rotation about the z axis F(x,y,z) = <-y, x, 0>.",
+    category: "Vector fields",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "3D Rotation Field" },
+        objects: [createVectorFieldGraph({ dimension: "3d", pExpr: "-y", qExpr: "x", rExpr: "0" })]
+      })
+  },
+  {
+    id: "vector-field-3d-nonlinear",
+    title: "3D Nonlinear Field",
+    description: "Coupled sinusoidal field F(x,y,z) = <sin(y), sin(z), sin(x)>.",
+    category: "Vector fields",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "3D Nonlinear Field" },
+        objects: [
+          createVectorFieldGraph({ dimension: "3d", pExpr: "sin(y)", qExpr: "sin(z)", rExpr: "sin(x)" })
         ]
       })
   }

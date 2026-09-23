@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 import AppearanceSection from "./AppearanceSection";
 import TessellationSection from "./TessellationSection";
+import VectorFieldAppearanceSection from "./VectorFieldAppearanceSection";
 
 export default function AppearanceTab() {
   const objects = useGraphStore((state) => state.scene.objects);
@@ -38,6 +39,15 @@ export default function AppearanceTab() {
       <div className="flex flex-col gap-6">
         <TessellationSection object={selectedObject} />
         <AppearanceSection object={selectedObject} />
+      </div>
+    );
+  }
+
+  // S20: fields carry color + render-only glyph sizing (no wireframe).
+  if (selectedObject.kind === "vectorField") {
+    return (
+      <div className="flex flex-col gap-6">
+        <VectorFieldAppearanceSection object={selectedObject} />
       </div>
     );
   }

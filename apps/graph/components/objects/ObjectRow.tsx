@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
@@ -11,6 +11,7 @@ import {
   getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics,
+  getVectorFieldComponentDiagnostics,
   type ExpressionDiagnostic
 } from "@/lib/math/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
@@ -36,6 +37,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
   const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
+  const updateVectorFieldExpression = useGraphStore((state) => state.updateVectorFieldExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -50,11 +52,15 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   );
   const eqInputRef = useRef<HTMLInputElement>(null);
   const xExprInputRef = useRef<HTMLInputElement>(null);
+  const pExprInputRef = useRef<HTMLInputElement>(null);
 
   const [localEq, setLocalEq] = useState("");
   const [localX, setLocalX] = useState("");
   const [localY, setLocalY] = useState("");
   const [localZ, setLocalZ] = useState("");
+  const [localP, setLocalP] = useState("");
+  const [localQ, setLocalQ] = useState("");
+  const [localR, setLocalR] = useState("");
 
   useEffect(() => {
     if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
@@ -64,6 +70,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       setLocalX(object.xExpr);
       setLocalY(object.yExpr);
       setLocalZ(object.zExpr);
+    }
+    if (object.kind === "vectorField") {
+      setLocalP(object.pExpr);
+      setLocalQ(object.qExpr);
+      setLocalR(object.rExpr);
     }
   }, [object]);
 
@@ -140,6 +151,29 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       const diag = getImplicitSurfaceEquationDiagnostics(localEq);
       return diag.status === "error" ? diag : null;
     }
+    if (object.kind === "vectorField") {
+      const fields = [
+        { field: "pExpr" as const, value: localP },
+        { field: "qExpr" as const, value: localQ },
+        ...(object.dimension === "3d" ? [{ field: "rExpr" as const, value: localR }] : [])
+      ];
+      for (const entry of fields) {
+        if (!entry.value.trim()) {
+          continue;
+        }
+        const diag = getVectorFieldComponentDiagnostics({
+          field: entry.field,
+          dimension: object.dimension,
+          pExpr: localP,
+          qExpr: localQ,
+          rExpr: localR
+        });
+        if (diag.status === "error") {
+          return { ...diag, fieldContext: entry.field };
+        }
+      }
+      return null;
+    }
     const fields = [
       { field: "xExpr" as const, value: localX },
       { field: "yExpr" as const, value: localY },
@@ -157,10 +191,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       }
     }
     return null;
-  }, [object, localEq, localX, localY, localZ]);
+  }, [object, localEq, localX, localY, localZ, localP, localQ, localR]);
 
-  const convertKind = (kind: GraphObjectKind) => {
-    setObjectKind(object.id, kind);
+  const convertKind = (kind: GraphObjectKind, dimension?: VectorFieldDimension) => {
+    setObjectKind(object.id, kind, dimension);
     onSelect(object.id);
     closeMenu();
   };
@@ -193,7 +227,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     const target =
       object.kind === "parametricCurve" || object.kind === "parametricSurface"
         ? xExprInputRef.current
-        : eqInputRef.current;
+        : object.kind === "vectorField"
+          ? pExprInputRef.current
+          : eqInputRef.current;
     if (!target) {
       return;
     }
@@ -203,7 +239,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   }, [wantsFocus, isExpanded, object.id, object.kind, clearEquationFocus]);
 
   const handleCreateNext = () => {
-    const nextId = insertObjectAfter(object.id, object.kind);
+    const nextId = insertObjectAfter(
+      object.id,
+      object.kind,
+      object.kind === "vectorField" ? object.dimension : undefined
+    );
     if (nextId) {
       requestEquationFocus(nextId);
     }
@@ -260,9 +300,14 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               <span className="block truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>            </button>
             <div className="mt-0.5">
               <select
-                value={object.kind}
+                value={object.kind === "vectorField" ? `vectorField:${object.dimension}` : object.kind}
                 onChange={(e) => {
-                  convertKind(e.target.value as GraphObjectKind);
+                  const next = e.target.value;
+                  if (next === "vectorField:2d" || next === "vectorField:3d") {
+                    convertKind("vectorField", next === "vectorField:2d" ? "2d" : "3d");
+                    return;
+                  }
+                  convertKind(next as GraphObjectKind);
                 }}
                 className="h-6 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]"
                 aria-label="Select object type"
@@ -272,6 +317,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="parametricSurface">Parametric Surface</option>
                 <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>
+                <option value="vectorField:2d">2D Vector Field</option>
+                <option value="vectorField:3d">3D Vector Field</option>
               </select>
             </div>
           </div>
@@ -501,6 +548,74 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                               ? "cos(t)"
                               : "sin(t)"
                       }
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            {object.kind === "vectorField" && (
+              <div className="flex flex-col gap-1.5">
+                {[
+                  {
+                    label: object.dimension === "3d" ? "P(x,y,z) =" : "P(x,y) =",
+                    val: localP,
+                    set: setLocalP,
+                    field: "pExpr" as const,
+                    component: "P component",
+                    placeholder: "x"
+                  },
+                  {
+                    label: object.dimension === "3d" ? "Q(x,y,z) =" : "Q(x,y) =",
+                    val: localQ,
+                    set: setLocalQ,
+                    field: "qExpr" as const,
+                    component: "Q component",
+                    placeholder: "y"
+                  },
+                  ...(object.dimension === "3d"
+                    ? [
+                        {
+                          label: "R(x,y,z) =",
+                          val: localR,
+                          set: setLocalR,
+                          field: "rExpr" as const,
+                          component: "R component",
+                          placeholder: "z"
+                        }
+                      ]
+                    : [])
+                ].map((item) => (
+                  <div
+                    key={item.field}
+                    className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                  >
+                    <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-14">
+                      {item.label}
+                    </span>
+                    <input
+                      ref={item.field === "pExpr" ? pExprInputRef : undefined}
+                      type="text"
+                      value={item.val}
+                      aria-label={`Vector field ${item.component}`}
+                      aria-invalid={definitionDiagnostic?.fieldContext === item.field}
+                      aria-describedby={definitionDiagnostic?.fieldContext === item.field ? `obj-${object.id}-diagnostic` : undefined}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        item.set(next);
+                        updateVectorFieldExpression(object.id, item.field, next);
+                      }}
+                      onBlur={() => {
+                        const committed =
+                          item.field === "pExpr" ? object.pExpr : item.field === "qExpr" ? object.qExpr : object.rExpr;
+                        if (item.val !== committed) {
+                          updateVectorFieldExpression(object.id, item.field, item.val);
+                        }
+                      }}
+                      onKeyDown={handleEquationKeyDown}
+                      placeholder={item.placeholder}
                       spellCheck={false}
                       autoComplete="off"
                       className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"

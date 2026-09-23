@@ -1,4 +1,7 @@
-import type { GraphObject } from "@vinculum/scene/types";
+import type {
+  GraphObject,
+  VectorFieldDimension
+} from "@vinculum/scene/types";
 
 export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
@@ -115,7 +118,7 @@ export interface ExpressionRowProps {
   registerInputRef: (id: string, node: HTMLInputElement | null) => void;
   onSelect: (id: string) => void;
   onMoveFocus: (id: string, direction: ExpressionFocusDirection) => void;
-  onInsertBelow: (id: string, kind: GraphObject["kind"]) => void;
+  onInsertBelow: (id: string, kind: GraphObject["kind"], dimension?: VectorFieldDimension) => void;
   onRemove: (id: string, reason: ExpressionRemoveReason) => void;
   onOpenInspector: (id: string) => void;
 }

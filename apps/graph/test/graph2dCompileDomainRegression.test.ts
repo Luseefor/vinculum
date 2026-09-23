@@ -88,7 +88,7 @@ describe("S9-U2-F shifted explicit control (CONTROL, passes pre-fix)", () => {
 describe("S9-U2-G 2D rendering contract (domain-neutral compilation)", () => {
   it("y = 1/x yields a renderable explicit curve with broken-at-zero semantics", () => {
     const obj = makeSurfaceObject("s9-2d-render", "y = 1/x");
-    const graphs = buildRenderableGraphsFromScene([obj], getAxisPairSpec("xy"));
+    const graphs = buildRenderableGraphsFromScene([obj], getAxisPairSpec("xy"), {});
     const curve = graphs.find((graph) => graph.id === obj.id && graph.evaluate !== null);
     expect(curve).toBeDefined();
     // The draw layer breaks segments on null (see

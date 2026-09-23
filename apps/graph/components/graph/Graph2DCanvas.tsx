@@ -13,6 +13,7 @@ import { useGraph2dCanvasInteraction } from "./graph2d/useGraph2dCanvasInteracti
 import { useGraph2dCanvasPaintSchedule } from "./graph2d/useGraph2dCanvasPaintSchedule";
 import { useGraph2dCanvasStoreSlice } from "./graph2d/useGraph2dCanvasStoreSlice";
 import { useEditorStore } from "@/lib/store/editorStore";
+import { parametersToScope } from "@/lib/store/editorParameters";
 import {
   computeScenePressureFromObjects,
   recordPaintSample
@@ -63,9 +64,15 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
   const palette = useMemo(() => graph2dPaintPalette(resolvedTheme), [resolvedTheme]);
 
+  // S20-R9: parameters thread explicitly into the builder (pure data flow,
+  // no ambient store reads inside). Viewport-only changes (pan/zoom) never
+  // rebuild: the builder takes no viewport input.
+  const editorParameters = useEditorStore((state) => state.parameters);
+  const paramScope = useMemo(() => parametersToScope(editorParameters), [editorParameters]);
+
   const renderableGraphs = useMemo<RenderableGraph[]>(
-    () => buildRenderableGraphsFromScene(objects, axisPair),
-    [axisPair, objects]
+    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope),
+    [axisPair, objects, paramScope]
   );
 
   const {

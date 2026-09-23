@@ -1,5 +1,6 @@
 import { drawGraph2dExplicitFunctionCurve } from "./graph2dCanvasDrawRenderableGraphExplicitCurve";
 import { drawGraph2dVerticalHorizontalLinesAndPolyline } from "./graph2dCanvasDrawRenderableGraphLinesPolyline";
+import { drawVectorFieldArrows } from "./graph2dCanvasVectorField";
 import { drawHatchedDomain, drawImplicitContour } from "./graph2dCanvasImplicitDraw";
 import type { ViewportTransform } from "./graph2dCanvasProbes";
 import type { DrawContext, RenderableGraph } from "./graph2dCanvasTypes";
@@ -22,6 +23,12 @@ export function drawRenderableGraph2d(
   ctx.beginPath();
 
   if (drawGraph2dVerticalHorizontalLinesAndPolyline(graph, dc, ctx, width, height, mathToScreen)) {
+    ctx.restore();
+    return;
+  }
+
+  if (graph.vectorField) {
+    drawVectorFieldArrows(graph.vectorField, graph.color, dc, mathToScreen);
     ctx.restore();
     return;
   }

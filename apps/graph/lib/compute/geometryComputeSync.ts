@@ -1,13 +1,20 @@
 import { Group, type Object3D } from "three";
-import type { GraphObject, ImplicitSurfaceObject, ParametricSurfaceObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, ParametricSurfaceObject, VectorFieldObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { useGraphStore } from "@/store/graphStore";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { vectorFieldCellSize } from "@/lib/math/vectorFieldGlyphs";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { applyObjectColorToNode, disposeObject3D } from "@/lib/graph3d/buildGraphObjectDisposal";
 import { buildIndexedSurfaceMeshGroup } from "@/lib/graph3d/buildIndexedSurfaceMesh";
+import {
+  buildVectorFieldGroup,
+  getVectorFieldNode,
+  writeVectorFieldInstances
+} from "@/lib/graph3d/buildGraphVectorField";
 import { syncNonRenderableObjectNode } from "@/lib/graph3d/buildGraphSync";
 import {
   getGraphObjectRenderSignature,
@@ -28,8 +35,10 @@ export interface GeometryComputeSyncContext {
 
 export function isWorkerizedComputeKind(
   object: GraphObject
-): object is ImplicitSurfaceObject | ParametricSurfaceObject {
-  return object.kind === "implicitSurface" || object.kind === "parametricSurface";
+): object is ImplicitSurfaceObject | ParametricSurfaceObject | VectorFieldObject {
+  return (
+    object.kind === "implicitSurface" || object.kind === "parametricSurface" || object.kind === "vectorField"
+  );
 }
 
 // Async-aware branch of the renderer sync for workerized surface kinds.
@@ -47,7 +56,7 @@ export function isWorkerizedComputeKind(
 // "irrelevant" verdict). View/layout/visibility/color changes enqueue
 // nothing (PART 32).
 export function syncComputedSurfaceObject(
-  object: ImplicitSurfaceObject | ParametricSurfaceObject,
+  object: ImplicitSurfaceObject | ParametricSurfaceObject | VectorFieldObject,
   theme: ResolvedTheme,
   parameterSignature: string,
   ctx: GeometryComputeSyncContext
@@ -82,9 +91,24 @@ export function syncComputedSurfaceObject(
   if (prevNode && prevStructure === nextStructure) {
     applyObjectColorToNode(prevNode, object.color);
     prevNode.visible = object.visible;
-    ctx.objectSignatures.set(object.id, nextSignature);
-    ctx.objectStructureSignatures.set(object.id, nextStructure);
-    return;
+    // S20 PART 24: scale/normalize/color ride the render signature only, so
+    // they land here with zero worker jobs. Glyph instances recompute from
+    // the retained sample cache on the main thread (bounded: <=1728).
+    if (object.kind === "vectorField") {
+      const fieldGroup = getVectorFieldNode(prevNode);
+      if (fieldGroup) {
+        writeVectorFieldInstances(fieldGroup, object.scale, object.normalize);
+        ctx.objectSignatures.set(object.id, nextSignature);
+        ctx.objectStructureSignatures.set(object.id, nextStructure);
+        return;
+      }
+      // Cache missing (unreachable for builder nodes): fall through to
+      // resample rather than show stale glyphs.
+    } else {
+      ctx.objectSignatures.set(object.id, nextSignature);
+      ctx.objectStructureSignatures.set(object.id, nextStructure);
+      return;
+    }
   }
 
   // Structural change: compile gate runs on the main thread (cheap relative
@@ -95,7 +119,15 @@ export function syncComputedSurfaceObject(
   const compileError =
     object.kind === "implicitSurface"
       ? compileImplicitSurfaceExpression(object.equation, params).error
-      : compileParametricSurfaceExpressions(object.xExpr, object.yExpr, object.zExpr, params).error;
+      : object.kind === "parametricSurface"
+        ? compileParametricSurfaceExpressions(object.xExpr, object.yExpr, object.zExpr, params).error
+        : compileVectorFieldExpressions(
+            object.dimension,
+            object.pExpr,
+            object.qExpr,
+            object.rExpr,
+            params
+          ).error;
   if (compileError) {
     if (prevNode) {
       ctx.objectsRoot.remove(prevNode);
@@ -108,7 +140,22 @@ export function syncComputedSurfaceObject(
     return;
   }
 
-  if (object.kind === "implicitSurface") {
+  if (object.kind === "vectorField") {
+    manager.requestCompute({
+      objectId: object.id,
+      kind: object.kind,
+      payload: {
+        dimension: object.dimension,
+        pExpr: object.pExpr,
+        qExpr: object.qExpr,
+        rExpr: object.rExpr,
+        domain: { ...object.domain },
+        density: object.density
+      },
+      params,
+      structure: nextStructure
+    });
+  } else if (object.kind === "implicitSurface") {
     manager.requestCompute({
       objectId: object.id,
       kind: object.kind,
@@ -156,7 +203,10 @@ export function applyGeometryComputeResult(
   ctx: GeometryComputeSyncContext
 ): void {
   const live = useGraphStore.getState().scene.objects.find((candidate) => candidate.id === response.objectId);
-  if (!live || (live.kind !== "implicitSurface" && live.kind !== "parametricSurface")) {
+  if (
+    !live ||
+    (live.kind !== "implicitSurface" && live.kind !== "parametricSurface" && live.kind !== "vectorField")
+  ) {
     return;
   }
   const theme = ctx.getTheme();
@@ -171,6 +221,45 @@ export function applyGeometryComputeResult(
       disposeObject3D(node);
       ctx.objectNodes.delete(live.id);
     }
+    return;
+  }
+  // S20: vector results build the instanced glyph node (math-frame buffers
+  // are mapped to world inside the builder). A mesh result for a field, or
+  // a field result for a surface, is corrupt input — discard.
+  if (live.kind === "vectorField") {
+    if (!("vectors" in response.result)) {
+      return;
+    }
+    const tokens = getGraphThemeTokens(theme);
+    const group = buildVectorFieldGroup({
+      id: live.id,
+      color: live.color,
+      scale: live.scale,
+      normalize: live.normalize,
+      samples: {
+        positions: response.result.positions,
+        vectors: response.result.vectors,
+        magnitudes: response.result.magnitudes,
+        validCount: response.result.validCount,
+        maxMagnitude: response.result.maxMagnitude,
+        cell: vectorFieldCellSize(live.domain, live.density, live.dimension)
+      },
+      roughness: tokens.sceneSurfaceRoughness,
+      metalness: tokens.sceneSurfaceMetalness
+    });
+    if (node) {
+      ctx.objectsRoot.remove(node);
+      disposeObject3D(node);
+      ctx.objectNodes.delete(live.id);
+    }
+    group.visible = live.visible;
+    ctx.objectsRoot.add(group);
+    ctx.objectNodes.set(live.id, group);
+    return;
+  }
+  // S20: the surface applier only accepts mesh results. A field result for
+  // a surface object is corrupt input — discard without touching the node.
+  if (!("indices" in response.result)) {
     return;
   }
   const group = buildIndexedSurfaceMeshGroup({

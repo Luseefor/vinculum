@@ -7,18 +7,18 @@ describe("buildRenderableGraphsFromScene", () => {
   const axisPair = getAxisPairSpec("xy");
 
   it("returns no graphs for an empty list", () => {
-    expect(buildRenderableGraphsFromScene([], axisPair)).toEqual([]);
+    expect(buildRenderableGraphsFromScene([], axisPair, {})).toEqual([]);
   });
 
   it("skips invisible objects", () => {
     const curve = createDefaultParametricCurve({ id: "c1", index: 0, xExpr: "t", yExpr: "t", zExpr: "0" });
     const hidden = { ...curve, visible: false };
-    expect(buildRenderableGraphsFromScene([hidden], axisPair)).toEqual([]);
+    expect(buildRenderableGraphsFromScene([hidden], axisPair, {})).toEqual([]);
   });
 
   it("adds a vertical line graph for x = constant in the XY plane", () => {
     const plane = createDefaultPlaneGraph({ id: "p1", index: 0, equation: "x = 3" });
-    const graphs = buildRenderableGraphsFromScene([plane], axisPair);
+    const graphs = buildRenderableGraphsFromScene([plane], axisPair, {});
     expect(graphs).toHaveLength(1);
     expect(graphs[0].verticalLineValue).toBeCloseTo(3);
     expect(graphs[0].polylineHV).toBeNull();
@@ -35,7 +35,7 @@ describe("buildRenderableGraphsFromScene", () => {
       tMax: 1,
       samples: 8
     });
-    const graphs = buildRenderableGraphsFromScene([curve], axisPair);
+    const graphs = buildRenderableGraphsFromScene([curve], axisPair, {});
     expect(graphs.length).toBeGreaterThanOrEqual(1);
     const g = graphs[0];
     expect(g.polylineHV).not.toBeNull();

@@ -87,7 +87,8 @@ describe("workspace content config", () => {
     expect(geometry).toEqual(math);
     expect(WORKSPACE_CONTENT.geometry.quickAddOrder).not.toEqual(WORKSPACE_CONTENT.math.quickAddOrder);
     expect(WORKSPACE_CONTENT.geometry.quickAddOrder[0]).toBe("Plane");
-    expect(WORKSPACE_CONTENT.math.quickAddOrder[0]).toBe("Surface");
+    // S20: vector fields lead in Math Lab.
+    expect(WORKSPACE_CONTENT.math.quickAddOrder[0]).toBe("2D Vector Field");
   });
 
   it("labels workspaces without marketing copy", () => {

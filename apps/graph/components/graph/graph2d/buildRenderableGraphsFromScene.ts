@@ -7,9 +7,14 @@ import {
 } from "./equationRenderableBranches";
 import { escapeRegExp } from "./graph2dCanvasImplicitParse";
 import { buildParametricPolylineHV } from "./graph2dCanvasParametricPolyline";
+import { buildVectorFieldArrows } from "./graph2dCanvasVectorField";
 import type { AxisPairSpec, RenderableGraph } from "./graph2dCanvasTypes";
 
-export function buildRenderableGraphsFromScene(objects: GraphObject[], axisPair: AxisPairSpec): RenderableGraph[] {
+export function buildRenderableGraphsFromScene(
+  objects: GraphObject[],
+  axisPair: AxisPairSpec,
+  params: Record<string, number>
+): RenderableGraph[] {
   const graphs: RenderableGraph[] = [];
 
   for (const obj of objects) {
@@ -41,6 +46,29 @@ export function buildRenderableGraphsFromScene(objects: GraphObject[], axisPair:
     // S18: true implicit 3D surfaces follow the same policy — no fake 2D
     // interpretation of the volumetric mesh.
     if (obj.kind === "parametricSurface" || obj.kind === "implicitSurface") {
+      continue;
+    }
+
+    // S20: 2D vector fields sample synchronously (bounded, microseconds)
+    // and draw as Canvas2D glyphs. 3D fields skip here (PART 10): they
+    // render in the shared Three scene only, never as a fake z=0 overlay.
+    if (obj.kind === "vectorField") {
+      if (obj.dimension === "2d") {
+        const arrows = buildVectorFieldArrows(obj, axisPair, params);
+        if (arrows) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: null,
+            horizontalLineValue: null,
+            evaluate: null,
+            implicitEvaluate: null,
+            hatchDomain: null,
+            polylineHV: null,
+            vectorField: arrows
+          });
+        }
+      }
       continue;
     }
 

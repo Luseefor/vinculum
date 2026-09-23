@@ -1,4 +1,15 @@
-import type { ImplicitSurfaceDomain, ParametricSurfaceDomain } from "@vinculum/scene/types";
+import type {
+  ImplicitSurfaceDomain,
+  ParametricSurfaceDomain,
+  VectorFieldDimension,
+  VectorFieldDomain2D,
+  VectorFieldDomain3D
+} from "@vinculum/scene/types";
+import {
+  MAX_VECTOR_FIELD_2D_DENSITY,
+  MAX_VECTOR_FIELD_3D_DENSITY,
+  MIN_VECTOR_FIELD_DENSITY
+} from "@vinculum/scene/defaults";
 
 // Typed geometry-compute protocol for the S19 worker architecture (main
 // thread <-> geometry worker). Both directions are runtime-validated by the
@@ -24,7 +35,7 @@ import type { ImplicitSurfaceDomain, ParametricSurfaceDomain } from "@vinculum/s
 //   where a response can arrive before the next rAF sync runs (store updates
 //   are synchronous; sync itself runs a frame later).
 
-export type GeometryComputeKind = "implicitSurface" | "parametricSurface";
+export type GeometryComputeKind = "implicitSurface" | "parametricSurface" | "vectorField";
 
 export interface ImplicitSurfaceComputePayload {
   equation: string;
@@ -39,6 +50,18 @@ export interface ParametricSurfaceComputePayload {
   domain: ParametricSurfaceDomain;
   resolution: number;
   clampCoordinate: number;
+}
+
+// S20: sampled vector-field job. Dimension selects the grid (density^2 /
+// density^3); rExpr must be empty for 2D. Sampling config only — render-only
+// glyph sizing (scale/normalize) never enters the payload.
+export interface VectorFieldComputePayload {
+  dimension: VectorFieldDimension;
+  pExpr: string;
+  qExpr: string;
+  rExpr: string;
+  domain: VectorFieldDomain2D | VectorFieldDomain3D;
+  density: number;
 }
 
 export interface GeometryComputeRequestBase {
@@ -59,12 +82,21 @@ export interface ParametricSurfaceComputeRequest extends GeometryComputeRequestB
   payload: ParametricSurfaceComputePayload;
 }
 
-export type GeometryComputeRequest = ImplicitSurfaceComputeRequest | ParametricSurfaceComputeRequest;
+export interface VectorFieldComputeRequest extends GeometryComputeRequestBase {
+  kind: "vectorField";
+  payload: VectorFieldComputePayload;
+}
 
-// Uniform result shape carried back to the main thread. Both compute paths
-// normalize into this (implicit reports rejectedTriangles: 0; parametric
-// derives counts from buffer lengths), so the renderer applier and parity
-// tests deal with exactly one geometry shape.
+export type GeometryComputeRequest =
+  | ImplicitSurfaceComputeRequest
+  | ParametricSurfaceComputeRequest
+  | VectorFieldComputeRequest;
+
+// Uniform mesh result shape carried back to the main thread. Both surface
+// compute paths normalize into this (implicit reports rejectedTriangles: 0;
+// parametric derives counts from buffer lengths), so the surface applier
+// and parity tests deal with exactly one geometry shape. Vector fields use
+// the sample shape below instead (no indices exist for glyph samples).
 export interface GeometryComputeOkResult {
   status: "ok";
   positions: Float32Array;
@@ -74,8 +106,22 @@ export interface GeometryComputeOkResult {
   rejectedTriangles: number;
 }
 
+// S20: sampled-field result. Buffers are compacted to valid samples only
+// (zero vectors included, invalid dropped), so the renderer iterates them
+// directly: instance i reads positions/vectors[i*3..] and magnitudes[i].
+export interface VectorFieldComputeOkResult {
+  status: "ok";
+  positions: Float32Array;
+  vectors: Float32Array;
+  magnitudes: Float32Array;
+  validCount: number;
+  totalSamples: number;
+  maxMagnitude: number;
+}
+
 export type GeometryComputeResult =
   | GeometryComputeOkResult
+  | VectorFieldComputeOkResult
   | { status: "empty" }
   | { status: "budget-exceeded" }
   | { status: "error"; error: string };
@@ -155,6 +201,52 @@ function isParametricSurfacePayload(value: unknown): value is ParametricSurfaceC
   );
 }
 
+function isVectorFieldDomain(value: unknown, dimension: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const planar =
+    isFiniteNumber(value.xMin) &&
+    isFiniteNumber(value.xMax) &&
+    isFiniteNumber(value.yMin) &&
+    isFiniteNumber(value.yMax);
+  if (dimension === "2d") {
+    return planar;
+  }
+  return planar && isFiniteNumber(value.zMin) && isFiniteNumber(value.zMax);
+}
+
+function isVectorFieldPayload(value: unknown): value is VectorFieldComputePayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value.dimension !== "2d" && value.dimension !== "3d") {
+    return false;
+  }
+  if (
+    typeof value.pExpr !== "string" ||
+    typeof value.qExpr !== "string" ||
+    typeof value.rExpr !== "string"
+  ) {
+    return false;
+  }
+  // S20-R4: R belongs to 3D (a 2D payload carrying R would silently ignore
+  // mathematics in the sampler's dimension branch), and density enforces
+  // the same per-dimension caps as import validation.
+  if (value.dimension === "2d" && value.rExpr.trim() !== "") {
+    return false;
+  }
+  if (!isFiniteNumber(value.density)) {
+    return false;
+  }
+  const density = Math.floor(value.density);
+  const maxDensity = value.dimension === "2d" ? MAX_VECTOR_FIELD_2D_DENSITY : MAX_VECTOR_FIELD_3D_DENSITY;
+  if (density < MIN_VECTOR_FIELD_DENSITY || density > maxDensity) {
+    return false;
+  }
+  return isVectorFieldDomain(value.domain, value.dimension);
+}
+
 export function isGeometryComputeRequest(value: unknown): value is GeometryComputeRequest {
   if (!isRecord(value)) {
     return false;
@@ -180,6 +272,9 @@ export function isGeometryComputeRequest(value: unknown): value is GeometryCompu
   if (value.kind === "parametricSurface") {
     return isParametricSurfacePayload(value.payload);
   }
+  if (value.kind === "vectorField") {
+    return isVectorFieldPayload(value.payload);
+  }
   return false;
 }
 
@@ -192,6 +287,30 @@ function isComputeResult(value: unknown): value is GeometryComputeResult {
     return false;
   }
   if (value.status === "ok") {
+    // Field results carry vectors+magnitudes instead of indices; mesh
+    // results carry indices instead. The applier trusts counts only after
+    // these hold (full OOB scans stay with the parity-tested producer).
+    if ("vectors" in value || "magnitudes" in value) {
+      return (
+        value.positions instanceof Float32Array &&
+        value.vectors instanceof Float32Array &&
+        value.magnitudes instanceof Float32Array &&
+        value.positions.length > 0 &&
+        value.positions.length % 3 === 0 &&
+        value.vectors.length === value.positions.length &&
+        value.magnitudes.length === value.positions.length / 3 &&
+        // S20-R5: the applier and builder dereference these counts, so a
+        // corrupt message must fail here rather than wedge instancing.
+        typeof value.validCount === "number" &&
+        Number.isInteger(value.validCount) &&
+        value.validCount === value.magnitudes.length &&
+        typeof value.totalSamples === "number" &&
+        Number.isInteger(value.totalSamples) &&
+        value.totalSamples >= value.validCount &&
+        typeof value.maxMagnitude === "number" &&
+        Number.isFinite(value.maxMagnitude)
+      );
+    }
     // Non-empty buffers with whole-triangle positions; the applier trusts
     // counts only after these hold (full OOB scans stay with the producer,
     // which is parity-tested against the sync path).
@@ -225,7 +344,7 @@ export function isGeometryComputeResponse(value: unknown): value is GeometryComp
   if (typeof value.generation !== "number" || !Number.isInteger(value.generation) || value.generation < 0) {
     return false;
   }
-  if (value.kind !== "implicitSurface" && value.kind !== "parametricSurface") {
+  if (value.kind !== "implicitSurface" && value.kind !== "parametricSurface" && value.kind !== "vectorField") {
     return false;
   }
   if (typeof value.structure !== "string" || value.structure.length === 0) {

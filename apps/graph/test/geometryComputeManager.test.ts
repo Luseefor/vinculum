@@ -280,4 +280,62 @@ describe("geometryComputeManager", () => {
     const cloned = structuredClone(fake.posted[0]);
     expect(cloned).toEqual(fake.posted[0]);
   });
+
+  it("vector race: radial, rotation, nonlinear out of order — only newest applies (S20 PART 20)", () => {
+    // S20-R11: production vector jobs are 3D (2D fields never touch the
+    // worker); the race exercises the 3D payload shape.
+    const fieldPayload = (pExpr: string, qExpr: string, rExpr: string) => ({
+      dimension: "3d" as const,
+      pExpr,
+      qExpr,
+      rExpr,
+      domain: { xMin: -3, xMax: 3, yMin: -3, yMax: 3, zMin: -3, zMax: 3 },
+      density: 8
+    });
+    const fieldOk = (request: GeometryComputeRequest): GeometryComputeResponse => ({
+      requestId: request.requestId,
+      objectId: request.objectId,
+      generation: request.generation,
+      kind: "vectorField",
+      structure: request.structure,
+      result: {
+        status: "ok",
+        positions: new Float32Array([0, 0, 0]),
+        vectors: new Float32Array([1, 0, 0]),
+        magnitudes: new Float32Array([1]),
+        validCount: 1,
+        totalSamples: 1,
+        maxMagnitude: 1
+      }
+    });
+
+    // Rapid radial -> rotation -> nonlinear edits on one object.
+    manager.requestCompute({ objectId: "vf", kind: "vectorField", payload: fieldPayload("x", "y", "z"), params: {}, structure: "dark::s1" });
+    manager.requestCompute({ objectId: "vf", kind: "vectorField", payload: fieldPayload("-y", "x", "0"), params: {}, structure: "dark::s2" });
+    manager.requestCompute({
+      objectId: "vf",
+      kind: "vectorField",
+      payload: fieldPayload("sin(y)", "sin(z)", "sin(x)"),
+      params: {},
+      structure: "dark::s3"
+    });
+    // First posted immediately; second coalesced away, third queued.
+    expect(fake.posted).toHaveLength(1);
+    expect(fake.posted[0]!.generation).toBe(1);
+    expect(manager.getPendingCount()).toBe(2);
+
+    // Stale gen-1 (radial) response arrives: discarded, worker freed for gen-3.
+    fake.respond(fieldOk(fake.posted[0]!));
+    expect(results).toHaveLength(0);
+    expect(fake.posted).toHaveLength(2);
+    expect(fake.posted[1]!.generation).toBe(3);
+    expect(fake.posted[1]!.structure).toBe("dark::s3");
+
+    // Newest (nonlinear) completes and applies exactly once.
+    fake.respond(fieldOk(fake.posted[1]!));
+    expect(results).toHaveLength(1);
+    expect(results[0]!.structure).toBe("dark::s3");
+    expect(manager.getPendingCount()).toBe(0);
+    expect(useGeometryComputeStore.getState().entries["vf"]).toBeUndefined();
+  });
 });

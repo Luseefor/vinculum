@@ -4,11 +4,12 @@ import { findObjectById } from "./graphStoreSelection";
 import { updateImplicitSurfaceField } from "./graphStoreImplicitSurfaceField";
 import { updateParametricCurveField } from "./graphStoreParametricField";
 import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField";
+import { updateVectorFieldField } from "./graphStoreVectorFieldField";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updatePlaneEquation"
+  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updatePlaneEquation"
 > {
   return {
     updateSurfaceEquation: (id, equation) => {
@@ -115,6 +116,31 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         }
 
         const nextObject = updateImplicitSurfaceField(object, field, value);
+        if (!nextObject) {
+          return state;
+        }
+
+        const command: SceneCommand = {
+          type: "UPDATE_OBJECT",
+          payload: {
+            object: nextObject
+          }
+        };
+
+        return {
+          scene: applySceneCommand(state.scene, command)
+        };
+      });
+    },
+
+    updateVectorFieldExpression: (id, field, value) => {
+      set((state) => {
+        const object = findObjectById(state.scene.objects, id);
+        if (!object || object.kind !== "vectorField") {
+          return state;
+        }
+
+        const nextObject = updateVectorFieldField(object, field, value);
         if (!nextObject) {
           return state;
         }

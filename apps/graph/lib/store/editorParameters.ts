@@ -1,7 +1,11 @@
 import { useEditorStore } from "@/lib/store/editorStore";
 
-export function getEditorParameterScope(): Record<string, number> {
-  const parameters = useEditorStore.getState().parameters;
+export interface ParameterScopeEntry {
+  id: string;
+  value: number;
+}
+
+export function parametersToScope(parameters: readonly ParameterScopeEntry[]): Record<string, number> {
   const scope: Record<string, number> = {};
 
   for (const parameter of parameters) {
@@ -13,4 +17,8 @@ export function getEditorParameterScope(): Record<string, number> {
   }
 
   return scope;
+}
+
+export function getEditorParameterScope(): Record<string, number> {
+  return parametersToScope(useEditorStore.getState().parameters);
 }

@@ -1,16 +1,23 @@
 "use client";
 
 import type { LegacyRef } from "react";
-import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
 import { cn } from "@/components/ui/styles";
 import { Portal } from "@/components/ui/portal";
 
-const CONVERT_OPTIONS = [
-  { kind: "surface" as const, label: "Surface" },
-  { kind: "parametricCurve" as const, label: "Parametric curve" },
-  { kind: "parametricSurface" as const, label: "Parametric surface" },
-  { kind: "implicitSurface" as const, label: "Implicit surface" },
-  { kind: "plane" as const, label: "Plane" }
+const CONVERT_OPTIONS: Array<{
+  kind: GraphObjectKind;
+  dimension?: VectorFieldDimension;
+  label: string;
+  value: string;
+}> = [
+  { kind: "surface", label: "Surface", value: "surface" },
+  { kind: "parametricCurve", label: "Parametric curve", value: "parametricCurve" },
+  { kind: "parametricSurface", label: "Parametric surface", value: "parametricSurface" },
+  { kind: "implicitSurface", label: "Implicit surface", value: "implicitSurface" },
+  { kind: "plane", label: "Plane", value: "plane" },
+  { kind: "vectorField", dimension: "2d", label: "2D vector field", value: "vectorField:2d" },
+  { kind: "vectorField", dimension: "3d", label: "3D vector field", value: "vectorField:3d" }
 ] as const;
 
 type ObjectRowContextMenuProps = {
@@ -18,7 +25,7 @@ type ObjectRowContextMenuProps = {
   menuOpen: boolean;
   menuPos: { top: number; left: number } | null;
   menuRef: LegacyRef<HTMLDivElement>;
-  onConvertKind: (kind: GraphObjectKind) => void;
+  onConvertKind: (kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
   onRemove: () => void;
 };
 
@@ -44,21 +51,27 @@ export function ObjectRowContextMenu({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Convert to</p>
-        {CONVERT_OPTIONS.map(({ kind, label }) => (
-          <button
-            key={kind}
-            type="button"
-            role="menuitem"
-            disabled={object.kind === kind}
-            onClick={() => onConvertKind(kind)}
-            className={cn(
-              "flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-              object.kind === kind && "cursor-not-allowed opacity-40 hover:bg-transparent"
-            )}
-          >
-            {label}
-          </button>
-        ))}
+        {CONVERT_OPTIONS.map(({ kind, dimension, label, value }) => {
+          const isCurrent =
+            object.kind === kind &&
+            (kind !== "vectorField" ||
+              (object.kind === "vectorField" && object.dimension === dimension));
+          return (
+            <button
+              key={value}
+              type="button"
+              role="menuitem"
+              disabled={isCurrent}
+              onClick={() => onConvertKind(kind, dimension)}
+              className={cn(
+                "flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
+                isCurrent && "cursor-not-allowed opacity-40 hover:bg-transparent"
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
         <div className="my-1 h-px bg-[var(--border-subtle)]" />
         <button
           type="button"

@@ -134,6 +134,25 @@ export function cloneGraphObject(object: GraphObject): GraphObject {
     };
   }
 
+  if (object.kind === "vectorField") {
+    if (object.dimension === "2d") {
+      return {
+        ...object,
+        dimension: "2d",
+        domain: {
+          ...object.domain
+        }
+      };
+    }
+    return {
+      ...object,
+      dimension: "3d",
+      domain: {
+        ...object.domain
+      }
+    };
+  }
+
   return {
     ...object,
     appearance: {

@@ -1,5 +1,5 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { MAX_IMPLICIT_SURFACE_RESOLUTION, MAX_SURFACE_RESOLUTION } from "@vinculum/scene/defaults";
+import { MAX_IMPLICIT_SURFACE_RESOLUTION, MAX_SURFACE_RESOLUTION, MAX_VECTOR_FIELD_GLYPH_COUNT } from "@vinculum/scene/defaults";
 import { MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressionSafety";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 
@@ -12,6 +12,8 @@ export interface ScenePressure {
   parametricSamplesMax: number;
   surfaceResolutionPressure: number; // 0..1
   parametricSamplePressure: number; // 0..1
+  vectorGlyphMax: number;
+  vectorGlyphPressure: number; // 0..1
 }
 
 export interface PerformanceMetricsSnapshot {
@@ -58,6 +60,7 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
   let surfaceResolutionMax = 0;
   let parametricSamplesMax = 0;
   let implicitResolutionMax = 0;
+  let vectorGlyphMax = 0;
 
   for (const o of visibleObjects) {
     if (o.kind === "surface") {
@@ -76,6 +79,12 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
       // surfaceResolutionMax still records the raw max for display.
       surfaceResolutionMax = Math.max(surfaceResolutionMax, o.resolution);
       implicitResolutionMax = Math.max(implicitResolutionMax, o.resolution);
+    } else if (o.kind === "vectorField") {
+      // S20 PART 23: glyph count (not object count) drives field cost —
+      // 1,728 instanced arrows are nothing like one simple point. Bounded
+      // by validated density caps, so the raw grid size is exact.
+      const samples = o.dimension === "2d" ? o.density * o.density : o.density * o.density * o.density;
+      vectorGlyphMax = Math.max(vectorGlyphMax, samples);
     }
   }
 
@@ -86,6 +95,7 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
     )
   );
   const parametricSamplePressure = clamp01(parametricSamplesMax / MAX_PARAMETRIC_CURVE_SAMPLES);
+  const vectorGlyphPressure = clamp01(vectorGlyphMax / MAX_VECTOR_FIELD_GLYPH_COUNT);
 
   return {
     objectCount: objects.length,
@@ -93,7 +103,9 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
     surfaceResolutionMax,
     parametricSamplesMax,
     surfaceResolutionPressure,
-    parametricSamplePressure
+    parametricSamplePressure,
+    vectorGlyphMax,
+    vectorGlyphPressure
   };
 }
 
@@ -152,6 +164,13 @@ export function evaluateHeavySceneWarnings(
     consider("warning", "Heavy scene: High curve sampling may reduce performance.");
   }
 
+  const { vectorGlyphPressure } = input.scenePressure;
+  if (vectorGlyphPressure >= 0.98) {
+    consider("critical", "Heavy scene: High vector field glyph count may reduce performance.");
+  } else if (vectorGlyphPressure >= 0.5) {
+    consider("warning", "Heavy scene: High vector field glyph count may reduce performance.");
+  }
+
   // Frame timing pressure
   if (last >= 70 || avg >= 50) {
     consider("critical", "Performance is slow. Try reducing resolution or visible objects.");
@@ -206,7 +225,9 @@ export function createPerformanceMetricsTracker(options?: {
     surfaceResolutionMax: 0,
     parametricSamplesMax: 0,
     surfaceResolutionPressure: 0,
-    parametricSamplePressure: 0
+    parametricSamplePressure: 0,
+    vectorGlyphMax: 0,
+    vectorGlyphPressure: 0
   };
 
   let latest: PerformanceMetricsSnapshot = {

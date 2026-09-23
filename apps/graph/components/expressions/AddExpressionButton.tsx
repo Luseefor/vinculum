@@ -1,28 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import type { GraphObjectKind } from "@vinculum/scene/types";
+import type { GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
 import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 import { useGraphStore } from "@/store/graphStore";
 
-const ADD_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
-  { label: "Surface", value: "surface" },
-  { label: "Curve", value: "parametricCurve" },
-  { label: "Parametric Surface", value: "parametricSurface" },
-  { label: "Implicit Surface", value: "implicitSurface" },
-  { label: "Plane", value: "plane" }
+const ADD_TYPE_OPTIONS: Array<{
+  label: string;
+  value: string;
+  kind: GraphObjectKind;
+  dimension?: VectorFieldDimension;
+}> = [
+  { label: "Surface", value: "surface", kind: "surface" },
+  { label: "Curve", value: "parametricCurve", kind: "parametricCurve" },
+  { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface" },
+  { label: "Implicit Surface", value: "implicitSurface", kind: "implicitSurface" },
+  { label: "Plane", value: "plane", kind: "plane" },
+  { label: "2D Vector Field", value: "vectorField:2d", kind: "vectorField", dimension: "2d" },
+  { label: "3D Vector Field", value: "vectorField:3d", kind: "vectorField", dimension: "3d" }
 ];
 
 export default function AddExpressionButton() {
-  const [graphType, setGraphType] = useState<GraphObjectKind>("surface");
+  const [graphType, setGraphType] = useState<string>("surface");
 
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
 
+  const selected = ADD_TYPE_OPTIONS.find((option) => option.value === graphType) ?? ADD_TYPE_OPTIONS[0]!;
+
   const addObject = () => {
     const id = addEmptyObject();
-    if (graphType !== "surface") {
-      setObjectKind(id, graphType);
+    if (selected.value !== "surface") {
+      setObjectKind(id, selected.kind, selected.dimension);
     }
   };
 
@@ -31,6 +40,11 @@ export default function AddExpressionButton() {
       <select
         value={graphType}
         onChange={(event) => {
+          const selected = ADD_TYPE_OPTIONS.find((option) => option.value === event.target.value);
+          if (selected) {
+            setGraphType(selected.value);
+            return;
+          }
           const kind = parseGraphObjectKind(event.target.value);
           if (kind) {
             setGraphType(kind);

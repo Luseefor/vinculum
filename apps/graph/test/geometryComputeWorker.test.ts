@@ -53,6 +53,35 @@ function assertArraysEqual(a: Float32Array | Uint16Array | Uint32Array, b: Float
   expect(Array.from(a)).toEqual(Array.from(b));
 }
 
+function vectorRequest(
+  pExpr: string,
+  qExpr: string,
+  rExpr: string,
+  dimension: "2d" | "3d",
+  density: number,
+  params: Record<string, number> = {}
+): GeometryComputeRequest {
+  return {
+    requestId: 10,
+    objectId: "vf-1",
+    generation: 1,
+    kind: "vectorField",
+    params,
+    structure: "dark::vf-structure-1",
+    payload: {
+      dimension,
+      pExpr,
+      qExpr,
+      rExpr,
+      domain:
+        dimension === "2d"
+          ? { xMin: -5, xMax: 5, yMin: -5, yMax: 5 }
+          : { xMin: -4, xMax: 4, yMin: -4, yMax: 4, zMin: -4, zMax: 4 },
+      density
+    }
+  };
+}
+
 describe("handleGeometryComputeMessage", () => {
   it("ignores unknown requests without answering", () => {
     expect(handleGeometryComputeMessage(null)).toBeNull();
@@ -68,7 +97,7 @@ describe("handleGeometryComputeMessage", () => {
     expect(handled!.response.generation).toBe(1);
     expect(handled!.response.structure).toBe("dark::structure-1");
     expect(handled!.response.result.status).toBe("ok");
-    if (handled!.response.result.status === "ok") {
+    if (handled!.response.result.status === "ok" && "indices" in handled!.response.result) {
       expect(handled!.response.result.positions).toBeInstanceOf(Float32Array);
       expect(handled!.response.result.triangleCount).toBeGreaterThan(0);
       expect(handled!.transfer).toHaveLength(2);
@@ -103,7 +132,7 @@ describe("worker/sync parity (PART 29)", () => {
     const handled = handleGeometryComputeMessage(implicitRequest(equation, 16));
     expect(sync.status).toBe("ok");
     expect(handled?.response.result.status).toBe("ok");
-    if (sync.status === "ok" && handled?.response.result.status === "ok") {
+    if (sync.status === "ok" && handled?.response.result.status === "ok" && "indices" in handled.response.result) {
       assertArraysEqual(handled.response.result.positions, sync.positions);
       assertArraysEqual(handled.response.result.indices, sync.indices);
       expect(handled.response.result.vertexCount).toBe(sync.vertexCount);
@@ -125,7 +154,7 @@ describe("worker/sync parity (PART 29)", () => {
       payload: { equation, domain, resolution: 12 }
     });
     expect(sync.status).toBe("ok");
-    if (sync.status === "ok" && handled?.response.result.status === "ok") {
+    if (sync.status === "ok" && handled?.response.result.status === "ok" && "indices" in handled.response.result) {
       assertArraysEqual(handled.response.result.positions, sync.positions);
       assertArraysEqual(handled.response.result.indices, sync.indices);
     }
@@ -181,7 +210,7 @@ describe("worker/sync parity (PART 29)", () => {
       payload: { ...input }
     });
     expect(sync.status).toBe("ok");
-    if (sync.status === "ok" && handled?.response.result.status === "ok") {
+    if (sync.status === "ok" && handled?.response.result.status === "ok" && "indices" in handled.response.result) {
       assertArraysEqual(handled.response.result.positions, sync.positions);
       assertArraysEqual(handled.response.result.indices, sync.indices);
       expect(handled.response.result.rejectedTriangles).toBe(sync.rejectedTriangles);
@@ -209,7 +238,7 @@ describe("worker/sync parity (PART 29)", () => {
       payload: { ...input }
     });
     expect(sync.status).toBe("ok");
-    if (sync.status === "ok" && handled?.response.result.status === "ok") {
+    if (sync.status === "ok" && handled?.response.result.status === "ok" && "indices" in handled.response.result) {
       assertArraysEqual(handled.response.result.positions, sync.positions);
       assertArraysEqual(handled.response.result.indices, sync.indices);
       for (const value of handled.response.result.positions) {
@@ -248,5 +277,92 @@ describe("worker/sync parity (PART 29)", () => {
         Array.from(small.response.result.positions)
       );
     }
+  });
+});
+
+describe("handleGeometryComputeMessage vectorField (S20 Slice 3)", () => {
+  it("samples a 2D radial field with transferable sample buffers", () => {
+    const handled = handleGeometryComputeMessage(vectorRequest("x", "y", "", "2d", 4));
+    expect(handled).not.toBeNull();
+    expect(handled!.response.kind).toBe("vectorField");
+    expect(handled!.response.structure).toBe("dark::vf-structure-1");
+    expect(handled!.response.result.status).toBe("ok");
+    if (handled!.response.result.status === "ok" && "vectors" in handled!.response.result) {
+      const result = handled!.response.result;
+      expect(result.positions).toBeInstanceOf(Float32Array);
+      expect(result.vectors).toBeInstanceOf(Float32Array);
+      expect(result.magnitudes).toBeInstanceOf(Float32Array);
+      expect(result.validCount).toBe(16);
+      expect(result.totalSamples).toBe(16);
+      expect(result.positions).toHaveLength(48);
+      expect(result.vectors).toHaveLength(48);
+      expect(result.magnitudes).toHaveLength(16);
+      expect(handled!.transfer).toHaveLength(3);
+      expect(handled!.transfer[0]).toBe(result.positions.buffer);
+      expect(handled!.transfer[1]).toBe(result.vectors.buffer);
+      expect(handled!.transfer[2]).toBe(result.magnitudes.buffer);
+    } else {
+      throw new Error("expected a vector ok result");
+    }
+  });
+
+  it("samples a 3D nonlinear field and threads parameter snapshots", () => {
+    const handled = handleGeometryComputeMessage(
+      vectorRequest("a*sin(y)", "sin(z)", "sin(x)", "3d", 4, { a: 2 })
+    );
+    expect(handled?.response.result.status).toBe("ok");
+    if (handled?.response.result.status === "ok" && "vectors" in handled.response.result) {
+      expect(handled.response.result.validCount).toBe(64);
+      // P = 2*sin(y) at the first sample (-4,-4,-4).
+      expect(handled.response.result.vectors[0]).toBeCloseTo(2 * Math.sin(-4), 5);
+    }
+    expect(handled?.transfer).toHaveLength(3);
+  });
+
+  it("returns empty (no transfer) when every sample is invalid", () => {
+    const handled = handleGeometryComputeMessage(
+      vectorRequest("log(x)", "log(y)", "", "2d", 3)
+    );
+    // Domain is x,y in [-5,5]: log is invalid for x<=0 — but valid for
+    // x>0, so this stays ok. Force all-invalid with a fully negative domain.
+    expect(handled?.response.result.status).toBe("ok");
+
+    const allInvalid = handleGeometryComputeMessage({
+      ...vectorRequest("log(x)", "log(y)", "", "2d", 3),
+      payload: {
+        dimension: "2d",
+        pExpr: "log(x)",
+        qExpr: "log(y)",
+        rExpr: "",
+        domain: { xMin: -2, xMax: -1, yMin: -2, yMax: -1 },
+        density: 3
+      }
+    });
+    expect(allInvalid?.response.result.status).toBe("empty");
+    expect(allInvalid?.transfer).toEqual([]);
+  });
+
+  it("returns error results (never throws) for bad math and bad density", () => {
+    const badMath = handleGeometryComputeMessage(vectorRequest("zzz", "y", "", "2d", 4));
+    expect(badMath?.response.result.status).toBe("error");
+    expect(badMath?.transfer).toEqual([]);
+
+    // S20-R4: over-cap density fails the request guard (never answered),
+    // while in-range densities that fail sampling answer with errors.
+    const badDensity = handleGeometryComputeMessage(vectorRequest("x", "y", "", "2d", 64));
+    expect(badDensity).toBeNull();
+
+    const emptyComponent = handleGeometryComputeMessage(vectorRequest("", "y", "", "2d", 4));
+    expect(emptyComponent?.response.result.status).toBe("error");
+  });
+
+  it("rejects malformed vector requests without answering", () => {
+    expect(handleGeometryComputeMessage({ ...vectorRequest("x", "y", "", "2d", 4), kind: "field" })).toBeNull();
+    expect(
+      handleGeometryComputeMessage({
+        ...vectorRequest("x", "y", "", "2d", 4),
+        payload: { dimension: "4d", pExpr: "x", qExpr: "y", rExpr: "", domain: {}, density: 4 }
+      })
+    ).toBeNull();
   });
 });

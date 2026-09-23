@@ -6,6 +6,12 @@ export interface GraphObjectRenderDescriptor {
   kind: GraphObject["kind"];
   visible: boolean;
   color: string;
+  // S20 vectorField only. Render-only glyph sizing rides top-level next to
+  // color (not inside payload) so the render signature changes on
+  // scale/normalize toggles while the structure signature — {id, kind,
+  // payload} — is untouched and no worker job enqueues.
+  scale?: number;
+  normalize?: boolean;
   payload: Record<string, unknown>;
 }
 
@@ -79,6 +85,25 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "vectorField") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      scale: object.scale,
+      normalize: object.normalize,
+      payload: {
+        dimension: object.dimension,
+        pExpr: object.pExpr,
+        qExpr: object.qExpr,
+        rExpr: object.rExpr,
+        domain: object.domain,
+        density: object.density
+      }
+    };
+  }
+
   return {
     id: object.id,
     kind: object.kind,
@@ -97,6 +122,10 @@ export function getRenderDescriptorSignature(descriptor: GraphObjectRenderDescri
     id: descriptor.id,
     kind: descriptor.kind,
     color: descriptor.color,
+    // JSON.stringify drops undefined values, so every pre-S20 kind keeps
+    // its exact historical signature bytes.
+    scale: descriptor.scale,
+    normalize: descriptor.normalize,
     payload: descriptor.payload
   });
 }

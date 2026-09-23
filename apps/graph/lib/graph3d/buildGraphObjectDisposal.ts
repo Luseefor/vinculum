@@ -1,7 +1,12 @@
-import { Color, Line, LineSegments, Mesh, type Object3D } from "three";
+import { Color, InstancedMesh, Line, LineSegments, Mesh, type Object3D } from "three";
 
 export function disposeObject3D(root: Object3D): void {
   root.traverse((child) => {
+    // S20: InstancedMesh.dispose() releases instanceMatrix/instanceColor
+    // GL buffers; geometry/material disposal below is shared with Mesh.
+    if (child instanceof InstancedMesh) {
+      child.dispose();
+    }
     if (child instanceof Mesh || child instanceof Line || child instanceof LineSegments) {
       child.geometry.dispose();
       const mat = child.material;

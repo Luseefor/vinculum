@@ -4,8 +4,10 @@ import { compilePlaneEquation } from "./samplePlane";
 import { compileParametricExpressions } from "./compileParametric";
 import { compileParametricSurfaceExpressions } from "./compileParametricSurface";
 import { compileImplicitSurfaceExpression } from "./compileImplicitSurface";
+import { compileVectorFieldExpressions } from "./compileVectorField";
 import { splitSingleMathEquality } from "./implicitEquation";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import type { VectorFieldDimension } from "@vinculum/scene/types";
 
 export type ExpressionDiagnosticStatus = "valid" | "warning" | "error";
 
@@ -187,8 +189,54 @@ export function getParametricSurfaceAxisDiagnostics(params: {
   return { status: "valid", message: "", fieldContext: `parametricSurface.${field}` };
 }
 
-export function getImplicitSurfaceEquationDiagnostics(equation: string): ExpressionDiagnostic {
-  const trimmed = equation.trim();
+export function getVectorFieldComponentDiagnostics(params: {
+  field: "pExpr" | "qExpr" | "rExpr";
+  dimension: VectorFieldDimension;
+  pExpr: string;
+  qExpr: string;
+  rExpr: string;
+}): ExpressionDiagnostic {
+  const { field, dimension, pExpr, qExpr, rExpr } = params;
+  const componentExpr = field === "pExpr" ? pExpr : field === "qExpr" ? qExpr : rExpr;
+  const componentLabel = field === "pExpr" ? "P" : field === "qExpr" ? "Q" : "R";
+
+  if (!componentExpr.trim()) {
+    return { status: "valid", message: "", fieldContext: `vectorField.${field}` };
+  }
+
+  const safety = validateExpressionSafety(componentExpr, {
+    operation: "diagnostics-vector-field-component",
+    expressionLabel: `Vector field ${componentLabel}`,
+    allowedSymbols: [
+      ...Object.keys(getEditorParameterScope()),
+      "x",
+      "y",
+      ...(dimension === "3d" ? ["z"] : [])
+    ]
+  });
+  if (!safety.ok) {
+    const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+    return toSafeDiagnostics({
+      status: "error",
+      message: mapped.message,
+      suggestion: mapped.suggestion,
+      fieldContext: `vectorField.${field}`
+    });
+  }
+
+  const compiled = compileVectorFieldExpressions(dimension, pExpr, qExpr, rExpr, getEditorParameterScope());
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: stripLabelPrefix(compiled.error),
+      fieldContext: `vectorField.${field}`
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: `vectorField.${field}` };
+}
+
+export function getImplicitSurfaceEquationDiagnostics(equation: string): ExpressionDiagnostic {  const trimmed = equation.trim();
   if (!trimmed) {
     return { status: "error", message: "Invalid expression syntax.", fieldContext: "implicitSurface.equation" };
   }

@@ -530,9 +530,9 @@ describe("S7-U2-K 2D visibility non-regression", () => {
 
   it("excludes a hidden curve and includes it again once shown", () => {
     const curve = makeCurve({ xExpr: "t", yExpr: "t", zExpr: "0", tMin: 0, tMax: 1, samples: 8 });
-    expect(buildRenderableGraphsFromScene([curve], axisPair).length).toBeGreaterThanOrEqual(1);
-    expect(buildRenderableGraphsFromScene([{ ...curve, visible: false }], axisPair)).toEqual([]);
-    expect(buildRenderableGraphsFromScene([{ ...curve, visible: true }], axisPair).length).toBeGreaterThanOrEqual(
+    expect(buildRenderableGraphsFromScene([curve], axisPair, {}).length).toBeGreaterThanOrEqual(1);
+    expect(buildRenderableGraphsFromScene([{ ...curve, visible: false }], axisPair, {})).toEqual([]);
+    expect(buildRenderableGraphsFromScene([{ ...curve, visible: true }], axisPair, {}).length).toBeGreaterThanOrEqual(
       1
     );
   });

@@ -49,7 +49,9 @@ describe("performanceMetrics", () => {
         surfaceResolutionMax: 0,
         parametricSamplesMax: 0,
         surfaceResolutionPressure: 0,
-        parametricSamplePressure: 0
+        parametricSamplePressure: 0,
+        vectorGlyphMax: 0,
+        vectorGlyphPressure: 0
       },
       lastFrameTimeMs: 10,
       averageFrameTimeMs: 10
@@ -67,7 +69,9 @@ describe("performanceMetrics", () => {
         surfaceResolutionMax: 0,
         parametricSamplesMax: 0,
         surfaceResolutionPressure: 0.8,
-        parametricSamplePressure: 0
+        parametricSamplePressure: 0,
+        vectorGlyphMax: 0,
+        vectorGlyphPressure: 0
       },
       lastFrameTimeMs: 10,
       averageFrameTimeMs: 10
@@ -85,7 +89,9 @@ describe("performanceMetrics", () => {
         surfaceResolutionMax: 0,
         parametricSamplesMax: 0,
         surfaceResolutionPressure: 0,
-        parametricSamplePressure: 0.99
+        parametricSamplePressure: 0.99,
+        vectorGlyphMax: 0,
+        vectorGlyphPressure: 0
       },
       lastFrameTimeMs: 10,
       averageFrameTimeMs: 10
@@ -103,7 +109,9 @@ describe("performanceMetrics", () => {
         surfaceResolutionMax: 0,
         parametricSamplesMax: 0,
         surfaceResolutionPressure: 0,
-        parametricSamplePressure: 0
+        parametricSamplePressure: 0,
+        vectorGlyphMax: 0,
+        vectorGlyphPressure: 0
       },
       lastFrameTimeMs: 80,
       averageFrameTimeMs: 10
@@ -127,7 +135,9 @@ describe("performanceMetrics", () => {
       surfaceResolutionMax: 0,
       parametricSamplesMax: 0,
       surfaceResolutionPressure: 0,
-      parametricSamplePressure: 0
+      parametricSamplePressure: 0,
+      vectorGlyphMax: 0,
+      vectorGlyphPressure: 0
     };
 
     // 11 frames across 1000ms (0..1000 inclusive): fps = 11.
@@ -164,7 +174,9 @@ describe("performanceMetrics", () => {
       surfaceResolutionMax: 0,
       parametricSamplesMax: 0,
       surfaceResolutionPressure: 0,
-      parametricSamplePressure: 0
+      parametricSamplePressure: 0,
+      vectorGlyphMax: 0,
+      vectorGlyphPressure: 0
     };
 
     // First evaluation window boundary at nowMs=100
