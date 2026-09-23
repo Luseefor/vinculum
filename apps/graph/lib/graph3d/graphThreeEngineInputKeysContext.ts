@@ -5,7 +5,7 @@ import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputT
 export function createGraphThreeKeyboardAndContextHandlers(
   deps: Pick<
     GraphThreeEngineInputHandlersDeps,
-    "tickRuntime" | "renderer" | "ndc" | "raycaster" | "camera" | "probeMarkerMeshes"
+    "tickRuntime" | "renderer" | "ndc" | "raycaster" | "camera" | "probeMarkerMeshes" | "resolvePickContext"
   > & { clearSketch: () => void }
 ) {
   const { tickRuntime, renderer, ndc, raycaster, camera, probeMarkerMeshes, clearSketch } = deps;
@@ -42,13 +42,14 @@ export function createGraphThreeKeyboardAndContextHandlers(
       return;
     }
     const mouseEvent = event as MouseEvent;
-    const rect = renderer.domElement.getBoundingClientRect();
+    const pickOverride = deps.resolvePickContext?.(mouseEvent.clientX, mouseEvent.clientY) ?? null;
+    const rect = pickOverride?.rect ?? renderer.domElement.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) {
       return;
     }
     ndc.x = ((mouseEvent.clientX - rect.left) / rect.width) * 2 - 1;
     ndc.y = -((mouseEvent.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(ndc, camera);
+    raycaster.setFromCamera(ndc, pickOverride?.camera ?? camera);
     const hits = raycaster.intersectObjects(probeMarkerMeshes, false);
     const hit = hits[0];
     const id = hit?.object?.userData?.probePinId as string | undefined;

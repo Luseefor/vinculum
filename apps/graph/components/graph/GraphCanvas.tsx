@@ -6,8 +6,9 @@ import { useGraphStore } from "@/store/graphStore";
 import { format3dBasePlaneLabel } from "@/components/viewport/viewportLabelFormat";
 import { cn } from "@/components/ui/styles";
 
-export default function GraphCanvas() {
+export default function GraphCanvas({ suspended = false }: { suspended?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const engineRef = useRef<ReturnType<typeof createGraphThreeEngine> | null>(null);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
   const baseline3dPlane = useGraphStore((state) => state.ui.baseline3dPlane);
   const cursorClass =
@@ -36,10 +37,16 @@ export default function GraphCanvas() {
     }
 
     const engine = createGraphThreeEngine(element);
+    engineRef.current = engine;
     return () => {
       engine.dispose();
+      engineRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    engineRef.current?.setSuspended(suspended);
+  }, [suspended]);
 
   const basePlane = format3dBasePlaneLabel(baseline3dPlane);
 

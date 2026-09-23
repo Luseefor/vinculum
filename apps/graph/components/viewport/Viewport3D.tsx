@@ -13,12 +13,13 @@ const Graph3DCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
 
 interface Viewport3DProps {
   className?: string;
+  suspended?: boolean;
 }
 
-export default function Viewport3D({ className = "" }: Viewport3DProps) {
+export default function Viewport3D({ className = "", suspended = false }: Viewport3DProps) {
   return (
     <div className={`h-full w-full ${className}`}>
-      <Graph3DCanvas />
+      <Graph3DCanvas suspended={suspended} />
     </div>
   );
 }

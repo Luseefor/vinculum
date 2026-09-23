@@ -17,6 +17,11 @@ import {
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
+import {
+  renderGeometryMultiViewPanes,
+  resetActiveGeometryView,
+  type GeometryMultiViewState
+} from "./graphThreeGeometryMultiView";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -55,6 +60,9 @@ export type GraphThreeEngineTickDeps = {
   resetCamera: () => void;
   syncObjects: (theme: ResolvedTheme) => void;
   requestNextFrame: (callback: () => void) => void;
+  container: HTMLElement;
+  multiView: GeometryMultiViewState;
+  isSuspended: () => boolean;
 };
 
 export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () => void {
@@ -85,13 +93,19 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     applyThemeToScene,
     resetCamera,
     syncObjects,
-    requestNextFrame
+    requestNextFrame,
+    container,
+    multiView,
+    isSuspended
   } = deps;
 
   const formatProbe = (p: { x: number; y: number; z: number }) =>
     `X ${p.x.toFixed(4)} · Y ${p.y.toFixed(4)} · Z ${p.z.toFixed(4)}`;
 
   const tick = () => {
+    if (isSuspended()) {
+      return;
+    }
     if (runtime.isContextLost) {
       requestNextFrame(tick);
       return;
@@ -172,7 +186,11 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     const camVersion = useGraphStore.getState().cameraResetVersion;
     if (camVersion !== runtime.lastCameraResetVersion) {
       runtime.lastCameraResetVersion = camVersion;
-      resetCamera();
+      if (multiView.panes) {
+        resetActiveGeometryView(multiView, resetCamera);
+      } else {
+        resetCamera();
+      }
     }
 
     if (runtime.objectsDirty) {
@@ -189,7 +207,13 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       scenePressure: runtime.scenePressure
     });
 
-    controls.update();
+    if (multiView.panes) {
+      if (multiView.activeView === "perspective") {
+        controls.update();
+      }
+    } else {
+      controls.update();
+    }
 
     const distance = Math.hypot(camera.position.x, camera.position.y, camera.position.z);
     const near = Math.max(0.05, distance / 6_000);
@@ -202,8 +226,19 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
 
     syncGraphThreeTickGridFrame(camera, runtime, gridMesh, gridUniforms, axesGroup, labelGroup);
 
-    renderer.render(scene, camera);
-    labelRenderer.render(scene, camera);
+    if (multiView.panes) {
+      renderGeometryMultiViewPanes(multiView, {
+        renderer,
+        labelRenderer,
+        scene,
+        perspectiveCamera: camera,
+        container,
+        labelGroup
+      });
+    } else {
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+    }
 
     requestNextFrame(tick);
   };

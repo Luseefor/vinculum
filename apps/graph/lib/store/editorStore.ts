@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { BottomPanelTab, ViewportMode } from "@/lib/types/ui";
+import type { BottomPanelTab, GeometryLayout, GeometryView, ViewportMode } from "@/lib/types/ui";
 
 interface EditorParameter {
   id: string;
@@ -24,6 +24,21 @@ const MIN_CONSTRAINT_OFFSET = -255;
 const MAX_CONSTRAINT_OFFSET = 255;
 const DEFAULT_OFFSET_VALUE = 28;
 
+const GEOMETRY_LAYOUTS: readonly GeometryLayout[] = ["single", "split", "quad"];
+const GEOMETRY_VIEWS: readonly GeometryView[] = ["perspective", "xy", "xz", "yz"];
+
+function sanitizeGeometryLayout(value: unknown, fallback: GeometryLayout): GeometryLayout {
+  return typeof value === "string" && (GEOMETRY_LAYOUTS as readonly string[]).includes(value)
+    ? (value as GeometryLayout)
+    : fallback;
+}
+
+function sanitizeGeometryView(value: unknown, fallback: GeometryView): GeometryView {
+  return typeof value === "string" && (GEOMETRY_VIEWS as readonly string[]).includes(value)
+    ? (value as GeometryView)
+    : fallback;
+}
+
 export interface EditorConstraint {
   id: string;
   type: EditorConstraintType;
@@ -44,6 +59,12 @@ interface EditorAnimationState {
 
 interface EditorStoreState {
   viewportMode: ViewportMode;
+  /** Geometry Studio pane arrangement. Independent of Math view/layout. */
+  geometryLayout: GeometryLayout;
+  /** Geometry Studio single-pane view. */
+  geometryView: GeometryView;
+  /** Geometry Studio split secondary plane (orthographic). */
+  geometrySplitView: GeometryView;
   leftPanelCollapsed: boolean;
   rightPanelCollapsed: boolean;
   bottomPanelCollapsed: boolean;
@@ -70,6 +91,9 @@ interface EditorStoreState {
   constraints: EditorConstraint[];
   animation: EditorAnimationState;
   setViewportMode: (mode: ViewportMode) => void;
+  setGeometryLayout: (layout: GeometryLayout) => void;
+  setGeometryView: (view: GeometryView) => void;
+  setGeometrySplitView: (view: GeometryView) => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleBottomPanel: () => void;
@@ -107,6 +131,9 @@ export const useEditorStore = create<EditorStoreState>()(
   persist(
     (set) => ({
       viewportMode: "split",
+      geometryLayout: "single",
+      geometryView: "perspective",
+      geometrySplitView: "xy",
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
       bottomPanelCollapsed: false,
@@ -142,6 +169,9 @@ export const useEditorStore = create<EditorStoreState>()(
         playing: false
       },
       setViewportMode: (mode) => set({ viewportMode: mode }),
+      setGeometryLayout: (layout) => set({ geometryLayout: layout }),
+      setGeometryView: (view) => set({ geometryView: view }),
+      setGeometrySplitView: (view) => set({ geometrySplitView: view }),
       toggleLeftPanel: () =>
         set((state) => ({
           leftPanelCollapsed: !state.leftPanelCollapsed,
@@ -342,9 +372,21 @@ export const useEditorStore = create<EditorStoreState>()(
         const normalizedConstraints = incomingConstraints.map((constraint) =>
           sanitizeConstraintRecord(constraint)
         );
+        // S16-R6: corrupted persisted geometry values reach the ortho camera
+        // orientation table inside the frame loop and would throw before the
+        // next frame is requested. Reject anything outside the whitelists.
+        const geometryLayout = sanitizeGeometryLayout(incoming.geometryLayout, currentState.geometryLayout);
+        const geometryView = sanitizeGeometryView(incoming.geometryView, currentState.geometryView);
+        const geometrySplitView = sanitizeGeometryView(
+          incoming.geometrySplitView,
+          currentState.geometrySplitView
+        );
         return {
           ...currentState,
           ...incoming,
+          geometryLayout,
+          geometryView,
+          geometrySplitView,
           constraints: normalizedConstraints
         };
       }

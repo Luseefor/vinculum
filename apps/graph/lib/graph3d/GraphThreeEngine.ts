@@ -57,6 +57,23 @@ import { snapWorldPoint } from "./graphThreeSnapWorld";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
 import type { GraphThreeEngine } from "./graphThreeEngineTypes";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
+import {
+  cancelGeometryMultiViewDrag,
+  createGeometryMultiViewState,
+  getActiveGeometryView,
+  multiViewPointerDown,
+  multiViewPointerMove,
+  multiViewPointerUp,
+  multiViewPickContext,
+  multiViewWheel,
+  renderGeometryMultiViewPanes,
+  resetActiveGeometryView,
+  routeAndActivateGeometryView,
+  setActiveGeometryView,
+  setGeometryMultiViewPanes,
+  type GeometryMultiViewState
+} from "./graphThreeGeometryMultiView";
+import type { GeometryView } from "@/lib/types/ui";
 
 export type { GraphThreeEngine } from "./graphThreeEngineTypes";
 export { snapWorldPoint } from "./graphThreeSnapWorld";
@@ -239,6 +256,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   let animationHandle = 0;
   let resizeObserver: ResizeObserver | null = null;
+  let suspended = false;
   const raycaster = new Raycaster();
   const ndc = new Vector2();
   const baselinePlane = new Plane(new Vector3(0, 1, 0), 0);
@@ -469,11 +487,18 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     animationHandle = window.requestAnimationFrame(callback);
   };
 
+  // Geometry multi-view state. Null panes select the legacy
+  // single-perspective behavior used by Math Lab paths.
+  const multiView: GeometryMultiViewState = createGeometryMultiViewState();
+
+  const resolvePickContext = (clientX: number, clientY: number) =>
+    multiViewPickContext(multiView, camera, container, clientX, clientY);
+
   const {
-    handlePointerMove,
-    handlePointerDown,
-    handlePointerUp,
-    handlePointerLeave,
+    handlePointerMove: basePointerMove,
+    handlePointerDown: basePointerDown,
+    handlePointerUp: basePointerUp,
+    handlePointerLeave: basePointerLeave,
     handleKeyDown,
     handleKeyUp,
     handleContextMenu
@@ -492,8 +517,89 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     sketchLine,
     maybeSnapPoint,
     formatProbe,
-    setHoverProbeBadge
+    setHoverProbeBadge,
+    resolvePickContext
   });
+
+  const handlePointerMove = (event: PointerEvent) => {
+    multiViewPointerMove(multiView, container, event);
+    basePointerMove(event);
+  };
+
+  // S16-R6: pointer id currently captured for an ortho grab-drag, if any.
+  let orthoCapturePointerId: number | null = null;
+
+  const releaseOrthoPointerCapture = () => {
+    if (orthoCapturePointerId === null) {
+      return;
+    }
+    try {
+      if (renderer.domElement.hasPointerCapture?.(orthoCapturePointerId)) {
+        renderer.domElement.releasePointerCapture(orthoCapturePointerId);
+      }
+    } catch {
+      // Already released or capture unsupported; nothing to clean up.
+    }
+    orthoCapturePointerId = null;
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    const orthoDragStarted = multiViewPointerDown(
+      multiView,
+      container,
+      event,
+      useGraphStore.getState().ui.canvas3dTool
+    );
+    // S16-R6: keep an ortho grab-drag alive when the pointer leaves the
+    // canvas mid-gesture. Capture targets the canvas so its own move/up
+    // listeners stay in the event path; legacy mode never captures.
+    if (orthoDragStarted) {
+      try {
+        renderer.domElement.setPointerCapture(event.pointerId);
+        orthoCapturePointerId = event.pointerId;
+      } catch {
+        // Pointer capture unsupported (or already released); the drag still
+        // works while the pointer stays over the canvas.
+      }
+    }
+    basePointerDown(event);
+  };
+
+  const handlePointerUp = () => {
+    releaseOrthoPointerCapture();
+    multiViewPointerUp(multiView);
+    basePointerUp();
+  };
+
+  const handlePointerLeave = () => {
+    // With pointer capture a leave cannot fire mid-drag; without capture
+    // (unsupported platform) this still ends a drag that left the canvas.
+    releaseOrthoPointerCapture();
+    multiViewPointerUp(multiView);
+    basePointerLeave();
+  };
+
+  // S16-R2: container-capture routing runs before OrbitControls' own
+  // domElement listeners, so the first gesture over an orthographic pane
+  // never leaks into the perspective camera. No-ops entirely in legacy mode.
+  const handleContainerPointerDownCapture = (event: PointerEvent) => {
+    if (!multiView.panes) {
+      return;
+    }
+    const view = routeAndActivateGeometryView(multiView, container, event.clientX, event.clientY);
+    controls.enabled = view === null || view === "perspective";
+  };
+
+  const handleContainerWheelCapture = (event: WheelEvent) => {
+    if (!multiView.panes) {
+      return;
+    }
+    const view = routeAndActivateGeometryView(multiView, container, event.clientX, event.clientY);
+    controls.enabled = view === null || view === "perspective";
+    if (multiViewWheel(multiView, container, event)) {
+      event.preventDefault();
+    }
+  };
 
   const tick = createGraphThreeEngineTick({
     runtime: tickRuntime,
@@ -522,7 +628,10 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     applyThemeToScene,
     resetCamera,
     syncObjects,
-    requestNextFrame
+    requestNextFrame,
+    container,
+    multiView,
+    isSuspended: () => suspended
   });
 
   const resize = () => {
@@ -564,6 +673,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   renderer.domElement.addEventListener("pointerdown", handlePointerDown);
   renderer.domElement.addEventListener("pointerup", handlePointerUp);
   renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+  container.addEventListener("pointerdown", handleContainerPointerDownCapture, true);
+  container.addEventListener("wheel", handleContainerWheelCapture, { passive: false, capture: true });
 
   window.addEventListener("keydown", handleKeyDown);
   window.addEventListener("keyup", handleKeyUp);
@@ -583,8 +694,52 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   animationHandle = window.requestAnimationFrame(tick);
 
   return {
+    setGeometryPanes: (panes) => {
+      setGeometryMultiViewPanes(multiView, panes);
+      if (!multiView.panes) {
+        controls.enabled = true;
+        // Restore the full-container label viewport and perspective aspect
+        // that multi-pane rendering repositions per pane.
+        const labelElement = labelRenderer.domElement as HTMLElement;
+        labelElement.style.display = "block";
+        labelElement.style.left = "0px";
+        labelElement.style.top = "0px";
+        resize();
+      } else {
+        controls.enabled = getActiveGeometryView(multiView) === "perspective";
+      }
+    },
+    getActiveGeometryView: () => getActiveGeometryView(multiView),
+    setActiveGeometryView: (view: GeometryView) => {
+      setActiveGeometryView(multiView, view);
+    },
+    resetActiveGeometryPane: () => {
+      resetActiveGeometryView(multiView, resetCamera);
+    },
+    setSuspended: (value: boolean) => {
+      if (value === suspended) {
+        return;
+      }
+      suspended = value;
+      if (suspended) {
+        releaseOrthoPointerCapture();
+        cancelGeometryMultiViewDrag(multiView);
+        window.cancelAnimationFrame(animationHandle);
+        animationHandle = 0;
+        resizeObserver?.disconnect();
+        resizeObserver = null;
+      } else {
+        resizeObserver = new ResizeObserver(() => {
+          resize();
+        });
+        resizeObserver.observe(container);
+        resize();
+        animationHandle = window.requestAnimationFrame(tick);
+      }
+    },
     dispose: () => {
       window.cancelAnimationFrame(animationHandle);
+      releaseOrthoPointerCapture();
       unsub();
       unsubEditor();
       unsubPerfHud();
@@ -600,6 +755,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
+      container.removeEventListener("pointerdown", handleContainerPointerDownCapture, true);
+      container.removeEventListener("wheel", handleContainerWheelCapture, true);
       renderer.domElement.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);

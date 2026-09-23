@@ -18,6 +18,7 @@ import SharedSceneConfirmDialog from "@/components/scene/SharedSceneConfirmDialo
 import ThemeSync from "@/components/theme/ThemeSync";
 import { Sheet } from "@/components/ui/sheet";
 import ViewportHost from "@/components/viewport/ViewportHost";
+import GeometryViewport from "@/components/viewport/GeometryViewport";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
 import { exportSceneJson, triggerSceneExportDownload } from "@/lib/export/sceneExport";
@@ -129,6 +130,8 @@ export default function EditorShell() {
   const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
+  const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
+  const setGeometryView = useEditorStore((state) => state.setGeometryView);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
   const constraints = useEditorStore((state) => state.constraints);
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
@@ -367,6 +370,16 @@ export default function EditorShell() {
   // Narrow-mode drawers open only on explicit user action so a fresh narrow
   // load never starts with canvas-blocking overlays.
   const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);
+  const workspace = useGraphStore((state) => state.ui.workspace);
+  // Lazily mount each workspace tree on first visit, then keep it mounted
+  // (suspended while hidden) so cameras, sync state, and engines survive
+  // workspace switches without rebuilds.
+  const [visitedWorkspaces, setVisitedWorkspaces] = useState({ geometry: false, math: true });
+  useEffect(() => {
+    setVisitedWorkspaces((previous) =>
+      previous[workspace] ? previous : { ...previous, [workspace]: true }
+    );
+  }, [workspace]);
 
   useEffect(() => {
     const node = shellRef.current;
@@ -759,6 +772,13 @@ export default function EditorShell() {
     if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
     if (commandId === "switch-split") { setViewportMode("split"); return; }
     if (commandId === "switch-quad") { setViewportMode("quad"); return; }
+    if (commandId === "geometry-view-perspective") { setGeometryView("perspective"); return; }
+    if (commandId === "geometry-view-xy") { setGeometryView("xy"); return; }
+    if (commandId === "geometry-view-xz") { setGeometryView("xz"); return; }
+    if (commandId === "geometry-view-yz") { setGeometryView("yz"); return; }
+    if (commandId === "geometry-layout-single") { setGeometryLayout("single"); return; }
+    if (commandId === "geometry-layout-split") { setGeometryLayout("split"); return; }
+    if (commandId === "geometry-layout-quad") { setGeometryLayout("quad"); return; }
     if (commandId === "switch-workspace-geometry") { setWorkspace("geometry"); return; }
     if (commandId === "switch-workspace-math") { setWorkspace("math"); return; }
     if (commandId === "add-surface") {
@@ -793,7 +813,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setWorkspace, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
@@ -938,14 +958,23 @@ export default function EditorShell() {
               onExportSceneJson={handleViewportExportSceneJson}
             >
               <div className="h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
-                <ViewportHost
-                  mode={effectiveViewportMode}
-                  viewport2d={<Viewport2D key="graph-2d" />}
-                  viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
-                  viewport3d={<Viewport3D key="graph-3d" />}
-                  selectedLabel={selectedLabel}
-                  snapLabel={snapLabel}
-                />
+                {(workspace === "geometry" || visitedWorkspaces.geometry) && (
+                  <div className={workspace === "geometry" ? "h-full w-full" : "hidden"}>
+                    <GeometryViewport suspended={workspace !== "geometry"} />
+                  </div>
+                )}
+                {(workspace === "math" || visitedWorkspaces.math) && (
+                  <div className={workspace === "math" ? "h-full w-full" : "hidden"}>
+                    <ViewportHost
+                      mode={effectiveViewportMode}
+                      viewport2d={<Viewport2D key="graph-2d" />}
+                      viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
+                      viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
+                      selectedLabel={selectedLabel}
+                      snapLabel={snapLabel}
+                    />
+                  </div>
+                )}
               </div>
             </GraphViewportErrorBoundary>
             {viewportFallbackMessage ? (

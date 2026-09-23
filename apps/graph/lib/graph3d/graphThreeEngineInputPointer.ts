@@ -5,6 +5,7 @@ import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStro
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
 
 function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: number; clientY: number }) {
+  const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;
   return pickWorldPointFromCanvasPointer(event, {
     renderer: deps.renderer,
     camera: deps.camera,
@@ -12,7 +13,8 @@ function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: nu
     ndc: deps.ndc,
     objectsRoot: deps.objectsRoot,
     baselinePlane: deps.baselinePlane,
-    tempGround: deps.tempGround
+    tempGround: deps.tempGround,
+    pickOverride
   });
 }
 

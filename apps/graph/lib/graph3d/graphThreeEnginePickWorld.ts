@@ -1,5 +1,5 @@
 import { Mesh } from "three";
-import type { Group, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from "three";
+import type { Group, OrthographicCamera, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from "three";
 import type { WebGLRenderer } from "three";
 
 export type PickWorldFromCanvasArgs = {
@@ -10,6 +10,14 @@ export type PickWorldFromCanvasArgs = {
   objectsRoot: Group;
   baselinePlane: Plane;
   tempGround: Vector3;
+  /**
+   * Multi-view override: camera and client-coordinate rect scoping NDC to
+   * one pane. Absent selects the legacy full-canvas perspective behavior.
+   */
+  pickOverride?: {
+    camera: PerspectiveCamera | OrthographicCamera;
+    rect: { left: number; top: number; width: number; height: number };
+  } | null;
 };
 
 export function pickWorldPointFromCanvasPointer(
@@ -17,13 +25,14 @@ export function pickWorldPointFromCanvasPointer(
   args: PickWorldFromCanvasArgs
 ): { x: number; y: number; z: number } | null {
   const { renderer, camera, raycaster, ndc, objectsRoot, baselinePlane, tempGround } = args;
-  const rect = renderer.domElement.getBoundingClientRect();
+  const activeCamera = args.pickOverride?.camera ?? camera;
+  const rect = args.pickOverride?.rect ?? renderer.domElement.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
     return null;
   }
   ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(ndc, camera);
+  raycaster.setFromCamera(ndc, activeCamera);
 
   const hits = raycaster.intersectObjects(objectsRoot.children, true);
   for (const hit of hits) {

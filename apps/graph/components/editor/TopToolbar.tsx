@@ -28,6 +28,7 @@ import {
 } from "@/lib/templates/examplesRegistry";
 import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
+import type { GeometryLayout, GeometryView } from "@/lib/types/ui";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { cn } from "@/components/ui/styles";
 import { 
@@ -173,6 +174,13 @@ export default function TopToolbar({
   const viewport2dFrame = useGraphStore((state) => state.ui.viewport2dFrame);
   const viewport2dQuadTopFrame = useGraphStore((state) => state.ui.viewport2dQuadTopFrame);
   const setCurrentProjectSession = useGraphStore((state) => state.setCurrentProjectSession);
+  const workspace = useGraphStore((state) => state.ui.workspace);
+  const geometryLayout = useEditorStore((state) => state.geometryLayout);
+  const geometryView = useEditorStore((state) => state.geometryView);
+  const geometrySplitView = useEditorStore((state) => state.geometrySplitView);
+  const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
+  const setGeometryView = useEditorStore((state) => state.setGeometryView);
+  const setGeometrySplitView = useEditorStore((state) => state.setGeometrySplitView);
   const setProjectAutosaveStatus = useGraphStore((state) => state.setProjectAutosaveStatus);
   const resetScene = useGraphStore((state) => state.resetScene);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
@@ -711,6 +719,56 @@ export default function TopToolbar({
       <div className="mx-1 hidden min-h-0 min-w-0 flex-1 items-center justify-start lg:flex">
         <div className="flex w-full min-w-0 justify-start overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
           <div className="flex w-max items-center gap-1.5">
+        {workspace === "geometry" ? (
+          <>
+            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+              View
+              <Select
+                data-testid="toolbar-geometry-view-select"
+                aria-label="Geometry view"
+                value={geometryView}
+                onChange={(event) => setGeometryView(event.target.value as GeometryView)}
+                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+              >
+                <option value="perspective">Perspective</option>
+                <option value="xy">XY</option>
+                <option value="xz">XZ</option>
+                <option value="yz">YZ</option>
+              </Select>
+            </label>
+            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+              Layout
+              <Select
+                data-testid="toolbar-geometry-layout-select"
+                aria-label="Geometry layout"
+                value={geometryLayout}
+                onChange={(event) => setGeometryLayout(event.target.value as GeometryLayout)}
+                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+              >
+                <option value="single">Single</option>
+                <option value="split">Split</option>
+                <option value="quad">Quad</option>
+              </Select>
+            </label>
+            {geometryLayout === "split" ? (
+              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Split view
+                <Select
+                  data-testid="toolbar-geometry-split-select"
+                  aria-label="Split view"
+                  value={geometrySplitView}
+                  onChange={(event) => setGeometrySplitView(event.target.value as GeometryView)}
+                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+                >
+                  <option value="xy">XY</option>
+                  <option value="xz">XZ</option>
+                  <option value="yz">YZ</option>
+                </Select>
+              </label>
+            ) : null}
+          </>
+        ) : (
+          <>
         <div
           className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
           role="group"
@@ -793,6 +851,8 @@ export default function TopToolbar({
             </Select>
           </label>
         ) : null}
+          </>
+        )}
         <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
           Tool
           <Select
@@ -994,6 +1054,55 @@ export default function TopToolbar({
     </header>
       {compactBar ? (
         <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1">
+          {workspace === "geometry" ? (
+            <>
+              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                View
+                <Select
+                  data-testid="toolbar-geometry-view-select"
+                  aria-label="Geometry view"
+                  value={geometryView}
+                  onChange={(event) => setGeometryView(event.target.value as GeometryView)}
+                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+                >
+                  <option value="perspective">Perspective</option>
+                  <option value="xy">XY</option>
+                  <option value="xz">XZ</option>
+                  <option value="yz">YZ</option>
+                </Select>
+              </label>
+              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Layout
+                <Select
+                  data-testid="toolbar-geometry-layout-select"
+                  aria-label="Geometry layout"
+                  value={geometryLayout}
+                  onChange={(event) => setGeometryLayout(event.target.value as GeometryLayout)}
+                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+                >
+                  <option value="single">Single</option>
+                  <option value="split">Split</option>
+                  <option value="quad">Quad</option>
+                </Select>
+              </label>
+              {geometryLayout === "split" ? (
+                <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                  Split view
+                  <Select
+                    data-testid="toolbar-geometry-split-select"
+                    aria-label="Split view"
+                    value={geometrySplitView}
+                    onChange={(event) => setGeometrySplitView(event.target.value as GeometryView)}
+                    className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+                  >
+                    <option value="xy">XY</option>
+                    <option value="xz">XZ</option>
+                    <option value="yz">YZ</option>
+                  </Select>
+                </label>
+              ) : null}
+            </>
+          ) : (
           <div
             className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
             role="group"
@@ -1017,6 +1126,7 @@ export default function TopToolbar({
               </button>
             ))}
           </div>
+          )}
           <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
             Tool
             <Select
