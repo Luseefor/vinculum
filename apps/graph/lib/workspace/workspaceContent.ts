@@ -17,12 +17,12 @@ export interface WorkspaceContent {
 export const WORKSPACE_CONTENT: Record<WorkspaceId, WorkspaceContent> = {
   geometry: {
     label: "Geometry Studio",
-    quickAddOrder: ["Plane", "Point", "Curve", "Surface", "Parametric Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus"],
+    quickAddOrder: ["Plane", "Point", "Curve", "Surface", "Parametric Surface", "Implicit Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
     emptyHint: "Add a geometric object to begin."
   },
   math: {
     label: "Math Lab",
-    quickAddOrder: ["Surface", "Parametric Surface", "Curve", "Plane", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus"],
+    quickAddOrder: ["Surface", "Parametric Surface", "Implicit Surface", "Curve", "Plane", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
     emptyHint: "Add an equation or graph to begin."
   }
 };

@@ -1,3 +1,4 @@
+import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
@@ -18,6 +19,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addParametricCurve"
   | "addPlaneObject"
   | "addParametricSurface"
+  | "addImplicitSurface"
   | "addEmptyObject"
   | "insertObjectAfter"
   | "setObjectKind"
@@ -37,6 +39,10 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
     addParametricSurface: () => {
       return appendObject(set, (index) => createParametricSurfaceGraph({ colorIndex: index }));
+    },
+
+    addImplicitSurface: () => {
+      return appendObject(set, (index) => createImplicitSurfaceGraph({ colorIndex: index }));
     },
 
     addEmptyObject: () => {

@@ -38,7 +38,9 @@ export function buildRenderableGraphsFromScene(objects: GraphObject[], axisPair:
     // so they render in 3D views only. Skipping here (before `obj.equation`
     // access, which this kind does not define) keeps 2D rendering safe;
     // export2dSvg warns per skipped visible object so SVG export stays honest.
-    if (obj.kind === "parametricSurface") {
+    // S18: true implicit 3D surfaces follow the same policy — no fake 2D
+    // interpretation of the volumetric mesh.
+    if (obj.kind === "parametricSurface" || obj.kind === "implicitSurface") {
       continue;
     }
 

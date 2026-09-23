@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand";
 import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObjectKind,
+  ImplicitSurfaceObject,
   ParametricCurveObject,
   ParametricSurfaceObject,
   PlaneGraphObject,
@@ -32,6 +33,10 @@ export type ParametricSurfaceField = keyof Pick<
   "xExpr" | "yExpr" | "zExpr" | "resolution"
 > | keyof Pick<ParametricSurfaceObject["domain"], "uMin" | "uMax" | "vMin" | "vMax">;
 
+export type ImplicitSurfaceField =
+  | keyof Pick<ImplicitSurfaceObject, "equation" | "resolution">
+  | keyof Pick<ImplicitSurfaceObject["domain"], "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax">;
+
 export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -40,6 +45,7 @@ export interface GraphStoreState {
   addParametricCurve: () => string;
   addPlaneObject: () => string;
   addParametricSurface: () => string;
+  addImplicitSurface: () => string;
   addEmptyObject: () => string;
   insertObjectAfter: (id: string, kind: GraphObjectKind) => string;
   setObjectKind: (id: string, kind: GraphObjectKind) => void;
@@ -53,6 +59,11 @@ export interface GraphStoreState {
   updateParametricSurfaceExpression: (
     id: string,
     field: ParametricSurfaceField,
+    value: string | number
+  ) => void;
+  updateImplicitSurfaceExpression: (
+    id: string,
+    field: ImplicitSurfaceField,
     value: string | number
   ) => void;
   updatePlaneEquation: (id: string, equation: string) => void;

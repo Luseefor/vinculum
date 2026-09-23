@@ -1,7 +1,7 @@
 import type { GraphObject } from "@vinculum/scene/types";
 
 export function isExpressionRowEmpty(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane") {
+  if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
     return !object.equation.trim();
   }
   return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
@@ -28,6 +28,9 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
   }
   if (!object.equation.trim()) {
     return { label: "Expression", type: "Choose type in menu" };
+  }
+  if (object.kind === "implicitSurface") {
+    return { label: "Implicit Surface", type: "Implicit Surface" };
   }
   const equation = object.equation.replace(/\s+/g, "");
   if (equation === "sqrt(max(0,9-x^2-y^2))") return { label: "Sphere", type: "Sphere" };

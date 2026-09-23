@@ -1,7 +1,7 @@
 import type { GraphObject } from "@vinculum/scene/types";
 
 export function isGraphObjectRenderable3D(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane") {
+  if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
     return object.equation.trim().length > 0;
   }
   if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
@@ -14,7 +14,9 @@ export function sceneHasVisibleSurface(objects: GraphObject[]): boolean {
   return objects.some(
     (object) =>
       object.visible &&
-      (object.kind === "surface" || object.kind === "parametricSurface") &&
+      (object.kind === "surface" ||
+        object.kind === "parametricSurface" ||
+        object.kind === "implicitSurface") &&
       isGraphObjectRenderable3D(object)
   );
 }

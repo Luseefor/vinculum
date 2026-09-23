@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import type { GraphObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
 
@@ -36,6 +36,14 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <ParametricSurfaceInspector object={selectedObject} />
+      </section>
+    );
+  }
+
+  if (selectedObject.kind === "implicitSurface") {
+    return (
+      <section id="graph-inspector">
+        <ImplicitSurfaceInspector object={selectedObject} />
       </section>
     );
   }
@@ -228,6 +236,72 @@ function ParametricSurfaceInspector({ object }: { object: ParametricSurfaceObjec
               const v = Number(event.target.value);
               if (Number.isFinite(v)) {
                 updateParametricSurfaceExpression(object.id, "resolution", v);
+              }
+            }}
+            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          />
+        </label>
+      </div>
+    </section>
+  );
+}
+
+function ImplicitSurfaceInspector({ object }: { object: ImplicitSurfaceObject }) {
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
+
+  const rangeFields = [
+    { key: "xMin" as const, label: "x min" },
+    { key: "xMax" as const, label: "x max" },
+    { key: "yMin" as const, label: "y min" },
+    { key: "yMax" as const, label: "y max" },
+    { key: "zMin" as const, label: "z min" },
+    { key: "zMax" as const, label: "z max" }
+  ];
+
+  return (
+    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <header className="pb-3">
+        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Implicit Surface</h3>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          Edit F(x,y,z) = 0 in the list, either as a bare field or as an equality. The sampling box and
+          resolution apply to the 3D views.
+        </p>
+      </header>
+      <div>
+        <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Sampling box</h4>
+        <div className="grid grid-cols-2 gap-2.5">
+          {rangeFields.map((entry) => (
+            <label key={entry.key} className="block">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                {entry.label}
+              </span>
+              <Input
+                type="number"
+                value={object.domain[entry.key]}
+                step="any"
+                aria-label={entry.label}
+                onChange={(event) => {
+                  const v = Number(event.target.value);
+                  if (Number.isFinite(v)) {
+                    updateImplicitSurfaceExpression(object.id, entry.key, v);
+                  }
+                }}
+                className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              />
+            </label>
+          ))}
+        </div>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Resolution</span>
+          <Input
+            type="number"
+            min={2}
+            value={object.resolution}
+            aria-label="Resolution"
+            onChange={(event) => {
+              const v = Number(event.target.value);
+              if (Number.isFinite(v)) {
+                updateImplicitSurfaceExpression(object.id, "resolution", v);
               }
             }}
             className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"

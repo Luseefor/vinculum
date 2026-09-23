@@ -1,3 +1,4 @@
+import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
@@ -10,7 +11,7 @@ import {
 import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
 
 export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane") {
+  if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
     return !object.equation.trim();
   }
   return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
@@ -49,6 +50,16 @@ export function createEmptyGraphObject(
       xExpr: "",
       yExpr: "",
       zExpr: ""
+    });
+  }
+
+  if (kind === "implicitSurface") {
+    return createImplicitSurfaceGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      equation: ""
     });
   }
 
@@ -91,6 +102,15 @@ export function createGraphObject(
 
   if (kind === "parametricSurface") {
     return createParametricSurfaceGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible
+    });
+  }
+
+  if (kind === "implicitSurface") {
+    return createImplicitSurfaceGraph({
       colorIndex,
       id: options.id,
       color: options.color,

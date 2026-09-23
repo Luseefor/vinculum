@@ -13,6 +13,7 @@ export default function AddObjectMenu() {
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
+  const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
@@ -20,6 +21,7 @@ export default function AddObjectMenu() {
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
 
   const selectedObject = useMemo(
@@ -60,6 +62,26 @@ export default function AddObjectMenu() {
     [addConsoleEvent, addParametricSurface, requestEquationFocus, updateParametricSurfaceExpression]
   );
 
+  const createImplicitSurfaceTemplate = useCallback(
+    (
+      equation: string,
+      domain: { xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number },
+      message: string
+    ) => {
+      const id = addImplicitSurface();
+      updateImplicitSurfaceExpression(id, "equation", equation);
+      updateImplicitSurfaceExpression(id, "xMin", domain.xMin);
+      updateImplicitSurfaceExpression(id, "xMax", domain.xMax);
+      updateImplicitSurfaceExpression(id, "yMin", domain.yMin);
+      updateImplicitSurfaceExpression(id, "yMax", domain.yMax);
+      updateImplicitSurfaceExpression(id, "zMin", domain.zMin);
+      updateImplicitSurfaceExpression(id, "zMax", domain.zMax);
+      requestEquationFocus(id);
+      addConsoleEvent(message);
+    },
+    [addConsoleEvent, addImplicitSurface, requestEquationFocus, updateImplicitSurfaceExpression]
+  );
+
   const createAndFocus = useCallback(
     (create: () => string) => {
       const id = create();
@@ -95,6 +117,13 @@ export default function AddObjectMenu() {
               createAndFocus(() => addParametricSurface());
               addConsoleEvent("Created parametric surface from Add menu");
             }
+          },
+          {
+            label: "Implicit Surface",
+            onClick: () => {
+              createAndFocus(() => addImplicitSurface());
+              addConsoleEvent("Created implicit surface from Add menu");
+            }
           }
         ]
       },
@@ -106,6 +135,26 @@ export default function AddObjectMenu() {
             onClick: () => {
               createAndFocus(() => addPlaneObject());
               addConsoleEvent("Created plane from Add menu");
+            }
+          },
+          {
+            label: "Implicit Sphere",
+            onClick: () => {
+              createImplicitSurfaceTemplate(
+                "x^2 + y^2 + z^2 = 1",
+                { xMin: -1.5, xMax: 1.5, yMin: -1.5, yMax: 1.5, zMin: -1.5, zMax: 1.5 },
+                "Created implicit sphere template"
+              );
+            }
+          },
+          {
+            label: "Implicit Torus",
+            onClick: () => {
+              createImplicitSurfaceTemplate(
+                "(x^2 + y^2 + z^2 + 3.75)^2 - 16 * (x^2 + y^2) = 0",
+                { xMin: -3, xMax: 3, yMin: -3, yMax: 3, zMin: -1, zMax: 1 },
+                "Created implicit torus template"
+              );
             }
           },
           {
@@ -201,9 +250,11 @@ export default function AddObjectMenu() {
       addConsoleEvent,
       addParametricCurve,
       addParametricSurface,
+      addImplicitSurface,
       addPlaneObject,
       addSurfaceObject,
       createAndFocus,
+      createImplicitSurfaceTemplate,
       createParametricSurfaceTemplate,
       createSurfaceTemplate,
       requestEquationFocus,

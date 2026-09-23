@@ -1,4 +1,4 @@
-export type GraphObjectKind = "surface" | "parametricCurve" | "plane" | "parametricSurface";
+export type GraphObjectKind = "surface" | "parametricCurve" | "plane" | "parametricSurface" | "implicitSurface";
 
 export interface GraphObjectBase {
   id: string;
@@ -56,6 +56,23 @@ export interface ParametricSurfaceObject extends GraphObjectBase {
   appearance: SurfaceAppearance;
 }
 
+export interface ImplicitSurfaceDomain {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  zMin: number;
+  zMax: number;
+}
+
+export interface ImplicitSurfaceObject extends GraphObjectBase {
+  kind: "implicitSurface";
+  equation: string;
+  domain: ImplicitSurfaceDomain;
+  resolution: number;
+  appearance: SurfaceAppearance;
+}
+
 export interface PlaneAppearance {
   wireframe: boolean;
 }
@@ -67,4 +84,4 @@ export interface PlaneGraphObject extends GraphObjectBase {
   appearance: PlaneAppearance;
 }
 
-export type GraphObject = SurfaceGraphObject | ParametricCurveObject | PlaneGraphObject | ParametricSurfaceObject;
+export type GraphObject = SurfaceGraphObject | ParametricCurveObject | PlaneGraphObject | ParametricSurfaceObject | ImplicitSurfaceObject;

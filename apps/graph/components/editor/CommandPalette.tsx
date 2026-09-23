@@ -15,6 +15,7 @@ const COMMANDS = [
   { id: "add-surface", label: "Add Surface" },
   { id: "add-curve", label: "Add 3D Curve" },
   { id: "add-parametric-surface", label: "Add Parametric Surface" },
+  { id: "add-implicit-surface", label: "Add Implicit Surface" },
   { id: "add-plane", label: "Add Plane" },
   { id: "delete-selected", label: "Delete Selected Object" },
   { id: "switch-workspace-geometry", label: "Switch to Geometry Studio" },

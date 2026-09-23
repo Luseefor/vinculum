@@ -1,13 +1,14 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import type { SceneCommand } from "@/lib/scene/commands";
 import { findObjectById } from "./graphStoreSelection";
+import { updateImplicitSurfaceField } from "./graphStoreImplicitSurfaceField";
 import { updateParametricCurveField } from "./graphStoreParametricField";
 import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updatePlaneEquation"
+  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updatePlaneEquation"
 > {
   return {
     updateSurfaceEquation: (id, equation) => {
@@ -89,6 +90,31 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         }
 
         const nextObject = updateParametricSurfaceField(object, field, value);
+        if (!nextObject) {
+          return state;
+        }
+
+        const command: SceneCommand = {
+          type: "UPDATE_OBJECT",
+          payload: {
+            object: nextObject
+          }
+        };
+
+        return {
+          scene: applySceneCommand(state.scene, command)
+        };
+      });
+    },
+
+    updateImplicitSurfaceExpression: (id, field, value) => {
+      set((state) => {
+        const object = findObjectById(state.scene.objects, id);
+        if (!object || object.kind !== "implicitSurface") {
+          return state;
+        }
+
+        const nextObject = updateImplicitSurfaceField(object, field, value);
         if (!nextObject) {
           return state;
         }

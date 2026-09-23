@@ -122,6 +122,18 @@ export function cloneGraphObject(object: GraphObject): GraphObject {
     };
   }
 
+  if (object.kind === "implicitSurface") {
+    return {
+      ...object,
+      domain: {
+        ...object.domain
+      },
+      appearance: {
+        ...object.appearance
+      }
+    };
+  }
+
   return {
     ...object,
     appearance: {

@@ -1,9 +1,12 @@
-import type { GraphObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import {
+  MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
   MAX_SURFACE_RESOLUTION,
+  MIN_IMPLICIT_SURFACE_RESOLUTION,
   MIN_PARAMETRIC_SURFACE_RESOLUTION,
   MIN_SURFACE_RESOLUTION,
+  normalizeImplicitSurfaceResolution,
   normalizeParametricSurfaceResolution,
   normalizeSurfaceResolution
 } from "@vinculum/scene/defaults";
@@ -18,6 +21,8 @@ import {
   requireString
 } from "./validateScenePrimitives";
 import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
+import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 
@@ -46,6 +51,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "parametricSurface") {
     return parseParametricSurfaceObject(rawObject, objectIndex, id, color, visible, errors);
+  }
+
+  if (kind === "implicitSurface") {
+    return parseImplicitSurfaceObject(rawObject, objectIndex, id, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -113,7 +122,7 @@ function parseSurfaceGraphObject(
     // independently satisfy expression safety; otherwise keep the original
     // explicit-path error. In particular a second "=" (chained equality or
     // "==") never splits, so `x = y = 1` still reports the explicit error.
-    const parts = splitSingleEquation(equation);
+    const parts = splitSingleMathEquality(equation);
     if (!parts) {
       errors.push(`objects[${objectIndex}].equation: ${safety.violation.message}`);
       return null;
@@ -317,6 +326,97 @@ function parseParametricSurfaceObject(
   };
 }
 
+function parseImplicitSurfaceObject(
+  rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  color: string,
+  visible: boolean,
+  errors: string[]
+): ImplicitSurfaceObject | null {
+  const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
+
+  const domainPath = `objects[${objectIndex}].domain`;
+  if (!isRecord(rawObject.domain)) {
+    errors.push(`${domainPath} must be an object.`);
+    return null;
+  }
+
+  const xMin = parseFiniteNumber(rawObject.domain.xMin, `${domainPath}.xMin`, errors);
+  const xMax = parseFiniteNumber(rawObject.domain.xMax, `${domainPath}.xMax`, errors);
+  const yMin = parseFiniteNumber(rawObject.domain.yMin, `${domainPath}.yMin`, errors);
+  const yMax = parseFiniteNumber(rawObject.domain.yMax, `${domainPath}.yMax`, errors);
+  const zMin = parseFiniteNumber(rawObject.domain.zMin, `${domainPath}.zMin`, errors);
+  const zMax = parseFiniteNumber(rawObject.domain.zMax, `${domainPath}.zMax`, errors);
+
+  const resolution = parseInteger(
+    rawObject.resolution,
+    `objects[${objectIndex}].resolution`,
+    errors,
+    MIN_IMPLICIT_SURFACE_RESOLUTION,
+    MAX_IMPLICIT_SURFACE_RESOLUTION
+  );
+
+  const appearancePath = `objects[${objectIndex}].appearance`;
+  if (!isRecord(rawObject.appearance)) {
+    errors.push(`${appearancePath} must be an object.`);
+    return null;
+  }
+
+  const wireframe = parseBoolean(rawObject.appearance.wireframe, `${appearancePath}.wireframe`, errors);
+
+  if (
+    !equation ||
+    xMin === null ||
+    xMax === null ||
+    yMin === null ||
+    yMax === null ||
+    zMin === null ||
+    zMax === null ||
+    resolution === null ||
+    wireframe === null
+  ) {
+    return null;
+  }
+
+  // S18: mirror the plane parser — chained/comparison equality is rejected
+  // up front, then the authoritative field compiler performs the same
+  // normalization, safety, and parameter-context checks as the live path.
+  // Empty equations stay valid (editable-but-unrendered, like curves).
+  const separatorCount = (equation.match(/=/g) ?? []).length;
+  if (separatorCount > 1) {
+    errors.push(`objects[${objectIndex}].equation: Equation must contain exactly one '='.`);
+    return null;
+  }
+  if (equation.trim()) {
+    const fieldCompiled = compileImplicitSurfaceExpression(equation);
+    if (fieldCompiled.error) {
+      errors.push(`objects[${objectIndex}].equation: ${fieldCompiled.error}`);
+      return null;
+    }
+  }
+
+  return {
+    id,
+    kind: "implicitSurface",
+    equation,
+    visible,
+    color,
+    domain: {
+      xMin,
+      xMax,
+      yMin,
+      yMax,
+      zMin,
+      zMax
+    },
+    resolution: normalizeImplicitSurfaceResolution(resolution),
+    appearance: {
+      wireframe
+    }
+  };
+}
+
 function parsePlaneGraphObject(  rawObject: Record<string, unknown>,
   objectIndex: number,
   id: string,
@@ -388,19 +488,8 @@ function parseSurfaceOrientation(
   return undefined;
 }
 
-// S10: minimal equation-syntax decomposition for validation only. Splits
-// exactly one mathematical equality with non-empty sides; never decides
-// whether the equation is a plane, implicit graph, or explicit surface.
-// In particular `==` (two separators) never splits.
-function splitSingleEquation(equation: string): { lhs: string; rhs: string } | null {
-  const firstSeparator = equation.indexOf("=");
-  if (firstSeparator < 0 || equation.indexOf("=", firstSeparator + 1) !== -1) {
-    return null;
-  }
-  const lhs = equation.slice(0, firstSeparator).trim();
-  const rhs = equation.slice(firstSeparator + 1).trim();
-  if (!lhs || !rhs) {
-    return null;
-  }
-  return { lhs, rhs };
-}
+// S10: equation-syntax decomposition now lives in the shared pure helper
+// splitSingleMathEquality (also used by the S18 implicit-surface compiler).
+// It splits exactly one mathematical equality with non-empty sides and never
+// decides whether the equation is a plane, implicit graph, or explicit
+// surface. In particular `==` (two separators) never splits.

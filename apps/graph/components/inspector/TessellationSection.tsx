@@ -1,32 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { ImplicitSurfaceObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import {
+  MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
+  MIN_IMPLICIT_SURFACE_RESOLUTION,
   MIN_PARAMETRIC_SURFACE_RESOLUTION,
+  normalizeImplicitSurfaceResolution,
   normalizeParametricSurfaceResolution,
   normalizeSurfaceResolution
 } from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
 
 interface TessellationSectionProps {
-  object: SurfaceGraphObject | ParametricSurfaceObject;
+  object: SurfaceGraphObject | ParametricSurfaceObject | ImplicitSurfaceObject;
 }
 
 export default function TessellationSection({ object }: TessellationSectionProps) {
   const updateSurfaceResolution = useGraphStore((state) => state.updateSurfaceResolution);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const [resolutionDraft, setResolutionDraft] = useState(String(object.resolution));
 
   useEffect(() => setResolutionDraft(String(object.resolution)), [object.resolution]);
 
   const isParametricSurface = object.kind === "parametricSurface";
-  const rangeLabel = isParametricSurface
-    ? `Resolution (${MIN_PARAMETRIC_SURFACE_RESOLUTION}-${MAX_PARAMETRIC_SURFACE_RESOLUTION})`
-    : "Resolution (2-128)";
+  const isImplicitSurface = object.kind === "implicitSurface";
+  const rangeLabel = isImplicitSurface
+    ? `Resolution (${MIN_IMPLICIT_SURFACE_RESOLUTION}-${MAX_IMPLICIT_SURFACE_RESOLUTION})`
+    : isParametricSurface
+      ? `Resolution (${MIN_PARAMETRIC_SURFACE_RESOLUTION}-${MAX_PARAMETRIC_SURFACE_RESOLUTION})`
+      : "Resolution (2-128)";
 
   const commitResolution = (value: number) => {
+    if (isImplicitSurface) {
+      updateImplicitSurfaceExpression(object.id, "resolution", value);
+      return;
+    }
     if (isParametricSurface) {
       updateParametricSurfaceExpression(object.id, "resolution", value);
       return;
@@ -35,9 +46,11 @@ export default function TessellationSection({ object }: TessellationSectionProps
   };
 
   const stepResolution = (delta: number) => {
-    const next = isParametricSurface
-      ? normalizeParametricSurfaceResolution(object.resolution + delta)
-      : normalizeSurfaceResolution(object.resolution + delta);
+    const next = isImplicitSurface
+      ? normalizeImplicitSurfaceResolution(object.resolution + delta)
+      : isParametricSurface
+        ? normalizeParametricSurfaceResolution(object.resolution + delta)
+        : normalizeSurfaceResolution(object.resolution + delta);
     commitResolution(next);
   };
 

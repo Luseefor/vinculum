@@ -29,6 +29,7 @@ function buildItems({
     { id: "add-surface", label: "Add Surface" },
     { id: "add-curve", label: "Add Parametric Curve" },
     { id: "add-parametric-surface", label: "Add Parametric Surface" },
+    { id: "add-implicit-surface", label: "Add Implicit Surface" },
     { id: "add-plane", label: "Add Plane" },
     { id: "separator-1", label: "", disabled: true },
     { id: "toggle-2d", label: currentMode === "2d" ? "2D Active" : "Switch to 2D", disabled: currentMode === "2d" },

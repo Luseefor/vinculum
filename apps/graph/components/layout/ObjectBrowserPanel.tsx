@@ -28,11 +28,13 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
+  const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const workspace = useGraphStore((state) => state.ui.workspace);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
@@ -96,6 +98,19 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
     updateParametricSurfaceExpression(id, "vMin", 0);
     updateParametricSurfaceExpression(id, "vMax", 6.2831853072);
     addConsoleEvent("Created parametric torus preset");
+    return id;
+  };
+
+  const createImplicitSphere = () => {
+    const id = addImplicitSurface();
+    updateImplicitSurfaceExpression(id, "equation", "x^2 + y^2 + z^2 = 1");
+    updateImplicitSurfaceExpression(id, "xMin", -1.5);
+    updateImplicitSurfaceExpression(id, "xMax", 1.5);
+    updateImplicitSurfaceExpression(id, "yMin", -1.5);
+    updateImplicitSurfaceExpression(id, "yMax", 1.5);
+    updateImplicitSurfaceExpression(id, "zMin", -1.5);
+    updateImplicitSurfaceExpression(id, "zMax", 1.5);
+    addConsoleEvent("Created implicit sphere preset");
     return id;
   };
 
@@ -216,10 +231,12 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             { label: "Surface", onClick: () => createAndFocus(() => addSurfaceObject()) },
             { label: "Curve", onClick: () => createAndFocus(() => addParametricCurve()) },
             { label: "Parametric Surface", onClick: () => createAndFocus(() => addParametricSurface()) },
+            { label: "Implicit Surface", onClick: () => createAndFocus(() => addImplicitSurface()) },
             { label: "Sphere", onClick: () => createAndFocus(createSphere) },
             { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
             { label: "Parametric Sphere", onClick: () => createAndFocus(createParametricSphere) },
             { label: "Parametric Torus", onClick: () => createAndFocus(createParametricTorus) },
+            { label: "Implicit Sphere", onClick: () => createAndFocus(createImplicitSphere) },
             { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
             { label: "Point", onClick: () => createAndFocus(createPoint) }
           ]

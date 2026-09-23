@@ -23,8 +23,9 @@ Vinculum enforces:
 - Maximum parametric curve samples: `8192`
 - Maximum surface resolution: `128` (explicit and parametric surfaces)
 - Maximum parametric-surface grid: `129 × 129` vertices (~200KB positions, within a 2MB allocation budget)
+- Maximum implicit-surface resolution: `48` (default `32`); the sampling grid is `(resolution + 1)^3` (up to `49^3 = 117,649` samples)
 
-Parametric surfaces render in 3D views only; 2D plotting and 2D SVG export skip them (SVG export reports a warning per skipped object).
+Parametric and implicit surfaces render in 3D views only; 2D plotting and 2D SVG export skip them (SVG export reports a warning per skipped object).
 
 ## Browser storage limits
 

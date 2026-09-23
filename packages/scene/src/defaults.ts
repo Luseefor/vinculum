@@ -1,4 +1,6 @@
 import type {
+  ImplicitSurfaceDomain,
+  ImplicitSurfaceObject,
   ParametricCurveObject,
   ParametricSurfaceDomain,
   ParametricSurfaceObject,
@@ -75,6 +77,30 @@ export const defaultParametricSurfaceDomain: ParametricSurfaceDomain = {
   vMax: 5
 };
 
+// Implicit surfaces sample a (resolution + 1)^3 scalar grid, so O(n^3)
+// forces a much smaller cap than the O(n^2) surface grids. At the cap,
+// 49^3 = 117649 samples stay browser-safe; the extraction budget and index
+// type are decided after extraction (Uint16 vs Uint32).
+export const MIN_IMPLICIT_SURFACE_RESOLUTION = 2;
+export const MAX_IMPLICIT_SURFACE_RESOLUTION = 48;
+export const defaultImplicitSurfaceResolution = 32;
+
+export function normalizeImplicitSurfaceResolution(value: number): number {
+  const normalized = Math.floor(value);
+  return Math.min(MAX_IMPLICIT_SURFACE_RESOLUTION, Math.max(MIN_IMPLICIT_SURFACE_RESOLUTION, normalized));
+}
+
+export const defaultImplicitSurfaceEquation = "x^2 + y^2 + z^2 - 9";
+
+export const defaultImplicitSurfaceDomain: ImplicitSurfaceDomain = {
+  xMin: -5,
+  xMax: 5,
+  yMin: -5,
+  yMax: 5,
+  zMin: -5,
+  zMax: 5
+};
+
 const defaultSurfaceAppearance: SurfaceAppearance = {
   wireframe: false
 };
@@ -124,6 +150,17 @@ interface CreateDefaultParametricSurfaceOptions {
   yExpr?: string;
   zExpr?: string;
   domain?: Partial<ParametricSurfaceDomain>;
+  resolution?: number;
+  visible?: boolean;
+  color?: string;
+  appearance?: Partial<SurfaceAppearance>;
+}
+
+interface CreateDefaultImplicitSurfaceOptions {
+  id: string;
+  index?: number;
+  equation?: string;
+  domain?: Partial<ImplicitSurfaceDomain>;
   resolution?: number;
   visible?: boolean;
   color?: string;
@@ -210,6 +247,36 @@ export function createDefaultParametricSurfaceGraph(
       vMax: baseDomain.vMax
     },
     resolution: normalizeParametricSurfaceResolution(options.resolution ?? defaultParametricSurfaceResolution),
+    appearance: {
+      ...defaultSurfaceAppearance,
+      ...options.appearance
+    }
+  };
+}
+
+export function createDefaultImplicitSurfaceGraph(
+  options: CreateDefaultImplicitSurfaceOptions
+): ImplicitSurfaceObject {
+  const baseDomain = {
+    ...defaultImplicitSurfaceDomain,
+    ...options.domain
+  };
+
+  return {
+    id: options.id,
+    kind: "implicitSurface",
+    equation: options.equation ?? defaultImplicitSurfaceEquation,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index),
+    domain: {
+      xMin: baseDomain.xMin,
+      xMax: baseDomain.xMax,
+      yMin: baseDomain.yMin,
+      yMax: baseDomain.yMax,
+      zMin: baseDomain.zMin,
+      zMax: baseDomain.zMax
+    },
+    resolution: normalizeImplicitSurfaceResolution(options.resolution ?? defaultImplicitSurfaceResolution),
     appearance: {
       ...defaultSurfaceAppearance,
       ...options.appearance

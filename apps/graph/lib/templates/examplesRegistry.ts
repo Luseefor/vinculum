@@ -1,3 +1,4 @@
+import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
@@ -6,7 +7,7 @@ import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { createSceneDocument, type SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 
-export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Sketch examples";
+export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Implicit surfaces" | "Sketch examples";
 export type ExampleRecommendedMode = "2d" | "3d";
 
 export interface SceneExampleDefinition {
@@ -153,6 +154,78 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
             zExpr: "u * v",
             domain: { uMin: -3, uMax: 2, vMin: -2, vMax: 4 },
             resolution: 48
+          })
+        ]
+      })
+  },
+    {
+    id: "implicit-sphere",
+    title: "Implicit Sphere",
+    description: "Unit sphere as a true 3D level set F(x,y,z) = 0.",
+    category: "Implicit surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Implicit Sphere" },
+        objects: [
+          createImplicitSurfaceGraph({
+            equation: "x^2 + y^2 + z^2 = 1",
+            domain: { xMin: -1.5, xMax: 1.5, yMin: -1.5, yMax: 1.5, zMin: -1.5, zMax: 1.5 },
+            resolution: 32
+          })
+        ]
+      })
+  },
+  {
+    id: "implicit-ellipsoid",
+    title: "Implicit Ellipsoid",
+    description: "Offset asymmetric ellipsoid proving axis mapping.",
+    category: "Implicit surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Implicit Ellipsoid" },
+        objects: [
+          createImplicitSurfaceGraph({
+            equation: "(x - 1)^2 / 4 + (y + 2)^2 + (z - 0.5)^2 / 9 = 1",
+            domain: { xMin: -2, xMax: 4, yMin: -4, yMax: 0, zMin: -3, zMax: 4 },
+            resolution: 32
+          })
+        ]
+      })
+  },
+  {
+    id: "implicit-torus",
+    title: "Implicit Torus",
+    description: "Algebraic torus with major radius 2 and minor radius 0.5.",
+    category: "Implicit surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Implicit Torus" },
+        objects: [
+          createImplicitSurfaceGraph({
+            equation: "(x^2 + y^2 + z^2 + 3.75)^2 - 16 * (x^2 + y^2) = 0",
+            domain: { xMin: -3, xMax: 3, yMin: -3, yMax: 3, zMin: -1, zMax: 1 },
+            resolution: 40
+          })
+        ]
+      })
+  },
+  {
+    id: "implicit-gyroid",
+    title: "Implicit Gyroid",
+    description: "Triply-periodic gyroid level set over a bounded box.",
+    category: "Implicit surfaces",
+    recommendedMode: "3d",
+    createScene: () =>
+      createSceneDocument({
+        metadata: { name: "Implicit Gyroid" },
+        objects: [
+          createImplicitSurfaceGraph({
+            equation: "sin(x) * cos(y) + sin(y) * cos(z) + sin(z) * cos(x) = 0",
+            domain: { xMin: -3.2, xMax: 3.2, yMin: -3.2, yMax: 3.2, zMin: -3.2, zMax: 3.2 },
+            resolution: 32
           })
         ]
       })

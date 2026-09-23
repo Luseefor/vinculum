@@ -14,6 +14,8 @@ export function dispatchSceneAction(action: SceneAction): void {
         store.addParametricCurve();
       } else if (action.kind === "parametricSurface") {
         store.addParametricSurface();
+      } else if (action.kind === "implicitSurface") {
+        store.addImplicitSurface();
       } else if (action.kind === "plane") {
         store.addPlaneObject();
       }

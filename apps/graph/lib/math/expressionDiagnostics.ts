@@ -3,6 +3,8 @@ import { compileSurfaceExpression, getEffectiveSurfaceOrientation } from "./comp
 import { compilePlaneEquation } from "./samplePlane";
 import { compileParametricExpressions } from "./compileParametric";
 import { compileParametricSurfaceExpressions } from "./compileParametricSurface";
+import { compileImplicitSurfaceExpression } from "./compileImplicitSurface";
+import { splitSingleMathEquality } from "./implicitEquation";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export type ExpressionDiagnosticStatus = "valid" | "warning" | "error";
@@ -183,5 +185,67 @@ export function getParametricSurfaceAxisDiagnostics(params: {
   }
 
   return { status: "valid", message: "", fieldContext: `parametricSurface.${field}` };
+}
+
+export function getImplicitSurfaceEquationDiagnostics(equation: string): ExpressionDiagnostic {
+  const trimmed = equation.trim();
+  if (!trimmed) {
+    return { status: "error", message: "Invalid expression syntax.", fieldContext: "implicitSurface.equation" };
+  }
+
+  // Malformed equality (chained/comparison/missing side) reports up front
+  // with the same grammar the compiler enforces.
+  if (trimmed.includes("=")) {
+    const parts = splitSingleMathEquality(trimmed);
+    if (!parts) {
+      return toSafeDiagnostics({
+        status: "error",
+        message: "Equation must contain exactly one '=' with expressions on both sides.",
+        fieldContext: "implicitSurface.equation"
+      });
+    }
+    for (const side of [parts.lhs, parts.rhs]) {
+      const safety = validateExpressionSafety(side, {
+        operation: "diagnostics-implicit-surface",
+        expressionLabel: "Implicit surface equation",
+        allowedSymbols: Object.keys(getEditorParameterScope())
+      });
+      if (!safety.ok) {
+        const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+        return toSafeDiagnostics({
+          status: "error",
+          message: mapped.message,
+          suggestion: mapped.suggestion,
+          fieldContext: "implicitSurface.equation"
+        });
+      }
+    }
+  } else {
+    const safety = validateExpressionSafety(trimmed, {
+      operation: "diagnostics-implicit-surface",
+      expressionLabel: "Implicit surface equation",
+      allowedSymbols: Object.keys(getEditorParameterScope())
+    });
+    if (!safety.ok) {
+      const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+      return toSafeDiagnostics({
+        status: "error",
+        message: mapped.message,
+        suggestion: mapped.suggestion,
+        fieldContext: "implicitSurface.equation"
+      });
+    }
+  }
+
+  const compiled = compileImplicitSurfaceExpression(equation);
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: compiled.error,
+      fieldContext: "implicitSurface.equation"
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: "implicitSurface.equation" };
 }
 

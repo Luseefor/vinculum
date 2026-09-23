@@ -1,5 +1,5 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { MAX_SURFACE_RESOLUTION } from "@vinculum/scene/defaults";
+import { MAX_IMPLICIT_SURFACE_RESOLUTION, MAX_SURFACE_RESOLUTION } from "@vinculum/scene/defaults";
 import { MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressionSafety";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 
@@ -57,6 +57,7 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
 
   let surfaceResolutionMax = 0;
   let parametricSamplesMax = 0;
+  let implicitResolutionMax = 0;
 
   for (const o of visibleObjects) {
     if (o.kind === "surface") {
@@ -68,10 +69,22 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
       // explicit surfaces, so they feed the same surface-resolution pressure
       // (same 128 cap) rather than growing a parallel metric.
       surfaceResolutionMax = Math.max(surfaceResolutionMax, o.resolution);
+    } else if (o.kind === "implicitSurface") {
+      // Implicit surfaces sample a volumetric grid: same O(n^3) cost class
+      // at resolution 48 outweighs an explicit surface at 48, so pressure
+      // normalizes against the smaller implicit cap. The shared
+      // surfaceResolutionMax still records the raw max for display.
+      surfaceResolutionMax = Math.max(surfaceResolutionMax, o.resolution);
+      implicitResolutionMax = Math.max(implicitResolutionMax, o.resolution);
     }
   }
 
-  const surfaceResolutionPressure = clamp01(surfaceResolutionMax / MAX_SURFACE_RESOLUTION);
+  const surfaceResolutionPressure = clamp01(
+    Math.max(
+      surfaceResolutionMax / MAX_SURFACE_RESOLUTION,
+      implicitResolutionMax / MAX_IMPLICIT_SURFACE_RESOLUTION
+    )
+  );
   const parametricSamplePressure = clamp01(parametricSamplesMax / MAX_PARAMETRIC_CURVE_SAMPLES);
 
   return {

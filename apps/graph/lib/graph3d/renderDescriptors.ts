@@ -64,6 +64,21 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "implicitSurface") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        equation: object.equation,
+        domain: object.domain,
+        resolution: object.resolution,
+        appearance: object.appearance
+      }
+    };
+  }
+
   return {
     id: object.id,
     kind: object.kind,

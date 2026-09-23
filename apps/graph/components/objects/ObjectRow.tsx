@@ -6,6 +6,7 @@ import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/comp
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import {
+  getImplicitSurfaceEquationDiagnostics,
   getParametricAxisDiagnostics,
   getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
@@ -33,6 +34,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -49,7 +51,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const [localZ, setLocalZ] = useState("");
 
   useEffect(() => {
-    if (object.kind === "surface" || object.kind === "plane") setLocalEq(object.equation);
+    if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
+      setLocalEq(object.equation);
+    }
     if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       setLocalX(object.xExpr);
       setLocalY(object.yExpr);
@@ -93,7 +97,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const title = `${meta.label} #${index + 1}`;
   const emptyCue = isExpressionRowEmpty(object);
   const equationSnippet = useMemo(() => {
-    if (object.kind !== "surface" && object.kind !== "plane") {
+    if (object.kind !== "surface" && object.kind !== "plane" && object.kind !== "implicitSurface") {
       return null;
     }
     const compact = object.equation.replace(/\s+/g, " ").trim();
@@ -121,6 +125,13 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         return null;
       }
       const diag = getPlaneEquationDiagnostics(localEq);
+      return diag.status === "error" ? diag : null;
+    }
+    if (object.kind === "implicitSurface") {
+      if (!localEq.trim()) {
+        return null;
+      }
+      const diag = getImplicitSurfaceEquationDiagnostics(localEq);
       return diag.status === "error" ? diag : null;
     }
     const fields = [
@@ -253,6 +264,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="surface">Surface</option>
                 <option value="parametricCurve">Curve</option>
                 <option value="parametricSurface">Parametric Surface</option>
+                <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>
               </select>
             </div>
@@ -376,7 +388,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           </div>
 
           <div className="flex flex-col gap-2">
-            {(object.kind === "surface" || object.kind === "plane") && (
+            {(object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
               <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
                 <input
                   ref={eqInputRef}
@@ -389,17 +401,20 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     const next = e.target.value;
                     setLocalEq(next);
                     if (object.kind === "surface") updateSurfaceEquation(object.id, next);
+                    else if (object.kind === "implicitSurface") updateImplicitSurfaceExpression(object.id, "equation", next);
                     else updatePlaneEquation(object.id, next);
                   }}
                   onBlur={() => {
                     if (object.kind === "surface" && localEq !== object.equation) {
                       updateSurfaceEquation(object.id, localEq);
+                    } else if (object.kind === "implicitSurface" && localEq !== object.equation) {
+                      updateImplicitSurfaceExpression(object.id, "equation", localEq);
                     } else if (object.kind === "plane" && localEq !== object.equation) {
                       updatePlaneEquation(object.id, localEq);
                     }
                   }}
                   onKeyDown={handleEquationKeyDown}
-                  placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : "ax + by + cz + d = 0"}
+                  placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : object.kind === "implicitSurface" ? "x^2 + y^2 + z^2 = 1" : "ax + by + cz + d = 0"}
                   spellCheck={false}
                   autoComplete="off"
                   className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"

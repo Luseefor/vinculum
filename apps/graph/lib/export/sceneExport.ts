@@ -164,11 +164,16 @@ export function export2dSvg(input: {
   const graphLines: string[] = [];
 
   // S17: parametric surfaces intentionally produce no 2D renderable (no
-  // single-equation axis-pair projection). Warn per skipped visible object
-  // so SVG export never silently drops scene content.
+  // single-equation axis-pair projection). S18: true implicit 3D surfaces
+  // follow the same policy. Warn per skipped visible object so SVG export
+  // never silently drops scene content.
   const renderedIds = new Set(renderables.map((graph) => graph.id));
   for (const object of input.objects) {
-    if (object.visible && object.kind === "parametricSurface" && !renderedIds.has(object.id)) {
+    if (
+      object.visible &&
+      (object.kind === "parametricSurface" || object.kind === "implicitSurface") &&
+      !renderedIds.has(object.id)
+    ) {
       warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
     }
   }

@@ -1,11 +1,11 @@
 "use client";
 
-import type { ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import type { ImplicitSurfaceObject, ParametricSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 
 interface AppearanceSectionProps {
-  object: SurfaceGraphObject | ParametricSurfaceObject;
+  object: SurfaceGraphObject | ParametricSurfaceObject | ImplicitSurfaceObject;
 }
 
 export default function AppearanceSection({ object }: AppearanceSectionProps) {

@@ -8,11 +8,13 @@ import type { ExpressionRowProps } from "@/types/graphUi";
 import GraphTypeSelector from "./GraphTypeSelector";
 import type { ExpressionDiagnostic } from "@/lib/math/expressionDiagnostics";
 import {
+  getImplicitSurfaceEquationDiagnostics,
   getParametricAxisDiagnostics,
   getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics
 } from "@/lib/math/expressionDiagnostics";
+import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
@@ -47,6 +49,7 @@ export default function ExpressionRow({
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
 
   const EXPRESSION_DEBOUNCE_MS = 350;
@@ -61,6 +64,13 @@ export default function ExpressionRow({
   const [planeDraft, setPlaneDraft] = useState(object.kind === "plane" ? object.equation : "");
   const [planeDraftDiag, setPlaneDraftDiag] = useState<ExpressionDiagnostic>(() =>
     object.kind === "plane" ? getPlaneEquationDiagnostics(object.equation) : { status: "valid", message: "" }
+  );
+
+  const [implicitDraft, setImplicitDraft] = useState(object.kind === "implicitSurface" ? object.equation : "");
+  const [implicitDraftDiag, setImplicitDraftDiag] = useState<ExpressionDiagnostic>(() =>
+    object.kind === "implicitSurface"
+      ? getImplicitSurfaceEquationDiagnostics(object.equation)
+      : { status: "valid", message: "" }
   );
 
   const parametricObject =
@@ -94,6 +104,11 @@ export default function ExpressionRow({
     if (object.kind === "plane") {
       setPlaneDraft(object.equation);
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
+      return;
+    }
+    if (object.kind === "implicitSurface") {
+      setImplicitDraft(object.equation);
+      setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(object.equation));
       return;
     }
     if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
@@ -141,6 +156,7 @@ export default function ExpressionRow({
   const latestDraftRef = useRef({
     surfaceDraft,
     planeDraft,
+    implicitDraft,
     xDraft,
     yDraft,
     zDraft,
@@ -151,12 +167,13 @@ export default function ExpressionRow({
     latestDraftRef.current = {
       surfaceDraft,
       planeDraft,
+      implicitDraft,
       xDraft,
       yDraft,
       zDraft,
       activeParametricField
     };
-  }, [surfaceDraft, planeDraft, xDraft, yDraft, zDraft, activeParametricField]);
+  }, [surfaceDraft, planeDraft, implicitDraft, xDraft, yDraft, zDraft, activeParametricField]);
 
   useEffect(() => {
     return () => {
@@ -183,6 +200,15 @@ export default function ExpressionRow({
     if (compiled.error) return;
     if (current.equation === nextEquation) return;
     updatePlaneEquation(object.id, nextEquation);
+  };
+
+  const commitImplicitEquationIfValid = (nextEquation: string) => {
+    const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
+    if (!current || current.kind !== "implicitSurface") return;
+    const compiled = compileImplicitSurfaceExpression(nextEquation);
+    if (compiled.error) return;
+    if (current.equation === nextEquation) return;
+    updateImplicitSurfaceExpression(object.id, "equation", nextEquation);
   };
 
   const commitParametricAxisIfValid = (field: "xExpr" | "yExpr" | "zExpr", nextValue: string) => {
@@ -223,6 +249,11 @@ export default function ExpressionRow({
         return;
       }
 
+      if (object.kind === "implicitSurface") {
+        commitImplicitEquationIfValid(latest.implicitDraft);
+        return;
+      }
+
       if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
         const compileForKind =
           object.kind === "parametricSurface" ? compileParametricSurfaceExpressions : compileParametricExpressions;
@@ -253,6 +284,10 @@ export default function ExpressionRow({
       commitPlaneIfValid(planeDraft);
       return;
     }
+    if (object.kind === "implicitSurface" && inputId.endsWith("-implicit")) {
+      commitImplicitEquationIfValid(implicitDraft);
+      return;
+    }
     if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       if (inputId.endsWith("-xExpr")) commitParametricAxisIfValid("xExpr", xDraft);
       if (inputId.endsWith("-yExpr")) commitParametricAxisIfValid("yExpr", yDraft);
@@ -269,6 +304,11 @@ export default function ExpressionRow({
     if (object.kind === "plane" && inputId.endsWith("-plane")) {
       setPlaneDraft(object.equation);
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
+      return;
+    }
+    if (object.kind === "implicitSurface" && inputId.endsWith("-implicit")) {
+      setImplicitDraft(object.equation);
+      setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(object.equation));
       return;
     }
     if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
@@ -299,7 +339,9 @@ export default function ExpressionRow({
       ? surfaceDraftDiag
       : object.kind === "plane"
         ? planeDraftDiag
-        : paramDraftDiag;
+        : object.kind === "implicitSurface"
+          ? implicitDraftDiag
+          : paramDraftDiag;
 
   const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -583,6 +625,37 @@ export default function ExpressionRow({
           aria-invalid={planeDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder="ax + by + cz + d = 0"
+          className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+        />
+      )}
+
+      {object.kind === "implicitSurface" && (
+        <input
+          id={`${inputIdBase}-implicit`}
+          ref={(node) => registerInputRef(object.id, node)}
+          type="text"
+          value={implicitDraft}
+          onFocus={() => onSelect(object.id)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setImplicitDraft(next);
+            setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(next));
+            scheduleDebouncedCommit();
+          }}
+          onBlur={() => {
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
+              debounceTimerRef.current = null;
+            }
+            commitImplicitEquationIfValid(implicitDraft);
+          }}
+          onKeyDown={handlePrimaryKeyDown}
+          spellCheck={false}
+          autoComplete="off"
+          aria-label="Implicit surface equation"
+          aria-invalid={implicitDraftDiag.status === "error"}
+          aria-describedby={`${inputIdBase}-diagnostic`}
+          placeholder="x^2 + y^2 + z^2 = 1"
           className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
         />
       )}

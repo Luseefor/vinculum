@@ -9,6 +9,7 @@ const CONVERT_OPTIONS = [
   { kind: "surface" as const, label: "Surface" },
   { kind: "parametricCurve" as const, label: "Parametric curve" },
   { kind: "parametricSurface" as const, label: "Parametric surface" },
+  { kind: "implicitSurface" as const, label: "Implicit surface" },
   { kind: "plane" as const, label: "Plane" }
 ] as const;
 

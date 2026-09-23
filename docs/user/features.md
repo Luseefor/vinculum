@@ -7,6 +7,8 @@ Vinculum renders scenes in 3D using the implicit object types supported by the e
 - Surfaces (implicit equations)
 - Planes
 - Parametric curves
+- Parametric surfaces (x(u,v), y(u,v), z(u,v) with u/v ranges)
+- Implicit surfaces (F(x,y,z) = 0 extracted from a bounded 3D sampling box)
 
 Use the 3D viewport controls to orbit/pan/zoom your view.
 
@@ -23,6 +25,8 @@ Objects are built from mathematical definitions:
 - **Surfaces**: implicit equations (with a bounded domain and render resolution)
 - **Planes**: plane equations with size/appearance
 - **Parametric curves**: x(t), y(t), z(t) with a sampling cap
+- **Parametric surfaces**: x(u,v), y(u,v), z(u,v) with u/v ranges and grid resolution (3D views only)
+- **Implicit surfaces**: F(x,y,z) = 0 as a bare field or equality, extracted from a bounded x/y/z sampling box (3D views only)
 
 ## Projects (save/load) and recovery
 

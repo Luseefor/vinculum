@@ -105,7 +105,7 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
           return state;
         }
 
-        if (object.kind === "surface" || object.kind === "parametricSurface") {
+        if (object.kind === "surface" || object.kind === "parametricSurface" || object.kind === "implicitSurface") {
           return {
             scene: applySceneCommand(state.scene, {
               type: "UPDATE_OBJECT",
