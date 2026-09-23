@@ -16,6 +16,8 @@ const COMMANDS = [
   { id: "add-curve", label: "Add 3D Curve" },
   { id: "add-plane", label: "Add Plane" },
   { id: "delete-selected", label: "Delete Selected Object" },
+  { id: "switch-workspace-geometry", label: "Switch to Geometry Studio" },
+  { id: "switch-workspace-math", label: "Switch to Math Lab" },
   { id: "toggle-2d", label: "Switch to 2D" },
   { id: "toggle-3d", label: "Switch to 3D" },
   { id: "switch-split", label: "Switch to Split View" },

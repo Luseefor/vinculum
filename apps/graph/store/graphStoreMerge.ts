@@ -26,6 +26,7 @@ export function mergePersistedGraphStore(
     ui: {
       ...current.ui,
       ...mergedUi,
+      workspace: mergedUi.workspace === "geometry" || mergedUi.workspace === "math" ? mergedUi.workspace : "math",
       viewport2dQuadTop: mergedUi.viewport2dQuadTop ?? createDefaultViewport2D(),
       viewport2dQuadTopFrame: mergedUi.viewport2dQuadTopFrame ?? { width: 0, height: 0 },
       axis2dPairQuadTop: mergedUi.axis2dPairQuadTop ?? "xz",

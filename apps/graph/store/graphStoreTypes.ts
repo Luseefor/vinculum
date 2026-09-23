@@ -16,7 +16,8 @@ import type {
   GraphUiState,
   SceneDialogMode,
   Viewport2D,
-  Viewport2DFrame
+  Viewport2DFrame,
+  WorkspaceId
 } from "@/types/graphUi";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
 
@@ -94,6 +95,7 @@ export interface GraphStoreState {
   setSketchAutoCreate: (enabled: boolean) => void;
   setSnapEnabled: (enabled: boolean) => void;
   setSnapStep: (step: number) => void;
+  setWorkspace: (workspace: WorkspaceId) => void;
   applySceneSnapshot: (snapshot: SceneSnapshot) => void;
   addSketchedParametricFromStroke: (
     stroke: { horizontal: number; vertical: number }[],

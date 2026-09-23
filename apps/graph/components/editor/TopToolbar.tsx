@@ -39,6 +39,7 @@ import {
   MoonIcon 
 } from "@/components/layout/icons";
 import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
+import WorkspaceSwitcher from "@/components/editor/WorkspaceSwitcher";
 import {
   Dialog,
   DialogContent,
@@ -597,6 +598,10 @@ export default function TopToolbar({
           />
         )}
       </div>
+
+      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+
+      <WorkspaceSwitcher />
 
       <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
 

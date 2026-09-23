@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useGraphStore } from "@/store/graphStore";
+import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 import ObjectRow from "@/components/objects/ObjectRow";
 
 interface ObjectTreeProps {
@@ -27,6 +28,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectObject = useGraphStore((state) => state.selectObject);
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
+  const workspace = useGraphStore((state) => state.ui.workspace);
   const listRef = useRef<HTMLDivElement>(null);
   const filtered = useMemo(() => {
     const q = filterQuery.trim().toLowerCase();
@@ -53,6 +55,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
     return (
       <div className="mx-1 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-3 text-center">
         <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects in scene.</p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{WORKSPACE_CONTENT[workspace].emptyHint}</p>
       </div>
     );
   }
@@ -118,6 +121,11 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
             />
           );
         })}
+        {filtered.length === 0 ? (
+          <div className="mx-1 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-center">
+            <p className="text-[11px] text-[var(--text-tertiary)]">No matching objects.</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

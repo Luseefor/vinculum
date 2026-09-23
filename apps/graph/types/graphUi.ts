@@ -5,6 +5,12 @@ export type ExpressionRemoveReason = "button" | "keyboard";
 
 export type SceneDialogMode = "import" | "export";
 export type GraphMode = "2d" | "3d" | "split";
+/**
+ * Product workspace: which kind of work the UI organizes around.
+ * UI preference only — it never determines which objects exist.
+ * The canonical scene is shared across workspaces.
+ */
+export type WorkspaceId = "geometry" | "math";
 export type ThemeMode = "system" | "light" | "dark";
 export type UiDensity = "comfortable" | "balanced" | "compact";
 export type AccentPreset =
@@ -58,6 +64,8 @@ export type GraphProbePin = { id: string; color: string; world: { x: number; y: 
 export interface GraphUiState {
   selectedObjectId: string | null;
   selectedMeasurementId: string | null;
+  /** Active product workspace. UI preference; the scene is shared. */
+  workspace: WorkspaceId;
   /** Transient request to focus an object's primary equation input after creation. Cleared on consume. */
   focusEquationForObjectId: string | null;
   sceneDialog: SceneDialogState;

@@ -8,6 +8,7 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { SearchIcon } from "@/components/layout/icons";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
+import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 
 interface ObjectBrowserPanelProps {
   width: number;
@@ -31,6 +32,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
+  const workspace = useGraphStore((state) => state.ui.workspace);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
 
   const createAndFocus = (create: () => string) => {
@@ -189,7 +191,14 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
             { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
             { label: "Point", onClick: () => createAndFocus(createPoint) }
-          ].map((item) => (
+          ]
+            .slice()
+            .sort(
+              (a, b) =>
+                WORKSPACE_CONTENT[workspace].quickAddOrder.indexOf(a.label) -
+                WORKSPACE_CONTENT[workspace].quickAddOrder.indexOf(b.label)
+            )
+            .map((item) => (
             <button
               key={item.label}
               onClick={item.onClick}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useGraphStore } from "@/store/graphStore";
+import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 
 export default function StatusBar() {
   const objectCount = useGraphStore((state) => state.scene.objects.length);
@@ -8,12 +9,16 @@ export default function StatusBar() {
     (state) => state.scene.objects.filter((object) => object.visible).length
   );
   const graphMode = useGraphStore((state) => state.ui.graphMode);
+  const workspace = useGraphStore((state) => state.ui.workspace);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const snapStep = useGraphStore((state) => state.ui.snapStep);
 
   return (
     <footer className="flex min-h-[30px] flex-col gap-1 border-t border-[var(--border-strong)] bg-[var(--editor-control)] px-3 py-1 text-[11px] text-[var(--text-tertiary)] sm:h-[30px] sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:py-0">
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span className="shrink-0 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 py-0.5 font-semibold text-[var(--text-secondary)]">
+          {WORKSPACE_CONTENT[workspace].label}
+        </span>
         <span className="shrink-0 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 py-0.5 font-semibold text-[var(--text-secondary)]">
           {graphMode.toUpperCase()}
         </span>

@@ -13,6 +13,9 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
   return {
     selectedObjectId,
     selectedMeasurementId: null,
+    // Math Lab default: the landing experience is equation-first, and the
+    // default split view covers 2D + 3D graphing. Remembered afterwards.
+    workspace: "math",
     focusEquationForObjectId: null,
     sceneDialog: {
       isOpen: false,

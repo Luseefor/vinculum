@@ -82,6 +82,7 @@ export default function EditorShell() {
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
+  const setWorkspace = useGraphStore((state) => state.setWorkspace);
 
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
@@ -758,6 +759,8 @@ export default function EditorShell() {
     if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
     if (commandId === "switch-split") { setViewportMode("split"); return; }
     if (commandId === "switch-quad") { setViewportMode("quad"); return; }
+    if (commandId === "switch-workspace-geometry") { setWorkspace("geometry"); return; }
+    if (commandId === "switch-workspace-math") { setWorkspace("math"); return; }
     if (commandId === "add-surface") {
       const createdId = addSurfaceObject();
       if (createdId) {
@@ -790,7 +793,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setWorkspace, addSurfaceObject, addParametricCurve, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
