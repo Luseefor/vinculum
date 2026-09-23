@@ -72,6 +72,16 @@ async function probeWorld(
   return null;
 }
 
+// S19: implicit/parametric geometry now arrives asynchronously via the
+// geometry worker. Probing immediately after an edit can return a stable
+// GRID reading before the result lands, so probes after mutations wait for
+// outstanding compute to settle first. Zero-pending returns at once.
+async function settleCompute(page: Page) {
+  const pending = page.locator('[data-testid="compute-status-pending"]');
+  await pending.first().waitFor({ state: "attached", timeout: 3000 }).catch(() => {});
+  await expect.poll(async () => pending.count(), { timeout: 25000 }).toBe(0);
+}
+
 test.describe("S18 implicit surfaces", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -101,6 +111,7 @@ test.describe("S18 implicit surfaces", () => {
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
+    await settleCompute(page);
     const hit = await probeWorld(page, canvas, 0.5, 0.42);
     expect(hit).not.toBeNull();
     if (hit) {
@@ -144,6 +155,7 @@ test.describe("S18 implicit surfaces", () => {
     await setGeometryView(page, "XY");
     await page.waitForTimeout(800);
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
+    await settleCompute(page);
     const right = await probeWorld(page, canvas, 0.66, 0.5);
     const left = await probeWorld(page, canvas, 0.34, 0.5);
     expect(right).not.toBeNull();
@@ -169,6 +181,7 @@ test.describe("S18 implicit surfaces", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
+    await settleCompute(page);
     const hit = await probeWorld(page, page.locator('canvas[data-graph3d-canvas="true"]').first(), 0.5, 0.42);
     expect(hit).not.toBeNull();
 
@@ -190,6 +203,7 @@ test.describe("S18 implicit surfaces", () => {
     await page.getByLabel("Equation", { exact: true }).fill("x^2 + y^2 + z^2 = 1");
     await page.waitForTimeout(1200);
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
+    await settleCompute(page);
     const hit = await probeWorld(page, page.locator('canvas[data-graph3d-canvas="true"]').first(), 0.5, 0.42);
     expect(hit).not.toBeNull();
 

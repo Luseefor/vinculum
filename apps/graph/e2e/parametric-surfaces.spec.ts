@@ -76,6 +76,15 @@ async function probeWorld(
   return null;
 }
 
+// S19: parametric geometry now arrives asynchronously via the geometry
+// worker. Probes after mutations wait for outstanding compute to settle
+// first; zero-pending returns at once.
+async function settleCompute(page: Page) {
+  const pending = page.locator('[data-testid="compute-status-pending"]');
+  await pending.first().waitFor({ state: "attached", timeout: 3000 }).catch(() => {});
+  await expect.poll(async () => pending.count(), { timeout: 25000 }).toBe(0);
+}
+
 test.describe("S17 parametric surfaces", () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -144,6 +153,7 @@ test.describe("S17 parametric surfaces", () => {
 
     await setGeometryView(page, "XY");
     await page.waitForTimeout(800);
+    await settleCompute(page);
     const xyRight = await probeWorld(page, canvas, 0.62, 0.5);
     const xyLeft = await probeWorld(page, canvas, 0.38, 0.5);
     const xyTop = await probeWorld(page, canvas, 0.5, 0.44);
@@ -202,6 +212,7 @@ test.describe("S17 parametric surfaces", () => {
     await expect(canvas).toBeVisible();
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
     // Probe the top-left (perspective) quadrant: the torus must raycast.
+    await settleCompute(page);
     const hit = await probeWorld(page, canvas, 0.25, 0.4);
     expect(hit).not.toBeNull();
 
@@ -221,6 +232,7 @@ test.describe("S17 parametric surfaces", () => {
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     // u > 0 side stays probeable; the u = 0 column is omitted, not bridged.
+    await settleCompute(page);
     const validSide = await probeWorld(page, canvas, 0.7, 0.5);
     expect(validSide).not.toBeNull();
 
@@ -231,6 +243,7 @@ test.describe("S17 parametric surfaces", () => {
     // Recovery: valid expression restores the probeable mesh.
     await page.getByLabel("Parametric x(u,v) =", { exact: true }).fill("u");
     await page.waitForTimeout(1000);
+    await settleCompute(page);
     const recovered = await probeWorld(page, canvas, 0.5, 0.5);
     expect(recovered).not.toBeNull();
 

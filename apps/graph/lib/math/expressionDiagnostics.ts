@@ -175,7 +175,7 @@ export function getParametricSurfaceAxisDiagnostics(params: {
     });
   }
 
-  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr);
+  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope());
   if (compiled.error) {
     return toSafeDiagnostics({
       status: "error",
@@ -237,7 +237,7 @@ export function getImplicitSurfaceEquationDiagnostics(equation: string): Express
     }
   }
 
-  const compiled = compileImplicitSurfaceExpression(equation);
+  const compiled = compileImplicitSurfaceExpression(equation, getEditorParameterScope());
   if (compiled.error) {
     return toSafeDiagnostics({
       status: "error",

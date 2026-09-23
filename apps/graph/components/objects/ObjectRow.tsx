@@ -15,6 +15,7 @@ import {
 } from "@/lib/math/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
+import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";
 
 interface ObjectRowProps {
   object: GraphObject;
@@ -42,6 +43,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const focusEquationForObjectId = useGraphStore((state) => state.ui.focusEquationForObjectId);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const clearEquationFocus = useGraphStore((state) => state.clearEquationFocus);
+  // S19: subtle transient compute status (pending/error only, never announced
+  // live). Subscribes to this row's entry alone so other rows never rerender.
+  const computeStatus = useGeometryComputeStore(
+    (state): GeometryComputeStatus => state.entries[object.id]?.status ?? "idle"
+  );
   const eqInputRef = useRef<HTMLInputElement>(null);
   const xExprInputRef = useRef<HTMLInputElement>(null);
 
@@ -281,11 +287,29 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             <div className="min-w-0 flex-1 overflow-hidden">
               <span
                 className={cn(
-                  "block truncate text-[12px] font-semibold tracking-tight",
+                  "flex min-w-0 items-center gap-1.5 truncate text-[12px] font-semibold tracking-tight",
                   selected ? "text-[var(--accent-ink)]" : "text-[var(--text-primary)]"
                 )}
               >
-                {title}
+                <span className="min-w-0 truncate">{title}</span>
+                {computeStatus !== "idle" && (
+                  <span
+                    role="img"
+                    aria-label={
+                      computeStatus === "pending" ? "Computing geometry" : "Geometry compute failed"
+                    }
+                    title={
+                      computeStatus === "pending" ? "Computing geometry…" : "Geometry compute failed"
+                    }
+                    data-testid={`compute-status-${computeStatus}`}
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-full",
+                      computeStatus === "pending"
+                        ? "animate-pulse bg-[var(--accent)] motion-reduce:animate-none"
+                        : "bg-red-500/80"
+                    )}
+                  />
+                )}
               </span>
               <span
                 className={cn(

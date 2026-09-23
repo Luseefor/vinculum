@@ -1,6 +1,6 @@
 import { compile } from "mathjs";
-import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { validateExpressionSafety } from "./expressionSafety";
+import { getParamScopeSignature } from "./paramScope";
 
 export type ParametricSurfaceEvaluator = (u: number, v: number) => [number, number, number];
 
@@ -18,8 +18,13 @@ const MAX_ERROR_LENGTH = 92;
 const PARAMETRIC_SURFACE_COMPILE_CACHE_LIMIT = 128;
 const parametricSurfaceCompileCache = new Map<string, CompiledParametricSurfaceExpression>();
 
-function makeParametricSurfaceCacheKey(xExpr: string, yExpr: string, zExpr: string): string {
-  return `${xExpr}\u0000${yExpr}\u0000${zExpr}`;
+function makeParametricSurfaceCacheKey(
+  xExpr: string,
+  yExpr: string,
+  zExpr: string,
+  params: Record<string, number>
+): string {
+  return `${xExpr}\u0000${yExpr}\u0000${zExpr}\u0000${getParamScopeSignature(params)}`;
 }
 
 function getCachedParametricSurfaceCompile(key: string): CompiledParametricSurfaceExpression | null {
@@ -46,28 +51,29 @@ function setCachedParametricSurfaceCompile(key: string, value: CompiledParametri
 export function compileParametricSurfaceExpressions(
   xExpr: string,
   yExpr: string,
-  zExpr: string
+  zExpr: string,
+  params: Record<string, number>
 ): CompiledParametricSurfaceExpression {
-  const cacheKey = makeParametricSurfaceCacheKey(xExpr, yExpr, zExpr);
+  const cacheKey = makeParametricSurfaceCacheKey(xExpr, yExpr, zExpr, params);
   const cached = getCachedParametricSurfaceCompile(cacheKey);
   if (cached) {
     return cached;
   }
-  const xCompiled = compileSurfaceAxisExpression(xExpr, "x(u,v)");
+  const xCompiled = compileSurfaceAxisExpression(xExpr, "x(u,v)", params);
   if (xCompiled.error) {
     const errorResult = { evaluator: NAN_EVALUATOR, error: xCompiled.error };
     setCachedParametricSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
 
-  const yCompiled = compileSurfaceAxisExpression(yExpr, "y(u,v)");
+  const yCompiled = compileSurfaceAxisExpression(yExpr, "y(u,v)", params);
   if (yCompiled.error) {
     const errorResult = { evaluator: NAN_EVALUATOR, error: yCompiled.error };
     setCachedParametricSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
 
-  const zCompiled = compileSurfaceAxisExpression(zExpr, "z(u,v)");
+  const zCompiled = compileSurfaceAxisExpression(zExpr, "z(u,v)", params);
   if (zCompiled.error) {
     const errorResult = { evaluator: NAN_EVALUATOR, error: zCompiled.error };
     setCachedParametricSurfaceCompile(cacheKey, errorResult);
@@ -75,9 +81,9 @@ export function compileParametricSurfaceExpressions(
   }
 
   const evaluator: ParametricSurfaceEvaluator = (u, v) => {
-    const x = evaluateSurfaceAxis(xCompiled.expression, u, v);
-    const y = evaluateSurfaceAxis(yCompiled.expression, u, v);
-    const z = evaluateSurfaceAxis(zCompiled.expression, u, v);
+    const x = evaluateSurfaceAxis(xCompiled.expression, u, v, params);
+    const y = evaluateSurfaceAxis(yCompiled.expression, u, v, params);
+    const z = evaluateSurfaceAxis(zCompiled.expression, u, v, params);
     return [x, y, z];
   };
 
@@ -89,7 +95,7 @@ export function compileParametricSurfaceExpressions(
   return successResult;
 }
 
-function compileSurfaceAxisExpression(expr: string, label: string) {
+function compileSurfaceAxisExpression(expr: string, label: string, params: Record<string, number>) {
   const trimmedExpr = expr.trim();
   if (!trimmedExpr) {
     return {
@@ -102,12 +108,12 @@ function compileSurfaceAxisExpression(expr: string, label: string) {
   try {
     // S17: u/v are reserved locals for parametric surfaces. They ride the
     // per-call allowedSymbols (BASE x/y/z/t/pi/e unchanged, so no policy
-    // change for other compilers). Editor parameters stay available; pi/e
-    // resolve as mathjs built-in constants.
+    // change for other compilers). Editor parameters stay available (S19:
+    // from the explicit snapshot); pi/e resolve as mathjs built-in constants.
     const safety = validateExpressionSafety(trimmedExpr, {
       operation: "compile-parametric-surface-axis",
       expressionLabel: label,
-      allowedSymbols: [...Object.keys(getEditorParameterScope()), "u", "v"]
+      allowedSymbols: [...Object.keys(params), "u", "v"]
     });
     if (!safety.ok) {
       return {
@@ -135,7 +141,12 @@ function compileSurfaceAxisExpression(expr: string, label: string) {
   };
 }
 
-function evaluateSurfaceAxis(expression: CompiledMathExpression | null, u: number, v: number): number {
+function evaluateSurfaceAxis(
+  expression: CompiledMathExpression | null,
+  u: number,
+  v: number,
+  params: Record<string, number>
+): number {
   if (!expression) {
     return Number.NaN;
   }
@@ -143,7 +154,7 @@ function evaluateSurfaceAxis(expression: CompiledMathExpression | null, u: numbe
   try {
     // Locals win over same-named editor parameters: u/v always mean the
     // surface parameters inside these expressions.
-    const value = expression.evaluate({ ...getEditorParameterScope(), u, v });
+    const value = expression.evaluate({ ...params, u, v });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
   } catch (error) {

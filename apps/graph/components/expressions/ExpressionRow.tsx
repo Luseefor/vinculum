@@ -19,6 +19,7 @@ import { compileParametricExpressions } from "@/lib/math/compileParametric";
 import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 const PARAMETRIC_CURVE_FIELDS = [
   { label: "y(t)", field: "yExpr" as const },
@@ -205,7 +206,7 @@ export default function ExpressionRow({
   const commitImplicitEquationIfValid = (nextEquation: string) => {
     const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
     if (!current || current.kind !== "implicitSurface") return;
-    const compiled = compileImplicitSurfaceExpression(nextEquation);
+    const compiled = compileImplicitSurfaceExpression(nextEquation, getEditorParameterScope());
     if (compiled.error) return;
     if (current.equation === nextEquation) return;
     updateImplicitSurfaceExpression(object.id, "equation", nextEquation);
@@ -215,7 +216,10 @@ export default function ExpressionRow({
     const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
     if (!current || (current.kind !== "parametricCurve" && current.kind !== "parametricSurface")) return;
     const compileForKind =
-      current.kind === "parametricSurface" ? compileParametricSurfaceExpressions : compileParametricExpressions;
+      current.kind === "parametricSurface"
+        ? (xExpr: string, yExpr: string, zExpr: string) =>
+            compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope())
+        : compileParametricExpressions;
     const compiled = compileForKind(
       field === "xExpr" ? nextValue : xDraft,
       field === "yExpr" ? nextValue : yDraft,
@@ -256,7 +260,10 @@ export default function ExpressionRow({
 
       if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
         const compileForKind =
-          object.kind === "parametricSurface" ? compileParametricSurfaceExpressions : compileParametricExpressions;
+          object.kind === "parametricSurface"
+            ? (xExpr: string, yExpr: string, zExpr: string) =>
+                compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope())
+            : compileParametricExpressions;
         const compiled = compileForKind(latest.xDraft, latest.yDraft, latest.zDraft);
         if (compiled.error) return;
 

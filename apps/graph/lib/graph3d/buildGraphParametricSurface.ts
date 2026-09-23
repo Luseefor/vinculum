@@ -1,7 +1,7 @@
 import type { ParametricSurfaceObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
-import { sampleParametricSurface } from "@/lib/math/sampleParametricSurface";
+import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { buildIndexedSurfaceMeshGroup } from "./buildIndexedSurfaceMesh";
@@ -14,23 +14,19 @@ export function buildParametricSurface(
   if (![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim())) {
     return null;
   }
-  const compiled = compileParametricSurfaceExpressions(object.xExpr, object.yExpr, object.zExpr);
-  if (compiled.error) {
-    return null;
-  }
-
-  let sampled;
-  try {
-    sampled = sampleParametricSurface(compiled.evaluator, {
-      domain: object.domain,
-      resolution: Math.max(2, Math.floor(object.resolution)),
-      clampCoordinate: 10_000
-    });
-  } catch {
-    return null;
-  }
-
-  if (!sampled) {
+  // S19: numerical computation lives in computeParametricSurfaceData (shared
+  // with the geometry worker); this builder only funnels its result into the
+  // shared mesh construction. All failures stay silent nulls, as before.
+  const result = computeParametricSurfaceData({
+    xExpr: object.xExpr,
+    yExpr: object.yExpr,
+    zExpr: object.zExpr,
+    domain: object.domain,
+    resolution: object.resolution,
+    clampCoordinate: 10_000,
+    params: getEditorParameterScope()
+  });
+  if (result.status !== "ok") {
     return null;
   }
 
@@ -41,8 +37,8 @@ export function buildParametricSurface(
     id: object.id,
     color: object.color,
     wireframe: object.appearance.wireframe,
-    positions: sampled.positions,
-    indices: sampled.indices,
+    positions: result.positions,
+    indices: result.indices,
     theme,
     tokens,
     repairZeroNormals: true

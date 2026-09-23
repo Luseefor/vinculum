@@ -25,6 +25,7 @@ import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
   if (!isRecord(rawObject)) {
@@ -389,7 +390,7 @@ function parseImplicitSurfaceObject(
     return null;
   }
   if (equation.trim()) {
-    const fieldCompiled = compileImplicitSurfaceExpression(equation);
+    const fieldCompiled = compileImplicitSurfaceExpression(equation, getEditorParameterScope());
     if (fieldCompiled.error) {
       errors.push(`objects[${objectIndex}].equation: ${fieldCompiled.error}`);
       return null;

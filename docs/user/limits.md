@@ -27,6 +27,17 @@ Vinculum enforces:
 
 Parametric and implicit surfaces render in 3D views only; 2D plotting and 2D SVG export skip them (SVG export reports a warning per skipped object).
 
+## Heavy geometry computation
+
+Implicit and parametric surface meshes are computed in a background worker,
+so editing, orbiting, and menus stay responsive while a high-resolution
+surface builds. The previous mesh stays visible until the new one is ready;
+a small dot next to the object name marks computation in progress.
+
+Resolution limits are unchanged: implicit surfaces cap at `48`, parametric
+and explicit surfaces at `128`. Very dense meshes can still slow down frame
+rates on low-power GPUs (rasterization cost, not computation).
+
 ## Browser storage limits
 
 Named projects and recovery snapshots are stored in your browser’s `localStorage`.

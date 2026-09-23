@@ -26,7 +26,7 @@ function sample(
   resolution: number,
   clampCoordinate = 10_000
 ) {
-  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr);
+  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, {});
   if (compiled.error) {
     throw new Error(`Unexpected compile error: ${compiled.error}`);
   }

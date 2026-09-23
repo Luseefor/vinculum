@@ -1,8 +1,8 @@
 import { parse } from "mathjs";
 import type { MathNode } from "mathjs";
-import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { validateExpressionSafety } from "./expressionSafety";
 import { splitSingleMathEquality } from "./implicitEquation";
+import { getParamScopeSignature } from "./paramScope";
 
 export type ImplicitSurfaceEvaluator = (x: number, y: number, z: number) => number;
 
@@ -40,9 +40,17 @@ function setCachedImplicitSurfaceCompile(key: string, value: CompiledImplicitSur
   }
 }
 
-export function compileImplicitSurfaceExpression(equation: string): CompiledImplicitSurfaceExpression {
+export function compileImplicitSurfaceExpression(
+  equation: string,
+  params: Record<string, number>
+): CompiledImplicitSurfaceExpression {
   const rawEquation = equation.trim();
-  const cached = getCachedImplicitSurfaceCompile(rawEquation);
+  // S19: the cache key includes the parameter snapshot signature. A cached
+  // evaluator closes over the params it was compiled with, so same-equation
+  // different-params requests must not share entries (this also fixes the
+  // pre-S19 staleness where param add/remove reused cached evaluators).
+  const cacheKey = `${rawEquation}::${getParamScopeSignature(params)}`;
+  const cached = getCachedImplicitSurfaceCompile(cacheKey);
   if (cached) {
     return cached;
   }
@@ -52,7 +60,7 @@ export function compileImplicitSurfaceExpression(equation: string): CompiledImpl
       evaluator: () => Number.NaN,
       error: "Equation cannot be empty."
     };
-    setCachedImplicitSurfaceCompile(rawEquation, errorResult);
+    setCachedImplicitSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
 
@@ -68,29 +76,29 @@ export function compileImplicitSurfaceExpression(equation: string): CompiledImpl
       evaluator: () => Number.NaN,
       error: "Equation must contain exactly one '=' with expressions on both sides."
     };
-    setCachedImplicitSurfaceCompile(rawEquation, errorResult);
+    setCachedImplicitSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
   const lhsSource = equality ? equality.lhs : rawEquation;
   const rhsSource = equality ? equality.rhs : "0";
 
-  const lhsCompiled = compileImplicitSide(lhsSource, "left-hand side");
+  const lhsCompiled = compileImplicitSide(lhsSource, "left-hand side", params);
   if (lhsCompiled.error) {
     const errorResult = { evaluator: () => Number.NaN, error: lhsCompiled.error };
-    setCachedImplicitSurfaceCompile(rawEquation, errorResult);
+    setCachedImplicitSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
 
-  const rhsCompiled = compileImplicitSide(rhsSource, "right-hand side");
+  const rhsCompiled = compileImplicitSide(rhsSource, "right-hand side", params);
   if (rhsCompiled.error) {
     const errorResult = { evaluator: () => Number.NaN, error: rhsCompiled.error };
-    setCachedImplicitSurfaceCompile(rawEquation, errorResult);
+    setCachedImplicitSurfaceCompile(cacheKey, errorResult);
     return errorResult;
   }
 
   const evaluator: ImplicitSurfaceEvaluator = (x, y, z) => {
-    const left = evaluateImplicitSide(lhsCompiled.expression, x, y, z);
-    const right = evaluateImplicitSide(rhsCompiled.expression, x, y, z);
+    const left = evaluateImplicitSide(lhsCompiled.expression, x, y, z, params);
+    const right = evaluateImplicitSide(rhsCompiled.expression, x, y, z, params);
     const difference = left - right;
     return Number.isFinite(difference) ? difference : Number.NaN;
   };
@@ -99,11 +107,11 @@ export function compileImplicitSurfaceExpression(equation: string): CompiledImpl
     evaluator,
     error: null
   };
-  setCachedImplicitSurfaceCompile(rawEquation, successResult);
+  setCachedImplicitSurfaceCompile(cacheKey, successResult);
   return successResult;
 }
 
-function compileImplicitSide(expr: string, label: string) {
+function compileImplicitSide(expr: string, label: string, params: Record<string, number>) {
   const trimmedExpr = expr.trim();
   if (!trimmedExpr) {
     return {
@@ -139,11 +147,12 @@ function compileImplicitSide(expr: string, label: string) {
   let compiledExpression: CompiledMathExpression;
   try {
     // S18: x/y/z are BASE-allowed locals (no policy change); editor
-    // parameters ride allowedSymbols.
+    // parameters ride allowedSymbols (S19: from the explicit snapshot, never
+    // the store, so this module stays worker-safe).
     const safety = validateExpressionSafety(trimmedExpr, {
       operation: "compile-implicit-surface-side",
       expressionLabel: `Implicit surface ${label}`,
-      allowedSymbols: Object.keys(getEditorParameterScope())
+      allowedSymbols: Object.keys(params)
     });
     if (!safety.ok) {
       return {
@@ -174,7 +183,8 @@ function evaluateImplicitSide(
   expression: CompiledMathExpression | null,
   x: number,
   y: number,
-  z: number
+  z: number,
+  params: Record<string, number>
 ): number {
   if (!expression) {
     return Number.NaN;
@@ -182,7 +192,7 @@ function evaluateImplicitSide(
 
   try {
     // Locals win over same-named editor parameters.
-    const value = expression.evaluate({ ...getEditorParameterScope(), x, y, z });
+    const value = expression.evaluate({ ...params, x, y, z });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
   } catch (error) {

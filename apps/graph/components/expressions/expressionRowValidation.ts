@@ -3,6 +3,7 @@ import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametri
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import type { ExpressionValidationState } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
 
@@ -19,13 +20,18 @@ export function getExpressionRowValidation(object: GraphObject): ExpressionValid
 
   if (object.kind === "parametricSurface") {
     return {
-      error: compileParametricSurfaceExpressions(object.xExpr, object.yExpr, object.zExpr).error
+      error: compileParametricSurfaceExpressions(
+        object.xExpr,
+        object.yExpr,
+        object.zExpr,
+        getEditorParameterScope()
+      ).error
     };
   }
 
   if (object.kind === "implicitSurface") {
     return {
-      error: compileImplicitSurfaceExpression(object.equation).error
+      error: compileImplicitSurfaceExpression(object.equation, getEditorParameterScope()).error
     };
   }
 

@@ -33,7 +33,7 @@ function extract(
   resolution: number,
   options: { witnessBisections?: number; maxTriangles?: number } = {}
 ) {
-  const compiled = compileImplicitSurfaceExpression(equation);
+  const compiled = compileImplicitSurfaceExpression(equation, {});
   if (compiled.error) {
     throw new Error(`Unexpected compile error: ${compiled.error}`);
   }
@@ -151,7 +151,7 @@ describe("sampleImplicitScalarField", () => {
   });
 
   it("evaluates every sample exactly once per extraction", () => {
-    const compiled = compileImplicitSurfaceExpression("x^2 + y^2 + z^2 - 1");
+    const compiled = compileImplicitSurfaceExpression("x^2 + y^2 + z^2 - 1", {});
     if (compiled.error) throw new Error(compiled.error);
     let evaluations = 0;
     const counting = (x: number, y: number, z: number): number => {
@@ -187,7 +187,7 @@ describe("sampleImplicitScalarField", () => {
   });
 
   it("keeps a zero-span domain finite without span division", () => {
-    const compiled = compileImplicitSurfaceExpression("x + y + z");
+    const compiled = compileImplicitSurfaceExpression("x + y + z", {});
     if (compiled.error) throw new Error(compiled.error);
     const field = sampleImplicitScalarField(compiled.evaluator, {
       domain: { xMin: 1, xMax: 1, yMin: -1, yMax: 1, zMin: -1, zMax: 1 },
@@ -204,7 +204,7 @@ describe("sampleImplicitScalarField", () => {
     // max() compiles (allowed function) but throws at evaluation; the
     // compiler's evaluator must convert the throw to NaN, and the sampler
     // must flag every sample invalid without throwing itself.
-    const compiled = compileImplicitSurfaceExpression("max() + x + y + z");
+    const compiled = compileImplicitSurfaceExpression("max() + x + y + z", {});
     expect(compiled.error).toBeNull();
     expect(compiled.evaluator(0, 0, 0)).toBeNaN();
     const field = sampleImplicitScalarField(compiled.evaluator, { domain: SPHERE_BOX, resolution: 4 });

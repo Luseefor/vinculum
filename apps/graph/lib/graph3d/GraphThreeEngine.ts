@@ -55,6 +55,11 @@ import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
+import { applyGeometryComputeResult } from "@/lib/compute/geometryComputeSync";
+import {
+  createGeometryComputeManager,
+  createGeometryWorkerTransport
+} from "@/lib/compute/geometryComputeManager";
 import type { GraphThreeEngine } from "./graphThreeEngineTypes";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 import {
@@ -233,6 +238,28 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const objectNodes = new Map<string, Object3D>();
   const objectSignatures = new Map<string, string>();
   const objectStructureSignatures = new Map<string, string>();
+
+  // S19: one dedicated geometry worker per engine. Created lazily on the
+  // first heavy-surface request; terminated on dispose (no leaks across dev
+  // hot reload). Pure numerical compute only — Three.js stays main-thread.
+  const computeManager = createGeometryComputeManager({
+    createTransport: () =>
+      createGeometryWorkerTransport(
+        new Worker(new URL("../../workers/geometryComputeWorker.ts", import.meta.url), {
+          type: "module"
+        })
+      ),
+    onResult: (response) => {
+      applyGeometryComputeResult(response, {
+        objectsRoot,
+        objectNodes,
+        objectSignatures,
+        objectStructureSignatures,
+        getTheme: () => tickRuntime.lastDomTheme,
+        manager: computeManager
+      });
+    }
+  });
 
   const tickTime0 = performance.now();
   const tickRuntime: GraphThreeEngineTickRuntime = {
@@ -432,7 +459,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       objectSignatures,
       objectStructureSignatures,
       keyLight,
-      renderer
+      renderer,
+      computeManager,
+      () => tickRuntime.lastDomTheme
     );
   };
 
@@ -740,6 +769,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     dispose: () => {
       window.cancelAnimationFrame(animationHandle);
       releaseOrthoPointerCapture();
+      computeManager.dispose();
       unsub();
       unsubEditor();
       unsubPerfHud();

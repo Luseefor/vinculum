@@ -11,6 +11,12 @@ import {
   syncNonRenderableObjectNode
 } from "@/lib/graph3d/buildGraphObjects";
 import { getParameterSignature } from "./graphThreeEngineDom";
+import {
+  isWorkerizedComputeKind,
+  syncComputedSurfaceObject,
+  type GeometryComputeSyncContext
+} from "@/lib/compute/geometryComputeSync";
+import type { GeometryComputeManager } from "@/lib/compute/geometryComputeManager";
 
 export function syncThreeSceneObjects(
   theme: ResolvedTheme,
@@ -20,16 +26,33 @@ export function syncThreeSceneObjects(
   objectSignatures: Map<string, string>,
   objectStructureSignatures: Map<string, string>,
   keyLight: DirectionalLight,
-  renderer: WebGLRenderer
+  renderer: WebGLRenderer,
+  computeManager?: GeometryComputeManager,
+  getComputeTheme?: () => ResolvedTheme
 ): void {
   const parameterSignature = getParameterSignature();
   const hasSurfaces = sceneHasVisibleSurface(allObjects);
   keyLight.castShadow = hasSurfaces;
   renderer.shadowMap.enabled = hasSurfaces;
   const nextIds = new Set<string>();
+  const computeContext: GeometryComputeSyncContext | null =
+    computeManager && getComputeTheme
+      ? {
+          objectsRoot,
+          objectNodes,
+          objectSignatures,
+          objectStructureSignatures,
+          getTheme: getComputeTheme,
+          manager: computeManager
+        }
+      : null;
 
   for (const object of allObjects) {
     nextIds.add(object.id);
+    if (computeContext && isWorkerizedComputeKind(object)) {
+      syncComputedSurfaceObject(object, theme, parameterSignature, computeContext);
+      continue;
+    }
     if (
       syncNonRenderableObjectNode(
         object,
@@ -83,6 +106,7 @@ export function syncThreeSceneObjects(
     objectStructureSignatures.set(object.id, nextStructure);
   }
 
+  const prunedIds: string[] = [];
   for (const [id, node] of objectNodes.entries()) {
     if (nextIds.has(id)) {
       continue;
@@ -92,5 +116,21 @@ export function syncThreeSceneObjects(
     objectNodes.delete(id);
     objectSignatures.delete(id);
     objectStructureSignatures.delete(id);
+    prunedIds.push(id);
+  }
+
+  if (computeContext) {
+    // Drop compute ownership for deleted objects so late results for them
+    // are discarded and no pending-state entry leaks (PART 20). Tracked ids
+    // cover pending-but-never-built objects that have no scene node yet.
+    const removed = new Set(prunedIds);
+    for (const trackedId of computeContext.manager.getTrackedObjectIds()) {
+      if (!nextIds.has(trackedId)) {
+        removed.add(trackedId);
+      }
+    }
+    if (removed.size > 0) {
+      computeContext.manager.notifyObjectsRemoved([...removed]);
+    }
   }
 }

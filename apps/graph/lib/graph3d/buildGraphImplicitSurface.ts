@@ -1,8 +1,7 @@
 import type { ImplicitSurfaceObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { sampleImplicitScalarField } from "@/lib/math/sampleImplicitField";
-import { extractImplicitSurfaceMesh } from "@/lib/math/marchingTetrahedra";
+import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
@@ -16,42 +15,31 @@ export function buildImplicitSurface(
   if (!object.equation.trim()) {
     return null;
   }
-  const compiled = compileImplicitSurfaceExpression(object.equation);
-  if (compiled.error) {
-    return null;
-  }
+  const result = computeImplicitSurfaceData({
+    equation: object.equation,
+    domain: object.domain,
+    resolution: object.resolution,
+    params: getEditorParameterScope()
+  });
 
-  let sampled;
-  try {
-    sampled = sampleImplicitScalarField(compiled.evaluator, {
-      domain: object.domain,
-      resolution: Math.max(2, Math.floor(object.resolution))
-    });
-  } catch (error) {
-    // Unreachable at capped resolutions (the sampler's 2MB guard throws
-    // before allocation), but log unexpected throws for diagnosability
-    // instead of failing silently.
-    reportWarning("Implicit surface sampling failed unexpectedly.", {
-      featureArea: "3d-viewport",
-      operation: "implicit-surface-sample-failed",
-      objectId: object.id,
-      objectKind: object.kind,
-      details: { message: error instanceof Error ? error.message : String(error) }
-    });
-    return null;
-  }
-
-  let extracted;
-  try {
-    extracted = extractImplicitSurfaceMesh({ field: sampled, evaluate: compiled.evaluator });
-  } catch (error) {
-    reportWarning("Implicit surface extraction failed unexpectedly.", {
-      featureArea: "3d-viewport",
-      operation: "implicit-surface-extract-failed",
-      objectId: object.id,
-      objectKind: object.kind,
-      details: { message: error instanceof Error ? error.message : String(error) }
-    });
+  if (result.status === "error") {
+    // S18 reporting preserved exactly: compile errors stay silent (inline
+    // diagnostics already show them); unexpected sample/extract throws warn.
+    if (result.stage !== "compile") {
+      reportWarning(
+        result.stage === "sample"
+          ? "Implicit surface sampling failed unexpectedly."
+          : "Implicit surface extraction failed unexpectedly.",
+        {
+          featureArea: "3d-viewport",
+          operation:
+            result.stage === "sample" ? "implicit-surface-sample-failed" : "implicit-surface-extract-failed",
+          objectId: object.id,
+          objectKind: object.kind,
+          details: { message: result.error }
+        }
+      );
+    }
     return null;
   }
 
@@ -59,14 +47,14 @@ export function buildImplicitSurface(
   // F = 1 and off-domain spheres simply produce no mesh while the object
   // stays editable. A budget abort is reported so the empty viewport is
   // explainable; resolution/pressure UI already guides the user down.
-  if (extracted.status === "budget-exceeded") {
+  if (result.status === "budget-exceeded") {
     reportWarning("Implicit surface extraction exceeded the triangle budget.", {
       featureArea: "3d-viewport",
       operation: "implicit-surface-budget-exceeded"
     });
     return null;
   }
-  if (extracted.status !== "ok") {
+  if (result.status !== "ok") {
     return null;
   }
 
@@ -77,8 +65,8 @@ export function buildImplicitSurface(
     id: object.id,
     color: object.color,
     wireframe: object.appearance.wireframe,
-    positions: extracted.positions,
-    indices: extracted.indices,
+    positions: result.positions,
+    indices: result.indices,
     theme,
     tokens,
     repairZeroNormals: true
