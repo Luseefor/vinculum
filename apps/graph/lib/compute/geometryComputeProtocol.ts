@@ -35,7 +35,33 @@ import {
 //   where a response can arrive before the next rAF sync runs (store updates
 //   are synchronous; sync itself runs a frame later).
 
-export type GeometryComputeKind = "implicitSurface" | "parametricSurface" | "vectorField";
+export type GeometryComputeKind = "implicitSurface" | "parametricSurface" | "vectorField" | "scalarField";
+
+// S23: planar scalar-field job (2D object-domain grids and 3D planar
+// slices share one engine). The payload carries mathematics only —
+// presentation (heat on/off, theme, colors) never enters it, so recolor
+// and visibility toggles recompute zero jobs. Gradient density 0 skips
+// the gradient grid; contour count 0 skips contour extraction.
+export type ScalarSlicePlane = "xy" | "xz" | "yz";
+
+export interface ScalarGridDomainPayload {
+  uMin: number;
+  uMax: number;
+  vMin: number;
+  vMax: number;
+}
+
+export interface ScalarFieldComputePayload {
+  source:
+    | { kind: "surface"; equation: string; orientation: "x" | "y" | "z" }
+    | { kind: "implicit"; equation: string };
+  target:
+    | { kind: "domain2D"; domain: ScalarGridDomainPayload }
+    | { kind: "slice"; plane: ScalarSlicePlane; planeValue: number; domain: ScalarGridDomainPayload };
+  resolution: number;
+  contourCount: number;
+  gradientDensity: number;
+}
 
 export interface ImplicitSurfaceComputePayload {
   equation: string;
@@ -87,10 +113,16 @@ export interface VectorFieldComputeRequest extends GeometryComputeRequestBase {
   payload: VectorFieldComputePayload;
 }
 
+export interface ScalarFieldComputeRequest extends GeometryComputeRequestBase {
+  kind: "scalarField";
+  payload: ScalarFieldComputePayload;
+}
+
 export type GeometryComputeRequest =
   | ImplicitSurfaceComputeRequest
   | ParametricSurfaceComputeRequest
-  | VectorFieldComputeRequest;
+  | VectorFieldComputeRequest
+  | ScalarFieldComputeRequest;
 
 // Uniform mesh result shape carried back to the main thread. Both surface
 // compute paths normalize into this (implicit reports rejectedTriangles: 0;
@@ -119,9 +151,40 @@ export interface VectorFieldComputeOkResult {
   maxMagnitude: number;
 }
 
+// S23: scalar-field result. Buffers are renderer-neutral mathematics:
+// raw values + validity (recolored per theme with zero recompute),
+// contour segments in grid-math coordinates (theme-ink strokes), and
+// gradient samples shaped like the S20 field result for glyph reuse.
+// Contour over-budget degrades inside the payload (contourStatus) rather
+// than failing the whole job: heat and gradients stay valid.
+export interface ScalarFieldComputeOkResult {
+  status: "ok";
+  values: Float32Array;
+  valid: Uint8Array;
+  width: number;
+  height: number;
+  /** Sampling domain in grid (u, v) coordinates (mesh/contour placement). */
+  domain: ScalarGridDomainPayload;
+  min: number;
+  max: number;
+  validCount: number;
+  totalSamples: number;
+  levels: Float32Array;
+  contourSegments: Float32Array;
+  contourSegmentCount: number;
+  contourStatus: "ok" | "empty" | "degenerate" | "budget-exceeded";
+  gradientPositions: Float32Array;
+  gradientVectors: Float32Array;
+  gradientMagnitudes: Float32Array;
+  gradientValidCount: number;
+  gradientMaxMagnitude: number;
+  gradientStatus: "ok" | "skipped" | "unavailable" | "empty";
+}
+
 export type GeometryComputeResult =
   | GeometryComputeOkResult
   | VectorFieldComputeOkResult
+  | ScalarFieldComputeOkResult
   | { status: "empty" }
   | { status: "budget-exceeded" }
   | { status: "error"; error: string };
@@ -247,6 +310,65 @@ function isVectorFieldPayload(value: unknown): value is VectorFieldComputePayloa
   return isVectorFieldDomain(value.domain, value.dimension);
 }
 
+function isScalarGridDomain(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.uMin) &&
+    isFiniteNumber(value.uMax) &&
+    isFiniteNumber(value.vMin) &&
+    isFiniteNumber(value.vMax)
+  );
+}
+
+function isScalarFieldPayload(value: unknown): value is ScalarFieldComputePayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const source = value.source;
+  if (!isRecord(source)) {
+    return false;
+  }
+  if (source.kind === "surface") {
+    if (
+      typeof source.equation !== "string" ||
+      (source.orientation !== "x" && source.orientation !== "y" && source.orientation !== "z")
+    ) {
+      return false;
+    }
+  } else if (source.kind === "implicit") {
+    if (typeof source.equation !== "string") {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  const target = value.target;
+  if (!isRecord(target)) {
+    return false;
+  }
+  if (target.kind === "domain2D") {
+    if (!isScalarGridDomain(target.domain)) {
+      return false;
+    }
+  } else if (target.kind === "slice") {
+    if (target.plane !== "xy" && target.plane !== "xz" && target.plane !== "yz") {
+      return false;
+    }
+    if (!isFiniteNumber(target.planeValue) || !isScalarGridDomain(target.domain)) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.resolution) &&
+    isFiniteNumber(value.contourCount) &&
+    isFiniteNumber(value.gradientDensity)
+  );
+}
+
 export function isGeometryComputeRequest(value: unknown): value is GeometryComputeRequest {
   if (!isRecord(value)) {
     return false;
@@ -275,6 +397,9 @@ export function isGeometryComputeRequest(value: unknown): value is GeometryCompu
   if (value.kind === "vectorField") {
     return isVectorFieldPayload(value.payload);
   }
+  if (value.kind === "scalarField") {
+    return isScalarFieldPayload(value.payload);
+  }
   return false;
 }
 
@@ -282,11 +407,91 @@ function isTypedArray(value: unknown): value is Float32Array | Uint16Array | Uin
   return value instanceof Float32Array || value instanceof Uint16Array || value instanceof Uint32Array;
 }
 
+const SCALAR_CONTOUR_STATUSES = new Set(["ok", "empty", "degenerate", "budget-exceeded"]);
+const SCALAR_GRADIENT_STATUSES = new Set(["ok", "skipped", "unavailable", "empty"]);
+
+function isScalarFieldResult(value: Record<string, unknown>): boolean {
+  // Scalar shape carries values+valid instead of the mesh indices or the
+  // field vectors+magnitudes triple; the applier trusts counts only after
+  // these hold (full OOB scans stay with the parity-tested producer).
+  if (!(value.values instanceof Float32Array) || !(value.valid instanceof Uint8Array)) {
+    return false;
+  }
+  if (
+    typeof value.width !== "number" ||
+    !Number.isInteger(value.width) ||
+    value.width < 2 ||
+    typeof value.height !== "number" ||
+    !Number.isInteger(value.height) ||
+    value.height < 2
+  ) {
+    return false;
+  }
+  if (
+    value.values.length !== value.width * value.height ||
+    value.valid.length !== value.width * value.height ||
+    !isScalarGridDomain(value.domain)
+  ) {
+    return false;
+  }
+  if (
+    typeof value.min !== "number" ||
+    !Number.isFinite(value.min) ||
+    typeof value.max !== "number" ||
+    !Number.isFinite(value.max) ||
+    typeof value.validCount !== "number" ||
+    !Number.isInteger(value.validCount) ||
+    value.validCount < 1 ||
+    typeof value.totalSamples !== "number" ||
+    !Number.isInteger(value.totalSamples) ||
+    value.validCount > value.totalSamples ||
+    value.totalSamples !== value.width * value.height
+  ) {
+    return false;
+  }
+  if (
+    !(value.levels instanceof Float32Array) ||
+    !(value.contourSegments instanceof Float32Array) ||
+    (value.contourSegments.length !== 0 &&
+      (value.contourSegments.length % 4 !== 0 ||
+        typeof value.contourSegmentCount !== "number" ||
+        value.contourSegments.length !== (value.contourSegmentCount as number) * 4)) ||
+    typeof value.contourSegmentCount !== "number" ||
+    !Number.isInteger(value.contourSegmentCount) ||
+    value.contourSegmentCount < 0 ||
+    typeof value.contourStatus !== "string" ||
+    !SCALAR_CONTOUR_STATUSES.has(value.contourStatus)
+  ) {
+    return false;
+  }
+  if (
+    !(value.gradientPositions instanceof Float32Array) ||
+    !(value.gradientVectors instanceof Float32Array) ||
+    !(value.gradientMagnitudes instanceof Float32Array) ||
+    typeof value.gradientValidCount !== "number" ||
+    !Number.isInteger(value.gradientValidCount) ||
+    value.gradientValidCount < 0 ||
+    value.gradientMagnitudes.length !== value.gradientValidCount ||
+    value.gradientPositions.length !== value.gradientValidCount * 3 ||
+    value.gradientVectors.length !== value.gradientValidCount * 3 ||
+    typeof value.gradientMaxMagnitude !== "number" ||
+    !Number.isFinite(value.gradientMaxMagnitude) ||
+    typeof value.gradientStatus !== "string" ||
+    !SCALAR_GRADIENT_STATUSES.has(value.gradientStatus)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function isComputeResult(value: unknown): value is GeometryComputeResult {
   if (!isRecord(value)) {
     return false;
   }
   if (value.status === "ok") {
+    if ("values" in value || "valid" in value) {
+      return isScalarFieldResult(value);
+    }
     // Field results carry vectors+magnitudes instead of indices; mesh
     // results carry indices instead. The applier trusts counts only after
     // these hold (full OOB scans stay with the parity-tested producer).
@@ -344,7 +549,12 @@ export function isGeometryComputeResponse(value: unknown): value is GeometryComp
   if (typeof value.generation !== "number" || !Number.isInteger(value.generation) || value.generation < 0) {
     return false;
   }
-  if (value.kind !== "implicitSurface" && value.kind !== "parametricSurface" && value.kind !== "vectorField") {
+  if (
+    value.kind !== "implicitSurface" &&
+    value.kind !== "parametricSurface" &&
+    value.kind !== "vectorField" &&
+    value.kind !== "scalarField"
+  ) {
     return false;
   }
   if (typeof value.structure !== "string" || value.structure.length === 0) {

@@ -1,7 +1,8 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
-import { clearAllAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
+import { clearAllDerived } from "./graphStoreSliceScalarViz";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 import { createDefaultViewport2D } from "./graphStoreViewportInit";
 
@@ -11,6 +12,8 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
 > {
   return {
     replaceSceneDocument: (sceneDocument) => {
+      // S23: scene replacement drops every cached scalar grid.
+      useScalarVizResultsStore.getState().clearAll();
       set((state) => {
         const nextScene = applySceneCommand(state.scene, {
           type: "REPLACE_SCENE",
@@ -22,7 +25,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...clearAllAnalysisAndVectorCalculus(state.ui),
+            ...clearAllDerived(state.ui),
             selectedObjectId: resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects),
             selectedMeasurementId:
               state.ui.selectedMeasurementId &&
@@ -50,6 +53,8 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
 
     resetScene: () => {
       const defaultScene = createInitialSceneDocument();
+      // S23: scene reset drops every cached scalar grid.
+      useScalarVizResultsStore.getState().clearAll();
 
       set((state) => ({
         scene: applySceneCommand(state.scene, {
@@ -59,7 +64,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           }
         }),
         ui: {
-          ...clearAllAnalysisAndVectorCalculus(state.ui),
+          ...clearAllDerived(state.ui),
           selectedObjectId: defaultScene.objects[0]?.id ?? null,
           selectedMeasurementId: null,
           focusEquationForObjectId: null,

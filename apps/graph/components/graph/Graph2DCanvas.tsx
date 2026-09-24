@@ -1,7 +1,10 @@
 "use client";
 
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback, useEffect } from "react";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
+import { useGraphStore } from "@/store/graphStore";
+import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { getAxisPairSpec } from "./graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
 import { Graph2DCanvasUiChrome } from "./graph2d/Graph2DCanvasUiChrome";
@@ -70,10 +73,22 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   const editorParameters = useEditorStore((state) => state.parameters);
   const paramScope = useMemo(() => parametersToScope(editorParameters), [editorParameters]);
 
+  // S23: scalar-viz configs gate derived heat/contour/gradient attachments;
+  // cached worker results paint them. Both subscribe here so results stream
+  // in without resampling on pan/zoom (the builder takes no viewport).
+  const scalarConfigs = useGraphStore((state) => state.ui.scalarVizBySourceId);
+  const scalarResults = useScalarVizResultsStore((state) => state.entries);
+
   const renderableGraphs = useMemo<RenderableGraph[]>(
-    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope),
-    [axisPair, objects, paramScope]
+    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs),
+    [axisPair, objects, paramScope, scalarConfigs]
   );
+
+  // S23: request desired scalar jobs when sources/configs/params change.
+  // Signature-tracked: viewport-only changes enqueue 0 jobs.
+  useEffect(() => {
+    syncScalarViz(getScalarSyncContext(), objects, paramScope);
+  }, [objects, paramScope, scalarConfigs]);
 
   const {
     mousePos,
@@ -104,8 +119,11 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     canvasRef,
     containerRef,
     palette,
+    theme: resolvedTheme,
     viewport,
     renderableGraphs,
+    scalarResults,
+    scalarConfigs,
     canvas2dTool,
     mousePos,
     isQuadTop,

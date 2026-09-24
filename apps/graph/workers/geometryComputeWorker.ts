@@ -1,5 +1,6 @@
 import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
 import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
+import { computeScalarFieldData } from "@/lib/math/computeScalarFieldData";
 import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
 import {
   isGeometryComputeRequest,
@@ -94,6 +95,44 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       rejectedTriangles: 0
     };
   }
+  if (request.kind === "scalarField") {
+    // S23: same pure core the 2D path and unit tests use (parity is
+    // structural). Scalar grids stay worker-local temporaries; only the
+    // result buffers below cross back.
+    const computed = computeScalarFieldData({
+      source: request.payload.source,
+      target: request.payload.target,
+      resolution: request.payload.resolution,
+      contourCount: request.payload.contourCount,
+      gradientDensity: request.payload.gradientDensity,
+      params: request.params
+    });
+    if (computed.status !== "ok") {
+      return computed;
+    }
+    return {
+      status: "ok",
+      values: computed.values,
+      valid: computed.valid,
+      width: computed.width,
+      height: computed.height,
+      domain: computed.domain,
+      min: computed.min,
+      max: computed.max,
+      validCount: computed.validCount,
+      totalSamples: computed.totalSamples,
+      levels: computed.levels,
+      contourSegments: computed.contourSegments,
+      contourSegmentCount: computed.contourSegmentCount,
+      contourStatus: computed.contourStatus,
+      gradientPositions: computed.gradientPositions,
+      gradientVectors: computed.gradientVectors,
+      gradientMagnitudes: computed.gradientMagnitudes,
+      gradientValidCount: computed.gradientValidCount,
+      gradientMaxMagnitude: computed.gradientMaxMagnitude,
+      gradientStatus: computed.gradientStatus
+    };
+  }
   if (request.kind === "vectorField") {
     // S20: the worker runs the same pure sampler the 2D path and unit
     // tests use (parity is structural). Buffers compact to valid samples.
@@ -154,6 +193,21 @@ function collectTransferBuffers(
       result.positions.buffer as Transferable,
       result.vectors.buffer as Transferable,
       result.magnitudes.buffer as Transferable
+    ];
+  }
+  if ("values" in result) {
+    // Scalar buffers move (not copy); the worker drops all references by
+    // returning here. Zero-length views transfer harmlessly, so no
+    // conditional filtering is needed — but detached re-post is avoided
+    // because each buffer is freshly allocated per job.
+    return [
+      result.values.buffer as Transferable,
+      result.valid.buffer as Transferable,
+      result.levels.buffer as Transferable,
+      result.contourSegments.buffer as Transferable,
+      result.gradientPositions.buffer as Transferable,
+      result.gradientVectors.buffer as Transferable,
+      result.gradientMagnitudes.buffer as Transferable
     ];
   }
   return [result.positions.buffer as Transferable, result.indices.buffer as Transferable];

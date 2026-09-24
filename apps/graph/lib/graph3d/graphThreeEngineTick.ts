@@ -17,6 +17,9 @@ import {
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
 import { updateAnalysisOverlays, updateVectorCurlOverlays } from "./buildAnalysisOverlays";
+import { updateScalarSliceOverlays } from "./buildScalarSliceOverlays";
+import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
@@ -219,6 +222,21 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       params: getEditorParameterScope(),
       tokens: getGraphThemeTokens(domTheme),
       clearVectorCalculus: (sourceId) => useGraphStore.getState().clearVectorCalculus(sourceId)
+    });
+    // S23: scalar-field jobs (heat/contour/gradient grids + planar slices)
+    // requested signature-tracked, then slice meshes synced from the
+    // result cache into the same shared overlay root. Source geometry
+    // sync below is untouched (0 rebuilds from scalar controls).
+    syncScalarViz(getScalarSyncContext(), storeState.scene.objects, getEditorParameterScope());
+    updateScalarSliceOverlays({
+      configs: uiState.scalarVizBySourceId,
+      objects: storeState.scene.objects,
+      objectNodes,
+      results: useScalarVizResultsStore.getState().entries,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      theme: domTheme,
+      params: getEditorParameterScope()
     });
 
     const camVersion = useGraphStore.getState().cameraResetVersion;

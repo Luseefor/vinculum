@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
+import ScalarVisualizationSection from "./ScalarVisualizationSection";
 import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
 import {
   MAX_VECTOR_FIELD_2D_DENSITY,
@@ -96,6 +97,9 @@ export default function GraphInspector() {
       <DomainSection object={selectedSurfaceObject} />
       <div className="mt-3">
         <DifferentialAnalysisSection object={selectedSurfaceObject} />
+      </div>
+      <div className="mt-3">
+        <ScalarVisualizationSection object={selectedSurfaceObject} />
       </div>
     </section>
   );
@@ -436,6 +440,9 @@ function ImplicitSurfaceInspector({ object }: { object: ImplicitSurfaceObject })
       </div>
       <div className="mt-3">
         <DifferentialAnalysisSection object={object} />
+      </div>
+      <div className="mt-3">
+        <ScalarVisualizationSection object={object} />
       </div>
     </section>
   );

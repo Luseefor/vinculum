@@ -128,6 +128,31 @@ export interface GraphUiState {
    * and equation edits; pruned on delete/kind-switch/replace/reset).
    */
   directionInputBySourceId: Record<string, { u: number; v: number }>;
+  /**
+   * S23 transient scalar-visualization configs keyed by source id.
+   * Toggles and numeric settings only — computed grids live in the
+   * scalar-result cache, never here and never serialized. 2D fields use
+   * the heat/contour/gradient half; implicit sources use the slice half.
+   */
+  scalarVizBySourceId: Record<string, ScalarVizConfig>;
+}
+
+export interface ScalarVizConfig {
+  sourceId: string;
+  /** Math-only source identity at enable (see scalarVizMathIdentity). */
+  structure: string;
+  showHeatmap: boolean;
+  showContours: boolean;
+  contourCount: number;
+  showGradient: boolean;
+  gradientDensity: number;
+  gradientScale: number;
+  gradientNormalize: boolean;
+  sliceEnabled: boolean;
+  slicePlane: "xy" | "xz" | "yz";
+  sliceValue: number;
+  showSliceHeatmap: boolean;
+  showSliceContours: boolean;
 }
 
 export interface DifferentialAnalysisState {

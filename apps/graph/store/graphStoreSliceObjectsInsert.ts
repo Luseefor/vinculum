@@ -12,7 +12,8 @@ import {
   createGraphObject,
   isGraphObjectWithoutExpressions
 } from "./graphStoreObjectFactory";
-import { clearAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
+import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
@@ -113,6 +114,8 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
           ...(kind === "vectorField" ? { dimension: vectorDimension } : {})
         };
 
+        // S23: kind switches drop cached scalar grids with the config.
+        useScalarVizResultsStore.getState().removeForSource(id);
         const replacement = isGraphObjectWithoutExpressions(currentObject)
           ? createEmptyGraphObject(kind, index, objectOptions)
           : createGraphObject(kind, index, objectOptions);
@@ -126,7 +129,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: clearAnalysisAndVectorCalculus(state.ui, id)
+          ui: clearAllDerivedForSource(state.ui, id)
         };
       });
     }

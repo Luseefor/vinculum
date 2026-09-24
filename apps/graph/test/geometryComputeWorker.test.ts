@@ -270,7 +270,12 @@ describe("worker/sync parity (PART 29)", () => {
     });
     expect(small?.response.result.status).toBe("ok");
     expect(large?.response.result.status).toBe("ok");
-    if (small?.response.result.status === "ok" && large?.response.result.status === "ok") {
+    if (
+      small?.response.result.status === "ok" &&
+      large?.response.result.status === "ok" &&
+      "indices" in small.response.result &&
+      "indices" in large.response.result
+    ) {
       // Different snapshots must produce different geometry (proves the
       // worker used the passed snapshot, not ambient store state).
       expect(Array.from(large.response.result.positions)).not.toEqual(

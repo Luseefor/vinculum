@@ -58,6 +58,7 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     differentialAnalysisBySourceId: {},
     differentialAnalysisPickArmedId: null,
     vectorCalculusBySourceId: {},
-    directionInputBySourceId: {}
+    directionInputBySourceId: {},
+    scalarVizBySourceId: {}
   };
 }

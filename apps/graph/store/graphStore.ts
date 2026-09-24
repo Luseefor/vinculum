@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
+import { buildScalarVizSlice } from "./graphStoreSliceScalarViz";
 import { buildObjectsSliceB } from "./graphStoreSliceObjectsB";
 import { buildObjectsSliceExpr } from "./graphStoreSliceObjectsExpr";
 import { buildObjectsSliceInsert } from "./graphStoreSliceObjectsInsert";
@@ -33,6 +34,7 @@ export const useGraphStore = create<GraphStoreState>()(
       ui: createInitialUiState(initialScene.objects[0]?.id ?? null),
       cameraResetVersion: 0,
       ...buildAnalysisSlice(set),
+      ...buildScalarVizSlice(set),
       ...buildObjectsSliceInsert(set),
       ...buildObjectsSliceExpr(set),
       ...buildObjectsSliceB(set),
@@ -63,6 +65,9 @@ export const useGraphStore = create<GraphStoreState>()(
           // equally transient (recomputed live, never serialized).
           vectorCalculusBySourceId: {},
           directionInputBySourceId: {},
+          // S23: scalar-visualization configs are toggles only (grids
+          // live in the result cache); equally transient.
+          scalarVizBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

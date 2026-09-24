@@ -6,6 +6,7 @@ import {
   type GeometryComputeResponse,
   type ImplicitSurfaceComputePayload,
   type ParametricSurfaceComputePayload,
+  type ScalarFieldComputePayload,
   type VectorFieldComputePayload
 } from "./geometryComputeProtocol";
 import { useGeometryComputeStore } from "./geometryComputeStatus";
@@ -76,6 +77,13 @@ export interface GeometryComputeManager {
           objectId: string;
           kind: "vectorField";
           payload: VectorFieldComputePayload;
+          params: Record<string, number>;
+          structure: string;
+        }
+      | {
+          objectId: string;
+          kind: "scalarField";
+          payload: ScalarFieldComputePayload;
           params: Record<string, number>;
           structure: string;
         }
@@ -197,7 +205,9 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
         response.result.status === "budget-exceeded"
           ? response.kind === "vectorField"
             ? "Field too dense at this density; lower it."
-            : "Surface too complex at this resolution; lower it."
+            : response.kind === "scalarField"
+              ? "Scalar field too complex; lower the contour count."
+              : "Surface too complex at this resolution; lower it."
           : response.result.error;
       useGeometryComputeStore.getState().setStatus(response.objectId, "error", message);
       if (response.result.status === "budget-exceeded") {
@@ -276,13 +286,16 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
         params: { ...input.params },
         structure: input.structure
       };
-      // Branch so the discriminated union narrows kind+payload together.
+      // Branch so the discriminated union narrows kind+payload together
+      // (a single spread widens kind across the union and fails to check).
       const request: GeometryComputeRequest =
         input.kind === "implicitSurface"
           ? { ...base, kind: input.kind, payload: input.payload }
           : input.kind === "parametricSurface"
             ? { ...base, kind: input.kind, payload: input.payload }
-            : { ...base, kind: input.kind, payload: input.payload };
+            : input.kind === "vectorField"
+              ? { ...base, kind: input.kind, payload: input.payload }
+              : { ...base, kind: input.kind, payload: input.payload };
       // Queue coalescing: at most one queued (not yet started) request per
       // object. A newer request replaces obsolete queued versions; the
       // in-flight request, if any, resolves via stale suppression.

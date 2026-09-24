@@ -1,6 +1,7 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
-import { clearAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
+import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceB(set: GraphStoreSet): Pick<
@@ -67,6 +68,8 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
     },
 
     removeObject: (id) => {
+      // S23: drop cached scalar grids beside the config (no orphan heat).
+      useScalarVizResultsStore.getState().removeForSource(id);
       set((state) => {
         const removeIndex = state.scene.objects.findIndex((object) => object.id === id);
         if (removeIndex === -1) {
@@ -91,7 +94,7 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...clearAnalysisAndVectorCalculus(state.ui, id),
+            ...clearAllDerivedForSource(state.ui, id),
             selectedObjectId: nextSelectedObjectId,
             focusEquationForObjectId:
               state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId

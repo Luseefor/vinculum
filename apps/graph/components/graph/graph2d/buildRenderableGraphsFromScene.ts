@@ -1,5 +1,7 @@
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import type { GraphObject } from "@vinculum/scene/types";
+import type { ScalarVizConfig } from "@/types/graphUi";
 import {
   tryAppendExplicitCompiledCurve,
   tryAppendImplicitRenderableGraph,
@@ -13,7 +15,8 @@ import type { AxisPairSpec, RenderableGraph } from "./graph2dCanvasTypes";
 export function buildRenderableGraphsFromScene(
   objects: GraphObject[],
   axisPair: AxisPairSpec,
-  params: Record<string, number>
+  params: Record<string, number>,
+  scalarViz: Record<string, ScalarVizConfig> = {}
 ): RenderableGraph[] {
   const graphs: RenderableGraph[] = [];
 
@@ -70,6 +73,28 @@ export function buildRenderableGraphsFromScene(
         }
       }
       continue;
+    }
+
+    // S23: scalar-visualization reference for explicit scalar sources.
+    // Pushed as its own entry (heat pass + overlay pass resolve the cached
+    // worker result by sourceId), ahead of the source curve so derived
+    // layers paint beneath it. Constant equations keep their heat: the
+    // attachment does not depend on curve compilation.
+    if (obj.kind === "surface") {
+      const attachment = scalarAttachmentFor(obj, axisPair, params, scalarViz);
+      if (attachment) {
+        graphs.push({
+          id: obj.id,
+          color: obj.color,
+          verticalLineValue: null,
+          horizontalLineValue: null,
+          evaluate: null,
+          implicitEvaluate: null,
+          hatchDomain: null,
+          polylineHV: null,
+          scalarField: attachment
+        });
+      }
     }
 
     const expr = obj.equation;
@@ -180,4 +205,37 @@ export function buildRenderableGraphsFromScene(
   }
 
   return graphs;
+}
+
+// S23 scalar attach gate: explicit surface + any 2D viz enabled + live
+// config structure + canvas pair equal to the source independent
+// variables (a z=f(x,y) heat lives in the xy plane; rendering it under
+// xz/yz would be view-dependent mathematics, so it stays hidden there).
+function scalarAttachmentFor(
+  obj: Extract<GraphObject, { kind: "surface" }>,
+  axisPair: AxisPairSpec,
+  params: Record<string, number>,
+  scalarViz: Record<string, ScalarVizConfig>
+): { sourceId: string; domain: { uMin: number; uMax: number; vMin: number; vMax: number } } | null {
+  const config = scalarViz[obj.id];
+  if (!config || (!config.showHeatmap && !config.showContours && !config.showGradient)) {
+    return null;
+  }
+  if (scalarVizMathIdentity(obj, Object.keys(params)) !== config.structure) {
+    return null;
+  }
+  const orientation = obj.orientation ?? "z";
+  const pairMatches =
+    orientation === "x"
+      ? axisPair.horizontal === "y" && axisPair.vertical === "z"
+      : orientation === "y"
+        ? axisPair.horizontal === "x" && axisPair.vertical === "z"
+        : axisPair.horizontal === "x" && axisPair.vertical === "y";
+  if (!pairMatches) {
+    return null;
+  }
+  return {
+    sourceId: obj.id,
+    domain: { uMin: obj.domain.xMin, uMax: obj.domain.xMax, vMin: obj.domain.yMin, vMax: obj.domain.yMax }
+  };
 }

@@ -19,6 +19,7 @@ import type {
   Canvas2DTool,
   Canvas3DTool,
   GraphUiState,
+  ScalarVizConfig,
   SceneDialogMode,
   Viewport2D,
   Viewport2DFrame,
@@ -105,6 +106,12 @@ export interface GraphStoreState {
   setVectorCalculusOverlays: (sourceId: string, flags: { showCurl?: boolean }) => void;
   clearVectorCalculus: (sourceId?: string) => void;
   setDirectionInput: (sourceId: string, input: { u: number; v: number } | null) => void;
+  setScalarVizConfig: (
+    sourceId: string,
+    patch: Partial<Omit<ScalarVizConfig, "sourceId" | "structure">>,
+    structure: string
+  ) => void;
+  clearScalarViz: (sourceId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

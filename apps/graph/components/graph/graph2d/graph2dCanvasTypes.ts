@@ -57,6 +57,16 @@ export interface RenderableGraph {
   // S20: 2D vector-field glyphs (pair-projected at build time). Only the
   // vector path produces non-null values; every other path omits the key.
   vectorField?: VectorFieldArrows | null;
+  // S23: scalar-visualization attachment (heat/contour/gradient reference).
+  // Set only for explicit scalar sources whose independent variables match
+  // the canvas pair and whose config is live; the draw layer resolves the
+  // cached worker result by sourceId. Every other path omits the key.
+  scalarField?: ScalarFieldAttachment | null;
+}
+
+export interface ScalarFieldAttachment {
+  sourceId: string;
+  domain: { uMin: number; uMax: number; vMin: number; vMax: number };
 }
 
 // Canonical 2D parametric data (S5): projected math-frame points plus the
