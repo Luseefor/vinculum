@@ -16,7 +16,7 @@ import {
 } from "@/lib/performance/performanceMetrics";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
-import { updateAnalysisOverlays } from "./buildAnalysisOverlays";
+import { updateAnalysisOverlays, updateVectorCurlOverlays } from "./buildAnalysisOverlays";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
@@ -205,6 +205,20 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       computeStatusOf: (sourceId) =>
         useGeometryComputeStore.getState().entries[sourceId]?.status ?? "idle",
       clearAnalysis: (sourceId) => useGraphStore.getState().clearDifferentialAnalysis(sourceId)
+    });
+    // S22: one transient curl arrow per analyzed 3D field. Same shared
+    // overlay root (synchronized views for free), zero worker jobs, valid
+    // while S20 sampling is pending (expressions evaluate directly).
+    updateVectorCurlOverlays({
+      records: uiState.vectorCalculusBySourceId,
+      objects: storeState.scene.objects,
+      objectNodes,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      theme: domTheme,
+      params: getEditorParameterScope(),
+      tokens: getGraphThemeTokens(domTheme),
+      clearVectorCalculus: (sourceId) => useGraphStore.getState().clearVectorCalculus(sourceId)
     });
 
     const camVersion = useGraphStore.getState().cameraResetVersion;

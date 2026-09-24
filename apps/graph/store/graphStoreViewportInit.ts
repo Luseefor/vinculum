@@ -56,6 +56,8 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     snapEnabled: true,
     snapStep: 0.25,
     differentialAnalysisBySourceId: {},
-    differentialAnalysisPickArmedId: null
+    differentialAnalysisPickArmedId: null,
+    vectorCalculusBySourceId: {},
+    directionInputBySourceId: {}
   };
 }

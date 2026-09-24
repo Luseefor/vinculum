@@ -114,6 +114,20 @@ export interface GraphUiState {
   differentialAnalysisBySourceId: Record<string, DifferentialAnalysisState>;
   /** Source id awaiting the next surface click, or null when not picking. */
   differentialAnalysisPickArmedId: string | null;
+  /**
+   * S22 transient vector-calculus records keyed by source field id.
+   * Separate map (not forced into the surface record type): point in
+   * canonical math coords, math identity with parameter KEYS (values
+   * recompute live per PART 9), and the curl-overlay flag. Never
+   * serialized; Jacobian/divergence/curl recompute live, never stored.
+   */
+  vectorCalculusBySourceId: Record<string, VectorCalculusState>;
+  /**
+   * S22 transient directional-derivative inputs keyed by source surface
+   * id. Independent lifecycle from the analysis point (survives re-pick
+   * and equation edits; pruned on delete/kind-switch/replace/reset).
+   */
+  directionInputBySourceId: Record<string, { u: number; v: number }>;
 }
 
 export interface DifferentialAnalysisState {
@@ -124,6 +138,15 @@ export interface DifferentialAnalysisState {
   structure: string;
   showNormal: boolean;
   showTangent: boolean;
+}
+
+export interface VectorCalculusState {
+  sourceId: string;
+  /** Canonical math coordinates; 2D uses x/y (z ignored). */
+  point: { x: number; y: number; z: number };
+  /** Math identity with parameter keys (see vectorCalculusSourceIdentity). */
+  structure: string;
+  showCurl: boolean;
 }
 
 export interface ExpressionValidationState {

@@ -1,7 +1,7 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
-import { clearAllAnalysis } from "./graphStoreSliceAnalysis";
+import { clearAllAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 import { createDefaultViewport2D } from "./graphStoreViewportInit";
 
@@ -22,7 +22,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...clearAllAnalysis(state.ui),
+            ...clearAllAnalysisAndVectorCalculus(state.ui),
             selectedObjectId: resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects),
             selectedMeasurementId:
               state.ui.selectedMeasurementId &&
@@ -59,7 +59,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           }
         }),
         ui: {
-          ...clearAllAnalysis(state.ui),
+          ...clearAllAnalysisAndVectorCalculus(state.ui),
           selectedObjectId: defaultScene.objects[0]?.id ?? null,
           selectedMeasurementId: null,
           focusEquationForObjectId: null,

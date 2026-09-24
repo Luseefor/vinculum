@@ -16,12 +16,19 @@ import {
 } from "three";
 import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
-import type { DifferentialAnalysisState } from "@/types/graphUi";
+import type { DifferentialAnalysisState, VectorCalculusState } from "@/types/graphUi";
 import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
 import {
   computeSurfaceAnalysis
 } from "@/lib/math/surfaceDifferential";
-import { analysisSourceIdentity } from "@/store/graphStoreSliceAnalysis";
+import {
+  CURL_ZERO_EPS,
+  compileVectorFieldDifferential,
+  evaluateVectorDifferential,
+  isFieldPointInDomain,
+  vectorCurl3D
+} from "@/lib/math/vectorCalculus";
+import { analysisSourceIdentity, vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 
 // S21 derived overlays: one Group per analyzed source (`analysis:<id>`),
@@ -375,15 +382,228 @@ export function updateAnalysisOverlays(frame: AnalysisOverlayFrame): void {
     ensureOverlayVisible(frame, sourceId, true);
   }
 
-  // Drop overlays whose records vanished (clear-all paths).
+  // Drop overlays whose records vanished (clear-all paths). Curl arrows
+  // share this cache under `curl:<id>` keys (PART 17: one shared overlay
+  // root) — never touch them here; the curl sync owns that namespace.
   for (const [sourceId] of frame.cache) {
+    if (sourceId.startsWith(CURL_OVERLAY_KEY_PREFIX)) {
+      continue;
+    }
     if (!liveIds.has(sourceId)) {
       removeCachedOverlay(frame, sourceId);
     }
   }
 }
 
-function ensureOverlayVisible(frame: AnalysisOverlayFrame, sourceId: string, visible: boolean): Group | null {
+// S22 curl-vector overlay: ONE transient arrow per analyzed 3D field at
+// the analysis point (PART 13/37: O(1), no InstancedMesh, no per-pane
+// resources). Shares the S21 overlay root so Perspective/XY/XZ/YZ/Split/
+// Quad all render the same arrow with no per-pane derivation (PART 18).
+// Cache keys live in the shared map under `curl:<sourceId>` (PART 17).
+export const CURL_OVERLAY_KEY_PREFIX = "curl:";
+
+export function curlOverlayCacheKey(sourceId: string): string {
+  return `${CURL_OVERLAY_KEY_PREFIX}${sourceId}`;
+}
+
+export interface VectorCurlOverlayFrame {
+  records: Record<string, VectorCalculusState>;
+  objects: readonly GraphObject[];
+  objectNodes: Map<string, Object3D>;
+  overlayRoot: Group;
+  cache: Map<string, { key: string; group: Group }>;
+  theme: ResolvedTheme;
+  params: Record<string, number>;
+  tokens: { sceneSurfaceRoughness: number; sceneSurfaceMetalness: number };
+  clearVectorCalculus: (sourceId: string) => void;
+}
+
+export function buildCurlArrowGroup(input: {
+  sourceId: string;
+  pointWorld: { x: number; y: number; z: number };
+  directionWorld: { x: number; y: number; z: number };
+  length: number;
+  color: string;
+  roughness: number;
+  metalness: number;
+}): Group | null {
+  const { pointWorld: p, directionWorld: d, length } = input;
+  const finite = (v: number) => Number.isFinite(v);
+  if (![p.x, p.y, p.z, d.x, d.y, d.z].every(finite)) {
+    return null;
+  }
+  if (!(length > 0) || !Number.isFinite(length)) {
+    return null;
+  }
+  const direction = new Vector3(d.x, d.y, d.z);
+  // Zero curl is valid numerics but renders nothing (PART 13): an arrow
+  // below CURL_ZERO_EPS would be noise.
+  if (!(direction.length() > CURL_ZERO_EPS)) {
+    return null;
+  }
+  direction.normalize();
+  const quaternion = new Quaternion().setFromUnitVectors(CANONICAL_GLYPH_AXIS, direction);
+  if (![quaternion.x, quaternion.y, quaternion.z, quaternion.w].every((v) => Number.isFinite(v))) {
+    return null;
+  }
+  const material = new MeshStandardMaterial({ color: input.color, roughness: input.roughness, metalness: input.metalness });
+  const shaftLength = GLYPH_SHAFT_FRACTION * length;
+  const headLength = GLYPH_HEAD_FRACTION * length;
+  const shaftRadius = GLYPH_SHAFT_RADIUS_FRACTION * length;
+  const headRadius = GLYPH_HEAD_RADIUS_FRACTION * length;
+
+  const shaftGeometry = new CylinderGeometry(1, 1, 1, 10, 1, false);
+  shaftGeometry.translate(0, 0.5, 0);
+  const shaft = new Mesh(shaftGeometry, material);
+  const base = new Vector3(p.x, p.y, p.z);
+  shaft.matrixAutoUpdate = false;
+  shaft.matrix.compose(base, quaternion, new Vector3(shaftRadius, shaftLength, shaftRadius));
+  shaft.matrixWorldNeedsUpdate = true;
+
+  const headGeometry = new ConeGeometry(1, 1, 10);
+  headGeometry.translate(0, 0.5, 0);
+  const head = new Mesh(headGeometry, material);
+  const headBase = base.clone().addScaledVector(direction, shaftLength);
+  head.matrixAutoUpdate = false;
+  head.matrix.compose(headBase, quaternion, new Vector3(headRadius, headLength, headRadius));
+  head.matrixWorldNeedsUpdate = true;
+
+  for (const mesh of [shaft, head]) {
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    disableRaycast(mesh);
+  }
+
+  const arrow = new Group();
+  arrow.userData.analysisSourceId = input.sourceId;
+  arrow.userData.curlOverlay = true;
+  arrow.add(shaft);
+  arrow.add(head);
+  return arrow;
+}
+
+// Per-tick curl-overlay sync. Reads transient vector-calculus records;
+// writes Three resources only on input change; never touches
+// objectNodes/signatures, the compute manager, or scene state — except
+// transition-only invalidation clears (stale/missing source). Pointwise
+// calculus enqueues zero worker jobs by construction (no manager access
+// exists here), and stays valid while S20 sampling is pending (PART 20:
+// expressions evaluate directly, never from glyph geometry).
+export function updateVectorCurlOverlays(frame: VectorCurlOverlayFrame): void {
+  const liveKeys = new Set<string>();
+  for (const [sourceId, record] of Object.entries(frame.records)) {
+    const cacheKey = curlOverlayCacheKey(sourceId);
+    liveKeys.add(cacheKey);
+    const source = frame.objects.find((object) => object.id === sourceId);
+    if (!source || source.kind !== "vectorField") {
+      removeCachedOverlay(frame, cacheKey);
+      frame.clearVectorCalculus(sourceId);
+      continue;
+    }
+    if (source.dimension !== "3d") {
+      // S22-R1: 2D fields hold legitimate vector-calculus records
+      // (Jacobian/divergence/scalar curl are Inspector-only). There is
+      // never a 3D curl arrow for them, so drop any overlay without
+      // touching the record — clearing here wiped 2D analysis every tick
+      // in any layout with a running 3D engine.
+      removeCachedOverlay(frame, cacheKey);
+      continue;
+    }
+    const node = frame.objectNodes.get(sourceId);
+    const liveIdentity = vectorCalculusSourceIdentity(source, Object.keys(frame.params));
+    if (liveIdentity === null || liveIdentity !== record.structure) {
+      removeCachedOverlay(frame, cacheKey);
+      frame.clearVectorCalculus(sourceId);
+      continue;
+    }
+    if (!record.showCurl) {
+      removeCachedOverlay(frame, cacheKey);
+      continue;
+    }
+    if (!node || !node.visible) {
+      // Numeric calculus stays valid while hidden (PART 32); only the
+      // arrow hides with source visibility.
+      ensureOverlayVisible(frame, cacheKey, false);
+      continue;
+    }
+    if (!isFieldPointInDomain(source.dimension, source.domain, record.point)) {
+      ensureOverlayVisible(frame, cacheKey, false);
+      continue;
+    }
+    const compiled = compileVectorFieldDifferential(
+      source.dimension,
+      source.pExpr,
+      source.qExpr,
+      source.rExpr,
+      frame.params
+    );
+    const jacobian = evaluateVectorDifferential(compiled, record.point, frame.params);
+    const curl = vectorCurl3D(jacobian);
+    if (curl === null || curl.x === null || curl.y === null || curl.z === null) {
+      ensureOverlayVisible(frame, cacheKey, false);
+      continue;
+    }
+    const magnitude = Math.sqrt(curl.x * curl.x + curl.y * curl.y + curl.z * curl.z);
+    if (!(magnitude > CURL_ZERO_EPS) || !Number.isFinite(magnitude)) {
+      removeCachedOverlay(frame, cacheKey);
+      continue;
+    }
+    const sizes = analysisOverlaySizes(source.domain, true);
+    // Math (cx,cy,cz) -> world (cx,cz,cy) via the S20 helper (PART 13).
+    const pointWorld = mathToWorld3D({ x: record.point.x, y: record.point.y, z: record.point.z });
+    const directionWorld = mathVectorToWorld3D({ x: curl.x, y: curl.y, z: curl.z });
+    const key = [
+      record.structure,
+      record.point.x,
+      record.point.y,
+      record.point.z,
+      curl.x,
+      curl.y,
+      curl.z,
+      frame.theme,
+      frame.tokens.sceneSurfaceRoughness,
+      frame.tokens.sceneSurfaceMetalness,
+      sizes.normalLength
+    ].join("|");
+    const cached = frame.cache.get(cacheKey);
+    if (cached && cached.key === key) {
+      ensureOverlayVisible(frame, cacheKey, true);
+      continue;
+    }
+    removeCachedOverlay(frame, cacheKey);
+    const group = buildCurlArrowGroup({
+      sourceId,
+      pointWorld,
+      directionWorld,
+      length: sizes.normalLength,
+      color: frame.theme === "dark" ? "#f8fafc" : "#0f172a",
+      roughness: frame.tokens.sceneSurfaceRoughness,
+      metalness: frame.tokens.sceneSurfaceMetalness
+    });
+    if (!group) {
+      continue;
+    }
+    group.visible = node.visible;
+    frame.overlayRoot.add(group);
+    frame.cache.set(cacheKey, { key, group });
+    ensureOverlayVisible(frame, cacheKey, true);
+  }
+
+  for (const [cacheKey] of frame.cache) {
+    if (!cacheKey.startsWith(CURL_OVERLAY_KEY_PREFIX)) {
+      continue;
+    }
+    if (!liveKeys.has(cacheKey)) {
+      removeCachedOverlay(frame, cacheKey);
+    }
+  }
+}
+
+function ensureOverlayVisible(
+  frame: Pick<AnalysisOverlayFrame, "cache">,
+  sourceId: string,
+  visible: boolean
+): Group | null {
   const cached = frame.cache.get(sourceId);
   if (!cached) {
     return null;
@@ -392,7 +612,10 @@ function ensureOverlayVisible(frame: AnalysisOverlayFrame, sourceId: string, vis
   return cached.group;
 }
 
-function removeCachedOverlay(frame: AnalysisOverlayFrame, sourceId: string): void {
+function removeCachedOverlay(
+  frame: Pick<AnalysisOverlayFrame, "cache" | "overlayRoot">,
+  sourceId: string
+): void {
   const cached = frame.cache.get(sourceId);
   if (!cached) {
     return;

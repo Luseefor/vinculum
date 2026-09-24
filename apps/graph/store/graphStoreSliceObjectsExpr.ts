@@ -5,7 +5,7 @@ import { updateImplicitSurfaceField } from "./graphStoreImplicitSurfaceField";
 import { updateParametricCurveField } from "./graphStoreParametricField";
 import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField";
 import { updateVectorFieldField } from "./graphStoreVectorFieldField";
-import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
+import { pruneAnalysisForSourceId, pruneVectorCalculusForSourceId } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
@@ -168,11 +168,23 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           }
         };
 
+        // S22 PART 8/33: only mathematical edits invalidate vector
+        // calculus (components, domain). Density/scale/normalize/color
+        // change sampling/rendering, never the function — analysis stays.
+        const mathFields = new Set([
+          "pExpr",
+          "qExpr",
+          "rExpr",
+          "xMin",
+          "xMax",
+          "yMin",
+          "yMax",
+          "zMin",
+          "zMax"
+        ]);
         return {
           scene: applySceneCommand(state.scene, command),
-          // S21: any object-math commit invalidates attached analysis for
-          // that source (no-ops via same-ref when nothing is attached).
-          ui: pruneAnalysisForSourceId(state.ui, id)
+          ui: mathFields.has(field) ? pruneVectorCalculusForSourceId(state.ui, id) : state.ui
         };
       });
     },

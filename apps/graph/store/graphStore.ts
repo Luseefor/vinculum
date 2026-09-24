@@ -59,6 +59,10 @@ export const useGraphStore = create<GraphStoreState>()(
           // derivatives recompute live after reload when still valid.
           differentialAnalysisBySourceId: {},
           differentialAnalysisPickArmedId: null,
+          // S22: vector-calculus records and directional inputs are
+          // equally transient (recomputed live, never serialized).
+          vectorCalculusBySourceId: {},
+          directionInputBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

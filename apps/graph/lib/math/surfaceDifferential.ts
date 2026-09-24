@@ -133,6 +133,131 @@ function nanGradient(): Record<"x" | "y" | "z", ScalarPartial> {
   return { x: nanPartial(), y: nanPartial(), z: nanPartial() };
 }
 
+// S22 scalar-function gradient for explicit surfaces: the RAW body
+// partials (df/du, df/dv) in independent variables — distinct from the
+// level-set normal above. This is the object the directional derivative
+// and the "direction of maximum increase" label refer to; the level-set
+// <-fx,-fy,1> normal is a different mathematical object (PART 15).
+export interface CompiledScalarFunctionGradient {
+  vars: [string, string];
+  du: ScalarPartial;
+  dv: ScalarPartial;
+  error: string | null;
+}
+
+export function compileScalarFunctionGradient(
+  levelSet: SurfaceLevelSet,
+  params: Record<string, number>
+): CompiledScalarFunctionGradient {
+  if (levelSet.kind !== "explicit") {
+    return {
+      vars: ["x", "y"],
+      du: nanPartial(),
+      dv: nanPartial(),
+      error: "Directional derivatives are supported for explicit surfaces only."
+    };
+  }
+  const allowedSymbols = Object.keys(params);
+  const [u, v] = levelSet.independentVars;
+  const du = compilePartialDerivative({ expression: levelSet.body, variable: u, allowedSymbols, params });
+  if (du.error) {
+    return { vars: [u, v], du: nanPartial(), dv: nanPartial(), error: du.error };
+  }
+  const dv = compilePartialDerivative({ expression: levelSet.body, variable: v, allowedSymbols, params });
+  if (dv.error) {
+    return { vars: [u, v], du: nanPartial(), dv: nanPartial(), error: dv.error };
+  }
+  return {
+    vars: [u, v],
+    du: { evaluate: du.evaluate },
+    dv: { evaluate: dv.evaluate },
+    error: null
+  };
+}
+
+export interface ScalarFunctionGradientValue {
+  vars: [string, string];
+  g1: number;
+  g2: number;
+}
+
+export function evaluateScalarFunctionGradient(
+  compiled: CompiledScalarFunctionGradient,
+  point: MathPoint3,
+  params: Record<string, number>
+): { ok: true; gradient: ScalarFunctionGradientValue } | { ok: false } {
+  const scope: Record<string, number> = {
+    x: 0,
+    y: 0,
+    z: 0,
+    t: 0,
+    pi: Math.PI,
+    e: Math.E,
+    ...params
+  };
+  scope.x = point.x;
+  scope.y = point.y;
+  scope.z = point.z;
+  const g1 = compiled.du.evaluate(scope);
+  const g2 = compiled.dv.evaluate(scope);
+  if (!Number.isFinite(g1) || !Number.isFinite(g2)) {
+    return { ok: false };
+  }
+  return { ok: true, gradient: { vars: compiled.vars, g1, g2 } };
+}
+
+export type DirectionalDerivativeOutcome =
+  | {
+      status: "ok";
+      gradient: ScalarFunctionGradientValue;
+      unitDirection: { u: number; v: number };
+      value: number;
+    }
+  | { status: "derivative-unavailable"; error: string }
+  | { status: "non-finite" }
+  | { status: "zero-direction" }
+  | { status: "invalid-source"; error: string };
+
+// Directional derivative D_u f = ∇f · û for explicit scalar surface
+// functions. The input direction uses independent-variable components and
+// is normalized internally (arbitrary nonzero input allowed); zero direction
+// is a compact diagnostic, never a division by zero. Single entry point
+// shared by the Inspector (guaranteed agreement, S21 pattern).
+export function computeDirectionalDerivative(
+  object: SurfaceGraphObject,
+  point: MathPoint3,
+  params: Record<string, number>,
+  direction: { u: number; v: number }
+): DirectionalDerivativeOutcome {
+  const source = compileSurfaceExpression(object.equation, object.orientation ?? "z");
+  if (source.error) {
+    return { status: "invalid-source", error: source.error };
+  }
+  const levelSet = normalizeSurfaceLevelSet(object);
+  if ("error" in levelSet || levelSet.kind !== "explicit") {
+    return { status: "invalid-source", error: "error" in levelSet ? levelSet.error : "Unsupported surface." };
+  }
+  const compiled = compileScalarFunctionGradient(levelSet, params);
+  if (compiled.error) {
+    return { status: "derivative-unavailable", error: compiled.error };
+  }
+  const evaluated = evaluateScalarFunctionGradient(compiled, point, params);
+  if (!evaluated.ok) {
+    return { status: "non-finite" };
+  }
+  const length = Math.sqrt(direction.u * direction.u + direction.v * direction.v);
+  if (!(length > 0) || !Number.isFinite(length)) {
+    return { status: "zero-direction" };
+  }
+  const unit = { u: direction.u / length, v: direction.v / length };
+  const value =
+    evaluated.gradient.g1 * unit.u + evaluated.gradient.g2 * unit.v;
+  if (!Number.isFinite(value)) {
+    return { status: "non-finite" };
+  }
+  return { status: "ok", gradient: evaluated.gradient, unitDirection: unit, value };
+}
+
 export interface SurfaceGradient {
   x: number;
   y: number;

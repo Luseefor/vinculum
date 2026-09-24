@@ -1,7 +1,6 @@
 import { compile, derivative, parse, type MathNode } from "mathjs";
 import { validateExpressionSafety } from "./expressionSafety";
 import { formatExpressionError } from "./expressionErrorFormat";
-import { getParamScopeSignature } from "./paramScope";
 
 // S21 pure symbolic first-derivative engine. Strategy (proven at the
 // decision gate): mathjs `derivative()` on the parsed source node, then the
@@ -35,16 +34,13 @@ const NAN_EVALUATOR = () => Number.NaN;
 const PARTIAL_DERIVATIVE_CACHE_LIMIT = 128;
 const partialDerivativeCache = new Map<string, CompiledPartialDerivative>();
 
-function makePartialDerivativeCacheKey(
-  expression: string,
-  variable: string,
-  allowedSymbols: string[],
-  params: Record<string, number>
-): string {
+function makePartialDerivativeCacheKey(expression: string, variable: string, allowedSymbols: string[]): string {
   // S20-R1 lesson: \u0000-delimited segments, never bare concatenation.
-  // allowedSymbols ride along: same expression with different symbol
-  // policies must not share entries.
-  return [expression, variable, [...allowedSymbols].sort().join(","), getParamScopeSignature(params)].join("\u0000");
+  // allowedSymbols ride along (sorted): same expression with different
+  // symbol policies must not share entries. Parameter VALUES are excluded
+  // (S22 PART 28): the compiled evaluator reads values from the caller
+  // scope at evaluation time, so value changes never force recompilation.
+  return [expression, variable, [...allowedSymbols].sort().join(",")].join("\u0000");
 }
 
 function getCachedPartialDerivative(key: string): CompiledPartialDerivative | null {
@@ -69,9 +65,12 @@ function setCachedPartialDerivative(key: string, value: CompiledPartialDerivativ
 }
 
 export function compilePartialDerivative(input: PartialDerivativeInput): CompiledPartialDerivative {
-  const { expression, variable, params } = input;
+  // S22 PART 28: input.params stays in the public signature (callers pass
+  // their snapshot for API stability) but never enters the cache key —
+  // evaluators read values from the caller scope at evaluation time.
+  const { expression, variable } = input;
   const allowedSymbols = input.allowedSymbols ?? [];
-  const cacheKey = makePartialDerivativeCacheKey(expression, variable, allowedSymbols, params);
+  const cacheKey = makePartialDerivativeCacheKey(expression, variable, allowedSymbols);
   const cached = getCachedPartialDerivative(cacheKey);
   if (cached) {
     return cached;

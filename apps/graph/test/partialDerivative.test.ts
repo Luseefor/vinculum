@@ -102,12 +102,14 @@ describe("compilePartialDerivative (S21 Slice 1)", () => {
     ).toMatch(/symbol/i);
   });
 
-  it("caches by expression, variable, and parameter snapshot", () => {
+  it("caches by expression, variable, and symbol policy — never by parameter values", () => {
     const first = compilePartialDerivative({ expression: "x^2", variable: "x", allowedSymbols: ["x"], params: {} });
     const second = compilePartialDerivative({ expression: "x^2", variable: "x", allowedSymbols: ["x"], params: {} });
     expect(second).toBe(first);
     const otherVar = compilePartialDerivative({ expression: "x^2", variable: "y", allowedSymbols: ["x", "y"], params: {} });
     expect(otherVar).not.toBe(first);
+    // S22 PART 28: parameter VALUES ride the evaluation scope, not the
+    // cache key — same entry serves both snapshots with correct values.
     const otherParams = compilePartialDerivative({
       expression: "a*x",
       variable: "x",
@@ -120,6 +122,17 @@ describe("compilePartialDerivative (S21 Slice 1)", () => {
       allowedSymbols: ["a", "x"],
       params: { a: 2 }
     });
-    expect(otherParams2).not.toBe(otherParams);
+    expect(otherParams2).toBe(otherParams);
+    // d/dx(a*x) = a: the shared entry evaluates each snapshot correctly.
+    expect(otherParams.evaluate({ a: 1, x: 5 })).toBeCloseTo(1, 12);
+    expect(otherParams.evaluate({ a: 2, x: 5 })).toBeCloseTo(2, 12);
+    // Different symbol policies still compile separately.
+    const otherPolicy = compilePartialDerivative({
+      expression: "a*x",
+      variable: "x",
+      allowedSymbols: ["a", "x", "y"],
+      params: { a: 1 }
+    });
+    expect(otherPolicy).not.toBe(otherParams);
   });
 });

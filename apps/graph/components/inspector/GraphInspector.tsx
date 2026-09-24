@@ -11,6 +11,7 @@ import {
 } from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
+import VectorCalculusSection from "./VectorCalculusSection";
 
 export default function GraphInspector() {
   const objects = useGraphStore((state) => state.scene.objects);
@@ -199,6 +200,9 @@ function VectorFieldInspector({ object, objects }: { object: VectorFieldObject; 
             className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           />
         </label>
+      </div>
+      <div className="mt-3">
+        <VectorCalculusSection object={object} />
       </div>
     </section>
   );

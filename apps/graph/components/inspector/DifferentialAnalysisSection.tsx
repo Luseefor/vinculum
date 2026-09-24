@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import { resolveAnalysisSectionModel } from "./differentialAnalysisSectionModel";
-import type { SurfaceGradient } from "@/lib/math/surfaceDifferential";
+import { computeDirectionalDerivative, type SurfaceGradient } from "@/lib/math/surfaceDifferential";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 interface DifferentialAnalysisSectionProps {
   object: SurfaceGraphObject | ImplicitSurfaceObject;
@@ -99,6 +101,9 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
           <p className="break-words font-mono text-[12px] text-[var(--text-secondary)]">
             Tangent: {formatPlaneEquation(model.gradient, model.point)}
           </p>
+          {object.kind === "surface" && (
+            <DirectionalDerivativeBlock key={object.id} object={object} point={model.point} />
+          )}
           <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
             <span className="text-[12px] text-[var(--text-secondary)]">Show normal</span>
             <Switch
@@ -153,6 +158,134 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
         </div>
       )}
     </section>
+  );
+}
+
+// S22 directional derivative for explicit surfaces only (PART 14/16).
+// D_u f = ∇f · û where ∇f is the scalar-function gradient in independent
+// variables — distinct from the level-set normal above. Direction inputs
+// use independent-variable components, normalize internally, and change
+// zero worker jobs (pure re-evaluation). Zero direction is a compact
+// diagnostic, never NaN.
+function DirectionalDerivativeBlock({
+  object,
+  point
+}: {
+  object: SurfaceGraphObject;
+  point: { x: number; y: number; z: number };
+}) {
+  const stored = useGraphStore((state) => state.ui.directionInputBySourceId[object.id]);
+  const setDirectionInput = useGraphStore((state) => state.setDirectionInput);
+  const editorParameters = useEditorStore((state) => state.parameters);
+  const [drafts, setDrafts] = useState<{ u?: string; v?: string }>({});
+
+  const orientation = object.orientation ?? "z";
+  const vars: [string, string] =
+    orientation === "x" ? ["y", "z"] : orientation === "y" ? ["x", "z"] : ["x", "y"];
+
+  const direction = stored ?? { u: NaN, v: NaN };
+  const hasDirection = Number.isFinite(direction.u) && Number.isFinite(direction.v);
+
+  const outcome = useMemo(() => {
+    if (!hasDirection) {
+      return null;
+    }
+    return computeDirectionalDerivative(object, point, getEditorParameterScope(), {
+      u: direction.u,
+      v: direction.v
+    });
+    // Recompute on direction, point, source equation/orientation, and
+    // parameter values (live recompute, no invalidation needed).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [object.equation, orientation, point.x, point.y, point.z, direction.u, direction.v, editorParameters]);
+
+  const commit = (key: "u" | "v", raw: string) => {
+    const value = Number(raw);
+    if (raw.trim() === "" || !Number.isFinite(value)) {
+      return;
+    }
+    const next = {
+      u: key === "u" ? value : (stored?.u ?? 0),
+      v: key === "v" ? value : (stored?.v ?? 0)
+    };
+    if (key !== "u" && !Number.isFinite(stored?.u)) {
+      next.u = 0;
+    }
+    if (key !== "v" && !Number.isFinite(stored?.v)) {
+      next.v = 0;
+    }
+    setDirectionInput(object.id, next);
+  };
+
+  return (
+    <div data-testid="directional-derivative" className="flex flex-col gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+        Directional derivative
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        {(["u", "v"] as const).map((key, index) => (
+          <label key={key} className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              d{vars[index]}
+            </span>
+            <Input
+              type="number"
+              step="any"
+              value={drafts[key] ?? (Number.isFinite(direction[key]) ? String(direction[key]) : "")}
+              aria-label={`Direction ${vars[index]}`}
+              onChange={(event) => {
+                const next = event.target.value;
+                setDrafts((prev) => ({ ...prev, [key]: next }));
+                if (next.trim() !== "" && Number.isFinite(Number(next))) {
+                  commit(key, next);
+                }
+              }}
+              onBlur={() => setDrafts((prev) => ({ ...prev, [key]: undefined }))}
+              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            />
+          </label>
+        ))}
+      </div>
+      {!hasDirection && (
+        <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
+          Enter a direction in ({vars[0]}, {vars[1]}).
+        </p>
+      )}
+      {outcome !== null && outcome.status === "ok" && (
+        <div className="flex flex-col gap-1" role="status" aria-label="Directional derivative result">
+          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
+            Function gradient (direction of maximum increase) = &lt;{formatNumber(outcome.gradient.g1)},{" "}
+            {formatNumber(outcome.gradient.g2)}&gt;
+          </p>
+          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
+            Unit direction = &lt;{formatNumber(outcome.unitDirection.u)}, {formatNumber(outcome.unitDirection.v)}&gt;
+          </p>
+          <p data-testid="directional-derivative-value" className="font-mono text-[12px] text-[var(--text-secondary)]">
+            D = {formatNumber(outcome.value)}
+          </p>
+        </div>
+      )}
+      {outcome !== null && outcome.status === "zero-direction" && (
+        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          Direction must be nonzero.
+        </p>
+      )}
+      {outcome !== null && outcome.status === "derivative-unavailable" && (
+        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          Directional derivative unavailable for this expression.
+        </p>
+      )}
+      {outcome !== null && outcome.status === "non-finite" && (
+        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          Derivatives are not finite at this point.
+        </p>
+      )}
+      {outcome !== null && outcome.status === "invalid-source" && (
+        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          Fix the source equation to enable directional derivatives.
+        </p>
+      )}
+    </div>
   );
 }
 

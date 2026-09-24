@@ -97,6 +97,14 @@ export interface GraphStoreState {
     flags: { showNormal?: boolean; showTangent?: boolean }
   ) => void;
   clearDifferentialAnalysis: (sourceId?: string) => void;
+  setVectorCalculusPoint: (
+    sourceId: string,
+    point: { x: number; y: number; z: number },
+    structure: string
+  ) => void;
+  setVectorCalculusOverlays: (sourceId: string, flags: { showCurl?: boolean }) => void;
+  clearVectorCalculus: (sourceId?: string) => void;
+  setDirectionInput: (sourceId: string, input: { u: number; v: number } | null) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

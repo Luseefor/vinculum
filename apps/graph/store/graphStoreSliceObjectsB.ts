@@ -1,6 +1,6 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
-import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
+import { clearAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceB(set: GraphStoreSet): Pick<
@@ -91,7 +91,7 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...pruneAnalysisForSourceId(state.ui, id),
+            ...clearAnalysisAndVectorCalculus(state.ui, id),
             selectedObjectId: nextSelectedObjectId,
             focusEquationForObjectId:
               state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId

@@ -12,7 +12,7 @@ import {
   createGraphObject,
   isGraphObjectWithoutExpressions
 } from "./graphStoreObjectFactory";
-import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
+import { clearAnalysisAndVectorCalculus } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
@@ -94,15 +94,18 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         }
 
         const currentObject = state.scene.objects[index];
-        if (currentObject.kind === kind) {
-          return state;
-        }
-
         // Vector conversions need a dimension: explicit choice wins, else
         // preserve the current field's dimension, else default to 2D.
         const vectorDimension =
           dimension ??
           (currentObject.kind === "vectorField" ? currentObject.dimension : "2d");
+        const currentDimension =
+          currentObject.kind === "vectorField" ? currentObject.dimension : null;
+        // Same kind AND same dimension: nothing to convert (S22: a 2D<->3D
+        // dimension switch rebuilds defaults and clears attached analysis).
+        if (currentObject.kind === kind && (currentDimension === null || vectorDimension === currentDimension)) {
+          return state;
+        }
         const objectOptions = {
           id: currentObject.id,
           color: currentObject.color,
@@ -123,7 +126,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: pruneAnalysisForSourceId(state.ui, id)
+          ui: clearAnalysisAndVectorCalculus(state.ui, id)
         };
       });
     }

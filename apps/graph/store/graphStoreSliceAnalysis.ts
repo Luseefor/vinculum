@@ -31,6 +31,60 @@ export function analysisSourceIdentity(object: GraphObject): string | null {
   return `${base}|${object.equation}|${domainSig}|${object.resolution}`;
 }
 
+// S22 math-only vector-field identity for calculus records. Covers the
+// mathematical function only: kind, id, dimension, component expressions,
+// domain, and parameter KEYS (sorted). Deliberately excludes density,
+// scale, normalize, color, visibility (PART 8/33: render/sampling config
+// never invalidates calculus) and parameter VALUES (PART 9: value changes
+// recompute live at the same point). Domain edits invalidate (PART 34:
+// deliberate simplicity over containment-retain). Returns null for
+// non-vector kinds.
+export function vectorCalculusSourceIdentity(object: GraphObject, paramKeys?: string[]): string | null {
+  if (object.kind !== "vectorField") {
+    return null;
+  }
+  const keys = [...(paramKeys ?? [])].sort().join(",");
+  return `vectorField|${object.id}|${object.dimension}|${object.pExpr}|${object.qExpr}|${object.rExpr}|${JSON.stringify(object.domain)}|${keys}`;
+}
+
+// Drops the vector-calculus record for one source id. Same-ref no-op when
+// absent (keeps render-only edits cheap for subscribers).
+export function pruneVectorCalculusForSourceId(ui: GraphUiState, sourceId: string): GraphUiState {
+  if (!ui.vectorCalculusBySourceId[sourceId]) {
+    return ui;
+  }
+  const nextRecords = { ...ui.vectorCalculusBySourceId };
+  delete nextRecords[sourceId];
+  return { ...ui, vectorCalculusBySourceId: nextRecords };
+}
+
+export function clearAllVectorCalculus(ui: GraphUiState): GraphUiState {
+  if (
+    Object.keys(ui.vectorCalculusBySourceId).length === 0 &&
+    Object.keys(ui.directionInputBySourceId).length === 0
+  ) {
+    return ui;
+  }
+  return { ...ui, vectorCalculusBySourceId: {}, directionInputBySourceId: {} };
+}
+
+function pruneDirectionInput(ui: GraphUiState, sourceId: string): GraphUiState {
+  if (!ui.directionInputBySourceId[sourceId]) {
+    return ui;
+  }
+  const next = { ...ui.directionInputBySourceId };
+  delete next[sourceId];
+  return { ...ui, directionInputBySourceId: next };
+}
+
+export function clearAnalysisAndVectorCalculus(ui: GraphUiState, sourceId: string): GraphUiState {
+  return pruneDirectionInput(pruneVectorCalculusForSourceId(pruneAnalysisForSourceId(ui, sourceId), sourceId), sourceId);
+}
+
+export function clearAllAnalysisAndVectorCalculus(ui: GraphUiState): GraphUiState {
+  return clearAllVectorCalculus(clearAllAnalysis(ui));
+}
+
 export type AnalysisFreshness = "current" | "stale-structure" | "pending-compute";
 
 // Pure freshness resolver shared by the overlay sync and (via tests) the
@@ -86,6 +140,10 @@ export function buildAnalysisSlice(set: GraphStoreSet): Pick<
   | "setDifferentialAnalysisPoint"
   | "setDifferentialAnalysisOverlays"
   | "clearDifferentialAnalysis"
+  | "setVectorCalculusPoint"
+  | "setVectorCalculusOverlays"
+  | "clearVectorCalculus"
+  | "setDirectionInput"
 > {
   return {
     armDifferentialAnalysisPick: (sourceId) => {
@@ -149,6 +207,73 @@ export function buildAnalysisSlice(set: GraphStoreSet): Pick<
         }
         const nextUi = clearAllAnalysis(state.ui);
         return nextUi === state.ui ? state : { ui: nextUi };
+      });
+    },
+
+    setVectorCalculusPoint: (sourceId, point, structure) => {
+      set((state) => ({
+        ui: {
+          ...state.ui,
+          vectorCalculusBySourceId: {
+            ...state.ui.vectorCalculusBySourceId,
+            [sourceId]: {
+              sourceId,
+              point: { ...point },
+              structure,
+              showCurl: state.ui.vectorCalculusBySourceId[sourceId]?.showCurl ?? false
+            }
+          }
+        }
+      }));
+    },
+
+    setVectorCalculusOverlays: (sourceId, flags) => {
+      set((state) => {
+        const record = state.ui.vectorCalculusBySourceId[sourceId];
+        if (!record) {
+          return state;
+        }
+        return {
+          ui: {
+            ...state.ui,
+            vectorCalculusBySourceId: {
+              ...state.ui.vectorCalculusBySourceId,
+              [sourceId]: { ...record, showCurl: flags.showCurl ?? record.showCurl }
+            }
+          }
+        };
+      });
+    },
+
+    clearVectorCalculus: (sourceId) => {
+      set((state) => {
+        if (sourceId) {
+          const nextUi = pruneVectorCalculusForSourceId(state.ui, sourceId);
+          return nextUi === state.ui ? state : { ui: nextUi };
+        }
+        const nextUi = clearAllVectorCalculus(state.ui);
+        return nextUi === state.ui ? state : { ui: nextUi };
+      });
+    },
+
+    setDirectionInput: (sourceId, input) => {
+      set((state) => {
+        if (input === null) {
+          const nextUi = pruneDirectionInput(state.ui, sourceId);
+          return nextUi === state.ui ? state : { ui: nextUi };
+        }
+        if (!Number.isFinite(input.u) || !Number.isFinite(input.v)) {
+          return state;
+        }
+        return {
+          ui: {
+            ...state.ui,
+            directionInputBySourceId: {
+              ...state.ui.directionInputBySourceId,
+              [sourceId]: { u: input.u, v: input.v }
+            }
+          }
+        };
       });
     }
   };
