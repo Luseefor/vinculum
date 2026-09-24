@@ -54,6 +54,8 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     sketchExtendFraction: 0.15,
     sketchAutoCreate: true,
     snapEnabled: true,
-    snapStep: 0.25
+    snapStep: 0.25,
+    differentialAnalysisBySourceId: {},
+    differentialAnalysisPickArmedId: null
   };
 }

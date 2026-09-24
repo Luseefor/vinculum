@@ -105,6 +105,25 @@ export interface GraphUiState {
   snapEnabled: boolean;
   /** Snap grid spacing in math units for probe/sketch interactions. */
   snapStep: number;
+  /**
+   * S21 transient differential-analysis records keyed by source object id.
+   * Probe-like inspection state: point (math coords), the source structure
+   * captured at pick, and overlay flags. Never serialized (see persist
+   * partialize); computed derivatives are recomputed live, never stored.
+   */
+  differentialAnalysisBySourceId: Record<string, DifferentialAnalysisState>;
+  /** Source id awaiting the next surface click, or null when not picking. */
+  differentialAnalysisPickArmedId: string | null;
+}
+
+export interface DifferentialAnalysisState {
+  sourceId: string;
+  /** Canonical math coordinates (worldToMath3D applied once at pick). */
+  point: { x: number; y: number; z: number };
+  /** Math-only source identity at pick (see analysisSourceIdentity). */
+  structure: string;
+  showNormal: boolean;
+  showTangent: boolean;
 }
 
 export interface ExpressionValidationState {

@@ -291,7 +291,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const inputMutable = {
     isSketching: false,
     hoverProbePoint: null as { x: number; y: number; z: number } | null,
-    sketchPoints: [] as { x: number; y: number; z: number }[]
+    sketchPoints: [] as { x: number; y: number; z: number }[],
+    analysisPickDown: null as { x: number; y: number } | null
   };
 
   const sketchGeometry = new BufferGeometry();
@@ -312,6 +313,11 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   scene.add(measurementMarkersRoot);
   const measurementLines: Line[] = [];
   const measurementLabels: CSS2DObject[] = [];
+  // S21: dedicated scene-level root for derived analysis overlays (never
+  // in objectsRoot, never in the canonical object sync).
+  const analysisOverlayRoot = new Group();
+  scene.add(analysisOverlayRoot);
+  const analysisOverlayCache = new Map<string, { key: string; group: Group }>();
 
   const hoverMarker = new Mesh(
     new SphereGeometry(0.08, 10, 10),
@@ -594,10 +600,10 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     basePointerDown(event);
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (event: PointerEvent) => {
     releaseOrthoPointerCapture();
     multiViewPointerUp(multiView);
-    basePointerUp();
+    basePointerUp(event);
   };
 
   const handlePointerLeave = () => {
@@ -647,6 +653,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     measurementMarkersRoot,
     measurementLines,
     measurementLabels,
+    analysisOverlayRoot,
+    analysisOverlayCache,
     hoverMarker,
     getHoverProbePoint: () => inputMutable.hoverProbePoint,
     axesGroup,
@@ -805,6 +813,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         measurementMarkersRoot,
         measurementLines,
         measurementLabels,
+        analysisOverlayRoot,
+        analysisOverlayCache,
         hoverMarker,
         gridMesh,
         gridMaterial,

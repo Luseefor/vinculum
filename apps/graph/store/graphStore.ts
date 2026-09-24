@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
+import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
 import { buildObjectsSliceB } from "./graphStoreSliceObjectsB";
 import { buildObjectsSliceExpr } from "./graphStoreSliceObjectsExpr";
 import { buildObjectsSliceInsert } from "./graphStoreSliceObjectsInsert";
@@ -31,6 +32,7 @@ export const useGraphStore = create<GraphStoreState>()(
       scene: initialScene,
       ui: createInitialUiState(initialScene.objects[0]?.id ?? null),
       cameraResetVersion: 0,
+      ...buildAnalysisSlice(set),
       ...buildObjectsSliceInsert(set),
       ...buildObjectsSliceExpr(set),
       ...buildObjectsSliceB(set),
@@ -52,6 +54,11 @@ export const useGraphStore = create<GraphStoreState>()(
           ...state.ui,
           // Transient interaction requests never persist across sessions.
           focusEquationForObjectId: null,
+          // S21: differential analysis is probe-like inspection state.
+          // The point, captured structure, and arming never persist;
+          // derivatives recompute live after reload when still valid.
+          differentialAnalysisBySourceId: {},
+          differentialAnalysisPickArmedId: null,
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

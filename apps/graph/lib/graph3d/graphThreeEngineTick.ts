@@ -16,6 +16,10 @@ import {
 } from "@/lib/performance/performanceMetrics";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
+import { updateAnalysisOverlays } from "./buildAnalysisOverlays";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
+import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
 import {
   renderGeometryMultiViewPanes,
@@ -49,6 +53,8 @@ export type GraphThreeEngineTickDeps = {
   measurementMarkersRoot: Group;
   measurementLines: import("three").Line[];
   measurementLabels: CSS2DObject[];
+  analysisOverlayRoot: Group;
+  analysisOverlayCache: Map<string, { key: string; group: Group }>;
   hoverMarker: Mesh;
   getHoverProbePoint: () => { x: number; y: number; z: number } | null;
   axesGroup: Group;
@@ -83,6 +89,8 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     measurementMarkersRoot,
     measurementLines,
     measurementLabels,
+    analysisOverlayRoot,
+    analysisOverlayCache,
     hoverMarker,
     getHoverProbePoint,
     axesGroup,
@@ -182,6 +190,22 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       applyThemeToScene(domTheme);
       runtime.objectsDirty = true;
     }
+    // S21: derived analysis overlays (normal + tangent patch) for picked
+    // surface points. Reads transient store records; rebuilds only on
+    // input change; never touches object sync or the compute manager.
+    updateAnalysisOverlays({
+      analyses: uiState.differentialAnalysisBySourceId,
+      objects: storeState.scene.objects,
+      objectNodes,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      theme: domTheme,
+      params: getEditorParameterScope(),
+      tokens: getGraphThemeTokens(domTheme),
+      computeStatusOf: (sourceId) =>
+        useGeometryComputeStore.getState().entries[sourceId]?.status ?? "idle",
+      clearAnalysis: (sourceId) => useGraphStore.getState().clearDifferentialAnalysis(sourceId)
+    });
 
     const camVersion = useGraphStore.getState().cameraResetVersion;
     if (camVersion !== runtime.lastCameraResetVersion) {

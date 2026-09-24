@@ -12,6 +12,7 @@ import {
   createGraphObject,
   isGraphObjectWithoutExpressions
 } from "./graphStoreObjectFactory";
+import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
@@ -121,7 +122,8 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     }

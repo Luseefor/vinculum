@@ -20,6 +20,8 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   measurementMarkersRoot: Group;
   measurementLines: Line[];
   measurementLabels: CSS2DObject[];
+  analysisOverlayRoot: Group;
+  analysisOverlayCache: Map<string, { key: string; group: Group }>;
   hoverMarker: Mesh;
   gridMesh: Mesh;
   gridMaterial: ShaderMaterial;
@@ -54,6 +56,8 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     measurementMarkersRoot,
     measurementLines,
     measurementLabels,
+    analysisOverlayRoot,
+    analysisOverlayCache,
     hoverMarker,
     gridMesh,
     gridMaterial,
@@ -119,6 +123,14 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     }
   }
   scene.remove(measurementMarkersRoot);
+
+  // S21: derived analysis overlays (cached groups disposed with the engine).
+  for (const [, cached] of analysisOverlayCache) {
+    analysisOverlayRoot.remove(cached.group);
+    disposeObject3D(cached.group);
+  }
+  analysisOverlayCache.clear();
+  scene.remove(analysisOverlayRoot);
 
   hoverMarker.geometry.dispose();
   (hoverMarker.material as MeshBasicMaterial).dispose();

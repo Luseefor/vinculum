@@ -24,15 +24,10 @@ export function pickWorldPointFromCanvasPointer(
   event: { clientX: number; clientY: number },
   args: PickWorldFromCanvasArgs
 ): { x: number; y: number; z: number } | null {
-  const { renderer, camera, raycaster, ndc, objectsRoot, baselinePlane, tempGround } = args;
-  const activeCamera = args.pickOverride?.camera ?? camera;
-  const rect = args.pickOverride?.rect ?? renderer.domElement.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) {
+  if (!setPickRaycaster(event, args)) {
     return null;
   }
-  ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(ndc, activeCamera);
+  const { raycaster, objectsRoot, baselinePlane, tempGround } = args;
 
   const hits = raycaster.intersectObjects(objectsRoot.children, true);
   for (const hit of hits) {
@@ -45,4 +40,22 @@ export function pickWorldPointFromCanvasPointer(
     return { x: tempGround.x, y: tempGround.y, z: tempGround.z };
   }
   return null;
+}
+
+// Shared pointer→ray setup (S21: reused by the analysis pick path so both
+// pickers share NDC scoping, multi-view overrides, and degenerate guards).
+export function setPickRaycaster(
+  event: { clientX: number; clientY: number },
+  args: PickWorldFromCanvasArgs
+): boolean {
+  const { renderer, camera, raycaster, ndc } = args;
+  const activeCamera = args.pickOverride?.camera ?? camera;
+  const rect = args.pickOverride?.rect ?? renderer.domElement.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) {
+    return false;
+  }
+  ndc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  ndc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, activeCamera);
+  return true;
 }

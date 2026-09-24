@@ -2,6 +2,7 @@ import { applySceneCommand } from "@/lib/scene/applyCommand";
 import type { SceneCommand } from "@/lib/scene/commands";
 import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import { findObjectById } from "./graphStoreSelection";
+import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
 import { normalizeHexColor, sanitizePartialDomain } from "./graphStoreSanitize";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
@@ -64,7 +65,8 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -93,7 +95,8 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -106,6 +109,8 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
         }
 
         if (object.kind === "surface" || object.kind === "parametricSurface" || object.kind === "implicitSurface") {
+          // S21: wireframe is appearance-only (excluded from analysis
+          // identity), so unlike domain/resolution it retains analysis.
           return {
             scene: applySceneCommand(state.scene, {
               type: "UPDATE_OBJECT",

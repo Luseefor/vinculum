@@ -86,6 +86,17 @@ export interface GraphStoreState {
   removeObject: (id: string) => void;
   requestEquationFocus: (id: string) => void;
   clearEquationFocus: () => void;
+  armDifferentialAnalysisPick: (sourceId: string | null) => void;
+  setDifferentialAnalysisPoint: (
+    sourceId: string,
+    point: { x: number; y: number; z: number },
+    structure: string
+  ) => void;
+  setDifferentialAnalysisOverlays: (
+    sourceId: string,
+    flags: { showNormal?: boolean; showTangent?: boolean }
+  ) => void;
+  clearDifferentialAnalysis: (sourceId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

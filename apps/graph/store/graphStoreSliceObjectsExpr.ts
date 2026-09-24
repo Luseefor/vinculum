@@ -5,6 +5,7 @@ import { updateImplicitSurfaceField } from "./graphStoreImplicitSurfaceField";
 import { updateParametricCurveField } from "./graphStoreParametricField";
 import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField";
 import { updateVectorFieldField } from "./graphStoreVectorFieldField";
+import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
@@ -30,7 +31,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -53,7 +57,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -78,7 +85,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -103,7 +113,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -128,7 +141,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -153,7 +169,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
@@ -176,7 +195,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         };
 
         return {
-          scene: applySceneCommand(state.scene, command)
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     }

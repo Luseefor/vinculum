@@ -1,5 +1,6 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
+import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceB(set: GraphStoreSet): Pick<
@@ -50,10 +51,16 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
           return state;
         }
 
+        // S21: selecting away from an armed pick source disarms (the
+        // Inspector context moved; a stale armed mode would confuse).
+        const armedId = state.ui.differentialAnalysisPickArmedId;
+        const disarm = armedId !== null && armedId !== id;
+
         return {
           ui: {
             ...state.ui,
-            selectedObjectId: id
+            selectedObjectId: id,
+            differentialAnalysisPickArmedId: disarm ? null : armedId
           }
         };
       });
@@ -84,7 +91,7 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...state.ui,
+            ...pruneAnalysisForSourceId(state.ui, id),
             selectedObjectId: nextSelectedObjectId,
             focusEquationForObjectId:
               state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId

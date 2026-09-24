@@ -204,6 +204,11 @@ export default function EditorShell() {
       if (!(activeTool === "pan" || activeTool === "probe")) {
         return;
       }
+      // S21: an armed analysis pick owns the click (selection stays so the
+      // Inspector keeps showing values after the point lands).
+      if (useGraphStore.getState().ui.differentialAnalysisPickArmedId !== null) {
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
@@ -341,6 +346,14 @@ export default function EditorShell() {
         // downstream effect subscriptions such as drawer Escape handlers).
         setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
         setContextMenu((state) => (state.open ? { ...state, open: false } : state));
+        // S21: Escape cancels an armed analysis pick (guard typing targets:
+        // an Escape inside an equation input reverts the draft instead).
+        if (!isTypingTarget(event.target)) {
+          const armedId = useGraphStore.getState().ui.differentialAnalysisPickArmedId;
+          if (armedId !== null) {
+            useGraphStore.getState().armDifferentialAnalysisPick(null);
+          }
+        }
         return;
       }
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {

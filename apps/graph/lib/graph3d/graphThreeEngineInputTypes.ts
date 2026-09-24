@@ -7,6 +7,9 @@ export type GraphThreeEngineInputMutableState = {
   isSketching: boolean;
   hoverProbePoint: { x: number; y: number; z: number } | null;
   sketchPoints: { x: number; y: number; z: number }[];
+  // S21: pointerdown anchor for the armed analysis pick (clean-click
+  // detection: a drag orbits instead of picking).
+  analysisPickDown: { x: number; y: number } | null;
 };
 
 export type PanePickContext = {
