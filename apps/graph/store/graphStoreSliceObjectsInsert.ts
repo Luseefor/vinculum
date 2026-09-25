@@ -13,6 +13,8 @@ import {
   isGraphObjectWithoutExpressions
 } from "./graphStoreObjectFactory";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
+import { clearIntegralFieldSelection, integralSourcesReferencingField } from "./graphStoreSliceIntegral";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
@@ -117,8 +119,11 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
         // S23: kind switches drop cached scalar grids with the config.
         // S24: same for cached streamlines (no stale trajectories).
+        // S25: same for integral results; referencing configs lose their
+        // field selection below.
         useScalarVizResultsStore.getState().removeForSource(id);
         useStreamlineResultsStore.getState().removeForSource(id);
+        useIntegralResultsStore.getState().removeForSource(id);
         const replacement = isGraphObjectWithoutExpressions(currentObject)
           ? createEmptyGraphObject(kind, index, objectOptions)
           : createGraphObject(kind, index, objectOptions);
@@ -130,9 +135,12 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
           }
         };
 
+        for (const sourceId of integralSourcesReferencingField(state.ui, id)) {
+          useIntegralResultsStore.getState().removeForSource(sourceId);
+        }
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: clearAllDerivedForSource(state.ui, id)
+          ui: clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, id), id)
         };
       });
     }

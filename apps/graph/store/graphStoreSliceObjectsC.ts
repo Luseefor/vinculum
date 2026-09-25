@@ -4,6 +4,7 @@ import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import { findObjectById } from "./graphStoreSelection";
 import { pruneAnalysisForSourceId } from "./graphStoreSliceAnalysis";
 import { pruneScalarVizForSourceId } from "./graphStoreSliceScalarViz";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { normalizeHexColor, sanitizePartialDomain } from "./graphStoreSanitize";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
@@ -47,7 +48,10 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
     updateSurfaceDomain: (id, partialDomain) => {
       const sanitizedDomain = sanitizePartialDomain(partialDomain);
       // S23: domain commits move the scalar grid (config pruned here).
+      // S25: integral results drop (config kept for auto-recompute; this
+      // is canonical domain, not tessellation, so PART 39 keeps it live).
       useScalarVizResultsStore.getState().removeForSource(id);
+      useIntegralResultsStore.getState().removeForSource(id);
       set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "surface") {
@@ -99,6 +103,8 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
 
         // S23: object resolution never invalidates scalar viz (grids use
         // fixed internal resolutions), unlike the S21 mesh analysis below.
+        // S25: integral analysis likewise (PART 39 pin — tessellation is
+        // not canonical math).
         return {
           scene: applySceneCommand(state.scene, command),
           ui: pruneAnalysisForSourceId(state.ui, id)

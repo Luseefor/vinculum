@@ -1,6 +1,8 @@
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
+import { clearIntegralFieldSelection, integralSourcesReferencingField } from "./graphStoreSliceIntegral";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
@@ -71,8 +73,11 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
     removeObject: (id) => {
       // S23: drop cached scalar grids beside the config (no orphan heat).
       // S24: same for cached streamlines (no orphan lines).
+      // S25: same for integral results; configs referencing the deleted
+      // field are handled inside the updater (needs live ui).
       useScalarVizResultsStore.getState().removeForSource(id);
       useStreamlineResultsStore.getState().removeForSource(id);
+      useIntegralResultsStore.getState().removeForSource(id);
       set((state) => {
         const removeIndex = state.scene.objects.findIndex((object) => object.id === id);
         if (removeIndex === -1) {
@@ -94,10 +99,16 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
             ? fallbackObject?.id ?? null
             : resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects);
 
+        // S25 PART 41: work/flux configs referencing the deleted field
+        // lose their selection (no stale numbers); their cached results
+        // drop alongside.
+        for (const sourceId of integralSourcesReferencingField(state.ui, id)) {
+          useIntegralResultsStore.getState().removeForSource(sourceId);
+        }
         return {
           scene: nextScene,
           ui: {
-            ...clearAllDerivedForSource(state.ui, id),
+            ...clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, id), id),
             selectedObjectId: nextSelectedObjectId,
             focusEquationForObjectId:
               state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId

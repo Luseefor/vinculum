@@ -19,6 +19,7 @@ import type {
   Canvas2DTool,
   Canvas3DTool,
   GraphUiState,
+  IntegralAnalysisConfig,
   ScalarVizConfig,
   SceneDialogMode,
   StreamlineVizConfig,
@@ -119,6 +120,8 @@ export interface GraphStoreState {
     structure: string
   ) => void;
   clearStreamline: (sourceId?: string) => void;
+  setIntegralConfig: (sourceId: string, patch: Partial<Omit<IntegralAnalysisConfig, "sourceId">>) => void;
+  clearIntegralAnalysis: (sourceId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

@@ -2,6 +2,7 @@ import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerived } from "./graphStoreSliceScalarViz";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
@@ -14,9 +15,10 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
   return {
     replaceSceneDocument: (sceneDocument) => {
       // S23: scene replacement drops every cached scalar grid.
-      // S24: same for cached streamlines.
+      // S24: same for cached streamlines. S25: same for integral results.
       useScalarVizResultsStore.getState().clearAll();
       useStreamlineResultsStore.getState().clearAll();
+      useIntegralResultsStore.getState().clearAll();
       set((state) => {
         const nextScene = applySceneCommand(state.scene, {
           type: "REPLACE_SCENE",
@@ -57,9 +59,10 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
     resetScene: () => {
       const defaultScene = createInitialSceneDocument();
       // S23: scene reset drops every cached scalar grid.
-      // S24: same for cached streamlines.
+      // S24: same for cached streamlines. S25: same for integral results.
       useScalarVizResultsStore.getState().clearAll();
       useStreamlineResultsStore.getState().clearAll();
+      useIntegralResultsStore.getState().clearAll();
 
       set((state) => ({
         scene: applySceneCommand(state.scene, {

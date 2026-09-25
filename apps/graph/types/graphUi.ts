@@ -135,12 +135,42 @@ export interface GraphUiState {
    */
   streamlineVizBySourceId: Record<string, StreamlineVizConfig>;
   /**
+   * S25 transient integral-analysis configs keyed by target object id.
+   * One active mode per target (PART 19): mode, committed scalar
+   * integrand text, referenced vector-field id, quality, and
+   * direction/orientation signs. Computed numbers live in the integral
+   * result cache, never here and never serialized.
+   */
+  integralAnalysisBySourceId: Record<string, IntegralAnalysisConfig>;
+  /**
    * S23 transient scalar-visualization configs keyed by source id.
    * Toggles and numeric settings only — computed grids live in the
    * scalar-result cache, never here and never serialized. 2D fields use
    * the heat/contour/gradient half; implicit sources use the slice half.
    */
   scalarVizBySourceId: Record<string, ScalarVizConfig>;
+}
+
+export type IntegralAnalysisMode =
+  | "arcLength"
+  | "scalarLine"
+  | "work"
+  | "surfaceArea"
+  | "scalarSurface"
+  | "flux";
+
+export interface IntegralAnalysisConfig {
+  sourceId: string;
+  mode: IntegralAnalysisMode;
+  /** Committed scalar integrand text ("" when the mode needs none). */
+  scalarIntegrand: string;
+  /** Referenced canonical vector-field id (null when mode needs none). */
+  vectorFieldId: string | null;
+  quality: "low" | "medium" | "high";
+  /** Curve traversal: 1 forward (increasing t), -1 reverse. */
+  direction: 1 | -1;
+  /** Flux orientation: 1 native, -1 reversed. */
+  orientationSign: 1 | -1;
 }
 
 export interface StreamlineVizConfig {

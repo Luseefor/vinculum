@@ -1,5 +1,6 @@
 import { compile } from "mathjs";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getParamScopeSignature } from "./paramScope";
 import { validateExpressionSafety } from "./expressionSafety";
 
 export type ParametricEvaluator = (t: number) => [number, number, number];
@@ -89,7 +90,11 @@ export function compileParametricExpressions(
   return successResult;
 }
 
-function compileAxisExpression(expr: string, label: string) {
+function compileAxisExpression(
+  expr: string,
+  label: string,
+  params?: Record<string, number>
+) {
   const trimmedExpr = expr.trim();
   if (!trimmedExpr) {
     return {
@@ -103,7 +108,7 @@ function compileAxisExpression(expr: string, label: string) {
     const safety = validateExpressionSafety(trimmedExpr, {
       operation: "compile-parametric-axis",
       expressionLabel: label,
-      allowedSymbols: Object.keys(getEditorParameterScope())
+      allowedSymbols: Object.keys(params ?? getEditorParameterScope())
     });
     if (!safety.ok) {
       return {
@@ -130,13 +135,19 @@ function compileAxisExpression(expr: string, label: string) {
   };
 }
 
-function evaluateAxis(expression: CompiledMathExpression | null, t: number): number {
+function evaluateAxis(
+  expression: CompiledMathExpression | null,
+  t: number,
+  params?: Record<string, number>
+): number {
   if (!expression) {
     return Number.NaN;
   }
 
   try {
-    const value = expression.evaluate({ t, ...getEditorParameterScope() });
+    // Locals win over same-named parameters (S19 convention): t always
+    // means the curve parameter inside axis expressions.
+    const value = expression.evaluate({ ...(params ?? getEditorParameterScope()), t });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
   } catch (error) {
@@ -145,6 +156,54 @@ function evaluateAxis(expression: CompiledMathExpression | null, t: number): num
     }
     return Number.NaN;
   }
+}
+
+// S25 explicit-params variant for worker-safe integral geometry. Same
+// axis validation and evaluator semantics as the legacy entry, but the
+// parameter snapshot travels explicitly (S19 rule) and the cache key
+// carries the snapshot signature (the legacy key omits params and is left
+// untouched for existing callers).
+export function compileParametricCurveExpressions(
+  xExpr: string,
+  yExpr: string,
+  zExpr: string,
+  params: Record<string, number>
+): CompiledParametricExpression {
+  // S20-R1: \u0000-delimited segments, never bare concatenation (expression
+  // boundaries must not collide across axes).
+  const cacheKey = [xExpr, yExpr, zExpr, getParamScopeSignature(params)].join("\u0000");
+  const cached = getCachedParametricCompile(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const axes: Array<[string, string]> = [
+    [xExpr, "x(t)"],
+    [yExpr, "y(t)"],
+    [zExpr, "z(t)"]
+  ];
+  const compiledAxes: CompiledMathExpression[] = [];
+  for (const [expr, label] of axes) {
+    const compiled = compileAxisExpression(expr, label, params);
+    if (compiled.error) {
+      const errorResult = { evaluator: NAN_EVALUATOR, error: compiled.error };
+      setCachedParametricCompile(cacheKey, errorResult);
+      return errorResult;
+    }
+    compiledAxes.push(compiled.expression as CompiledMathExpression);
+  }
+  const [xCompiled, yCompiled, zCompiled] = compiledAxes as [
+    CompiledMathExpression,
+    CompiledMathExpression,
+    CompiledMathExpression
+  ];
+  const evaluator: ParametricEvaluator = (t) => [
+    evaluateAxis(xCompiled, t, params),
+    evaluateAxis(yCompiled, t, params),
+    evaluateAxis(zCompiled, t, params)
+  ];
+  const successResult = { evaluator, error: null };
+  setCachedParametricCompile(cacheKey, successResult);
+  return successResult;
 }
 
 function formatExpressionError(error: unknown): string {

@@ -40,7 +40,8 @@ export type GeometryComputeKind =
   | "parametricSurface"
   | "vectorField"
   | "scalarField"
-  | "streamlines";
+  | "streamlines"
+  | "integralAnalysis";
 
 // S23: planar scalar-field job (2D object-domain grids and 3D planar
 // slices share one engine). The payload carries mathematics only —
@@ -143,12 +144,78 @@ export interface StreamlineComputeRequest extends GeometryComputeRequestBase {
   payload: StreamlineComputePayload;
 }
 
+// S25: integral-analysis job. One active mode per target (PART 19), so a
+// single namespaced id per target is safe. The payload carries canonical
+// snapshots only: target math, optional scalar integrand text, optional
+// vector-field snapshot, quality, orientation signs. Presentation (color,
+// theme, tabs) never enters it. Results are plain numbers (PART 22) — no
+// transferable buffers.
+export type IntegralAnalysisMode =
+  | "arcLength"
+  | "scalarLine"
+  | "work"
+  | "surfaceArea"
+  | "scalarSurface"
+  | "flux";
+
+export interface IntegralCurveTargetPayload {
+  kind: "parametricCurve";
+  xExpr: string;
+  yExpr: string;
+  zExpr: string;
+  tMin: number;
+  tMax: number;
+}
+
+export interface IntegralExplicitSurfaceTargetPayload {
+  kind: "surface";
+  equation: string;
+  orientation: "x" | "y" | "z";
+  domain: { xMin: number; xMax: number; yMin: number; yMax: number };
+}
+
+export interface IntegralParametricSurfaceTargetPayload {
+  kind: "parametricSurface";
+  xExpr: string;
+  yExpr: string;
+  zExpr: string;
+  domain: { uMin: number; uMax: number; vMin: number; vMax: number };
+}
+
+export type IntegralTargetPayload =
+  | IntegralCurveTargetPayload
+  | IntegralExplicitSurfaceTargetPayload
+  | IntegralParametricSurfaceTargetPayload;
+
+export interface IntegralFieldPayload {
+  dimension: "2d" | "3d";
+  pExpr: string;
+  qExpr: string;
+  rExpr: string;
+}
+
+export interface IntegralAnalysisPayload {
+  mode: IntegralAnalysisMode;
+  target: IntegralTargetPayload;
+  scalarIntegrand: string;
+  field: IntegralFieldPayload | null;
+  quality: "low" | "medium" | "high";
+  direction: 1 | -1;
+  orientationSign: 1 | -1;
+}
+
+export interface IntegralAnalysisRequest extends GeometryComputeRequestBase {
+  kind: "integralAnalysis";
+  payload: IntegralAnalysisPayload;
+}
+
 export type GeometryComputeRequest =
   | ImplicitSurfaceComputeRequest
   | ParametricSurfaceComputeRequest
   | VectorFieldComputeRequest
   | ScalarFieldComputeRequest
-  | StreamlineComputeRequest;
+  | StreamlineComputeRequest
+  | IntegralAnalysisRequest;
 
 // Uniform mesh result shape carried back to the main thread. Both surface
 // compute paths normalize into this (implicit reports rejectedTriangles: 0;
@@ -221,13 +288,34 @@ export interface StreamlineComputeOkResult {
   evaluationCount: number;
 }
 
+// S25: integral-analysis result. Tiny structured numbers (PART 22) —
+// value, coarse comparison, honest error estimate, evaluation count, and
+// an optional machine-readable reason. No buffers to transfer.
+export interface IntegralAnalysisOkResult {
+  status: "ok";
+  value: number;
+  coarseValue: number;
+  estimatedError: number;
+  convergenceWarning: boolean;
+  evaluationCount: number;
+}
+
+export interface IntegralAnalysisNonOkResult {
+  status: "invalid" | "unsupported" | "budget-exceeded" | "error";
+  error?: string;
+  reason?: string | null;
+  evaluationCount?: number;
+}
+
 export type GeometryComputeResult =
   | GeometryComputeOkResult
   | VectorFieldComputeOkResult
   | ScalarFieldComputeOkResult
   | StreamlineComputeOkResult
+  | IntegralAnalysisOkResult
+  | IntegralAnalysisNonOkResult
   | { status: "empty" }
-  | { status: "budget-exceeded" }
+  | { status: "budget-exceeded"; reason?: string }
   | { status: "error"; error: string };
 
 export interface GeometryComputeResponse {
@@ -444,6 +532,9 @@ export function isGeometryComputeRequest(value: unknown): value is GeometryCompu
   if (value.kind === "streamlines") {
     return isStreamlinePayload(value.payload);
   }
+  if (value.kind === "integralAnalysis") {
+    return isIntegralAnalysisPayload(value.payload);
+  }
   return false;
 }
 
@@ -615,11 +706,122 @@ function isStreamlineResult(value: Record<string, unknown>): boolean {
   return true;
 }
 
+function isIntegralAnalysisOkResult(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.value === "number" &&
+    Number.isFinite(value.value) &&
+    typeof value.coarseValue === "number" &&
+    Number.isFinite(value.coarseValue) &&
+    typeof value.estimatedError === "number" &&
+    Number.isFinite(value.estimatedError) &&
+    typeof value.convergenceWarning === "boolean" &&
+    typeof value.evaluationCount === "number" &&
+    Number.isInteger(value.evaluationCount) &&
+    (value.evaluationCount as number) >= 0
+  );
+}
+
+function isIntegralAnalysisNonOkResult(value: Record<string, unknown>): boolean {
+  if (value.status !== "invalid" && value.status !== "unsupported") {
+    return false;
+  }
+  return (
+    (value.error === undefined || typeof value.error === "string") &&
+    (value.reason === undefined || value.reason === null || typeof value.reason === "string") &&
+    (value.evaluationCount === undefined ||
+      (typeof value.evaluationCount === "number" && Number.isInteger(value.evaluationCount)))
+  );
+}
+
+function isIntegralAnalysisPayload(value: unknown): value is IntegralAnalysisPayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (
+    value.mode !== "arcLength" &&
+    value.mode !== "scalarLine" &&
+    value.mode !== "work" &&
+    value.mode !== "surfaceArea" &&
+    value.mode !== "scalarSurface" &&
+    value.mode !== "flux"
+  ) {
+    return false;
+  }
+  const target = value.target;
+  if (!isRecord(target)) {
+    return false;
+  }
+  if (target.kind === "parametricCurve") {
+    if (
+      typeof target.xExpr !== "string" ||
+      typeof target.yExpr !== "string" ||
+      typeof target.zExpr !== "string" ||
+      !isFiniteNumber(target.tMin) ||
+      !isFiniteNumber(target.tMax)
+    ) {
+      return false;
+    }
+  } else if (target.kind === "surface") {
+    if (
+      typeof target.equation !== "string" ||
+      (target.orientation !== "x" && target.orientation !== "y" && target.orientation !== "z") ||
+      !isRecord(target.domain) ||
+      !isFiniteNumber(target.domain.xMin) ||
+      !isFiniteNumber(target.domain.xMax) ||
+      !isFiniteNumber(target.domain.yMin) ||
+      !isFiniteNumber(target.domain.yMax)
+    ) {
+      return false;
+    }
+  } else if (target.kind === "parametricSurface") {
+    if (
+      typeof target.xExpr !== "string" ||
+      typeof target.yExpr !== "string" ||
+      typeof target.zExpr !== "string" ||
+      !isRecord(target.domain) ||
+      !isFiniteNumber(target.domain.uMin) ||
+      !isFiniteNumber(target.domain.uMax) ||
+      !isFiniteNumber(target.domain.vMin) ||
+      !isFiniteNumber(target.domain.vMax)
+    ) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  if (typeof value.scalarIntegrand !== "string") {
+    return false;
+  }
+  if (value.field !== null) {
+    if (!isRecord(value.field)) {
+      return false;
+    }
+    if (
+      (value.field.dimension !== "2d" && value.field.dimension !== "3d") ||
+      typeof value.field.pExpr !== "string" ||
+      typeof value.field.qExpr !== "string" ||
+      typeof value.field.rExpr !== "string"
+    ) {
+      return false;
+    }
+  }
+  if (value.quality !== "low" && value.quality !== "medium" && value.quality !== "high") {
+    return false;
+  }
+  if ((value.direction !== 1 && value.direction !== -1) || (value.orientationSign !== 1 && value.orientationSign !== -1)) {
+    return false;
+  }
+  return true;
+}
+
 function isComputeResult(value: unknown): value is GeometryComputeResult {
   if (!isRecord(value)) {
     return false;
   }
   if (value.status === "ok") {
+    if ("convergenceWarning" in value || "estimatedError" in value) {
+      return isIntegralAnalysisOkResult(value);
+    }
     if ("offsets" in value || "streamlineCount" in value) {
       return isStreamlineResult(value);
     }
@@ -661,6 +863,9 @@ function isComputeResult(value: unknown): value is GeometryComputeResult {
       value.positions.length % 3 === 0
     );
   }
+  if (value.status === "invalid" || value.status === "unsupported") {
+    return isIntegralAnalysisNonOkResult(value);
+  }
   if (value.status === "empty" || value.status === "budget-exceeded") {
     return true;
   }
@@ -688,7 +893,8 @@ export function isGeometryComputeResponse(value: unknown): value is GeometryComp
     value.kind !== "parametricSurface" &&
     value.kind !== "vectorField" &&
     value.kind !== "scalarField" &&
-    value.kind !== "streamlines"
+    value.kind !== "streamlines" &&
+    value.kind !== "integralAnalysis"
   ) {
     return false;
   }

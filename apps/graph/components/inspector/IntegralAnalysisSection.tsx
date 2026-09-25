@@ -1,0 +1,404 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type {
+  ParametricCurveObject,
+  ParametricSurfaceObject,
+  SurfaceGraphObject,
+  VectorFieldObject
+} from "@vinculum/scene/types";
+import { Input } from "@/components/ui/input";
+import { useGraphStore } from "@/store/graphStore";
+import { useEditorStore } from "@/lib/store/editorStore";
+import { parametersToScope } from "@/lib/store/editorParameters";
+import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
+import { buildIntegralJob, getIntegralSyncContext, syncIntegralAnalysis } from "@/lib/compute/integralSync";
+import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
+import type { IntegralAnalysisConfig, IntegralAnalysisMode } from "@/types/graphUi";
+
+type IntegralTarget =
+  | ParametricCurveObject
+  | SurfaceGraphObject
+  | ParametricSurfaceObject;
+
+// S25 Integral Analysis (Props tab): one active mode per target (PART
+// 19). Arc length and surface area compute automatically once selected;
+// scalar/work/flux modes need a committed integrand or a referenced
+// canonical field (IDs only — expressions are never copied). Integrand
+// text stays a local draft until Enter/blur commits it, so typing never
+// dispatches worker jobs (PART 29 option B, S22 draft convention).
+// Results display only when the stored signature matches the live
+// composite signature — stale numbers can never present as current.
+const CURVE_MODES: Array<{ value: IntegralAnalysisMode; label: string }> = [
+  { value: "arcLength", label: "Arc length" },
+  { value: "scalarLine", label: "Scalar line integral" },
+  { value: "work", label: "Work / circulation" }
+];
+
+const SURFACE_MODES: Array<{ value: IntegralAnalysisMode; label: string }> = [
+  { value: "surfaceArea", label: "Surface area" },
+  { value: "scalarSurface", label: "Scalar surface integral" },
+  { value: "flux", label: "Flux" }
+];
+
+export default function IntegralAnalysisSection({ object }: { object: IntegralTarget }) {
+  const objects = useGraphStore((state) => state.scene.objects);
+  const config = useGraphStore((state) => state.ui.integralAnalysisBySourceId[object.id]);
+  const setConfig = useGraphStore((state) => state.setIntegralConfig);
+  const editorParameters = useEditorStore((state) => state.parameters);
+  const paramScope = useMemo(() => parametersToScope(editorParameters), [editorParameters]);
+  const computeStatus = useGeometryComputeStore(
+    (state) => state.entries[`integral:${object.id}`]?.status ?? "idle"
+  );
+  const computeMessage = useGeometryComputeStore(
+    (state) => state.entries[`integral:${object.id}`]?.message ?? null
+  );
+  const resultEntry = useIntegralResultsStore((state) => state.entries[`integral:${object.id}`]);
+
+  const isCurve = object.kind === "parametricCurve";
+  const modes = isCurve ? CURVE_MODES : SURFACE_MODES;
+  const defaultMode = isCurve ? "arcLength" : "surfaceArea";
+  const mode = config?.mode ?? (defaultMode as IntegralAnalysisMode);
+
+  // Pump desired jobs whenever sources, configs, or params change. The
+  // signature ledger makes tab/theme/camera changes enqueue 0 jobs; the
+  // applier backstop discards anything that went stale mid-flight.
+  useEffect(() => {
+    syncIntegralAnalysis(getIntegralSyncContext(), objects, paramScope);
+  }, [objects, paramScope, config]);
+
+  // Auto-create the input-free default config on first mount so arc
+  // length / surface area compute without ceremony; scalar/work/flux
+  // wait for their integrand/field inputs (needs-input states below).
+  useEffect(() => {
+    if (!config) {
+      setConfig(object.id, { mode: defaultMode as IntegralAnalysisMode });
+    }
+    // Mount-only: later edits flow through the controls below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const desired = useMemo(
+    () => buildIntegralJob(objects, config, paramScope),
+    [objects, config, paramScope]
+  );
+  const liveResult = resultEntry && desired && resultEntry.signature === desired.signature ? resultEntry.result : null;
+
+  const needsIntegrand = mode === "scalarLine" || mode === "scalarSurface";
+  const needsField = mode === "work" || mode === "flux";
+  const fieldObject = needsField
+    ? (objects.find((candidate) => candidate.id === config?.vectorFieldId) ?? null)
+    : null;
+  const fieldIncompatible =
+    needsField &&
+    config?.vectorFieldId !== null &&
+    config?.vectorFieldId !== undefined &&
+    (!fieldObject || (fieldObject as VectorFieldObject).kind !== "vectorField" || (fieldObject as VectorFieldObject).dimension !== "3d");
+
+  const orientationLabels = useMemo(() => {
+    if (object.kind === "surface") {
+      const axis = object.orientation ?? "z";
+      return { native: `Native (+${axis})`, reversed: `Reversed (−${axis})` } as const;
+    }
+    return { native: "Native (u×v)", reversed: "Reversed" } as const;
+  }, [object]);
+
+  return (
+    <section
+      data-testid="integral-analysis-section"
+      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+    >
+      <header className="pb-2">
+        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Integral Analysis</h3>
+        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          {isCurve
+            ? "Arc length, scalar line integrals, and work over this curve."
+            : "Area, scalar surface integrals, and flux through this surface."}
+        </p>
+      </header>
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Mode
+            </span>
+            <select
+              value={mode}
+              aria-label="Integral mode"
+              onChange={(event) => {
+                const next = event.target.value;
+                if (next === "arcLength" || next === "scalarLine" || next === "work" || next === "surfaceArea" || next === "scalarSurface" || next === "flux") {
+                  setConfig(object.id, { mode: next });
+                }
+              }}
+              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            >
+              {modes.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Quality
+            </span>
+            <select
+              value={config?.quality ?? "medium"}
+              aria-label="Integral quality"
+              onChange={(event) => {
+                const quality = event.target.value;
+                if (quality === "low" || quality === "medium" || quality === "high") {
+                  setConfig(object.id, { quality });
+                }
+              }}
+              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+        </div>
+        {needsIntegrand && (
+          <IntegrandInput
+            key={object.id}
+            committed={config?.scalarIntegrand ?? ""}
+            onCommit={(scalarIntegrand) => setConfig(object.id, { scalarIntegrand })}
+          />
+        )}
+        {needsField && (
+          <FieldSelector
+            fields={objects.filter(
+              (candidate): candidate is VectorFieldObject =>
+                candidate.kind === "vectorField" && candidate.dimension === "3d"
+            )}
+            selectedId={config?.vectorFieldId ?? null}
+            onSelect={(vectorFieldId) => setConfig(object.id, { vectorFieldId })}
+          />
+        )}
+        {mode === "work" && (
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Direction
+            </span>
+            <select
+              value={config?.direction === -1 ? "reverse" : "forward"}
+              aria-label="Curve direction"
+              onChange={(event) => {
+                setConfig(object.id, { direction: event.target.value === "reverse" ? -1 : 1 });
+              }}
+              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            >
+              <option value="forward">Forward</option>
+              <option value="reverse">Reverse</option>
+            </select>
+          </label>
+        )}
+        {mode === "flux" && (
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Orientation
+            </span>
+            <select
+              value={config?.orientationSign === -1 ? "reversed" : "native"}
+              aria-label="Surface orientation"
+              onChange={(event) => {
+                setConfig(object.id, { orientationSign: event.target.value === "reversed" ? -1 : 1 });
+              }}
+              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            >
+              <option value="native">{orientationLabels.native}</option>
+              <option value="reversed">{orientationLabels.reversed}</option>
+            </select>
+          </label>
+        )}
+        <ResultBody
+          mode={mode}
+          desired={desired !== null}
+          needsIntegrand={needsIntegrand}
+          needsField={needsField}
+          hasIntegrand={(config?.scalarIntegrand ?? "").trim() !== ""}
+          hasField={!!config?.vectorFieldId && !!fieldObject && !fieldIncompatible}
+          fieldIncompatible={!!fieldIncompatible}
+          computeStatus={computeStatus}
+          computeMessage={computeMessage}
+          liveResult={liveResult}
+        />
+      </div>
+    </section>
+  );
+}
+
+function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState<string | undefined>(undefined);
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        Scalar integrand g(x,y,z)
+      </span>
+      <Input
+        type="text"
+        value={draft ?? committed}
+        aria-label="Scalar integrand g(x,y,z)"
+        spellCheck={false}
+        autoComplete="off"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (draft !== undefined) {
+            onCommit(draft);
+            setDraft(undefined);
+          }
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && draft !== undefined) {
+            onCommit(draft);
+            setDraft(undefined);
+          } else if (event.key === "Escape") {
+            setDraft(undefined);
+          }
+        }}
+        className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 font-mono text-[13px]"
+      />
+    </label>
+  );
+}
+
+function FieldSelector({
+  fields,
+  selectedId,
+  onSelect
+}: {
+  fields: VectorFieldObject[];
+  selectedId: string | null;
+  onSelect: (fieldId: string | null) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        Vector field
+      </span>
+      <select
+        value={selectedId ?? ""}
+        aria-label="Vector field"
+        onChange={(event) => {
+          onSelect(event.target.value === "" ? null : event.target.value);
+        }}
+        className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+      >
+        <option value="">Select a field…</option>
+        {fields.map((field, index) => (
+          <option key={field.id} value={field.id}>
+            3D field #{index + 1} ({field.pExpr}, {field.qExpr}, {field.rExpr})
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ResultBody({
+  mode,
+  desired,
+  needsIntegrand,
+  needsField,
+  hasIntegrand,
+  hasField,
+  fieldIncompatible,
+  computeStatus,
+  computeMessage,
+  liveResult
+}: {
+  mode: IntegralAnalysisConfig["mode"];
+  desired: boolean;
+  needsIntegrand: boolean;
+  needsField: boolean;
+  hasIntegrand: boolean;
+  hasField: boolean;
+  fieldIncompatible: boolean;
+  computeStatus: "idle" | "pending" | "error";
+  computeMessage: string | null;
+  liveResult: { status: string; value?: number; estimatedError?: number; convergenceWarning?: boolean; reason?: string | null } | null;
+}) {
+  if (needsField && fieldIncompatible) {
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        Select a compatible 3D vector field.
+      </p>
+    );
+  }
+  if (needsField && !hasField) {
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+        Select a vector field to compute {mode === "work" ? "work" : "flux"}.
+      </p>
+    );
+  }
+  if (needsIntegrand && !hasIntegrand) {
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+        Enter a scalar integrand to compute.
+      </p>
+    );
+  }
+  if (!desired) {
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+        Not computed yet.
+      </p>
+    );
+  }
+  if (liveResult) {
+    if (liveResult.status === "ok") {
+      return (
+        <div className="flex flex-col gap-1" role="status" aria-label="Integral result">
+          <p data-testid="integral-result-value" className="font-mono text-[13px] text-[var(--text-primary)]">
+            Value: {formatNumber(liveResult.value ?? Number.NaN)}
+          </p>
+          <p data-testid="integral-result-error" className="font-mono text-[12px] text-[var(--text-secondary)]">
+            Estimated numerical error:{" "}
+            {Number.isFinite(liveResult.estimatedError) ? `~${formatNumber(liveResult.estimatedError as number)}` : "unavailable"}
+          </p>
+          {liveResult.convergenceWarning === true && (
+            <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]">
+              Result has not converged closely at this quality.
+            </p>
+          )}
+        </div>
+      );
+    }
+    if (liveResult.status === "unsupported") {
+      return (
+        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          Derivative unavailable for this source.
+        </p>
+      );
+    }
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        {liveResult.reason ?? "Integrand is non-finite in the integration domain."}
+      </p>
+    );
+  }
+  if (computeStatus === "pending") {
+    return (
+      <p className="text-[11px] text-[var(--text-tertiary)]" role="status">
+        Computing integral…
+      </p>
+    );
+  }
+  if (computeStatus === "error") {
+    return (
+      <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        {computeMessage ?? "Integral computation failed; edit to retry."}
+      </p>
+    );
+  }
+  return (
+    <p className="text-[11px] text-[var(--text-tertiary)]" role="status">
+      Computing integral…
+    </p>
+  );
+}

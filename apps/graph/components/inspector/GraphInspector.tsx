@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
+import IntegralAnalysisSection from "./IntegralAnalysisSection";
 import ScalarVisualizationSection from "./ScalarVisualizationSection";
 import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
 import {
@@ -101,6 +102,9 @@ export default function GraphInspector() {
       </div>
       <div className="mt-3">
         <ScalarVisualizationSection object={selectedSurfaceObject} />
+      </div>
+      <div className="mt-3">
+        <IntegralAnalysisSection key={selectedSurfaceObject.id} object={selectedSurfaceObject} />
       </div>
     </section>
   );
@@ -235,6 +239,7 @@ function ParametricCurveInspector({ object }: { object: ParametricCurveObject })
             type="number"
             value={object.tMin}
             step="any"
+            aria-label="t min"
             onChange={(event) => {
               const v = Number(event.target.value);
               if (Number.isFinite(v)) {
@@ -250,6 +255,7 @@ function ParametricCurveInspector({ object }: { object: ParametricCurveObject })
             type="number"
             value={object.tMax}
             step="any"
+            aria-label="t max"
             onChange={(event) => {
               const v = Number(event.target.value);
               if (Number.isFinite(v)) {
@@ -261,20 +267,23 @@ function ParametricCurveInspector({ object }: { object: ParametricCurveObject })
         </label>
       </div>
       <label className="mt-3 block">
-        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Samples</span>
-        <Input
-          type="number"
-          min={2}
-          value={object.samples}
-          onChange={(event) => {
-            const v = Number(event.target.value);
-            if (Number.isFinite(v)) {
-              updateParametricExpression(object.id, "samples", v);
-            }
-          }}
-          className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
-        />
-      </label>
+          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Samples</span>
+          <Input
+            type="number"
+            min={2}
+            value={object.samples}
+            onChange={(event) => {
+              const v = Number(event.target.value);
+              if (Number.isFinite(v)) {
+                updateParametricExpression(object.id, "samples", v);
+              }
+            }}
+            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          />
+        </label>
+      </div>
+      <div className="mt-3">
+        <IntegralAnalysisSection key={object.id} object={object} />
       </div>
     </section>
   );
@@ -375,6 +384,9 @@ function ParametricSurfaceInspector({ object }: { object: ParametricSurfaceObjec
             className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           />
         </label>
+      </div>
+      <div className="mt-3">
+        <IntegralAnalysisSection key={object.id} object={object} />
       </div>
     </section>
   );

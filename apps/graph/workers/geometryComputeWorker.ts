@@ -1,4 +1,5 @@
 import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
+import { computeIntegralData } from "@/lib/math/computeIntegralData";
 import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
 import { computeScalarFieldData } from "@/lib/math/computeScalarFieldData";
 import { computeStreamlineData } from "@/lib/math/computeStreamlineData";
@@ -77,6 +78,45 @@ export function handleGeometryComputeMessage(data: unknown): HandledComputeMessa
 }
 
 function computeRequestResult(request: GeometryComputeRequest): GeometryComputeResult {
+  if (request.kind === "integralAnalysis") {
+    // S25: same pure core the unit tests use (parity is structural).
+    // Results are plain numbers (PART 22) — nothing to transfer.
+    const computed = computeIntegralData({
+      mode: request.payload.mode,
+      target: request.payload.target,
+      scalarIntegrand: request.payload.scalarIntegrand,
+      field: request.payload.field,
+      quality: request.payload.quality,
+      direction: request.payload.direction,
+      orientationSign: request.payload.orientationSign,
+      params: request.params
+    });
+    if (computed.status !== "ok") {
+      if (computed.status === "budget-exceeded") {
+        return { status: "budget-exceeded", reason: computed.reason ?? undefined };
+      }
+      if (computed.status === "invalid" || computed.status === "unsupported") {
+        // The status store reads .error for its message slot, so mirror
+        // the reason there; the applier stores the full reason separately.
+        const reason = computed.reason ?? "Integral unavailable for this input.";
+        return {
+          status: computed.status,
+          error: reason,
+          reason,
+          evaluationCount: computed.evaluations
+        };
+      }
+      return { status: "error", error: computed.reason ?? "Integral computation failed." };
+    }
+    return {
+      status: "ok",
+      value: computed.value,
+      coarseValue: computed.coarseValue,
+      estimatedError: computed.estimatedError,
+      convergenceWarning: computed.convergenceWarning,
+      evaluationCount: computed.evaluations
+    };
+  }
   if (request.kind === "implicitSurface") {
     const computed = computeImplicitSurfaceData({
       equation: request.payload.equation,
@@ -217,6 +257,10 @@ function collectTransferBuffers(
   }
   // Freshly allocated result buffers (never SharedArrayBuffers): safe to
   // transfer. The worker drops all references by returning here.
+  // S25 integral results are plain numbers (PART 22) — nothing transfers.
+  if ("convergenceWarning" in result || "estimatedError" in result) {
+    return [];
+  }
   if ("offsets" in result) {
     return [
       result.points.buffer as Transferable,

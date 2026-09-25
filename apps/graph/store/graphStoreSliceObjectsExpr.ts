@@ -6,11 +6,38 @@ import { updateParametricCurveField } from "./graphStoreParametricField";
 import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField";
 import { updateVectorFieldField } from "./graphStoreVectorFieldField";
 import { pruneAnalysisForSourceId, pruneVectorCalculusForSourceId } from "./graphStoreSliceAnalysis";
+import { pruneIntegralForSourceId } from "./graphStoreSliceIntegral";
 import { pruneScalarVizForSourceId } from "./graphStoreSliceScalarViz";
 import { pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
+import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
+import type { GraphUiState } from "@/types/graphUi";
+
+// S25 lifecycle contract (PART 40/41):
+// - target/field MATH commits drop integral RESULTS but KEEP configs: the
+//   composite signature changes, the display gate hides the old number,
+//   and the Inspector effect recomputes automatically ("recompute
+//   required"). Unlike pick-anchored S21/S22 analysis, integrals have no
+//   user anchor that an edit can invalidate.
+// - delete/kind-switch/scene-replace clears configs outright (see
+//   B/Insert/Scene slices).
+// - render sampling (curve samples, surface resolution), glyph/appearance
+//   edits, visibility, and theme touch NOTHING, not even results, because
+//   the signature cannot change (PART 39/40/61 pins).
+// Drops cached integral results for configs referencing an edited
+// vector field (configs kept for auto-recompute). Runs inside set()
+// updaters, like the S19 manager's cross-store writes — safe across
+// stores (the results store is a leaf dependency).
+function dropReferencingIntegralResults(ui: GraphUiState, fieldId: string): GraphUiState {
+  for (const [sourceId, config] of Object.entries(ui.integralAnalysisBySourceId)) {
+    if (config.vectorFieldId === fieldId) {
+      useIntegralResultsStore.getState().removeForSource(sourceId);
+    }
+  }
+  return ui;
+}
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
@@ -20,7 +47,9 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
     updateSurfaceEquation: (id, equation) => {
       // S23: equation commits change the scalar mathematics (config pruned
       // here; fresh results recompute on next sync). Updater stays pure.
+      // S25: integral results drop (config kept for auto-recompute).
       useScalarVizResultsStore.getState().removeForSource(id);
+      useIntegralResultsStore.getState().removeForSource(id);
       set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "surface") {
@@ -42,6 +71,7 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           // S21: any object-math commit invalidates attached analysis for
           // that source (no-ops via same-ref when nothing is attached).
           // S23: scalar-viz config likewise (independent variables move).
+          // S25: integral results drop (config kept for auto-recompute).
           ui: pruneScalarVizForSourceId(pruneAnalysisForSourceId(state.ui, id), id)
         };
       });
@@ -49,6 +79,7 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
 
     updateSurfaceOrientation: (id, orientation) => {
       useScalarVizResultsStore.getState().removeForSource(id);
+      useIntegralResultsStore.getState().removeForSource(id);
       set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "surface") {
@@ -70,12 +101,18 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           // S21: any object-math commit invalidates attached analysis for
           // that source (no-ops via same-ref when nothing is attached).
           // S23: scalar-viz config likewise.
+          // S25: integral results dropped pre-set (config kept).
           ui: pruneScalarVizForSourceId(pruneAnalysisForSourceId(state.ui, id), id)
         };
       });
     },
 
     updateParametricExpression: (id, field, value) => {
+      // S25: axis/t-domain commits drop integral results (config kept for
+      // auto-recompute); render sampling (samples) touches nothing.
+      if (field !== "samples") {
+        useIntegralResultsStore.getState().removeForSource(id);
+      }
       set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "parametricCurve") {
@@ -98,12 +135,19 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           scene: applySceneCommand(state.scene, command),
           // S21: any object-math commit invalidates attached analysis for
           // that source (no-ops via same-ref when nothing is attached).
+          // S25: integral results dropped pre-set (config kept).
           ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
     },
 
     updateParametricSurfaceExpression: (id, field, value) => {
+      // S25: axis/u-v-domain commits drop integral results (config kept
+      // for auto-recompute); render tessellation (resolution) touches
+      // nothing (PART 39 pin).
+      if (field !== "resolution") {
+        useIntegralResultsStore.getState().removeForSource(id);
+      }
       set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "parametricSurface") {
@@ -126,6 +170,7 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           scene: applySceneCommand(state.scene, command),
           // S21: any object-math commit invalidates attached analysis for
           // that source (no-ops via same-ref when nothing is attached).
+          // S25: integral results dropped pre-set (config kept).
           ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });
@@ -190,6 +235,8 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         // change sampling/rendering, never the function — analysis stays.
         // S24 streamlines share the same math identity, so they prune on
         // exactly the same fields (glyph config never triggers jobs).
+        // S25: referencing integral results drop (configs kept for
+        // auto-recompute under the new composite signature).
         const mathFields = new Set([
           "pExpr",
           "qExpr",
@@ -207,7 +254,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         return {
           scene: applySceneCommand(state.scene, command),
           ui: mathFields.has(field)
-            ? pruneStreamlineForSourceId(pruneVectorCalculusForSourceId(state.ui, id), id)
+            ? dropReferencingIntegralResults(
+                pruneStreamlineForSourceId(pruneVectorCalculusForSourceId(state.ui, id), id),
+                id
+              )
             : state.ui
         };
       });
