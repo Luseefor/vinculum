@@ -1,4 +1,4 @@
-import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
@@ -73,6 +73,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "vector" || kind === "line" || kind === "ray" || kind === "segment") {
     return parseGeometryPrimitiveObject(rawObject, objectIndex, id, kind, color, visible, errors);
+  }
+
+  if (kind === "point") {
+    return parsePointObject(rawObject, objectIndex, id, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -693,21 +697,37 @@ function parseSurfaceOrientation(
 // parameter-backed coordinates resolve at runtime. Raw text is preserved
 // exactly for roundtrip.
 const GEOMETRY_PRIMITIVE_COORDINATE_FIELDS = {
+  point: ["xExpr", "yExpr", "zExpr"],
   vector: ["oxExpr", "oyExpr", "ozExpr", "vxExpr", "vyExpr", "vzExpr"],
   line: ["pxExpr", "pyExpr", "pzExpr", "dxExpr", "dyExpr", "dzExpr"],
   ray: ["oxExpr", "oyExpr", "ozExpr", "dxExpr", "dyExpr", "dzExpr"],
   segment: ["axExpr", "ayExpr", "azExpr", "bxExpr", "byExpr", "bzExpr"]
 } as const;
 
-function parseGeometryPrimitiveObject(
+function parsePointObject(
   rawObject: Record<string, unknown>,
   objectIndex: number,
   id: string,
-  kind: "vector" | "line" | "ray" | "segment",
   color: string,
   visible: boolean,
   errors: string[]
-): VectorObject | LineObject | RayObject | SegmentObject | null {
+): PointObject | null {
+  // S27: canonical point shares the S26 coordinate path (same field
+  // table, same compiler, same raw-text preservation).
+  const parsed = parseGeometryPrimitiveFields(rawObject, objectIndex, id, "point", errors);
+  if (!parsed) {
+    return null;
+  }
+  return { id, kind: "point", color, visible, ...parsed } as PointObject;
+}
+
+function parseGeometryPrimitiveFields(
+  rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  kind: keyof typeof GEOMETRY_PRIMITIVE_COORDINATE_FIELDS,
+  errors: string[]
+): Record<string, string> | null {
   const fields = GEOMETRY_PRIMITIVE_COORDINATE_FIELDS[kind];
   const values: Record<string, string> = {};
   const scope = getEditorParameterScope();
@@ -726,6 +746,22 @@ function parseGeometryPrimitiveObject(
       return null;
     }
     values[field] = expr;
+  }
+  return values;
+}
+
+function parseGeometryPrimitiveObject(
+  rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  kind: "vector" | "line" | "ray" | "segment",
+  color: string,
+  visible: boolean,
+  errors: string[]
+): VectorObject | LineObject | RayObject | SegmentObject | null {
+  const values = parseGeometryPrimitiveFields(rawObject, objectIndex, id, kind, errors);
+  if (!values) {
+    return null;
   }
   return { id, kind, color, visible, ...values } as VectorObject | LineObject | RayObject | SegmentObject;
 }

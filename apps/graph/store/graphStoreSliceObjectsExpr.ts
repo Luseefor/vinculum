@@ -269,7 +269,8 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         const object = findObjectById(state.scene.objects, id);
         if (
           !object ||
-          (object.kind !== "vector" &&
+          (object.kind !== "point" &&
+            object.kind !== "vector" &&
             object.kind !== "line" &&
             object.kind !== "ray" &&
             object.kind !== "segment")

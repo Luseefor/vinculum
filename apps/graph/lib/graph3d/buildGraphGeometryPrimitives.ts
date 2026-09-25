@@ -10,7 +10,7 @@
 // camera-driven endpoint refreshes happen in place via
 // graphThreePrimitiveDisplay (no scene mutation, no recompile).
 
-import type { LineObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
+import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -34,6 +34,7 @@ import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { BASE_AXIS_EXTENT } from "./graphThreeEngineConstants";
 import {
   resolveLineGeometry,
+  resolvePointGeometry,
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
@@ -183,6 +184,22 @@ function buildZeroMarker(id: string, color: string): Mesh {
   marker.userData.vinculumId = id;
   marker.userData.pointMarker = true;
   return marker;
+}
+
+export function buildPointPrimitive(object: PointObject): Object3D | null {
+  const resolved = resolvePointGeometry([object.xExpr, object.yExpr, object.zExpr], getEditorParameterScope());
+  if (resolved.status !== "ok") {
+    return null;
+  }
+  // S27: one small O(1) marker reusing the point-like/degenerate visual
+  // style. The visible mesh carries pointMarker so canvas clean-clicks
+  // select it through the shared primitive picker.
+  const group = new Group();
+  stampPrimitiveGroup(group, object.id);
+  const marker = buildZeroMarker(object.id, object.color);
+  marker.position.copy(worldOf(resolved.value));
+  group.add(marker);
+  return group;
 }
 
 export function buildVectorPrimitive(object: VectorObject): Object3D | null {

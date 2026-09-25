@@ -10,16 +10,18 @@ import type { ExpressionValidationState } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
 
 function firstPrimitiveCoordinateError(
-  object: Extract<GraphObject, { kind: "vector" | "line" | "ray" | "segment" }>
+  object: Extract<GraphObject, { kind: "point" | "vector" | "line" | "ray" | "segment" }>
 ): string | null {
   const fields =
-    object.kind === "vector"
-      ? [object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr]
-      : object.kind === "line"
-        ? [object.pxExpr, object.pyExpr, object.pzExpr, object.dxExpr, object.dyExpr, object.dzExpr]
-        : object.kind === "ray"
-          ? [object.oxExpr, object.oyExpr, object.ozExpr, object.dxExpr, object.dyExpr, object.dzExpr]
-          : [object.axExpr, object.ayExpr, object.azExpr, object.bxExpr, object.byExpr, object.bzExpr];
+    object.kind === "point"
+      ? [object.xExpr, object.yExpr, object.zExpr]
+      : object.kind === "vector"
+        ? [object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr]
+        : object.kind === "line"
+          ? [object.pxExpr, object.pyExpr, object.pzExpr, object.dxExpr, object.dyExpr, object.dzExpr]
+          : object.kind === "ray"
+            ? [object.oxExpr, object.oyExpr, object.ozExpr, object.dxExpr, object.dyExpr, object.dzExpr]
+            : [object.axExpr, object.ayExpr, object.azExpr, object.bxExpr, object.byExpr, object.bzExpr];
   const scope = getEditorParameterScope();
   for (const expr of fields) {
     if (!expr.trim()) {
@@ -79,12 +81,13 @@ export function getExpressionRowValidation(object: GraphObject): ExpressionValid
   }
 
   if (
+    object.kind === "point" ||
     object.kind === "vector" ||
     object.kind === "line" ||
     object.kind === "ray" ||
     object.kind === "segment"
   ) {
-    // S26: first coordinate hard error, or null (empty fields stay
+    // S26/S27: first coordinate hard error, or null (empty fields stay
     // valid-but-unrendered downstream; per-field messages live in the
     // coordinate editor).
     return { error: firstPrimitiveCoordinateError(object) };

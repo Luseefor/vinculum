@@ -9,6 +9,7 @@ import { buildPlane } from "./buildGraphPlane";
 import { buildSurface } from "./buildGraphSurface";
 import {
   buildLinePrimitive,
+  buildPointPrimitive,
   buildRayPrimitive,
   buildSegmentPrimitive,
   buildVectorPrimitive
@@ -56,6 +57,9 @@ function buildOne(
   }
   if (object.kind === "plane") {
     return buildPlane(object, theme);
+  }
+  if (object.kind === "point") {
+    return buildPointPrimitive(object);
   }
   if (object.kind === "vector") {
     return buildVectorPrimitive(object);

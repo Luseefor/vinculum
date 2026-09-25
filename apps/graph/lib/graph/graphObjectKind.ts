@@ -7,6 +7,7 @@ export function parseGraphObjectKind(value: string): GraphObjectKind | null {
     value === "plane" ||
     value === "parametricSurface" ||
     value === "implicitSurface" ||
+    value === "point" ||
     value === "vector" ||
     value === "line" ||
     value === "ray" ||

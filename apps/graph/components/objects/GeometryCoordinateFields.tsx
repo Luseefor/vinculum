@@ -1,20 +1,23 @@
 // S26 shared coordinate editor for geometric primitives (PART 25/27).
+// S27: canonical points share the same component.
 // One component serves the ObjectRow expanded definition and the
 // Inspector section: compact tuple-grouped fields, immediate commits
 // (ObjectRow convention), per-field diagnostics, and a single
 // mathematical status line (zero-vector / nonzero-direction /
-// point-degenerate). No giant vertical cards: two groups of three.
+// point-degenerate). No giant vertical cards: two groups of three
+// (points: one group of three).
 
 "use client";
 
 import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
-import type { LineObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
+import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope, parametersToScope } from "@/lib/store/editorParameters";
 import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
 import {
   resolveLineGeometry,
+  resolvePointGeometry,
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
@@ -22,7 +25,7 @@ import {
 import type { GeometryPrimitiveField } from "@/store/graphStoreTypes";
 import { distanceVec3 } from "@/lib/math/geometryPrimitives";
 
-type PrimitiveObject = VectorObject | LineObject | RayObject | SegmentObject;
+type PrimitiveObject = PointObject | VectorObject | LineObject | RayObject | SegmentObject;
 
 interface CoordinateFieldDef {
   field: GeometryPrimitiveField;
@@ -32,6 +35,13 @@ interface CoordinateFieldDef {
 }
 
 function fieldDefsFor(kind: PrimitiveObject["kind"]): CoordinateFieldDef[] {
+  if (kind === "point") {
+    return [
+      { field: "xExpr", group: "Coordinates", coord: "x", ariaLabel: "Point x" },
+      { field: "yExpr", group: "Coordinates", coord: "y", ariaLabel: "Point y" },
+      { field: "zExpr", group: "Coordinates", coord: "z", ariaLabel: "Point z" }
+    ];
+  }
   if (kind === "vector") {
     return [
       { field: "oxExpr", group: "Origin", coord: "x", ariaLabel: "Vector origin x" },
@@ -93,6 +103,13 @@ export function primitiveStatusLine(
       text: resolved.degenerate ? "Zero vector." : `Magnitude ${formatShort(resolved.value.magnitude)}.`,
       isError: false
     };
+  }
+  if (object.kind === "point") {
+    const resolved = resolvePointGeometry([object.xExpr, object.yExpr, object.zExpr], params);
+    if (resolved.status !== "ok") {
+      return { text: resolved.reason, isError: true };
+    }
+    return null;
   }
   if (object.kind === "line") {
     const resolved = resolveLineGeometry(

@@ -7,12 +7,13 @@
 "use client";
 
 import { useMemo } from "react";
-import type { LineObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
+import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import GeometryCoordinateFields from "@/components/objects/GeometryCoordinateFields";
 
-type PrimitiveObject = VectorObject | LineObject | RayObject | SegmentObject;
+type PrimitiveObject = PointObject | VectorObject | LineObject | RayObject | SegmentObject;
 
 const KIND_TITLES = {
+  point: "Point",
   vector: "Vector",
   line: "Infinite Line",
   ray: "Ray",
@@ -20,6 +21,7 @@ const KIND_TITLES = {
 } as const;
 
 const KIND_DESCRIPTIONS = {
+  point: "Exactly one mathematical location P=(x,y,z).",
   vector: "One geometric vector: components plus a visual anchor origin.",
   line: "P + t·d for all t. Display is a renderer-owned finite clip.",
   ray: "O + t·d for t ≥ 0, with a direction marker.",

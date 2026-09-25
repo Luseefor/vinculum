@@ -16,6 +16,9 @@ export function isGraphObjectRenderable3D(object: GraphObject): boolean {
       [object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim().length > 0)
     );
   }
+  if (object.kind === "point") {
+    return [object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim().length > 0);
+  }
   if (object.kind === "vector") {
     return [object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr].some(
       (expr) => expr.trim().length > 0

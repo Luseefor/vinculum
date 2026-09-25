@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
+import GeometryAnalysisSection from "./GeometryAnalysisSection";
 import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import IntegralAnalysisSection from "./IntegralAnalysisSection";
 import ScalarVisualizationSection from "./ScalarVisualizationSection";
-import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_VECTOR_FIELD_2D_DENSITY,
   MAX_VECTOR_FIELD_3D_DENSITY,
@@ -63,6 +64,9 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <PlaneInspector />
+        <div className="mt-3">
+          <GeometryAnalysisSection key={selectedObject.id} object={selectedObject} />
+        </div>
       </section>
     );
   }
@@ -77,20 +81,24 @@ export default function GraphInspector() {
     );
   }
 
-  // S26: geometric primitives share one compact inspector (definition
-  // editor only — no analysis sections; integral targets stay
+  // S26/S27: geometric primitives share one compact inspector
+  // (definition editor only — no analysis sections; integral targets stay
   // curve/surface-only by construction below).
   if (
+    selectedObject.kind === "point" ||
     selectedObject.kind === "vector" ||
     selectedObject.kind === "line" ||
     selectedObject.kind === "ray" ||
     selectedObject.kind === "segment"
   ) {
-    const primitive: VectorObject | LineObject | RayObject | SegmentObject = selectedObject;
+    const primitive: PointObject | VectorObject | LineObject | RayObject | SegmentObject = selectedObject;
     const primitiveIndex = objects.findIndex((candidate) => candidate.id === primitive.id);
     return (
       <section id="graph-inspector">
         <GeometryPrimitiveInspector key={primitive.id} object={primitive} index={primitiveIndex} />
+        <div className="mt-3">
+          <GeometryAnalysisSection key={`analysis-${primitive.id}`} object={primitive} />
+        </div>
       </section>
     );
   }

@@ -1,11 +1,13 @@
-// S26 per-kind coordinate-field commits for geometric primitives.
+// S26/S27 per-kind coordinate-field commits for geometric primitives.
 // Coordinate fields commit as strings (validation lives in the shared
 // coordinate compiler + import parser); non-string or off-kind writes
 // reject with null. Mirrors updateVectorFieldField's expression branch.
-import type { LineObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
+import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import type { GeometryPrimitiveField } from "./graphStoreTypes";
 
-type GeometryPrimitiveObject = VectorObject | LineObject | RayObject | SegmentObject;
+type GeometryPrimitiveObject = PointObject | VectorObject | LineObject | RayObject | SegmentObject;
+
+const POINT_FIELDS: ReadonlySet<string> = new Set(["xExpr", "yExpr", "zExpr"]);
 
 const VECTOR_FIELDS: ReadonlySet<string> = new Set([
   "oxExpr",
@@ -52,13 +54,15 @@ export function updateGeometryPrimitiveField(
     return null;
   }
   const allowed =
-    object.kind === "vector"
-      ? VECTOR_FIELDS
-      : object.kind === "line"
-        ? LINE_FIELDS
-        : object.kind === "ray"
-          ? RAY_FIELDS
-          : SEGMENT_FIELDS;
+    object.kind === "point"
+      ? POINT_FIELDS
+      : object.kind === "vector"
+        ? VECTOR_FIELDS
+        : object.kind === "line"
+          ? LINE_FIELDS
+          : object.kind === "ray"
+            ? RAY_FIELDS
+            : SEGMENT_FIELDS;
   if (!allowed.has(field)) {
     return null;
   }

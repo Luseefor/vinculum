@@ -38,6 +38,7 @@ import {
   perspectiveDistanceForDisplay,
   updateGeometryPrimitiveDisplay
 } from "./graphThreePrimitiveDisplay";
+import { updateGeometryAnalysisOverlays } from "./buildGeometryAnalysisOverlays";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -319,13 +320,25 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     // S26: camera-driven Line/Ray endpoint refresh (render-only, in
     // place). Runs after object sync so fresh nodes refresh the same
     // frame; steady-state cost is one node-map scan with a 2% drift gate.
-    updateGeometryPrimitiveDisplay(
-      objectNodes,
-      computePrimitiveDisplayHalfExtent(
-        perspectiveDistanceForDisplay(camera),
-        activeOrthoSpansForDisplay(multiView)
-      )
+    // S27: the same extent feeds derived plane-line overlays (PART 26).
+    const primitiveDisplayHalfExtent = computePrimitiveDisplayHalfExtent(
+      perspectiveDistanceForDisplay(camera),
+      activeOrthoSpansForDisplay(multiView)
     );
+    updateGeometryPrimitiveDisplay(objectNodes, primitiveDisplayHalfExtent);
+    // S27: transient geometry-analysis overlays (projection markers,
+    // connectors, intersection points/lines). Same shared overlay root
+    // (synchronized views for free); facts recompute live from canonical
+    // sources, zero worker jobs, no scene mutation.
+    updateGeometryAnalysisOverlays({
+      configs: uiState.geometryAnalysisBySourceId,
+      objects: storeState.scene.objects,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      params: getEditorParameterScope(),
+      halfExtent: primitiveDisplayHalfExtent,
+      clearAnalysis: (primaryId) => useGraphStore.getState().clearGeometryAnalysis(primaryId)
+    });
 
     if (multiView.panes) {
       renderGeometryMultiViewPanes(multiView, {

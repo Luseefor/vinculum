@@ -5,6 +5,7 @@ export type GraphObjectKind =
   | "parametricSurface"
   | "implicitSurface"
   | "vectorField"
+  | "point"
   | "vector"
   | "line"
   | "ray"
@@ -194,6 +195,20 @@ export interface SegmentObject extends GraphObjectBase {
   bzExpr: string;
 }
 
+// S27: canonical geometric point. Coordinates are scalar-expression
+// strings over constants/pi/e/scene-parameters (same convention as S26
+// primitive fields); the single shared coordinate compiler resolves them,
+// so raw text roundtrips byte-exact through persistence. Appearance stays
+// minimal (base color/visible). This replaces the historical all-zero
+// parametricCurve "Point" preset for NEW points; legacy scenes keep their
+// constant curves untouched (no migration).
+export interface PointObject extends GraphObjectBase {
+  kind: "point";
+  xExpr: string;
+  yExpr: string;
+  zExpr: string;
+}
+
 export type GraphObject =
   | SurfaceGraphObject
   | ParametricCurveObject
@@ -201,6 +216,7 @@ export type GraphObject =
   | ParametricSurfaceObject
   | ImplicitSurfaceObject
   | VectorFieldObject
+  | PointObject
   | VectorObject
   | LineObject
   | RayObject

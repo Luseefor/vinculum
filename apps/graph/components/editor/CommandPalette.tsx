@@ -19,6 +19,7 @@ const COMMANDS = [
   { id: "add-2d-vector-field", label: "Add 2D Vector Field" },
   { id: "add-3d-vector-field", label: "Add 3D Vector Field" },
   { id: "add-plane", label: "Add Plane" },
+  { id: "add-point", label: "Add Point" },
   { id: "add-vector", label: "Add Vector" },
   { id: "add-line", label: "Add Infinite Line" },
   { id: "add-ray", label: "Add Ray" },

@@ -231,7 +231,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         ? xExprInputRef.current
         : object.kind === "vectorField"
           ? pExprInputRef.current
-          : object.kind === "vector" ||
+          : object.kind === "point" ||
+              object.kind === "vector" ||
               object.kind === "line" ||
               object.kind === "ray" ||
               object.kind === "segment"
@@ -324,6 +325,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="parametricSurface">Parametric Surface</option>
                 <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>
+                <option value="point">Point</option>
                 <option value="vector">Vector</option>
                 <option value="line">Infinite Line</option>
                 <option value="ray">Ray</option>
@@ -635,7 +637,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ))}
               </div>
             )}
-            {(object.kind === "vector" ||
+            {(object.kind === "point" ||
+              object.kind === "vector" ||
               object.kind === "line" ||
               object.kind === "ray" ||
               object.kind === "segment") && (

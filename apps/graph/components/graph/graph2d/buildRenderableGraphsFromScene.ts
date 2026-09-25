@@ -120,6 +120,7 @@ export function buildRenderableGraphsFromScene(
     // invented for Canvas2D. The Math Lab object list still
     // contains/selects/edits them; they simply produce no 2D renderable.
     if (
+      obj.kind === "point" ||
       obj.kind === "vector" ||
       obj.kind === "line" ||
       obj.kind === "ray" ||

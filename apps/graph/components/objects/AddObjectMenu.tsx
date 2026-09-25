@@ -16,6 +16,7 @@ export default function AddObjectMenu() {
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const addPointObject = useGraphStore((state) => state.addPointObject);
   const addVectorObject = useGraphStore((state) => state.addVectorObject);
   const addLineObject = useGraphStore((state) => state.addLineObject);
   const addRayObject = useGraphStore((state) => state.addRayObject);
@@ -149,6 +150,13 @@ export default function AddObjectMenu() {
       {
         title: "Primitives",
         items: [
+          {
+            label: "Point",
+            onClick: () => {
+              createAndFocus(() => addPointObject());
+              addConsoleEvent("Created point from Add menu");
+            }
+          },
           {
             label: "Vector",
             onClick: () => {

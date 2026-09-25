@@ -22,6 +22,9 @@ export function isExpressionRowEmpty(object: GraphObject): boolean {
   if (object.kind === "vectorField") {
     return ![object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim());
   }
+  if (object.kind === "point") {
+    return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+  }
   if (object.kind === "vector") {
     return ![
       object.oxExpr,
@@ -94,8 +97,20 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     }
     return { label: "Vector Field", type: formatVectorFieldSnippet(object) };
   }
-  // S26: compact primitive snippets (PART 26). Full definitions live in
-  // the Inspector editor; collapsed rows show one short mathematical line.
+  // S26/S27: compact primitive snippets (PART 26). Full definitions live
+  // in the Inspector editor; collapsed rows show one short mathematical
+  // line. Canonical points render P=(x,y,z); the legacy all-zero
+  // parametricCurve preset keeps its historical "Point" label untouched.
+  if (object.kind === "point") {
+    const allEmpty = ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+    if (allEmpty) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    return {
+      label: "Point",
+      type: formatPrimitiveSnippet(`(${object.xExpr},${object.yExpr},${object.zExpr})`)
+    };
+  }
   if (object.kind === "vector") {
     const allEmpty = ![
       object.oxExpr,

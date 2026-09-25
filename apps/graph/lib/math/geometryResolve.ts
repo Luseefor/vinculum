@@ -10,6 +10,7 @@
 // - coincident segment endpoints: VALID point-degenerate segment.
 
 import { compileGeometryCoordinate } from "./compileGeometryCoordinate";
+import { compilePlaneEquation } from "./samplePlane";
 import {
   isFiniteVec3,
   isZeroVec3,
@@ -21,11 +22,50 @@ import {
   type Segment3
 } from "./geometryPrimitives";
 
+// S27 resolved plane: RAW (not normalized) normal plus constant for the
+// canonical equation n·x + constant = 0, mapping directly onto
+// compilePlaneEquation coefficients (f = ax+by+cz+d). Normalization
+// happens at use sites (projection divides by n·n or |n|), so no
+// information is lost and scaled/rearranged equivalent equations resolve
+// to proportionally equivalent Plane3 values.
+export interface ResolvedPlane3 {
+  normal: { x: number; y: number; z: number };
+  constant: number;
+}
+
+export function resolvePointGeometry(
+  coordExprs: readonly [string, string, string],
+  params: Record<string, number>
+): ResolvedGeometry<ResolvedPoint3> {
+  const point = resolveTriple(coordExprs, "Point", params);
+  if (point.status !== "ok") {
+    return { status: "invalid", reason: point.reason };
+  }
+  return { status: "ok", value: point.point, degenerate: false };
+}
+
+export function resolvePlaneGeometry(
+  equation: string,
+  params: Record<string, number>
+): ResolvedGeometry<ResolvedPlane3> {
+  const compiled = compilePlaneEquation(equation, params);
+  if (compiled.error || !compiled.coefficients) {
+    return { status: "invalid", reason: compiled.error ?? "Plane equation could not be compiled." };
+  }
+  const { a, b, c, d } = compiled.coefficients;
+  if (![a, b, c, d].every(Number.isFinite)) {
+    return { status: "invalid", reason: "Plane equation produced a non-finite value." };
+  }
+  return { status: "ok", value: { normal: { x: a, y: b, z: c }, constant: d }, degenerate: false };
+}
+
 export type ResolvedGeometry<T> =
   | { status: "ok"; value: T; degenerate: boolean }
   | { status: "invalid"; reason: string };
 
 type Triple = { x: number; y: number; z: number };
+
+export type ResolvedPoint3 = Triple;
 
 type TripleResult = { status: "ok"; point: Triple } | { status: "invalid"; reason: string };
 

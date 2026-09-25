@@ -27,6 +27,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
+  const addPointObject = useGraphStore((state) => state.addPointObject);
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
@@ -69,14 +70,14 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   };
 
   const createPoint = () => {
-    const id = addParametricCurve();
-    updateParametricExpression(id, "xExpr", "0");
-    updateParametricExpression(id, "yExpr", "0");
-    updateParametricExpression(id, "zExpr", "0");
-    updateParametricExpression(id, "tMin", 0);
-    updateParametricExpression(id, "tMax", 1);
-    updateParametricExpression(id, "samples", 2);
-    addConsoleEvent("Created point marker preset");
+    // S27: Quick Add Point creates the real canonical point kind (PART 1).
+    // Historical all-zero parametricCurve presets stay untouched.
+    // Creation-focus matches every other quick-add (row expands, x focused).
+    const id = addPointObject();
+    if (id) {
+      requestEquationFocus(id);
+    }
+    addConsoleEvent("Created point");
     return id;
   };
 

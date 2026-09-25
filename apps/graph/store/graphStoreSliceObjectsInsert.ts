@@ -8,6 +8,7 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
+import { createPointGraph } from "@/lib/graph/createPointGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
@@ -19,6 +20,7 @@ import {
   isGraphObjectWithoutExpressions
 } from "./graphStoreObjectFactory";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
+import { pruneGeometryAnalysisForSourceId } from "./graphStoreSliceGeometryAnalysis";
 import { clearIntegralFieldSelection, integralSourcesReferencingField } from "./graphStoreSliceIntegral";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
@@ -33,6 +35,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addParametricSurface"
   | "addImplicitSurface"
   | "addVectorFieldObject"
+  | "addPointObject"
   | "addVectorObject"
   | "addLineObject"
   | "addRayObject"
@@ -64,6 +67,10 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
     addVectorFieldObject: (dimension) => {
       return appendObject(set, (index) => createVectorFieldGraph({ colorIndex: index, dimension }));
+    },
+
+    addPointObject: () => {
+      return appendObject(set, (index) => createPointGraph({ colorIndex: index }));
     },
 
     addVectorObject: () => {
@@ -164,9 +171,12 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         for (const sourceId of integralSourcesReferencingField(state.ui, id)) {
           useIntegralResultsStore.getState().removeForSource(sourceId);
         }
+        // S27: kind switches drop the converted source's geometry
+        // analysis and any analysis referencing it (overlays GC in tick).
+        const uiWithoutGeometry = pruneGeometryAnalysisForSourceId(state.ui, id);
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, id), id)
+          ui: clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutGeometry, id), id)
         };
       });
     }

@@ -20,6 +20,7 @@ const GRAPH_TYPE_OPTIONS: Array<{
   { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface" },
   { label: "Implicit Surface", value: "implicitSurface", kind: "implicitSurface" },
   { label: "Plane", value: "plane", kind: "plane" },
+  { label: "Point", value: "point", kind: "point" },
   { label: "Vector", value: "vector", kind: "vector" },
   { label: "Line", value: "line", kind: "line" },
   { label: "Ray", value: "ray", kind: "ray" },

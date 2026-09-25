@@ -16,6 +16,7 @@ const CONVERT_OPTIONS: Array<{
   { kind: "parametricSurface", label: "Parametric surface", value: "parametricSurface" },
   { kind: "implicitSurface", label: "Implicit surface", value: "implicitSurface" },
   { kind: "plane", label: "Plane", value: "plane" },
+  { kind: "point", label: "Point", value: "point" },
   { kind: "vector", label: "Vector", value: "vector" },
   { kind: "line", label: "Infinite line", value: "line" },
   { kind: "ray", label: "Ray", value: "ray" },

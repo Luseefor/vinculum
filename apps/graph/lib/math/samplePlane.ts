@@ -26,7 +26,12 @@ export interface SampledPlaneMesh {
 const MAX_ERROR_LENGTH = 92;
 const LINEARITY_TOLERANCE = 1e-6;
 
-export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
+export function compilePlaneEquation(equation: string, params?: Record<string, number>): CompiledPlaneEquation {
+  // S27: explicit parameter scope for the pure relation kernel. Defaults
+  // to the live editor scope so every existing caller (renderer,
+  // validators, diagnostics) behaves exactly as before. This extends the
+  // ONE plane compiler; no second compiler is created.
+  const scope = params ?? getEditorParameterScope();
   const normalized = normalizePlaneEquation(equation);
   if (normalized.error) {
     return { coefficients: null, error: normalized.error };
@@ -35,7 +40,7 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
   const safety = validateExpressionSafety(normalized.expression, {
     operation: "compile-plane",
     expressionLabel: "Plane equation",
-    allowedSymbols: Object.keys(getEditorParameterScope())
+    allowedSymbols: Object.keys(scope)
   });
   if (!safety.ok) {
     return { coefficients: null, error: safety.violation.message };
@@ -51,10 +56,10 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
     };
   }
 
-  const d = evaluateExpression(compiledExpression, 0, 0, 0);
-  const fx = evaluateExpression(compiledExpression, 1, 0, 0);
-  const fy = evaluateExpression(compiledExpression, 0, 1, 0);
-  const fz = evaluateExpression(compiledExpression, 0, 0, 1);
+  const d = evaluateExpression(compiledExpression, 0, 0, 0, scope);
+  const fx = evaluateExpression(compiledExpression, 1, 0, 0, scope);
+  const fy = evaluateExpression(compiledExpression, 0, 1, 0, scope);
+  const fz = evaluateExpression(compiledExpression, 0, 0, 1, scope);
 
   if (![d, fx, fy, fz].every(Number.isFinite)) {
     return {
@@ -78,7 +83,7 @@ export function compilePlaneEquation(equation: string): CompiledPlaneEquation {
     };
   }
 
-  const linearityCheck = evaluateExpression(compiledExpression, 2, -1, 0.5);
+  const linearityCheck = evaluateExpression(compiledExpression, 2, -1, 0.5, scope);
   const expected =
     coefficients.a * 2 +
     coefficients.b * -1 +
@@ -184,9 +189,15 @@ function normalizePlaneEquation(equation: string): { expression: string; error: 
   };
 }
 
-function evaluateExpression(expression: CompiledMathExpression, x: number, y: number, z: number): number {
+function evaluateExpression(
+  expression: CompiledMathExpression,
+  x: number,
+  y: number,
+  z: number,
+  scope: Record<string, number>
+): number {
   try {
-    const value = expression.evaluate({ x, y, z, ...getEditorParameterScope() });
+    const value = expression.evaluate({ x, y, z, ...scope });
     const numeric = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numeric) ? numeric : Number.NaN;
   } catch {

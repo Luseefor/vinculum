@@ -2,6 +2,7 @@ import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerived } from "./graphStoreSliceScalarViz";
+import { clearAllGeometryAnalysis } from "./graphStoreSliceGeometryAnalysis";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
@@ -30,7 +31,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
         return {
           scene: nextScene,
           ui: {
-            ...clearAllDerived(state.ui),
+            ...clearAllGeometryAnalysis(clearAllDerived(state.ui)),
             selectedObjectId: resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects),
             selectedMeasurementId:
               state.ui.selectedMeasurementId &&
@@ -72,7 +73,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           }
         }),
         ui: {
-          ...clearAllDerived(state.ui),
+          ...clearAllGeometryAnalysis(clearAllDerived(state.ui)),
           selectedObjectId: defaultScene.objects[0]?.id ?? null,
           selectedMeasurementId: null,
           focusEquationForObjectId: null,

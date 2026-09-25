@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
+import { buildGeometryAnalysisSlice } from "./graphStoreSliceGeometryAnalysis";
 import { buildIntegralSlice } from "./graphStoreSliceIntegral";
 import { buildScalarVizSlice } from "./graphStoreSliceScalarViz";
 import { buildStreamlineSlice } from "./graphStoreSliceStreamline";
@@ -36,6 +37,7 @@ export const useGraphStore = create<GraphStoreState>()(
       ui: createInitialUiState(initialScene.objects[0]?.id ?? null),
       cameraResetVersion: 0,
       ...buildAnalysisSlice(set),
+      ...buildGeometryAnalysisSlice(set),
       ...buildIntegralSlice(set),
       ...buildScalarVizSlice(set),
       ...buildStreamlineSlice(set),
@@ -78,6 +80,9 @@ export const useGraphStore = create<GraphStoreState>()(
           // S25: integral-analysis configs are inputs only (numbers live
           // in the result cache); equally transient.
           integralAnalysisBySourceId: {},
+          // S27: geometry-analysis records are selection pairs only
+          // (facts recompute live); equally transient.
+          geometryAnalysisBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

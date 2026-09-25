@@ -154,12 +154,13 @@ export function cloneGraphObject(object: GraphObject): GraphObject {
   }
 
   if (
+    object.kind === "point" ||
     object.kind === "vector" ||
     object.kind === "line" ||
     object.kind === "ray" ||
     object.kind === "segment"
   ) {
-    // S26: primitives carry flat scalar coordinate strings only — a
+    // S26/S27: primitives carry flat scalar coordinate strings only — a
     // shallow copy preserves the raw expressions exactly (no resolved
     // numeric cache is ever serialized).
     return {

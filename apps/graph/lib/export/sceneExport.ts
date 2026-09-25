@@ -180,6 +180,7 @@ export function export2dSvg(input: {
       object.visible &&
       (object.kind === "parametricSurface" ||
         object.kind === "implicitSurface" ||
+        object.kind === "point" ||
         object.kind === "vector" ||
         object.kind === "line" ||
         object.kind === "ray" ||

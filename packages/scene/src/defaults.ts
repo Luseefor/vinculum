@@ -7,6 +7,7 @@ import type {
   ParametricSurfaceObject,
   PlaneAppearance,
   PlaneGraphObject,
+  PointObject,
   RayObject,
   SegmentObject,
   SurfaceAppearance,
@@ -448,6 +449,24 @@ export function createDefaultVectorFieldGraph(
     normalize: options.normalize ?? false,
     visible,
     color
+  };
+}
+
+// S27 canonical point default: asymmetric coordinates so a fresh point
+// already exercises the math->world axis mapping.
+export const defaultPointCoordinates = { xExpr: "1", yExpr: "2", zExpr: "3" };
+
+export function createDefaultPointObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultPointCoordinates>
+): PointObject {
+  return {
+    id: options.id,
+    kind: "point",
+    xExpr: options.xExpr ?? defaultPointCoordinates.xExpr,
+    yExpr: options.yExpr ?? defaultPointCoordinates.yExpr,
+    zExpr: options.zExpr ?? defaultPointCoordinates.zExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
   };
 }
 

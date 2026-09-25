@@ -155,6 +155,20 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "point") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        xExpr: object.xExpr,
+        yExpr: object.yExpr,
+        zExpr: object.zExpr
+      }
+    };
+  }
+
   if (object.kind === "segment") {
     return {
       id: object.id,

@@ -149,6 +149,20 @@ export interface GraphUiState {
    * the heat/contour/gradient half; implicit sources use the slice half.
    */
   scalarVizBySourceId: Record<string, ScalarVizConfig>;
+  /**
+   * S27 transient geometry-analysis records keyed by PRIMARY source id.
+   * One secondary per primary: referenced object id plus the overlay
+   * visibility toggle. Computed facts live nowhere — Inspector and
+   * overlays recompute synchronously from live sources every render, so
+   * parameters, undo/redo, and workspace switches never show stale math.
+   * Never serialized; no history entries.
+   */
+  geometryAnalysisBySourceId: Record<string, GeometryAnalysisConfig>;
+}
+
+export interface GeometryAnalysisConfig {
+  secondaryId: string;
+  showOverlay: boolean;
 }
 
 export type IntegralAnalysisMode =

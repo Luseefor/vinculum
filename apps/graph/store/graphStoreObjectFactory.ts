@@ -8,6 +8,7 @@ import {
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
+import { createPointGraph } from "@/lib/graph/createPointGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 import {
@@ -23,6 +24,9 @@ export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
   }
   if (object.kind === "vectorField") {
     return ![object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim());
+  }
+  if (object.kind === "point") {
+    return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
   }
   if (object.kind === "vector") {
     return ![object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr].some(
@@ -125,6 +129,18 @@ export function createEmptyGraphObject(
       color: options.color,
       visible: options.visible,
       equation: ""
+    });
+  }
+
+  if (kind === "point") {
+    return createPointGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      xExpr: "",
+      yExpr: "",
+      zExpr: ""
     });
   }
 
@@ -251,6 +267,10 @@ export function createGraphObject(
       color: options.color,
       visible: options.visible
     });
+  }
+
+  if (kind === "point") {
+    return createPointGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
   }
 
   if (kind === "vector") {

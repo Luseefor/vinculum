@@ -7,6 +7,7 @@ import type {
   ParametricCurveObject,
   ParametricSurfaceObject,
   PlaneGraphObject,
+  PointObject,
   RayObject,
   SegmentObject,
   SurfaceDomain,
@@ -22,6 +23,7 @@ import type {
   Axis2DPair,
   Canvas2DTool,
   Canvas3DTool,
+  GeometryAnalysisConfig,
   GraphUiState,
   IntegralAnalysisConfig,
   ScalarVizConfig,
@@ -51,9 +53,12 @@ export type VectorFieldField =
   | keyof Pick<VectorFieldObject, "pExpr" | "qExpr" | "rExpr" | "density" | "scale" | "normalize">
   | keyof Pick<VectorFieldObject3D["domain"], "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax">;
 
-// S26: flat coordinate-expression fields across the four geometric
-// primitives (each kind owns six; the updater whitelists per kind).
+// S26/S27: flat coordinate-expression fields across the geometric
+// primitives (each kind owns its set; the updater whitelists per kind).
+// Point shares x/y/zExpr names with parametric curves; the kind gate in
+// updateGeometryCoordinate keeps the namespaces separate.
 export type GeometryPrimitiveField =
+  | keyof Pick<PointObject, "xExpr" | "yExpr" | "zExpr">
   | keyof Pick<VectorObject, "oxExpr" | "oyExpr" | "ozExpr" | "vxExpr" | "vyExpr" | "vzExpr">
   | keyof Pick<LineObject, "pxExpr" | "pyExpr" | "pzExpr" | "dxExpr" | "dyExpr" | "dzExpr">
   | keyof Pick<RayObject, "oxExpr" | "oyExpr" | "ozExpr" | "dxExpr" | "dyExpr" | "dzExpr">
@@ -69,6 +74,7 @@ export interface GraphStoreState {
   addParametricSurface: () => string;
   addImplicitSurface: () => string;
   addVectorFieldObject: (dimension: VectorFieldDimension) => string;
+  addPointObject: () => string;
   addVectorObject: () => string;
   addLineObject: () => string;
   addRayObject: () => string;
@@ -139,6 +145,8 @@ export interface GraphStoreState {
   clearStreamline: (sourceId?: string) => void;
   setIntegralConfig: (sourceId: string, patch: Partial<Omit<IntegralAnalysisConfig, "sourceId">>) => void;
   clearIntegralAnalysis: (sourceId?: string) => void;
+  setGeometryAnalysis: (primaryId: string, patch: Partial<GeometryAnalysisConfig>) => void;
+  clearGeometryAnalysis: (primaryId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

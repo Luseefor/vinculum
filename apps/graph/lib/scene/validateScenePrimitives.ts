@@ -83,6 +83,7 @@ export function parseObjectKind(value: unknown, path: string, errors: string[]):
     value === "parametricSurface" ||
     value === "implicitSurface" ||
     value === "vectorField" ||
+    value === "point" ||
     value === "vector" ||
     value === "line" ||
     value === "ray" ||
@@ -91,7 +92,7 @@ export function parseObjectKind(value: unknown, path: string, errors: string[]):
     return value;
   }
 
-  errors.push(`${path} must be one of: surface, parametricCurve, plane, parametricSurface, implicitSurface, vectorField, vector, line, ray, segment.`);
+  errors.push(`${path} must be one of: surface, parametricCurve, plane, parametricSurface, implicitSurface, vectorField, point, vector, line, ray, segment.`);
   return null;
 }
 
