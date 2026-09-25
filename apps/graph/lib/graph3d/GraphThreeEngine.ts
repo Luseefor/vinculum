@@ -293,7 +293,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     isSketching: false,
     hoverProbePoint: null as { x: number; y: number; z: number } | null,
     sketchPoints: [] as { x: number; y: number; z: number }[],
-    analysisPickDown: null as { x: number; y: number } | null
+    analysisPickDown: null as { x: number; y: number } | null,
+    primitivePickDown: null as { x: number; y: number } | null
   };
 
   const sketchGeometry = new BufferGeometry();

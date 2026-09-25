@@ -11,9 +11,9 @@ import {
   useState
 } from "react";
 import type { Active2dViewportSlot, Axis2DPair, Canvas2DTool, GraphProbePin, Viewport2D } from "@/types/graphUi";
-import { SKETCH_SAMPLE_MIN_SCREEN_PX, ZOOM_IN_FACTOR, ZOOM_OUT_FACTOR } from "./graph2dCanvasConstants";
+import { SKETCH_SAMPLE_MIN_SCREEN_PX } from "./graph2dCanvasConstants";
 import { finalizeGraph2dSketchStroke } from "./graph2dCanvasInteractionFinishStroke";
-import { graph2dViewportPatchZoomAtScreen } from "./graph2dCanvasInteractionZoom";
+import { graph2dViewportPatchZoomAtScreen, graph2dWheelViewportPatch } from "./graph2dCanvasInteractionZoom";
 import { findNearestProbePinScreen } from "./graph2dCanvasProbes";
 import { snapGraph2dMathPoint } from "./graph2dCanvasSnapMath";
 import type { MousePosition, SketchFitPreview } from "./graph2dCanvasTypes";
@@ -106,17 +106,33 @@ export function useGraph2dCanvasInteraction(
       setActive2dViewport(isQuadTop ? "quadTop" : "primary");
 
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      zoomAtScreenPoint(
-        mouseX,
-        mouseY,
-        e.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR,
+      // S26 infinite-paper gestures (Excalidraw model): a plain wheel /
+      // trackpad scroll pans the paper in both axes at ANY zoom (including
+      // 100%), so the full trackpad surface moves the view and scaling
+      // stays precise. Pinch (trackpad) and Ctrl/Cmd+wheel zoom toward the
+      // cursor with a delta-proportional factor for smooth trackpad
+      // response; buttons/double-click keep the fixed-step factors. The
+      // viewport model (center + scale) is already unbounded, and the grid
+      // draws whatever range is visible — the paper is infinite.
+      const patch = graph2dWheelViewportPatch(
+        {
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          clientX: e.clientX - rect.left,
+          clientY: e.clientY - rect.top
+        },
         rect.width,
-        rect.height
+        rect.height,
+        viewport
       );
+      if (patch) {
+        patchViewport2D(patch);
+      }
     },
-    [canvasRef, isQuadTop, setActive2dViewport, zoomAtScreenPoint]
+    [canvasRef, isQuadTop, patchViewport2D, setActive2dViewport, viewport]
   );
 
   const handlePointerDown = useCallback(

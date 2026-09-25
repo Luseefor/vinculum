@@ -19,13 +19,16 @@ export const WORKSPACE_CONTENT: Record<WorkspaceId, WorkspaceContent> = {
     label: "Geometry Studio",
     // S20: 3D fields available without displacing Point/Plane/Surface;
     // 2D fields listed last (same canonical list, no filtering).
-    quickAddOrder: ["Plane", "Point", "Curve", "Surface", "Parametric Surface", "Implicit Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus", "Implicit Sphere", "3D Vector Field", "2D Vector Field"],
+    // S26: true geometry first — Point, Vector, Infinite Line, Segment,
+    // Ray, Plane — then curves and surfaces.
+    quickAddOrder: ["Point", "Vector", "Infinite Line", "Segment", "Ray", "Plane", "Curve", "Surface", "Parametric Surface", "Implicit Surface", "Sphere", "Cylinder", "Parametric Sphere", "Parametric Torus", "Implicit Sphere", "3D Vector Field", "2D Vector Field"],
     emptyHint: "Add a geometric object to begin."
   },
   math: {
     label: "Math Lab",
-    // S20: vector fields high priority in Math Lab.
-    quickAddOrder: ["2D Vector Field", "3D Vector Field", "Surface", "Parametric Surface", "Implicit Surface", "Curve", "Plane", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
+    // S20: vector fields high priority in Math Lab. S26: primitives stay
+    // available through the complete Add Object flow, listed after curves.
+    quickAddOrder: ["2D Vector Field", "3D Vector Field", "Surface", "Parametric Surface", "Implicit Surface", "Curve", "Plane", "Vector", "Infinite Line", "Segment", "Ray", "Sphere", "Cylinder", "Point", "Parametric Sphere", "Parametric Torus", "Implicit Sphere"],
     emptyHint: "Add an equation or graph to begin."
   }
 };

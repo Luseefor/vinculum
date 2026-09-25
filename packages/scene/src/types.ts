@@ -1,4 +1,14 @@
-export type GraphObjectKind = "surface" | "parametricCurve" | "plane" | "parametricSurface" | "implicitSurface" | "vectorField";
+export type GraphObjectKind =
+  | "surface"
+  | "parametricCurve"
+  | "plane"
+  | "parametricSurface"
+  | "implicitSurface"
+  | "vectorField"
+  | "vector"
+  | "line"
+  | "ray"
+  | "segment";
 
 export interface GraphObjectBase {
   id: string;
@@ -134,4 +144,64 @@ export interface VectorFieldObject3D extends VectorFieldBase {
 
 export type VectorFieldObject = VectorFieldObject2D | VectorFieldObject3D;
 
-export type GraphObject = SurfaceGraphObject | ParametricCurveObject | PlaneGraphObject | ParametricSurfaceObject | ImplicitSurfaceObject | VectorFieldObject;
+// S26: canonical geometric primitives. Coordinates are scalar-expression
+// strings over constants/pi/e/scene-parameters (same convention as curve
+// xExpr and field P/Q/R); the single shared coordinate compiler resolves
+// them, so raw text roundtrips byte-exact through persistence. Appearance
+// stays minimal (base color/visible); there is no wireframe or dash
+// policy in S26.
+//
+// Naming (S20 collision warning): `vector` is ONE geometric vector
+// (components + visual anchor origin). `vectorField` is unchanged: a
+// function assigning a vector at every point.
+export interface VectorObject extends GraphObjectBase {
+  kind: "vector";
+  oxExpr: string;
+  oyExpr: string;
+  ozExpr: string;
+  vxExpr: string;
+  vyExpr: string;
+  vzExpr: string;
+}
+
+export interface LineObject extends GraphObjectBase {
+  kind: "line";
+  pxExpr: string;
+  pyExpr: string;
+  pzExpr: string;
+  dxExpr: string;
+  dyExpr: string;
+  dzExpr: string;
+}
+
+export interface RayObject extends GraphObjectBase {
+  kind: "ray";
+  oxExpr: string;
+  oyExpr: string;
+  ozExpr: string;
+  dxExpr: string;
+  dyExpr: string;
+  dzExpr: string;
+}
+
+export interface SegmentObject extends GraphObjectBase {
+  kind: "segment";
+  axExpr: string;
+  ayExpr: string;
+  azExpr: string;
+  bxExpr: string;
+  byExpr: string;
+  bzExpr: string;
+}
+
+export type GraphObject =
+  | SurfaceGraphObject
+  | ParametricCurveObject
+  | PlaneGraphObject
+  | ParametricSurfaceObject
+  | ImplicitSurfaceObject
+  | VectorFieldObject
+  | VectorObject
+  | LineObject
+  | RayObject
+  | SegmentObject;

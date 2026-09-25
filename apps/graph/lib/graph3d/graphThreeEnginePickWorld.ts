@@ -31,7 +31,10 @@ export function pickWorldPointFromCanvasPointer(
 
   const hits = raycaster.intersectObjects(objectsRoot.children, true);
   for (const hit of hits) {
-    if (hit.object instanceof Mesh) {
+    // S26: invisible primitive pick proxies never own probe hits — a line
+    // crossing a surface must not make surface probing impossible. The
+    // visible shaft/head/marker meshes keep standard Mesh behavior.
+    if (hit.object instanceof Mesh && (hit.object.userData as { pickProxy?: unknown }).pickProxy !== true) {
       return { x: hit.point.x, y: hit.point.y, z: hit.point.z };
     }
   }

@@ -104,6 +104,74 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "vector") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        oxExpr: object.oxExpr,
+        oyExpr: object.oyExpr,
+        ozExpr: object.ozExpr,
+        vxExpr: object.vxExpr,
+        vyExpr: object.vyExpr,
+        vzExpr: object.vzExpr
+      }
+    };
+  }
+
+  if (object.kind === "line") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        pxExpr: object.pxExpr,
+        pyExpr: object.pyExpr,
+        pzExpr: object.pzExpr,
+        dxExpr: object.dxExpr,
+        dyExpr: object.dyExpr,
+        dzExpr: object.dzExpr
+      }
+    };
+  }
+
+  if (object.kind === "ray") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        oxExpr: object.oxExpr,
+        oyExpr: object.oyExpr,
+        ozExpr: object.ozExpr,
+        dxExpr: object.dxExpr,
+        dyExpr: object.dyExpr,
+        dzExpr: object.dzExpr
+      }
+    };
+  }
+
+  if (object.kind === "segment") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload: {
+        axExpr: object.axExpr,
+        ayExpr: object.ayExpr,
+        azExpr: object.azExpr,
+        bxExpr: object.bxExpr,
+        byExpr: object.byExpr,
+        bzExpr: object.bzExpr
+      }
+    };
+  }
+
   return {
     id: object.id,
     kind: object.kind,

@@ -1,4 +1,4 @@
-import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
@@ -31,6 +31,7 @@ import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/ma
 import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
 import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
@@ -68,6 +69,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "vectorField") {
     return parseVectorFieldObject(rawObject, objectIndex, id, color, visible, errors);
+  }
+
+  if (kind === "vector" || kind === "line" || kind === "ray" || kind === "segment") {
+    return parseGeometryPrimitiveObject(rawObject, objectIndex, id, kind, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -679,3 +684,48 @@ function parseSurfaceOrientation(
 // It splits exactly one mathematical equality with non-empty sides and never
 // decides whether the equation is a plane, implicit graph, or explicit
 // surface. In particular `==` (two separators) never splits.
+
+// S26: canonical geometric primitives. Coordinate fields are scalar
+// expressions (constants/pi/e/parameters); import validation mirrors the
+// live coordinate compiler (authoritative check, vectorField-parser
+// precedent) so unknown symbols and spatial locals (x/y/z/t/u/v) reject
+// at import instead of arriving unresolvable. No finiteness probe:
+// parameter-backed coordinates resolve at runtime. Raw text is preserved
+// exactly for roundtrip.
+const GEOMETRY_PRIMITIVE_COORDINATE_FIELDS = {
+  vector: ["oxExpr", "oyExpr", "ozExpr", "vxExpr", "vyExpr", "vzExpr"],
+  line: ["pxExpr", "pyExpr", "pzExpr", "dxExpr", "dyExpr", "dzExpr"],
+  ray: ["oxExpr", "oyExpr", "ozExpr", "dxExpr", "dyExpr", "dzExpr"],
+  segment: ["axExpr", "ayExpr", "azExpr", "bxExpr", "byExpr", "bzExpr"]
+} as const;
+
+function parseGeometryPrimitiveObject(
+  rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  kind: "vector" | "line" | "ray" | "segment",
+  color: string,
+  visible: boolean,
+  errors: string[]
+): VectorObject | LineObject | RayObject | SegmentObject | null {
+  const fields = GEOMETRY_PRIMITIVE_COORDINATE_FIELDS[kind];
+  const values: Record<string, string> = {};
+  const scope = getEditorParameterScope();
+  for (const field of fields) {
+    const expr = requireString(rawObject[field], `objects[${objectIndex}].${field}`, errors);
+    if (expr === null) {
+      return null;
+    }
+    if (!expr.trim()) {
+      errors.push(`objects[${objectIndex}].${field} cannot be empty.`);
+      return null;
+    }
+    const compiled = compileGeometryCoordinate(expr, scope);
+    if (compiled.error) {
+      errors.push(`objects[${objectIndex}].${field}: ${compiled.error}`);
+      return null;
+    }
+    values[field] = expr;
+  }
+  return { id, kind, color, visible, ...values } as VectorObject | LineObject | RayObject | SegmentObject;
+}

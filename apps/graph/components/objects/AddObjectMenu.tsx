@@ -16,6 +16,10 @@ export default function AddObjectMenu() {
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const addVectorObject = useGraphStore((state) => state.addVectorObject);
+  const addLineObject = useGraphStore((state) => state.addLineObject);
+  const addRayObject = useGraphStore((state) => state.addRayObject);
+  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
@@ -146,6 +150,34 @@ export default function AddObjectMenu() {
         title: "Primitives",
         items: [
           {
+            label: "Vector",
+            onClick: () => {
+              createAndFocus(() => addVectorObject());
+              addConsoleEvent("Created vector from Add menu");
+            }
+          },
+          {
+            label: "Infinite Line",
+            onClick: () => {
+              createAndFocus(() => addLineObject());
+              addConsoleEvent("Created infinite line from Add menu");
+            }
+          },
+          {
+            label: "Segment",
+            onClick: () => {
+              createAndFocus(() => addSegmentObject());
+              addConsoleEvent("Created segment from Add menu");
+            }
+          },
+          {
+            label: "Ray",
+            onClick: () => {
+              createAndFocus(() => addRayObject());
+              addConsoleEvent("Created ray from Add menu");
+            }
+          },
+          {
             label: "Plane",
             onClick: () => {
               createAndFocus(() => addPlaneObject());
@@ -266,7 +298,11 @@ export default function AddObjectMenu() {
       addParametricCurve,
       addParametricSurface,
       addImplicitSurface,
+      addLineObject,
+      addRayObject,
+      addSegmentObject,
       addVectorFieldObject,
+      addVectorObject,
       addPlaneObject,
       addSurfaceObject,
       createAndFocus,

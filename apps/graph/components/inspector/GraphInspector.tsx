@@ -3,9 +3,10 @@
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
+import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import IntegralAnalysisSection from "./IntegralAnalysisSection";
 import ScalarVisualizationSection from "./ScalarVisualizationSection";
-import type { GraphObject, ImplicitSurfaceObject, ParametricCurveObject, ParametricSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_VECTOR_FIELD_2D_DENSITY,
   MAX_VECTOR_FIELD_3D_DENSITY,
@@ -72,6 +73,24 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <VectorFieldInspector object={selectedObject} objects={objects} />
+      </section>
+    );
+  }
+
+  // S26: geometric primitives share one compact inspector (definition
+  // editor only — no analysis sections; integral targets stay
+  // curve/surface-only by construction below).
+  if (
+    selectedObject.kind === "vector" ||
+    selectedObject.kind === "line" ||
+    selectedObject.kind === "ray" ||
+    selectedObject.kind === "segment"
+  ) {
+    const primitive: VectorObject | LineObject | RayObject | SegmentObject = selectedObject;
+    const primitiveIndex = objects.findIndex((candidate) => candidate.id === primitive.id);
+    return (
+      <section id="graph-inspector">
+        <GeometryPrimitiveInspector key={primitive.id} object={primitive} index={primitiveIndex} />
       </section>
     );
   }

@@ -10,6 +10,9 @@ export type GraphThreeEngineInputMutableState = {
   // S21: pointerdown anchor for the armed analysis pick (clean-click
   // detection: a drag orbits instead of picking).
   analysisPickDown: { x: number; y: number } | null;
+  // S26: pointerdown anchor for primitive selection in the pan tool (same
+  // clean-click rule; a drag orbits/pans instead of selecting).
+  primitivePickDown: { x: number; y: number } | null;
 };
 
 export type PanePickContext = {

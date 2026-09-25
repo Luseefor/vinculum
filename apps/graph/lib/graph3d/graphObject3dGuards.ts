@@ -16,6 +16,26 @@ export function isGraphObjectRenderable3D(object: GraphObject): boolean {
       [object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim().length > 0)
     );
   }
+  if (object.kind === "vector") {
+    return [object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr].some(
+      (expr) => expr.trim().length > 0
+    );
+  }
+  if (object.kind === "line") {
+    return [object.pxExpr, object.pyExpr, object.pzExpr, object.dxExpr, object.dyExpr, object.dzExpr].some(
+      (expr) => expr.trim().length > 0
+    );
+  }
+  if (object.kind === "ray") {
+    return [object.oxExpr, object.oyExpr, object.ozExpr, object.dxExpr, object.dyExpr, object.dzExpr].some(
+      (expr) => expr.trim().length > 0
+    );
+  }
+  if (object.kind === "segment") {
+    return [object.axExpr, object.ayExpr, object.azExpr, object.bxExpr, object.byExpr, object.bzExpr].some(
+      (expr) => expr.trim().length > 0
+    );
+  }
   return false;
 }
 

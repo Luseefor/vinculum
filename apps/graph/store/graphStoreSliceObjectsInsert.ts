@@ -1,4 +1,10 @@
 import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
+import {
+  createLineGraph,
+  createRayGraph,
+  createSegmentGraph,
+  createVectorGraph
+} from "@/lib/graph/createGeometryPrimitiveGraphs";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
@@ -27,6 +33,10 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addParametricSurface"
   | "addImplicitSurface"
   | "addVectorFieldObject"
+  | "addVectorObject"
+  | "addLineObject"
+  | "addRayObject"
+  | "addSegmentObject"
   | "addEmptyObject"
   | "insertObjectAfter"
   | "setObjectKind"
@@ -54,6 +64,22 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
     addVectorFieldObject: (dimension) => {
       return appendObject(set, (index) => createVectorFieldGraph({ colorIndex: index, dimension }));
+    },
+
+    addVectorObject: () => {
+      return appendObject(set, (index) => createVectorGraph({ colorIndex: index }));
+    },
+
+    addLineObject: () => {
+      return appendObject(set, (index) => createLineGraph({ colorIndex: index }));
+    },
+
+    addRayObject: () => {
+      return appendObject(set, (index) => createRayGraph({ colorIndex: index }));
+    },
+
+    addSegmentObject: () => {
+      return appendObject(set, (index) => createSegmentGraph({ colorIndex: index }));
     },
 
     addEmptyObject: () => {

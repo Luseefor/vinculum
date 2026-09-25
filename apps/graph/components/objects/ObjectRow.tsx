@@ -15,6 +15,7 @@ import {
   type ExpressionDiagnostic
 } from "@/lib/math/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
+import GeometryCoordinateFields from "./GeometryCoordinateFields";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
 import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";
 
@@ -53,6 +54,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const eqInputRef = useRef<HTMLInputElement>(null);
   const xExprInputRef = useRef<HTMLInputElement>(null);
   const pExprInputRef = useRef<HTMLInputElement>(null);
+  const primitiveFirstInputRef = useRef<HTMLInputElement>(null);
 
   const [localEq, setLocalEq] = useState("");
   const [localX, setLocalX] = useState("");
@@ -229,7 +231,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         ? xExprInputRef.current
         : object.kind === "vectorField"
           ? pExprInputRef.current
-          : eqInputRef.current;
+          : object.kind === "vector" ||
+              object.kind === "line" ||
+              object.kind === "ray" ||
+              object.kind === "segment"
+            ? primitiveFirstInputRef.current
+            : eqInputRef.current;
     if (!target) {
       return;
     }
@@ -317,6 +324,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="parametricSurface">Parametric Surface</option>
                 <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>
+                <option value="vector">Vector</option>
+                <option value="line">Infinite Line</option>
+                <option value="ray">Ray</option>
+                <option value="segment">Segment</option>
                 <option value="vectorField:2d">2D Vector Field</option>
                 <option value="vectorField:3d">3D Vector Field</option>
               </select>
@@ -453,7 +464,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       {(isExpanded || emptyCue) && (
         <div className="mx-2 mb-2 border-l border-[var(--border-subtle)] pl-2.5 pt-1 animate-slide-up">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Mathematical Definition
             </p>
           </div>
@@ -623,6 +634,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                   </div>
                 ))}
               </div>
+            )}
+            {(object.kind === "vector" ||
+              object.kind === "line" ||
+              object.kind === "ray" ||
+              object.kind === "segment") && (
+              <GeometryCoordinateFields
+                object={object}
+                firstInputRef={primitiveFirstInputRef}
+                onEnterKey={handleEquationKeyDown}
+              />
             )}
             {definitionDiagnostic ? (
               <p

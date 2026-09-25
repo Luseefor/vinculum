@@ -3,15 +3,19 @@ import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObjectKind,
   ImplicitSurfaceObject,
+  LineObject,
   ParametricCurveObject,
   ParametricSurfaceObject,
   PlaneGraphObject,
+  RayObject,
+  SegmentObject,
   SurfaceDomain,
   SurfaceGraphObject,
   SurfaceOrientation,
   VectorFieldDimension,
   VectorFieldObject,
-  VectorFieldObject3D
+  VectorFieldObject3D,
+  VectorObject
 } from "@vinculum/scene/types";
 import type {
   Active2dViewportSlot,
@@ -47,6 +51,14 @@ export type VectorFieldField =
   | keyof Pick<VectorFieldObject, "pExpr" | "qExpr" | "rExpr" | "density" | "scale" | "normalize">
   | keyof Pick<VectorFieldObject3D["domain"], "xMin" | "xMax" | "yMin" | "yMax" | "zMin" | "zMax">;
 
+// S26: flat coordinate-expression fields across the four geometric
+// primitives (each kind owns six; the updater whitelists per kind).
+export type GeometryPrimitiveField =
+  | keyof Pick<VectorObject, "oxExpr" | "oyExpr" | "ozExpr" | "vxExpr" | "vyExpr" | "vzExpr">
+  | keyof Pick<LineObject, "pxExpr" | "pyExpr" | "pzExpr" | "dxExpr" | "dyExpr" | "dzExpr">
+  | keyof Pick<RayObject, "oxExpr" | "oyExpr" | "ozExpr" | "dxExpr" | "dyExpr" | "dzExpr">
+  | keyof Pick<SegmentObject, "axExpr" | "ayExpr" | "azExpr" | "bxExpr" | "byExpr" | "bzExpr">;
+
 export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -57,6 +69,10 @@ export interface GraphStoreState {
   addParametricSurface: () => string;
   addImplicitSurface: () => string;
   addVectorFieldObject: (dimension: VectorFieldDimension) => string;
+  addVectorObject: () => string;
+  addLineObject: () => string;
+  addRayObject: () => string;
+  addSegmentObject: () => string;
   addEmptyObject: () => string;
   insertObjectAfter: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => string;
   setObjectKind: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
@@ -82,6 +98,7 @@ export interface GraphStoreState {
     field: VectorFieldField,
     value: string | number | boolean
   ) => void;
+  updateGeometryCoordinate: (id: string, field: GeometryPrimitiveField, value: string) => void;
   updatePlaneEquation: (id: string, equation: string) => void;
   toggleObjectVisibility: (id: string) => void;
   setObjectVisibility: (id: string, visible: boolean) => void;

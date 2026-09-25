@@ -20,6 +20,10 @@ const GRAPH_TYPE_OPTIONS: Array<{
   { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface" },
   { label: "Implicit Surface", value: "implicitSurface", kind: "implicitSurface" },
   { label: "Plane", value: "plane", kind: "plane" },
+  { label: "Vector", value: "vector", kind: "vector" },
+  { label: "Line", value: "line", kind: "line" },
+  { label: "Ray", value: "ray", kind: "ray" },
+  { label: "Segment", value: "segment", kind: "segment" },
   { label: "2D Vector Field", value: "vectorField:2d", kind: "vectorField", dimension: "2d" },
   { label: "3D Vector Field", value: "vectorField:3d", kind: "vectorField", dimension: "3d" }
 ];

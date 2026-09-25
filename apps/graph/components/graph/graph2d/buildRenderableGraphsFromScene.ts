@@ -115,6 +115,19 @@ export function buildRenderableGraphsFromScene(
       }
     }
 
+    // S26 2D-canvas decision (PART 50): spatial primitives render in the
+    // shared Three Geometry system only — no ambiguous 2D projection is
+    // invented for Canvas2D. The Math Lab object list still
+    // contains/selects/edits them; they simply produce no 2D renderable.
+    if (
+      obj.kind === "vector" ||
+      obj.kind === "line" ||
+      obj.kind === "ray" ||
+      obj.kind === "segment"
+    ) {
+      continue;
+    }
+
     const expr = obj.equation;
     const trimmed = expr.trim();
     if (!trimmed) {

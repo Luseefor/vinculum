@@ -85,6 +85,10 @@ export default function EditorShell() {
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const addVectorObject = useGraphStore((state) => state.addVectorObject);
+  const addLineObject = useGraphStore((state) => state.addLineObject);
+  const addRayObject = useGraphStore((state) => state.addRayObject);
+  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
   const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const setWorkspace = useGraphStore((state) => state.setWorkspace);
 
@@ -846,6 +850,34 @@ export default function EditorShell() {
       }
       return;
     }
+    if (commandId === "add-vector") {
+      const createdId = addVectorObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-line") {
+      const createdId = addLineObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-ray") {
+      const createdId = addRayObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-segment") {
+      const createdId = addSegmentObject();
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
     if (commandId === "delete-selected") {
       const selectedId = useGraphStore.getState().ui.selectedObjectId;
       if (selectedId) {
@@ -857,7 +889,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addImplicitSurface, addVectorFieldObject, addPlaneObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addImplicitSurface, addVectorFieldObject, addPlaneObject, addVectorObject, addLineObject, addRayObject, addSegmentObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;

@@ -32,6 +32,12 @@ import {
   resetActiveGeometryView,
   type GeometryMultiViewState
 } from "./graphThreeGeometryMultiView";
+import {
+  activeOrthoSpansForDisplay,
+  computePrimitiveDisplayHalfExtent,
+  perspectiveDistanceForDisplay,
+  updateGeometryPrimitiveDisplay
+} from "./graphThreePrimitiveDisplay";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -309,6 +315,17 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     }
 
     syncGraphThreeTickGridFrame(camera, runtime, gridMesh, gridUniforms, axesGroup, labelGroup);
+
+    // S26: camera-driven Line/Ray endpoint refresh (render-only, in
+    // place). Runs after object sync so fresh nodes refresh the same
+    // frame; steady-state cost is one node-map scan with a 2% drift gate.
+    updateGeometryPrimitiveDisplay(
+      objectNodes,
+      computePrimitiveDisplayHalfExtent(
+        perspectiveDistanceForDisplay(camera),
+        activeOrthoSpansForDisplay(multiView)
+      )
+    );
 
     if (multiView.panes) {
       renderGeometryMultiViewPanes(multiView, {

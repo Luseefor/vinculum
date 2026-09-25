@@ -7,6 +7,12 @@ import { buildParametricSurface } from "./buildGraphParametricSurface";
 import { buildImplicitSurface } from "./buildGraphImplicitSurface";
 import { buildPlane } from "./buildGraphPlane";
 import { buildSurface } from "./buildGraphSurface";
+import {
+  buildLinePrimitive,
+  buildRayPrimitive,
+  buildSegmentPrimitive,
+  buildVectorPrimitive
+} from "./buildGraphGeometryPrimitives";
 
 export function buildGraphObjectsGroup(objects: GraphObject[], theme: ResolvedTheme): Group {
   const root = new Group();
@@ -50,6 +56,18 @@ function buildOne(
   }
   if (object.kind === "plane") {
     return buildPlane(object, theme);
+  }
+  if (object.kind === "vector") {
+    return buildVectorPrimitive(object);
+  }
+  if (object.kind === "line") {
+    return buildLinePrimitive(object);
+  }
+  if (object.kind === "ray") {
+    return buildRayPrimitive(object);
+  }
+  if (object.kind === "segment") {
+    return buildSegmentPrimitive(object);
   }
   return null;
 }

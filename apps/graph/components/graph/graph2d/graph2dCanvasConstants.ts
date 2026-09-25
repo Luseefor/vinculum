@@ -12,6 +12,12 @@ export const CURVE_OFFSCREEN_VERTICAL_PAD_VIEWPORT_FACTOR = 2;
 export const GRID_EDGE_OVERSCAN_LINES = 2;
 export const ZOOM_IN_FACTOR = 1.12;
 export const ZOOM_OUT_FACTOR = 1 / ZOOM_IN_FACTOR;
+// S26 infinite-paper gestures: pinch/Ctrl+wheel zoom applies a
+// delta-proportional exponential factor per wheel event, clamped per
+// event so discrete mouse-wheel ticks stay smooth and trackpad pinch
+// streams stay controllable.
+export const WHEEL_PINCH_ZOOM_SENSITIVITY = 0.0025;
+export const WHEEL_PINCH_ZOOM_MAX_STEP = 2;
 export const CURSOR_TOOLTIP_OFFSET_PX = 12;
 export const CURSOR_TOOLTIP_WIDTH_PX = 140;
 export const VIEWPORT_BADGE_HEIGHT_PX = 28;

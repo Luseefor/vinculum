@@ -16,6 +16,10 @@ const CONVERT_OPTIONS: Array<{
   { kind: "parametricSurface", label: "Parametric surface", value: "parametricSurface" },
   { kind: "implicitSurface", label: "Implicit surface", value: "implicitSurface" },
   { kind: "plane", label: "Plane", value: "plane" },
+  { kind: "vector", label: "Vector", value: "vector" },
+  { kind: "line", label: "Infinite line", value: "line" },
+  { kind: "ray", label: "Ray", value: "ray" },
+  { kind: "segment", label: "Segment", value: "segment" },
   { kind: "vectorField", dimension: "2d", label: "2D vector field", value: "vectorField:2d" },
   { kind: "vectorField", dimension: "3d", label: "3D vector field", value: "vectorField:3d" }
 ] as const;

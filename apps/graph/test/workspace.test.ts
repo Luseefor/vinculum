@@ -86,7 +86,17 @@ describe("workspace content config", () => {
     const math = [...WORKSPACE_CONTENT.math.quickAddOrder].sort();
     expect(geometry).toEqual(math);
     expect(WORKSPACE_CONTENT.geometry.quickAddOrder).not.toEqual(WORKSPACE_CONTENT.math.quickAddOrder);
-    expect(WORKSPACE_CONTENT.geometry.quickAddOrder[0]).toBe("Plane");
+    // S26: Geometry Studio leads geometry-first (Point, Vector, Infinite
+    // Line, Segment, Ray, Plane per PART 28).
+    expect(WORKSPACE_CONTENT.geometry.quickAddOrder[0]).toBe("Point");
+    expect(WORKSPACE_CONTENT.geometry.quickAddOrder.slice(0, 6)).toEqual([
+      "Point",
+      "Vector",
+      "Infinite Line",
+      "Segment",
+      "Ray",
+      "Plane"
+    ]);
     // S20: vector fields lead in Math Lab.
     expect(WORKSPACE_CONTENT.math.quickAddOrder[0]).toBe("2D Vector Field");
   });

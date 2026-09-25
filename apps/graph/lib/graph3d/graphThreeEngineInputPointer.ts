@@ -3,6 +3,7 @@ import { getComputeStatusForObject } from "@/lib/compute/geometryComputeStatus";
 import { analysisSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { pickAnalysisSourcePoint } from "./graphThreeAnalysisPick";
 import { pickWorldPointFromCanvasPointer } from "./graphThreeEnginePickWorld";
+import { pickGeometryPrimitiveAtPointer } from "./graphThreePrimitivePick";
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStroke";
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
@@ -78,6 +79,13 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
       return;
     }
 
+    // S26: pan-tool clean clicks select geometric primitives (drag orbits
+    // instead). Probe/measure/draw tools keep their behavior; proxies are
+    // invisible to those pickers, so selection never steals probe hits.
+    if (tool === "pan" && event.button === 0) {
+      mutable.primitivePickDown = { x: event.clientX, y: event.clientY };
+    }
+
     if (tool === "draw" && event.button === 0) {
       mutable.isSketching = true;
       const point = pickWorld(deps, event);
@@ -103,6 +111,15 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
         attemptAnalysisPick(deps, armedId, event);
       }
     }
+    // S26: resolve a pan-tool primitive selection on clean clicks only.
+    const primitiveAnchor = mutable.primitivePickDown;
+    mutable.primitivePickDown = null;
+    if (state.ui.canvas3dTool === "pan" && primitiveAnchor && event) {
+      const moved = Math.hypot(event.clientX - primitiveAnchor.x, event.clientY - primitiveAnchor.y);
+      if (moved < 6) {
+        attemptPrimitivePick(deps, event);
+      }
+    }
     if (state.ui.canvas3dTool !== "draw" || !mutable.isSketching) {
       return;
     }
@@ -126,6 +143,30 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     handlePointerUp,
     handlePointerLeave
   };
+}
+
+// S26: pan-tool clean-click primitive selection. Misses (and clicks on
+// non-primitive objects) leave selection untouched. Exported for unit
+// tests; the engine wires it through the pointer handlers above.
+export function attemptPrimitivePick(
+  deps: GraphThreeEngineInputHandlersDeps,
+  event: { clientX: number; clientY: number }
+): void {
+  const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;
+  const id = pickGeometryPrimitiveAtPointer(event, {
+    renderer: deps.renderer,
+    camera: deps.camera,
+    raycaster: deps.raycaster,
+    ndc: deps.ndc,
+    objectsRoot: deps.objectsRoot,
+    baselinePlane: deps.baselinePlane,
+    tempGround: deps.tempGround,
+    pickOverride
+  });
+  if (!id) {
+    return;
+  }
+  useGraphStore.getState().selectObject(id);
 }
 
 // S21: clean-click analysis pick for the armed source. Refuses while the

@@ -456,7 +456,7 @@ describe("implicit surface store semantics", () => {
     render(<GraphTypeSelector value="surface" onChange={() => undefined} />);
     const select = screen.getByLabelText("Graph type") as HTMLSelectElement;
     const values = Array.from(select.options).map((option) => option.value);
-    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "vectorField:2d", "vectorField:3d"]);
+    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "vector", "line", "ray", "segment", "vectorField:2d", "vectorField:3d"]);
   });
 
   it("lists Implicit Surface in both workspace quick-add orders", () => {

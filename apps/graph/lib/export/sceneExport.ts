@@ -170,13 +170,20 @@ export function export2dSvg(input: {
   // never silently drops scene content. S20: 3D vector fields join the
   // warn/skip set (no per-pane arrow projection in SVG); 2D field arrows
   // are not yet represented either and warn via the renderable fallback
-  // below. Arrow-to-SVG export stays explicitly out of scope.
+  // below. Arrow-to-SVG export stays explicitly out of scope. S26: the
+  // four geometric primitives are 3D mathematical geometry with no
+  // established 2D projection model in the exporter — explicit warning,
+  // never silent omission.
   const renderedIds = new Set(renderables.map((graph) => graph.id));
   for (const object of input.objects) {
     if (
       object.visible &&
       (object.kind === "parametricSurface" ||
         object.kind === "implicitSurface" ||
+        object.kind === "vector" ||
+        object.kind === "line" ||
+        object.kind === "ray" ||
+        object.kind === "segment" ||
         (object.kind === "vectorField" && object.dimension === "3d")) &&
       !renderedIds.has(object.id)
     ) {

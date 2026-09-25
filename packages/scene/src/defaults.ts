@@ -1,11 +1,14 @@
 import type {
   ImplicitSurfaceDomain,
   ImplicitSurfaceObject,
+  LineObject,
   ParametricCurveObject,
   ParametricSurfaceDomain,
   ParametricSurfaceObject,
   PlaneAppearance,
   PlaneGraphObject,
+  RayObject,
+  SegmentObject,
   SurfaceAppearance,
   SurfaceDomain,
   SurfaceGraphObject,
@@ -14,7 +17,8 @@ import type {
   VectorFieldDomain3D,
   VectorFieldObject,
   VectorFieldObject2D,
-  VectorFieldObject3D
+  VectorFieldObject3D,
+  VectorObject
 } from "./types";
 
 export const defaultGraphPalette = ["#3b82f6", "#06b6d4", "#f59e0b", "#fb7185", "#22c55e"];
@@ -444,5 +448,97 @@ export function createDefaultVectorFieldGraph(
     normalize: options.normalize ?? false,
     visible,
     color
+  };
+}
+
+// S26 geometric-primitive defaults: distinct asymmetric definitions so a
+// fresh object already exercises the math->world axis mapping.
+export const defaultVectorOrigin = { oxExpr: "1", oyExpr: "2", ozExpr: "3" };
+export const defaultVectorComponents = { vxExpr: "2", vyExpr: "-1", vzExpr: "4" };
+export const defaultLinePoint = { pxExpr: "-1", pyExpr: "2", pzExpr: "0" };
+export const defaultLineDirection = { dxExpr: "3", dyExpr: "1", dzExpr: "2" };
+export const defaultRayOrigin = { oxExpr: "2", oyExpr: "-1", ozExpr: "1" };
+export const defaultRayDirection = { dxExpr: "-1", dyExpr: "2", dzExpr: "3" };
+export const defaultSegmentEndpoints = {
+  axExpr: "-2",
+  ayExpr: "-1",
+  azExpr: "0",
+  bxExpr: "3",
+  byExpr: "2",
+  bzExpr: "4"
+};
+
+interface CreateDefaultGeometryPrimitiveOptions {
+  id: string;
+  index?: number;
+  visible?: boolean;
+  color?: string;
+}
+
+export function createDefaultVectorObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultVectorOrigin & typeof defaultVectorComponents>
+): VectorObject {
+  return {
+    id: options.id,
+    kind: "vector",
+    oxExpr: options.oxExpr ?? defaultVectorOrigin.oxExpr,
+    oyExpr: options.oyExpr ?? defaultVectorOrigin.oyExpr,
+    ozExpr: options.ozExpr ?? defaultVectorOrigin.ozExpr,
+    vxExpr: options.vxExpr ?? defaultVectorComponents.vxExpr,
+    vyExpr: options.vyExpr ?? defaultVectorComponents.vyExpr,
+    vzExpr: options.vzExpr ?? defaultVectorComponents.vzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultLineObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultLinePoint & typeof defaultLineDirection>
+): LineObject {
+  return {
+    id: options.id,
+    kind: "line",
+    pxExpr: options.pxExpr ?? defaultLinePoint.pxExpr,
+    pyExpr: options.pyExpr ?? defaultLinePoint.pyExpr,
+    pzExpr: options.pzExpr ?? defaultLinePoint.pzExpr,
+    dxExpr: options.dxExpr ?? defaultLineDirection.dxExpr,
+    dyExpr: options.dyExpr ?? defaultLineDirection.dyExpr,
+    dzExpr: options.dzExpr ?? defaultLineDirection.dzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultRayObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultRayOrigin & typeof defaultRayDirection>
+): RayObject {
+  return {
+    id: options.id,
+    kind: "ray",
+    oxExpr: options.oxExpr ?? defaultRayOrigin.oxExpr,
+    oyExpr: options.oyExpr ?? defaultRayOrigin.oyExpr,
+    ozExpr: options.ozExpr ?? defaultRayOrigin.ozExpr,
+    dxExpr: options.dxExpr ?? defaultRayDirection.dxExpr,
+    dyExpr: options.dyExpr ?? defaultRayDirection.dyExpr,
+    dzExpr: options.dzExpr ?? defaultRayDirection.dzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultSegmentObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultSegmentEndpoints>
+): SegmentObject {
+  return {
+    id: options.id,
+    kind: "segment",
+    axExpr: options.axExpr ?? defaultSegmentEndpoints.axExpr,
+    ayExpr: options.ayExpr ?? defaultSegmentEndpoints.ayExpr,
+    azExpr: options.azExpr ?? defaultSegmentEndpoints.azExpr,
+    bxExpr: options.bxExpr ?? defaultSegmentEndpoints.bxExpr,
+    byExpr: options.byExpr ?? defaultSegmentEndpoints.byExpr,
+    bzExpr: options.bzExpr ?? defaultSegmentEndpoints.bzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
   };
 }

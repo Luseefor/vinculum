@@ -1,4 +1,10 @@
 import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
+import {
+  createLineGraph,
+  createRayGraph,
+  createSegmentGraph,
+  createVectorGraph
+} from "@/lib/graph/createGeometryPrimitiveGraphs";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
@@ -17,6 +23,26 @@ export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
   }
   if (object.kind === "vectorField") {
     return ![object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim());
+  }
+  if (object.kind === "vector") {
+    return ![object.oxExpr, object.oyExpr, object.ozExpr, object.vxExpr, object.vyExpr, object.vzExpr].some(
+      (expr) => expr.trim()
+    );
+  }
+  if (object.kind === "line") {
+    return ![object.pxExpr, object.pyExpr, object.pzExpr, object.dxExpr, object.dyExpr, object.dzExpr].some(
+      (expr) => expr.trim()
+    );
+  }
+  if (object.kind === "ray") {
+    return ![object.oxExpr, object.oyExpr, object.ozExpr, object.dxExpr, object.dyExpr, object.dzExpr].some(
+      (expr) => expr.trim()
+    );
+  }
+  if (object.kind === "segment") {
+    return ![object.axExpr, object.ayExpr, object.azExpr, object.bxExpr, object.byExpr, object.bzExpr].some(
+      (expr) => expr.trim()
+    );
   }
   return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
 }
@@ -102,6 +128,66 @@ export function createEmptyGraphObject(
     });
   }
 
+  if (kind === "vector") {
+    return createVectorGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      oxExpr: "",
+      oyExpr: "",
+      ozExpr: "",
+      vxExpr: "",
+      vyExpr: "",
+      vzExpr: ""
+    });
+  }
+
+  if (kind === "line") {
+    return createLineGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      pxExpr: "",
+      pyExpr: "",
+      pzExpr: "",
+      dxExpr: "",
+      dyExpr: "",
+      dzExpr: ""
+    });
+  }
+
+  if (kind === "ray") {
+    return createRayGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      oxExpr: "",
+      oyExpr: "",
+      ozExpr: "",
+      dxExpr: "",
+      dyExpr: "",
+      dzExpr: ""
+    });
+  }
+
+  if (kind === "segment") {
+    return createSegmentGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      axExpr: "",
+      ayExpr: "",
+      azExpr: "",
+      bxExpr: "",
+      byExpr: "",
+      bzExpr: ""
+    });
+  }
+
   return createSurfaceGraph({
     colorIndex,
     id: options.id,
@@ -165,6 +251,22 @@ export function createGraphObject(
       color: options.color,
       visible: options.visible
     });
+  }
+
+  if (kind === "vector") {
+    return createVectorGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
+  }
+
+  if (kind === "line") {
+    return createLineGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
+  }
+
+  if (kind === "ray") {
+    return createRayGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
+  }
+
+  if (kind === "segment") {
+    return createSegmentGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
   }
 
   return createSurfaceGraph({

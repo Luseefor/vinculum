@@ -31,6 +31,10 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const addVectorObject = useGraphStore((state) => state.addVectorObject);
+  const addLineObject = useGraphStore((state) => state.addLineObject);
+  const addRayObject = useGraphStore((state) => state.addRayObject);
+  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
@@ -241,7 +245,11 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             { label: "Parametric Torus", onClick: () => createAndFocus(createParametricTorus) },
             { label: "Implicit Sphere", onClick: () => createAndFocus(createImplicitSphere) },
             { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
-            { label: "Point", onClick: () => createAndFocus(createPoint) }
+            { label: "Point", onClick: () => createAndFocus(createPoint) },
+            { label: "Vector", onClick: () => createAndFocus(() => addVectorObject()) },
+            { label: "Infinite Line", onClick: () => createAndFocus(() => addLineObject()) },
+            { label: "Segment", onClick: () => createAndFocus(() => addSegmentObject()) },
+            { label: "Ray", onClick: () => createAndFocus(() => addRayObject()) }
           ]
             .slice()
             .sort(

@@ -2,6 +2,11 @@ import type { GraphObject, VectorFieldObject } from "@vinculum/scene/types";
 
 // S20 PART 30: collapsed rows show `F(x,y)=<x, y>` truncated to 30 chars;
 // the full definition belongs in a tooltip/expanded editor.
+function formatPrimitiveSnippet(snippet: string): string {
+  const compact = snippet.replace(/\s+/g, "");
+  return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+}
+
 function formatVectorFieldSnippet(object: VectorFieldObject): string {
   const coords = object.dimension === "2d" ? "x,y" : "x,y,z";
   const components =
@@ -16,6 +21,46 @@ export function isExpressionRowEmpty(object: GraphObject): boolean {
   }
   if (object.kind === "vectorField") {
     return ![object.pExpr, object.qExpr, object.rExpr].some((expr) => expr.trim());
+  }
+  if (object.kind === "vector") {
+    return ![
+      object.oxExpr,
+      object.oyExpr,
+      object.ozExpr,
+      object.vxExpr,
+      object.vyExpr,
+      object.vzExpr
+    ].some((expr) => expr.trim());
+  }
+  if (object.kind === "line") {
+    return ![
+      object.pxExpr,
+      object.pyExpr,
+      object.pzExpr,
+      object.dxExpr,
+      object.dyExpr,
+      object.dzExpr
+    ].some((expr) => expr.trim());
+  }
+  if (object.kind === "ray") {
+    return ![
+      object.oxExpr,
+      object.oyExpr,
+      object.ozExpr,
+      object.dxExpr,
+      object.dyExpr,
+      object.dzExpr
+    ].some((expr) => expr.trim());
+  }
+  if (object.kind === "segment") {
+    return ![
+      object.axExpr,
+      object.ayExpr,
+      object.azExpr,
+      object.bxExpr,
+      object.byExpr,
+      object.bzExpr
+    ].some((expr) => expr.trim());
   }
   return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
 }
@@ -48,6 +93,79 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
       return { label: "Expression", type: "Choose type in menu" };
     }
     return { label: "Vector Field", type: formatVectorFieldSnippet(object) };
+  }
+  // S26: compact primitive snippets (PART 26). Full definitions live in
+  // the Inspector editor; collapsed rows show one short mathematical line.
+  if (object.kind === "vector") {
+    const allEmpty = ![
+      object.oxExpr,
+      object.oyExpr,
+      object.ozExpr,
+      object.vxExpr,
+      object.vyExpr,
+      object.vzExpr
+    ].some((expr) => expr.trim());
+    if (allEmpty) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    return { label: "Vector", type: formatPrimitiveSnippet(`<${object.vxExpr},${object.vyExpr},${object.vzExpr}>`) };
+  }
+  if (object.kind === "line") {
+    const allEmpty = ![
+      object.pxExpr,
+      object.pyExpr,
+      object.pzExpr,
+      object.dxExpr,
+      object.dyExpr,
+      object.dzExpr
+    ].some((expr) => expr.trim());
+    if (allEmpty) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    return {
+      label: "Line",
+      type: formatPrimitiveSnippet(
+        `(${object.pxExpr},${object.pyExpr},${object.pzExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>`
+      )
+    };
+  }
+  if (object.kind === "ray") {
+    const allEmpty = ![
+      object.oxExpr,
+      object.oyExpr,
+      object.ozExpr,
+      object.dxExpr,
+      object.dyExpr,
+      object.dzExpr
+    ].some((expr) => expr.trim());
+    if (allEmpty) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    return {
+      label: "Ray",
+      type: formatPrimitiveSnippet(
+        `(${object.oxExpr},${object.oyExpr},${object.ozExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>,t>=0`
+      )
+    };
+  }
+  if (object.kind === "segment") {
+    const allEmpty = ![
+      object.axExpr,
+      object.ayExpr,
+      object.azExpr,
+      object.bxExpr,
+      object.byExpr,
+      object.bzExpr
+    ].some((expr) => expr.trim());
+    if (allEmpty) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    return {
+      label: "Segment",
+      type: formatPrimitiveSnippet(
+        `(${object.axExpr},${object.ayExpr},${object.azExpr})→(${object.bxExpr},${object.byExpr},${object.bzExpr})`
+      )
+    };
   }
   if (!object.equation.trim()) {
     return { label: "Expression", type: "Choose type in menu" };

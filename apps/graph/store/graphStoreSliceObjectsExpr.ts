@@ -9,6 +9,7 @@ import { pruneAnalysisForSourceId, pruneVectorCalculusForSourceId } from "./grap
 import { pruneIntegralForSourceId } from "./graphStoreSliceIntegral";
 import { pruneScalarVizForSourceId } from "./graphStoreSliceScalarViz";
 import { pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
+import { updateGeometryPrimitiveField } from "./graphStoreGeometryPrimitiveField";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
@@ -41,7 +42,7 @@ function dropReferencingIntegralResults(ui: GraphUiState, fieldId: string): Grap
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updatePlaneEquation"
+  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updatePlaneEquation"
 > {
   return {
     updateSurfaceEquation: (id, equation) => {
@@ -263,8 +264,43 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
       });
     },
 
-    updatePlaneEquation: (id, equation) => {
+    updateGeometryCoordinate: (id, field, value) => {
       set((state) => {
+        const object = findObjectById(state.scene.objects, id);
+        if (
+          !object ||
+          (object.kind !== "vector" &&
+            object.kind !== "line" &&
+            object.kind !== "ray" &&
+            object.kind !== "segment")
+        ) {
+          return state;
+        }
+
+        const nextObject = updateGeometryPrimitiveField(object, field, value);
+        if (!nextObject) {
+          return state;
+        }
+
+        const command: SceneCommand = {
+          type: "UPDATE_OBJECT",
+          payload: {
+            object: nextObject
+          }
+        };
+
+        return {
+          scene: applySceneCommand(state.scene, command),
+          // S21: any object-math commit invalidates attached analysis for
+          // that source (no-ops via same-ref when nothing is attached).
+          // Primitives carry no S21–S25 analysis attachments; the prune
+          // keeps the contract uniform if that ever changes.
+          ui: pruneAnalysisForSourceId(state.ui, id)
+        };
+      });
+    },
+
+    updatePlaneEquation: (id, equation) => {      set((state) => {
         const object = findObjectById(state.scene.objects, id);
         if (!object || object.kind !== "plane") {
           return state;
