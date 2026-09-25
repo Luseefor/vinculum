@@ -18,8 +18,11 @@ import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
 import { updateAnalysisOverlays, updateVectorCurlOverlays } from "./buildAnalysisOverlays";
 import { updateScalarSliceOverlays } from "./buildScalarSliceOverlays";
+import { updateStreamlineOverlays } from "./buildStreamlineOverlays";
 import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { getStreamlineSyncContext, syncStreamlines } from "@/lib/compute/streamlineSync";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
@@ -238,6 +241,19 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       theme: domTheme,
       params: getEditorParameterScope()
     });
+    // S24: streamline jobs (signature-tracked) plus packed-polyline
+    // overlays in the same shared root. Source geometry sync below is
+    // untouched (0 rebuilds from streamline controls).
+    syncStreamlines(getStreamlineSyncContext(), storeState.scene.objects, getEditorParameterScope());
+    updateStreamlineOverlays({
+      configs: uiState.streamlineVizBySourceId,
+      objects: storeState.scene.objects,
+      objectNodes,
+      results: useStreamlineResultsStore.getState().entries,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      params: getEditorParameterScope()
+    });
 
     const camVersion = useGraphStore.getState().cameraResetVersion;
     if (camVersion !== runtime.lastCameraResetVersion) {
@@ -249,10 +265,22 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       }
     }
 
-    if (runtime.objectsDirty) {
+    // S24-R1: pressure also refreshes when streamline configs change
+    // (ui-only commits never set objectsDirty, but they change render
+    // load). Ref comparison is exact: every config commit replaces the map.
+    const streamlineConfigs = useGraphStore.getState().ui.streamlineVizBySourceId;
+    const configsChanged = streamlineConfigs !== runtime.lastStreamlineConfigs;
+    if (runtime.objectsDirty || configsChanged) {
+      const needsSync = runtime.objectsDirty;
       runtime.objectsDirty = false;
-      syncObjects(domTheme);
-      runtime.scenePressure = computeScenePressureFromObjects(useGraphStore.getState().scene.objects);
+      runtime.lastStreamlineConfigs = streamlineConfigs;
+      if (needsSync) {
+        syncObjects(domTheme);
+      }
+      runtime.scenePressure = computeScenePressureFromObjects(
+        useGraphStore.getState().scene.objects,
+        streamlineConfigs
+      );
     }
 
     // Track frame timing + scene pressure (throttled inside the metrics module).

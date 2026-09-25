@@ -21,6 +21,7 @@ import type {
   GraphUiState,
   ScalarVizConfig,
   SceneDialogMode,
+  StreamlineVizConfig,
   Viewport2D,
   Viewport2DFrame,
   WorkspaceId
@@ -112,6 +113,12 @@ export interface GraphStoreState {
     structure: string
   ) => void;
   clearScalarViz: (sourceId?: string) => void;
+  setStreamlineConfig: (
+    sourceId: string,
+    patch: Partial<Omit<StreamlineVizConfig, "sourceId" | "structure">>,
+    structure: string
+  ) => void;
+  clearStreamline: (sourceId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

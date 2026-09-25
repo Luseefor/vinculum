@@ -1,8 +1,9 @@
 "use client";
 
 import { type RefObject, useCallback } from "react";
-import type { Axis2DPair, Canvas2DTool, GraphProbePin, ScalarVizConfig, Viewport2D } from "@/types/graphUi";
+import type { Axis2DPair, Canvas2DTool, GraphProbePin, ScalarVizConfig, StreamlineVizConfig, Viewport2D } from "@/types/graphUi";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
+import type { StreamlineResultEntry } from "@/lib/compute/streamlineResults";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { paintGraph2dCanvasFrame } from "./graph2dCanvasPaintFrame";
 import type { AxisPairSpec, Graph2dPaintPalette, MousePosition, RenderableGraph } from "./graph2dCanvasTypes";
@@ -16,6 +17,8 @@ export type UseGraph2dCanvasDrawParams = {
   renderableGraphs: RenderableGraph[];
   scalarResults: Record<string, ScalarVizResultEntry>;
   scalarConfigs: Record<string, ScalarVizConfig>;
+  streamlineResults: Record<string, StreamlineResultEntry>;
+  streamlineConfigs: Record<string, StreamlineVizConfig>;
   canvas2dTool: Canvas2DTool;
   mousePos: MousePosition | null;
   isQuadTop: boolean;
@@ -36,6 +39,8 @@ export function useGraph2dCanvasDraw({
   renderableGraphs,
   scalarResults,
   scalarConfigs,
+  streamlineResults,
+  streamlineConfigs,
   canvas2dTool,
   mousePos,
   isQuadTop,
@@ -62,6 +67,8 @@ export function useGraph2dCanvasDraw({
       renderableGraphs,
       scalarResults,
       scalarConfigs,
+      streamlineResults,
+      streamlineConfigs,
       canvas2dTool,
       mousePos,
       isQuadTop,
@@ -86,6 +93,8 @@ export function useGraph2dCanvasDraw({
     renderableGraphs,
     scalarConfigs,
     scalarResults,
+    streamlineConfigs,
+    streamlineResults,
     selectedMeasurementId,
     sketchDraft,
     theme,

@@ -1,7 +1,8 @@
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
+import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import type { GraphObject } from "@vinculum/scene/types";
-import type { ScalarVizConfig } from "@/types/graphUi";
+import type { ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import {
   tryAppendExplicitCompiledCurve,
   tryAppendImplicitRenderableGraph,
@@ -16,7 +17,8 @@ export function buildRenderableGraphsFromScene(
   objects: GraphObject[],
   axisPair: AxisPairSpec,
   params: Record<string, number>,
-  scalarViz: Record<string, ScalarVizConfig> = {}
+  scalarViz: Record<string, ScalarVizConfig> = {},
+  streamlines: Record<string, StreamlineVizConfig> = {}
 ): RenderableGraph[] {
   const graphs: RenderableGraph[] = [];
 
@@ -69,6 +71,22 @@ export function buildRenderableGraphsFromScene(
             hatchDomain: null,
             polylineHV: null,
             vectorField: arrows
+          });
+        }
+        // S24: streamline reference for live enabled configs (any pair:
+        // points integrate in canonical (x, y) and project per pair).
+        const streamlineAttachment = streamlineAttachmentFor(obj, params, streamlines);
+        if (streamlineAttachment) {
+          graphs.push({
+            id: obj.id,
+            color: obj.color,
+            verticalLineValue: null,
+            horizontalLineValue: null,
+            evaluate: null,
+            implicitEvaluate: null,
+            hatchDomain: null,
+            polylineHV: null,
+            streamlines: streamlineAttachment
           });
         }
       }
@@ -205,6 +223,23 @@ export function buildRenderableGraphsFromScene(
   }
 
   return graphs;
+}
+
+// S24 streamline attach gate: 2D vector field + enabled live config.
+// Pair-independent (canonical (x, y) integration projects to every pair).
+function streamlineAttachmentFor(
+  obj: Extract<GraphObject, { kind: "vectorField"; dimension: "2d" }>,
+  params: Record<string, number>,
+  configs: Record<string, StreamlineVizConfig>
+): { sourceId: string } | null {
+  const config = configs[obj.id];
+  if (!config || !config.enabled) {
+    return null;
+  }
+  if (vectorCalculusSourceIdentity(obj, Object.keys(params)) !== config.structure) {
+    return null;
+  }
+  return { sourceId: obj.id };
 }
 
 // S23 scalar attach gate: explicit surface + any 2D viz enabled + live

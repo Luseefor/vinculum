@@ -1,6 +1,7 @@
 import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
 import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
 import { computeScalarFieldData } from "@/lib/math/computeScalarFieldData";
+import { computeStreamlineData } from "@/lib/math/computeStreamlineData";
 import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
 import {
   isGeometryComputeRequest,
@@ -133,6 +134,34 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       gradientStatus: computed.gradientStatus
     };
   }
+  if (request.kind === "streamlines") {
+    // S24: the worker runs the same pure integrator the unit tests use
+    // (parity is structural). Canonical vector compiler, same S11 policy.
+    const computed = computeStreamlineData({
+      dimension: request.payload.dimension,
+      pExpr: request.payload.pExpr,
+      qExpr: request.payload.qExpr,
+      rExpr: request.payload.rExpr,
+      domain: request.payload.domain,
+      seedDensity: request.payload.seedDensity,
+      length: request.payload.length,
+      quality: request.payload.quality,
+      params: request.params
+    });
+    if (computed.status !== "ok") {
+      return computed;
+    }
+    return {
+      status: "ok",
+      dimension: request.payload.dimension,
+      points: computed.points,
+      offsets: computed.offsets,
+      closed: computed.closed,
+      streamlineCount: computed.streamlineCount,
+      totalPoints: computed.totalPoints,
+      evaluationCount: computed.evaluationCount
+    };
+  }
   if (request.kind === "vectorField") {
     // S20: the worker runs the same pure sampler the 2D path and unit
     // tests use (parity is structural). Buffers compact to valid samples.
@@ -188,6 +217,13 @@ function collectTransferBuffers(
   }
   // Freshly allocated result buffers (never SharedArrayBuffers): safe to
   // transfer. The worker drops all references by returning here.
+  if ("offsets" in result) {
+    return [
+      result.points.buffer as Transferable,
+      result.offsets.buffer as Transferable,
+      result.closed.buffer as Transferable
+    ];
+  }
   if ("vectors" in result) {
     return [
       result.positions.buffer as Transferable,

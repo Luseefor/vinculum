@@ -13,6 +13,7 @@ import {
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
 import VectorCalculusSection from "./VectorCalculusSection";
+import StreamlineSection from "./StreamlineSection";
 
 export default function GraphInspector() {
   const objects = useGraphStore((state) => state.scene.objects);
@@ -207,6 +208,9 @@ function VectorFieldInspector({ object, objects }: { object: VectorFieldObject; 
       </div>
       <div className="mt-3">
         <VectorCalculusSection object={object} />
+      </div>
+      <div className="mt-3">
+        <StreamlineSection object={object} />
       </div>
     </section>
   );

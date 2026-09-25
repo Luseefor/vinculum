@@ -2,6 +2,7 @@ import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceB(set: GraphStoreSet): Pick<
@@ -69,7 +70,9 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
 
     removeObject: (id) => {
       // S23: drop cached scalar grids beside the config (no orphan heat).
+      // S24: same for cached streamlines (no orphan lines).
       useScalarVizResultsStore.getState().removeForSource(id);
+      useStreamlineResultsStore.getState().removeForSource(id);
       set((state) => {
         const removeIndex = state.scene.objects.findIndex((object) => object.id === id);
         if (removeIndex === -1) {

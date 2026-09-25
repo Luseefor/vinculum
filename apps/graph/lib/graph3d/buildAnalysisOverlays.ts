@@ -30,6 +30,7 @@ import {
 } from "@/lib/math/vectorCalculus";
 import { analysisSourceIdentity, vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { SCALAR_SLICE_KEY_PREFIX } from "./buildScalarSliceOverlays";
+import { STREAMLINE_OVERLAY_KEY_PREFIX } from "./buildStreamlineOverlays";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 
 // S21 derived overlays: one Group per analyzed source (`analysis:<id>`),
@@ -389,10 +390,13 @@ export function updateAnalysisOverlays(frame: AnalysisOverlayFrame): void {
   // S23-R1: scalar-slice meshes/contours (`scalar-slice:*`, owned by the
   // slice sync) likewise survive this pass — without the carve-out the
   // analysis pass deleted and rebuilt them every tick.
+  // S24: streamline groups (`streamline:*`, owned by the streamline sync)
+  // get the same carve-out (PART 44/45).
   for (const [sourceId] of frame.cache) {
     if (
       sourceId.startsWith(CURL_OVERLAY_KEY_PREFIX) ||
-      sourceId.startsWith(SCALAR_SLICE_KEY_PREFIX)
+      sourceId.startsWith(SCALAR_SLICE_KEY_PREFIX) ||
+      sourceId.startsWith(STREAMLINE_OVERLAY_KEY_PREFIX)
     ) {
       continue;
     }

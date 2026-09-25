@@ -4,6 +4,7 @@ import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
 import { buildScalarVizSlice } from "./graphStoreSliceScalarViz";
+import { buildStreamlineSlice } from "./graphStoreSliceStreamline";
 import { buildObjectsSliceB } from "./graphStoreSliceObjectsB";
 import { buildObjectsSliceExpr } from "./graphStoreSliceObjectsExpr";
 import { buildObjectsSliceInsert } from "./graphStoreSliceObjectsInsert";
@@ -35,6 +36,7 @@ export const useGraphStore = create<GraphStoreState>()(
       cameraResetVersion: 0,
       ...buildAnalysisSlice(set),
       ...buildScalarVizSlice(set),
+      ...buildStreamlineSlice(set),
       ...buildObjectsSliceInsert(set),
       ...buildObjectsSliceExpr(set),
       ...buildObjectsSliceB(set),
@@ -68,6 +70,9 @@ export const useGraphStore = create<GraphStoreState>()(
           // S23: scalar-visualization configs are toggles only (grids
           // live in the result cache); equally transient.
           scalarVizBySourceId: {},
+          // S24: streamline configs are toggles only (polylines live in
+          // the result cache); equally transient.
+          streamlineVizBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

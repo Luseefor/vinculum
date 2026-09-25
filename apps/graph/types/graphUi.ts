@@ -129,12 +129,30 @@ export interface GraphUiState {
    */
   directionInputBySourceId: Record<string, { u: number; v: number }>;
   /**
+   * S24 transient streamline configs keyed by source field id. Toggles
+   * and numeric settings only — computed polylines live in the
+   * streamline-result cache, never here and never serialized.
+   */
+  streamlineVizBySourceId: Record<string, StreamlineVizConfig>;
+  /**
    * S23 transient scalar-visualization configs keyed by source id.
    * Toggles and numeric settings only — computed grids live in the
    * scalar-result cache, never here and never serialized. 2D fields use
    * the heat/contour/gradient half; implicit sources use the slice half.
    */
   scalarVizBySourceId: Record<string, ScalarVizConfig>;
+}
+
+export interface StreamlineVizConfig {
+  sourceId: string;
+  /** Math-only source identity at enable (see vectorCalculusSourceIdentity). */
+  structure: string;
+  /** Source dimension at enable (dimension switches clear the config). */
+  dimension: "2d" | "3d";
+  enabled: boolean;
+  seedDensity: number;
+  length: "short" | "medium" | "long";
+  quality: "low" | "medium" | "high";
 }
 
 export interface ScalarVizConfig {

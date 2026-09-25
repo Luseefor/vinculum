@@ -1,6 +1,7 @@
-import type { Axis2DPair, GraphProbePin, ScalarVizConfig } from "@/types/graphUi";
+import type { Axis2DPair, GraphProbePin, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
+import type { StreamlineResultEntry } from "@/lib/compute/streamlineResults";
 import { drawProbeLabel, drawScreenCrosshair } from "./graph2dCanvasDrawPrimitives";
 import { formatProbeCoord } from "./graph2dCanvasFormat";
 import { drawGraph2dGrid } from "./graph2dCanvasDrawGrid";
@@ -14,6 +15,7 @@ import {
   drawScalarGradientField,
   drawScalarHeatLayer
 } from "./graph2dCanvasScalarViz";
+import { drawStreamlines2D } from "./graph2dCanvasStreamlines";
 import type { AxisPairSpec, DrawContext, Graph2dPaintPalette, MousePosition, RenderableGraph } from "./graph2dCanvasTypes";
 
 export type PaintGraph2dCanvasFrameArgs = {
@@ -25,6 +27,8 @@ export type PaintGraph2dCanvasFrameArgs = {
   renderableGraphs: RenderableGraph[];
   scalarResults: Record<string, ScalarVizResultEntry>;
   scalarConfigs: Record<string, ScalarVizConfig>;
+  streamlineResults: Record<string, StreamlineResultEntry>;
+  streamlineConfigs: Record<string, StreamlineVizConfig>;
   canvas2dTool: "pan" | "probe" | "draw" | "measureDistance" | "measureAngle" | "addPin";
   mousePos: MousePosition | null;
   isQuadTop: boolean;
@@ -46,6 +50,8 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     renderableGraphs,
     scalarResults,
     scalarConfigs,
+    streamlineResults,
+    streamlineConfigs,
     canvas2dTool,
     mousePos,
     isQuadTop,
@@ -108,6 +114,8 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     // S23 derived overlays paint with their source: contours and gradient
     // glyphs above the source curve, below probes/measurements.
     drawScalarOverlaysForGraph(graph, scalarResults, scalarConfigs, theme, dc);
+    // S24 streamlines paint with their source field, above glyphs.
+    drawStreamlineOverlaysForGraph(graph, streamlineResults, streamlineConfigs, axisPair, dc);
   }
 
   if (
@@ -227,6 +235,24 @@ function drawScalarOverlaysForGraph(
       drawScalarGradientField(arrows, graph.color, dc, graph2dMathToScreen);
     }
   }
+}
+
+function drawStreamlineOverlaysForGraph(
+  graph: RenderableGraph,
+  streamlineResults: Record<string, StreamlineResultEntry>,
+  streamlineConfigs: Record<string, StreamlineVizConfig>,
+  axisPair: AxisPairSpec,
+  dc: DrawContext
+): void {
+  if (!graph.streamlines) {
+    return;
+  }
+  const config = streamlineConfigs[graph.streamlines.sourceId];
+  const entry = streamlineResults[`streamline:${graph.streamlines.sourceId}`];
+  if (!config?.enabled || !entry || entry.result.status !== "ok") {
+    return;
+  }
+  drawStreamlines2D(entry.result, graph.color, axisPair, dc, graph2dMathToScreen);
 }
 
 function drawMeasurementOverlays2d(

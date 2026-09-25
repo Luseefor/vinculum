@@ -308,6 +308,12 @@ export function maxVectorFieldDensityForDimension(dimension: VectorFieldDimensio
 // 1024). Reference for scene-pressure normalization (PART 23).
 export const MAX_VECTOR_FIELD_GLYPH_COUNT = MAX_VECTOR_FIELD_3D_DENSITY ** 3;
 
+// S24 streamline pressure reference: worst-case packed points per job
+// (PART 8/34). Render-segment estimates normalize against the same bound
+// packed points obey, keeping one conservative budget across compute and
+// draw pressure.
+export const MAX_STREAMLINE_SEGMENT_COUNT = 65536;
+
 export function normalizeVectorFieldDensity(value: number, dimension: VectorFieldDimension): number {
   const normalized = Math.floor(value);
   return Math.min(

@@ -14,6 +14,7 @@ import {
 } from "./graphStoreObjectFactory";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
@@ -115,7 +116,9 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         };
 
         // S23: kind switches drop cached scalar grids with the config.
+        // S24: same for cached streamlines (no stale trajectories).
         useScalarVizResultsStore.getState().removeForSource(id);
+        useStreamlineResultsStore.getState().removeForSource(id);
         const replacement = isGraphObjectWithoutExpressions(currentObject)
           ? createEmptyGraphObject(kind, index, objectOptions)
           : createGraphObject(kind, index, objectOptions);

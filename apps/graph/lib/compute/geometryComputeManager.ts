@@ -7,6 +7,7 @@ import {
   type ImplicitSurfaceComputePayload,
   type ParametricSurfaceComputePayload,
   type ScalarFieldComputePayload,
+  type StreamlineComputePayload,
   type VectorFieldComputePayload
 } from "./geometryComputeProtocol";
 import { useGeometryComputeStore } from "./geometryComputeStatus";
@@ -84,6 +85,13 @@ export interface GeometryComputeManager {
           objectId: string;
           kind: "scalarField";
           payload: ScalarFieldComputePayload;
+          params: Record<string, number>;
+          structure: string;
+        }
+      | {
+          objectId: string;
+          kind: "streamlines";
+          payload: StreamlineComputePayload;
           params: Record<string, number>;
           structure: string;
         }
@@ -207,7 +215,9 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
             ? "Field too dense at this density; lower it."
             : response.kind === "scalarField"
               ? "Scalar field too complex; lower the contour count."
-              : "Surface too complex at this resolution; lower it."
+              : response.kind === "streamlines"
+                ? "Streamlines too complex; lower seed density or trace length."
+                : "Surface too complex at this resolution; lower it."
           : response.result.error;
       useGeometryComputeStore.getState().setStatus(response.objectId, "error", message);
       if (response.result.status === "budget-exceeded") {
@@ -215,13 +225,17 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
         reportWarning(
           response.kind === "vectorField"
             ? "Vector field sampling exceeded the sample budget."
-            : "Implicit surface extraction exceeded the triangle budget.",
+            : response.kind === "streamlines"
+              ? "Streamline tracing exceeded the point budget."
+              : "Implicit surface extraction exceeded the triangle budget.",
           {
             featureArea: "3d-viewport",
             operation:
               response.kind === "vectorField"
                 ? "vector-field-budget-exceeded"
-                : "implicit-surface-budget-exceeded"
+                : response.kind === "streamlines"
+                  ? "streamline-budget-exceeded"
+                  : "implicit-surface-budget-exceeded"
           }
         );
       }
@@ -295,7 +309,9 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
             ? { ...base, kind: input.kind, payload: input.payload }
             : input.kind === "vectorField"
               ? { ...base, kind: input.kind, payload: input.payload }
-              : { ...base, kind: input.kind, payload: input.payload };
+              : input.kind === "scalarField"
+                ? { ...base, kind: input.kind, payload: input.payload }
+                : { ...base, kind: input.kind, payload: input.payload };
       // Queue coalescing: at most one queued (not yet started) request per
       // object. A newer request replaces obsolete queued versions; the
       // in-flight request, if any, resolves via stale suppression.

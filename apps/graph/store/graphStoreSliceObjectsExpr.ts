@@ -7,7 +7,9 @@ import { updateParametricSurfaceField } from "./graphStoreParametricSurfaceField
 import { updateVectorFieldField } from "./graphStoreVectorFieldField";
 import { pruneAnalysisForSourceId, pruneVectorCalculusForSourceId } from "./graphStoreSliceAnalysis";
 import { pruneScalarVizForSourceId } from "./graphStoreSliceScalarViz";
+import { pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
@@ -186,6 +188,8 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         // S22 PART 8/33: only mathematical edits invalidate vector
         // calculus (components, domain). Density/scale/normalize/color
         // change sampling/rendering, never the function — analysis stays.
+        // S24 streamlines share the same math identity, so they prune on
+        // exactly the same fields (glyph config never triggers jobs).
         const mathFields = new Set([
           "pExpr",
           "qExpr",
@@ -197,9 +201,14 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           "zMin",
           "zMax"
         ]);
+        if (mathFields.has(field)) {
+          useStreamlineResultsStore.getState().removeForSource(id);
+        }
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: mathFields.has(field) ? pruneVectorCalculusForSourceId(state.ui, id) : state.ui
+          ui: mathFields.has(field)
+            ? pruneStreamlineForSourceId(pruneVectorCalculusForSourceId(state.ui, id), id)
+            : state.ui
         };
       });
     },

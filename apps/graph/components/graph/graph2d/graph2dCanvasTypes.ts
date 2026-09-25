@@ -62,11 +62,18 @@ export interface RenderableGraph {
   // the canvas pair and whose config is live; the draw layer resolves the
   // cached worker result by sourceId. Every other path omits the key.
   scalarField?: ScalarFieldAttachment | null;
+  // S24: streamline attachment. Set only for 2D vector fields with a live
+  // enabled config; the draw layer resolves cached polylines by sourceId.
+  streamlines?: StreamlineAttachment | null;
 }
 
 export interface ScalarFieldAttachment {
   sourceId: string;
   domain: { uMin: number; uMax: number; vMin: number; vMax: number };
+}
+
+export interface StreamlineAttachment {
+  sourceId: string;
 }
 
 // Canonical 2D parametric data (S5): projected math-frame points plus the

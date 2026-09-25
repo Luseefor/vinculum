@@ -35,7 +35,12 @@ import {
 //   where a response can arrive before the next rAF sync runs (store updates
 //   are synchronous; sync itself runs a frame later).
 
-export type GeometryComputeKind = "implicitSurface" | "parametricSurface" | "vectorField" | "scalarField";
+export type GeometryComputeKind =
+  | "implicitSurface"
+  | "parametricSurface"
+  | "vectorField"
+  | "scalarField"
+  | "streamlines";
 
 // S23: planar scalar-field job (2D object-domain grids and 3D planar
 // slices share one engine). The payload carries mathematics only —
@@ -118,11 +123,32 @@ export interface ScalarFieldComputeRequest extends GeometryComputeRequestBase {
   payload: ScalarFieldComputePayload;
 }
 
+// S24: streamline-tracing job. Mathematics only — render-only glyph
+// sizing (scale/normalize), color, theme, and camera never enter the
+// payload. Seed density/length/quality are numerics: they change the
+// computed curves and belong in the job signature.
+export interface StreamlineComputePayload {
+  dimension: VectorFieldDimension;
+  pExpr: string;
+  qExpr: string;
+  rExpr: string;
+  domain: VectorFieldDomain2D | VectorFieldDomain3D;
+  seedDensity: number;
+  length: "short" | "medium" | "long";
+  quality: "low" | "medium" | "high";
+}
+
+export interface StreamlineComputeRequest extends GeometryComputeRequestBase {
+  kind: "streamlines";
+  payload: StreamlineComputePayload;
+}
+
 export type GeometryComputeRequest =
   | ImplicitSurfaceComputeRequest
   | ParametricSurfaceComputeRequest
   | VectorFieldComputeRequest
-  | ScalarFieldComputeRequest;
+  | ScalarFieldComputeRequest
+  | StreamlineComputeRequest;
 
 // Uniform mesh result shape carried back to the main thread. Both surface
 // compute paths normalize into this (implicit reports rejectedTriangles: 0;
@@ -181,10 +207,25 @@ export interface ScalarFieldComputeOkResult {
   gradientStatus: "ok" | "skipped" | "unavailable" | "empty";
 }
 
+// S24: packed-streamline result. points are flat coordinates (2D: xy
+// pairs, 3D: xyz triples); offsets has length streamlineCount + 1 with
+// offsets[count] === totalPoints; closed flags loop detection per curve.
+export interface StreamlineComputeOkResult {
+  status: "ok";
+  dimension: VectorFieldDimension;
+  points: Float32Array;
+  offsets: Uint32Array;
+  closed: Uint8Array;
+  streamlineCount: number;
+  totalPoints: number;
+  evaluationCount: number;
+}
+
 export type GeometryComputeResult =
   | GeometryComputeOkResult
   | VectorFieldComputeOkResult
   | ScalarFieldComputeOkResult
+  | StreamlineComputeOkResult
   | { status: "empty" }
   | { status: "budget-exceeded" }
   | { status: "error"; error: string };
@@ -400,6 +441,9 @@ export function isGeometryComputeRequest(value: unknown): value is GeometryCompu
   if (value.kind === "scalarField") {
     return isScalarFieldPayload(value.payload);
   }
+  if (value.kind === "streamlines") {
+    return isStreamlinePayload(value.payload);
+  }
   return false;
 }
 
@@ -409,6 +453,37 @@ function isTypedArray(value: unknown): value is Float32Array | Uint16Array | Uin
 
 const SCALAR_CONTOUR_STATUSES = new Set(["ok", "empty", "degenerate", "budget-exceeded"]);
 const SCALAR_GRADIENT_STATUSES = new Set(["ok", "skipped", "unavailable", "empty"]);
+
+function isStreamlinePayload(value: unknown): value is StreamlineComputePayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (value.dimension !== "2d" && value.dimension !== "3d") {
+    return false;
+  }
+  if (
+    typeof value.pExpr !== "string" ||
+    typeof value.qExpr !== "string" ||
+    typeof value.rExpr !== "string"
+  ) {
+    return false;
+  }
+  // S20-R4 mirrored: R belongs to 3D; a 2D payload carrying R would
+  // silently ignore mathematics in the integrator's dimension branch.
+  if (value.dimension === "2d" && (value.rExpr as string).trim() !== "") {
+    return false;
+  }
+  if (!isFiniteNumber(value.seedDensity)) {
+    return false;
+  }
+  if (value.length !== "short" && value.length !== "medium" && value.length !== "long") {
+    return false;
+  }
+  if (value.quality !== "low" && value.quality !== "medium" && value.quality !== "high") {
+    return false;
+  }
+  return isVectorFieldDomain(value.domain, value.dimension);
+}
 
 function isScalarFieldResult(value: Record<string, unknown>): boolean {
   // Scalar shape carries values+valid instead of the mesh indices or the
@@ -484,11 +559,70 @@ function isScalarFieldResult(value: Record<string, unknown>): boolean {
   return true;
 }
 
+function isStreamlineResult(value: Record<string, unknown>): boolean {
+  // Packed polylines: offsets has exactly streamlineCount + 1 entries
+  // ending at totalPoints; closed flags match the curve count; points
+  // stride matches the declared dimension. The applier trusts counts only
+  // after these hold (full OOB scans stay with the parity-tested producer).
+  if (value.dimension !== "2d" && value.dimension !== "3d") {
+    return false;
+  }
+  if (
+    !(value.points instanceof Float32Array) ||
+    !(value.offsets instanceof Uint32Array) ||
+    !(value.closed instanceof Uint8Array)
+  ) {
+    return false;
+  }
+  const stride = value.dimension === "2d" ? 2 : 3;
+  if (
+    typeof value.streamlineCount !== "number" ||
+    !Number.isInteger(value.streamlineCount) ||
+    value.streamlineCount < 1 ||
+    typeof value.totalPoints !== "number" ||
+    !Number.isInteger(value.totalPoints) ||
+    value.totalPoints < 2 ||
+    typeof value.evaluationCount !== "number" ||
+    !Number.isInteger(value.evaluationCount) ||
+    value.evaluationCount < 1
+  ) {
+    return false;
+  }
+  if (
+    value.offsets.length !== (value.streamlineCount as number) + 1 ||
+    value.closed.length !== (value.streamlineCount as number) ||
+    value.offsets[0] !== 0 ||
+    value.offsets[value.streamlineCount as number] !== (value.totalPoints as number) ||
+    value.points.length !== (value.totalPoints as number) * stride
+  ) {
+    return false;
+  }
+  for (let i = 1; i <= (value.streamlineCount as number); i += 1) {
+    if ((value.offsets[i] as number) <= (value.offsets[i - 1] as number)) {
+      return false;
+    }
+  }
+  for (const flag of value.closed as Uint8Array) {
+    if (flag !== 0 && flag !== 1) {
+      return false;
+    }
+  }
+  for (const coordinate of value.points as Float32Array) {
+    if (!Number.isFinite(coordinate)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isComputeResult(value: unknown): value is GeometryComputeResult {
   if (!isRecord(value)) {
     return false;
   }
   if (value.status === "ok") {
+    if ("offsets" in value || "streamlineCount" in value) {
+      return isStreamlineResult(value);
+    }
     if ("values" in value || "valid" in value) {
       return isScalarFieldResult(value);
     }
@@ -553,7 +687,8 @@ export function isGeometryComputeResponse(value: unknown): value is GeometryComp
     value.kind !== "implicitSurface" &&
     value.kind !== "parametricSurface" &&
     value.kind !== "vectorField" &&
-    value.kind !== "scalarField"
+    value.kind !== "scalarField" &&
+    value.kind !== "streamlines"
   ) {
     return false;
   }

@@ -5,6 +5,8 @@ import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
 import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { getStreamlineSyncContext, syncStreamlines } from "@/lib/compute/streamlineSync";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import { getAxisPairSpec } from "./graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
 import { Graph2DCanvasUiChrome } from "./graph2d/Graph2DCanvasUiChrome";
@@ -78,10 +80,13 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   // in without resampling on pan/zoom (the builder takes no viewport).
   const scalarConfigs = useGraphStore((state) => state.ui.scalarVizBySourceId);
   const scalarResults = useScalarVizResultsStore((state) => state.entries);
+  // S24: same pattern for streamline polylines.
+  const streamlineConfigs = useGraphStore((state) => state.ui.streamlineVizBySourceId);
+  const streamlineResults = useStreamlineResultsStore((state) => state.entries);
 
   const renderableGraphs = useMemo<RenderableGraph[]>(
-    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs),
-    [axisPair, objects, paramScope, scalarConfigs]
+    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs, streamlineConfigs),
+    [axisPair, objects, paramScope, scalarConfigs, streamlineConfigs]
   );
 
   // S23: request desired scalar jobs when sources/configs/params change.
@@ -89,6 +94,12 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   useEffect(() => {
     syncScalarViz(getScalarSyncContext(), objects, paramScope);
   }, [objects, paramScope, scalarConfigs]);
+
+  // S24: same for streamline jobs (shared signature ledger per context, so
+  // the two canvases never double-request).
+  useEffect(() => {
+    syncStreamlines(getStreamlineSyncContext(), objects, paramScope);
+  }, [objects, paramScope, streamlineConfigs]);
 
   const {
     mousePos,
@@ -124,6 +135,8 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     renderableGraphs,
     scalarResults,
     scalarConfigs,
+    streamlineResults,
+    streamlineConfigs,
     canvas2dTool,
     mousePos,
     isQuadTop,
@@ -135,7 +148,10 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     sketchDraft
   });
 
-  const scenePressure = useMemo(() => computeScenePressureFromObjects(objects), [objects]);
+  const scenePressure = useMemo(
+    () => computeScenePressureFromObjects(objects, streamlineConfigs),
+    [objects, streamlineConfigs]
+  );
   const drawMeasured = useCallback(() => {
     const start = performance.now();
     draw();

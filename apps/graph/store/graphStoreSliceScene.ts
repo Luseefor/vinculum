@@ -3,6 +3,7 @@ import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerived } from "./graphStoreSliceScalarViz";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 import { createDefaultViewport2D } from "./graphStoreViewportInit";
 
@@ -13,7 +14,9 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
   return {
     replaceSceneDocument: (sceneDocument) => {
       // S23: scene replacement drops every cached scalar grid.
+      // S24: same for cached streamlines.
       useScalarVizResultsStore.getState().clearAll();
+      useStreamlineResultsStore.getState().clearAll();
       set((state) => {
         const nextScene = applySceneCommand(state.scene, {
           type: "REPLACE_SCENE",
@@ -54,7 +57,9 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
     resetScene: () => {
       const defaultScene = createInitialSceneDocument();
       // S23: scene reset drops every cached scalar grid.
+      // S24: same for cached streamlines.
       useScalarVizResultsStore.getState().clearAll();
+      useStreamlineResultsStore.getState().clearAll();
 
       set((state) => ({
         scene: applySceneCommand(state.scene, {

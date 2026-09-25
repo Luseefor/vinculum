@@ -1,5 +1,12 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { MAX_IMPLICIT_SURFACE_RESOLUTION, MAX_SURFACE_RESOLUTION, MAX_VECTOR_FIELD_GLYPH_COUNT } from "@vinculum/scene/defaults";
+import {
+  MAX_IMPLICIT_SURFACE_RESOLUTION,
+  MAX_STREAMLINE_SEGMENT_COUNT,
+  MAX_SURFACE_RESOLUTION,
+  MAX_VECTOR_FIELD_GLYPH_COUNT
+} from "@vinculum/scene/defaults";
+import { clampSeedDensity } from "@/lib/math/streamlineSeeds";
+import type { StreamlineVizConfig } from "@/types/graphUi";
 import { MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressionSafety";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 
@@ -14,6 +21,8 @@ export interface ScenePressure {
   parametricSamplePressure: number; // 0..1
   vectorGlyphMax: number;
   vectorGlyphPressure: number; // 0..1
+  streamlineSegmentsMax: number;
+  streamlineSegmentsPressure: number; // 0..1
 }
 
 export interface PerformanceMetricsSnapshot {
@@ -54,13 +63,32 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-export function computeScenePressureFromObjects(objects: readonly GraphObject[]): ScenePressure {
+// S24 PART 34: streamline cost scales with seed count × integration
+// steps × RK evaluations, not glyph count. Conservative render estimate
+// per enabled config: seeds × 512 segments (a long trace at low quality
+// spans ~3 diagonals / (span/64) ≈ 270 steps per branch; typical curves
+// stay far below, while maxed-out configs honestly trip the warning).
+// Configs are an optional second argument so existing callers keep working.
+export function computeScenePressureFromObjects(
+  objects: readonly GraphObject[],
+  streamlineConfigs: Record<string, StreamlineVizConfig> = {}
+): ScenePressure {
   const visibleObjects = objects.filter((o) => o.visible);
+  const visibleIds = new Set(visibleObjects.map((o) => o.id));
 
   let surfaceResolutionMax = 0;
   let parametricSamplesMax = 0;
   let implicitResolutionMax = 0;
   let vectorGlyphMax = 0;
+  let streamlineSegmentsMax = 0;
+  for (const config of Object.values(streamlineConfigs)) {
+    if (!config.enabled || !visibleIds.has(config.sourceId)) {
+      continue;
+    }
+    const density = clampSeedDensity(config.seedDensity, config.dimension);
+    const seeds = config.dimension === "2d" ? density * density : density * density * density;
+    streamlineSegmentsMax = Math.max(streamlineSegmentsMax, seeds * 512);
+  }
 
   for (const o of visibleObjects) {
     if (o.kind === "surface") {
@@ -96,6 +124,7 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
   );
   const parametricSamplePressure = clamp01(parametricSamplesMax / MAX_PARAMETRIC_CURVE_SAMPLES);
   const vectorGlyphPressure = clamp01(vectorGlyphMax / MAX_VECTOR_FIELD_GLYPH_COUNT);
+  const streamlineSegmentsPressure = clamp01(streamlineSegmentsMax / MAX_STREAMLINE_SEGMENT_COUNT);
 
   return {
     objectCount: objects.length,
@@ -105,7 +134,9 @@ export function computeScenePressureFromObjects(objects: readonly GraphObject[])
     surfaceResolutionPressure,
     parametricSamplePressure,
     vectorGlyphMax,
-    vectorGlyphPressure
+    vectorGlyphPressure,
+    streamlineSegmentsMax,
+    streamlineSegmentsPressure
   };
 }
 
@@ -171,6 +202,13 @@ export function evaluateHeavySceneWarnings(
     consider("warning", "Heavy scene: High vector field glyph count may reduce performance.");
   }
 
+  const { streamlineSegmentsPressure } = input.scenePressure;
+  if (streamlineSegmentsPressure >= 0.98) {
+    consider("critical", "Heavy scene: High streamline count may reduce performance.");
+  } else if (streamlineSegmentsPressure >= 0.5) {
+    consider("warning", "Heavy scene: High streamline count may reduce performance.");
+  }
+
   // Frame timing pressure
   if (last >= 70 || avg >= 50) {
     consider("critical", "Performance is slow. Try reducing resolution or visible objects.");
@@ -227,7 +265,9 @@ export function createPerformanceMetricsTracker(options?: {
     surfaceResolutionPressure: 0,
     parametricSamplePressure: 0,
     vectorGlyphMax: 0,
-    vectorGlyphPressure: 0
+    vectorGlyphPressure: 0,
+    streamlineSegmentsMax: 0,
+    streamlineSegmentsPressure: 0
   };
 
   let latest: PerformanceMetricsSnapshot = {

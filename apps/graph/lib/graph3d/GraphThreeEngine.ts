@@ -278,7 +278,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     objectsDirty: true,
     gridState: createAdaptiveGridState(camera.position.x, camera.position.y, camera.position.z),
     baselinePlaneMode: 0,
-    scenePressure: computeScenePressureFromObjects(useGraphStore.getState().scene.objects)
+    scenePressure: computeScenePressureFromObjects(useGraphStore.getState().scene.objects),
+    lastStreamlineConfigs: null
   };
 
   let animationHandle = 0;

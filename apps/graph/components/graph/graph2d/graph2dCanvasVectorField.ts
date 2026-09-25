@@ -91,6 +91,38 @@ const ARROW_HEAD_ANGLE = (27 * Math.PI) / 180;
 const ARROW_HEAD_MIN_PX = 3;
 const ARROW_HEAD_MAX_PX = 9;
 
+export interface ScreenArrowTip {
+  x: number;
+  y: number;
+  angle: number;
+  shaftPx: number;
+}
+
+// Shared screen-space arrowhead batch (S20 glyph heads + S24 streamline
+// direction markers): two barbs per tip at ±27°, head size proportional
+// to shaft length clamped to [3, 9] px. Caller owns path/style state;
+// this appends one stroked batch.
+export function drawScreenArrowheads(tips: ScreenArrowTip[], ctx: CanvasRenderingContext2D): void {
+  if (tips.length === 0) {
+    return;
+  }
+  ctx.beginPath();
+  for (const tip of tips) {
+    const headPx = Math.min(Math.max(0.35 * tip.shaftPx, ARROW_HEAD_MIN_PX), ARROW_HEAD_MAX_PX);
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(
+      tip.x - headPx * Math.cos(tip.angle - ARROW_HEAD_ANGLE),
+      tip.y - headPx * Math.sin(tip.angle - ARROW_HEAD_ANGLE)
+    );
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(
+      tip.x - headPx * Math.cos(tip.angle + ARROW_HEAD_ANGLE),
+      tip.y - headPx * Math.sin(tip.angle + ARROW_HEAD_ANGLE)
+    );
+  }
+  ctx.stroke();
+}
+
 export function drawVectorFieldArrows(
   arrows: VectorFieldArrows,
   color: string,
@@ -138,22 +170,5 @@ export function drawVectorFieldArrows(
   }
   ctx.stroke();
 
-  if (tips.length === 0) {
-    return;
-  }
-  ctx.beginPath();
-  for (const tip of tips) {
-    const headPx = Math.min(Math.max(0.35 * tip.shaftPx, ARROW_HEAD_MIN_PX), ARROW_HEAD_MAX_PX);
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(
-      tip.x - headPx * Math.cos(tip.angle - ARROW_HEAD_ANGLE),
-      tip.y - headPx * Math.sin(tip.angle - ARROW_HEAD_ANGLE)
-    );
-    ctx.moveTo(tip.x, tip.y);
-    ctx.lineTo(
-      tip.x - headPx * Math.cos(tip.angle + ARROW_HEAD_ANGLE),
-      tip.y - headPx * Math.sin(tip.angle + ARROW_HEAD_ANGLE)
-    );
-  }
-  ctx.stroke();
+  drawScreenArrowheads(tips, ctx);
 }

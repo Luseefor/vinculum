@@ -4,6 +4,7 @@ import {
   clearAllAnalysisAndVectorCalculus,
   clearAnalysisAndVectorCalculus
 } from "./graphStoreSliceAnalysis";
+import { clearAllStreamlines, pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
 import { DEFAULT_SCALAR_GRADIENT_DENSITY } from "@/lib/math/computeScalarFieldData";
 import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/marchingSquares";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
@@ -76,15 +77,19 @@ export function clearAllScalarViz(ui: GraphUiState): GraphUiState {
 }
 
 // Combined lifecycle helpers: every S21/S22 analysis record plus the S23
-// scalar-viz config for one source (delete/kind-switch) or everything
-// (scene replace/reset). Result-cache pruning lives beside the callers in
-// the results store (zero imports needed here).
+// scalar-viz and S24 streamline configs for one source (delete/
+// kind-switch) or everything (scene replace/reset). Result-cache pruning
+// lives beside the callers in the results stores (zero imports needed
+// here).
 export function clearAllDerivedForSource(ui: GraphUiState, sourceId: string): GraphUiState {
-  return pruneScalarVizForSourceId(clearAnalysisAndVectorCalculus(ui, sourceId), sourceId);
+  return pruneStreamlineForSourceId(
+    pruneScalarVizForSourceId(clearAnalysisAndVectorCalculus(ui, sourceId), sourceId),
+    sourceId
+  );
 }
 
 export function clearAllDerived(ui: GraphUiState): GraphUiState {
-  return clearAllScalarViz(clearAllAnalysisAndVectorCalculus(ui));
+  return clearAllStreamlines(clearAllScalarViz(clearAllAnalysisAndVectorCalculus(ui)));
 }
 
 export function buildScalarVizSlice(set: GraphStoreSet): Pick<
