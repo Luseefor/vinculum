@@ -378,11 +378,13 @@ test.describe("S27 geometry relations", () => {
     await page.getByRole("button", { name: "Plane", exact: true }).click();
     // Tilt the second plane off the default (x+y+z=1) so the pair meets
     // in a genuine intersection line rather than coinciding. Creation
-    // focuses the new plane's equation input: fill it via the native
-    // setter (React onChange contract, slider pattern) after asserting
-    // focus really landed in a text input.
-    const focusedTag = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.tagName ?? "none");
-    expect(focusedTag).toBe("INPUT");
+    // focuses the new plane's equation input: wait for focus to land,
+    // then fill it via the native setter (React onChange contract).
+    await expect
+      .poll(async () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.tagName ?? "none"), {
+        timeout: 10000
+      })
+      .toBe("INPUT");
     await page.evaluate(() => {
       const el = document.activeElement as HTMLInputElement;
       const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
@@ -657,6 +659,14 @@ test.describe("S27 geometry relations", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.locator("#graph-inspector").getByLabel("Point x").fill("sin(factorial(a))");
     await expect(page.getByRole("alert").first()).toBeVisible({ timeout: 10000 });
+    // Park the mouse on the inert 3D canvas: its resting position
+    // persists across tests in one profile, and a hover-brightened
+    // button would skew axe's color-contrast measurement (S28-R2).
+    const axeCanvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const axeBox = await axeCanvas.boundingBox();
+    if (axeBox) {
+      await page.mouse.move(axeBox.x + axeBox.width / 2, axeBox.y + axeBox.height / 2);
+    }
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();

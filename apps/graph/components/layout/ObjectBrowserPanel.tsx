@@ -36,6 +36,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const addLineObject = useGraphStore((state) => state.addLineObject);
   const addRayObject = useGraphStore((state) => state.addRayObject);
   const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
+  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
@@ -250,7 +251,9 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             { label: "Vector", onClick: () => createAndFocus(() => addVectorObject()) },
             { label: "Infinite Line", onClick: () => createAndFocus(() => addLineObject()) },
             { label: "Segment", onClick: () => createAndFocus(() => addSegmentObject()) },
-            { label: "Ray", onClick: () => createAndFocus(() => addRayObject()) }
+            { label: "Ray", onClick: () => createAndFocus(() => addRayObject()) },
+            { label: "2D Linear Transformation", onClick: () => createAndFocus(() => addLinearTransformObject("2d")) },
+            { label: "3D Linear Transformation", onClick: () => createAndFocus(() => addLinearTransformObject("3d")) }
           ]
             .slice()
             .sort(

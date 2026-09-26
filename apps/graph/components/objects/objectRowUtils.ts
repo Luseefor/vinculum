@@ -25,6 +25,13 @@ export function isExpressionRowEmpty(object: GraphObject): boolean {
   if (object.kind === "point") {
     return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
   }
+  if (object.kind === "linearTransform") {
+    const entries =
+      object.dimension === "2d"
+        ? [object.m11, object.m12, object.m21, object.m22]
+        : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
+    return !entries.some((expr) => expr.trim());
+  }
   if (object.kind === "vector") {
     return ![
       object.oxExpr,
@@ -181,6 +188,28 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
         `(${object.axExpr},${object.ayExpr},${object.azExpr})→(${object.bxExpr},${object.byExpr},${object.bzExpr})`
       )
     };
+  }
+  // S28: compact matrix indicator (PART 40) — never editable fields in
+  // the collapsed row. 2D shows the full 2×2; 3D truncates.
+  if (object.kind === "linearTransform") {
+    const entries =
+      object.dimension === "2d"
+        ? [object.m11, object.m12, object.m21, object.m22]
+        : [
+            object.m11, object.m12, object.m13,
+            object.m21, object.m22, object.m23,
+            object.m31, object.m32, object.m33
+          ];
+    if (!entries.some((expr) => expr.trim())) {
+      return { label: "Expression", type: "Choose type in menu" };
+    }
+    if (object.dimension === "2d") {
+      return {
+        label: "Linear Transformation",
+        type: formatPrimitiveSnippet(`[[${object.m11},${object.m12}],[${object.m21},${object.m22}]]`)
+      };
+    }
+    return { label: "Linear Transformation", type: "3×3 matrix" };
   }
   if (!object.equation.trim()) {
     return { label: "Expression", type: "Choose type in menu" };

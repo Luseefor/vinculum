@@ -3,6 +3,9 @@ import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObjectKind,
   ImplicitSurfaceObject,
+  LinearTransformDimension,
+  LinearTransformObject2D,
+  LinearTransformObject3D,
   LineObject,
   ParametricCurveObject,
   ParametricSurfaceObject,
@@ -26,6 +29,7 @@ import type {
   GeometryAnalysisConfig,
   GraphUiState,
   IntegralAnalysisConfig,
+  LinearTransformAnalysisConfig,
   ScalarVizConfig,
   SceneDialogMode,
   StreamlineVizConfig,
@@ -64,6 +68,13 @@ export type GeometryPrimitiveField =
   | keyof Pick<RayObject, "oxExpr" | "oyExpr" | "ozExpr" | "dxExpr" | "dyExpr" | "dzExpr">
   | keyof Pick<SegmentObject, "axExpr" | "ayExpr" | "azExpr" | "bxExpr" | "byExpr" | "bzExpr">;
 
+export type LinearTransformEntryField =
+  | keyof Pick<LinearTransformObject2D, "m11" | "m12" | "m21" | "m22">
+  | keyof Pick<
+      LinearTransformObject3D,
+      "m11" | "m12" | "m13" | "m21" | "m22" | "m23" | "m31" | "m32" | "m33"
+    >;
+
 export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
@@ -75,13 +86,22 @@ export interface GraphStoreState {
   addImplicitSurface: () => string;
   addVectorFieldObject: (dimension: VectorFieldDimension) => string;
   addPointObject: () => string;
+  addLinearTransformObject: (dimension: LinearTransformDimension) => string;
   addVectorObject: () => string;
   addLineObject: () => string;
   addRayObject: () => string;
   addSegmentObject: () => string;
   addEmptyObject: () => string;
-  insertObjectAfter: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => string;
-  setObjectKind: (id: string, kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
+  insertObjectAfter: (
+    id: string,
+    kind: GraphObjectKind,
+    dimension?: VectorFieldDimension | LinearTransformDimension
+  ) => string;
+  setObjectKind: (
+    id: string,
+    kind: GraphObjectKind,
+    dimension?: VectorFieldDimension | LinearTransformDimension
+  ) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
   updateSurfaceOrientation: (id: string, orientation: SurfaceOrientation) => void;
   updateParametricExpression: (
@@ -105,6 +125,7 @@ export interface GraphStoreState {
     value: string | number | boolean
   ) => void;
   updateGeometryCoordinate: (id: string, field: GeometryPrimitiveField, value: string) => void;
+  updateLinearTransformEntry: (id: string, field: LinearTransformEntryField, value: string) => void;
   updatePlaneEquation: (id: string, equation: string) => void;
   toggleObjectVisibility: (id: string) => void;
   setObjectVisibility: (id: string, visible: boolean) => void;
@@ -147,6 +168,8 @@ export interface GraphStoreState {
   clearIntegralAnalysis: (sourceId?: string) => void;
   setGeometryAnalysis: (primaryId: string, patch: Partial<GeometryAnalysisConfig>) => void;
   clearGeometryAnalysis: (primaryId?: string) => void;
+  setLinearTransformAnalysis: (transformId: string, patch: Partial<LinearTransformAnalysisConfig>) => void;
+  clearLinearTransformAnalysis: (transformId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;

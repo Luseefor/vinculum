@@ -39,6 +39,7 @@ import {
   updateGeometryPrimitiveDisplay
 } from "./graphThreePrimitiveDisplay";
 import { updateGeometryAnalysisOverlays } from "./buildGeometryAnalysisOverlays";
+import { updateLinearTransformOverlays } from "./buildLinearTransformOverlays";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -338,6 +339,17 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       params: getEditorParameterScope(),
       halfExtent: primitiveDisplayHalfExtent,
       clearAnalysis: (primaryId) => useGraphStore.getState().clearGeometryAnalysis(primaryId)
+    });
+    // S28: transient linearTransform overlays (transformed-vector
+    // arrows, eigendirection lines). Same shared overlay root; facts
+    // recompute live, zero worker jobs, no scene mutation.
+    updateLinearTransformOverlays({
+      configs: uiState.linearTransformAnalysisBySourceId,
+      objects: storeState.scene.objects,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      params: getEditorParameterScope(),
+      clearAnalysis: (transformId) => useGraphStore.getState().clearLinearTransformAnalysis(transformId)
     });
 
     if (multiView.panes) {

@@ -6,6 +6,7 @@ import { buildParametric } from "./buildGraphParametric";
 import { buildParametricSurface } from "./buildGraphParametricSurface";
 import { buildImplicitSurface } from "./buildGraphImplicitSurface";
 import { buildPlane } from "./buildGraphPlane";
+import { buildLinearTransform3D } from "./buildGraphLinearTransform";
 import { buildSurface } from "./buildGraphSurface";
 import {
   buildLinePrimitive,
@@ -72,6 +73,9 @@ function buildOne(
   }
   if (object.kind === "segment") {
     return buildSegmentPrimitive(object);
+  }
+  if (object.kind === "linearTransform") {
+    return buildLinearTransform3D(object);
   }
   return null;
 }

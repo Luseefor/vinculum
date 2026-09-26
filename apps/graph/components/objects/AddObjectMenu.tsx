@@ -15,6 +15,7 @@ export default function AddObjectMenu() {
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
+  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const addPointObject = useGraphStore((state) => state.addPointObject);
   const addVectorObject = useGraphStore((state) => state.addVectorObject);
@@ -143,6 +144,20 @@ export default function AddObjectMenu() {
             onClick: () => {
               createAndFocus(() => addVectorFieldObject("3d"));
               addConsoleEvent("Created 3D vector field from Add menu");
+            }
+          },
+          {
+            label: "2D Linear Transformation",
+            onClick: () => {
+              createAndFocus(() => addLinearTransformObject("2d"));
+              addConsoleEvent("Created 2D linear transformation from Add menu");
+            }
+          },
+          {
+            label: "3D Linear Transformation",
+            onClick: () => {
+              createAndFocus(() => addLinearTransformObject("3d"));
+              addConsoleEvent("Created 3D linear transformation from Add menu");
             }
           }
         ]
@@ -307,6 +322,7 @@ export default function AddObjectMenu() {
       addParametricSurface,
       addImplicitSurface,
       addLineObject,
+      addLinearTransformObject,
       addRayObject,
       addSegmentObject,
       addVectorFieldObject,

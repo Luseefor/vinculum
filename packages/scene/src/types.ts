@@ -9,7 +9,8 @@ export type GraphObjectKind =
   | "vector"
   | "line"
   | "ray"
-  | "segment";
+  | "segment"
+  | "linearTransform";
 
 export interface GraphObjectBase {
   id: string;
@@ -209,6 +210,43 @@ export interface PointObject extends GraphObjectBase {
   zExpr: string;
 }
 
+// S28: one canonical linear-transformation concept with a dimension, not
+// two kinds. Matrix entries are flat scalar-expression strings (same
+// S26/S27 coordinate convention: constants/pi/e/scene-parameters, no
+// spatial locals); the single shared coordinate compiler resolves them,
+// so raw text roundtrips byte-exact. 2D entries are m11,m12,m21,m22;
+// 3D adds the third row/column (m13..m33). Row-major presentation and
+// storage everywhere.
+export type LinearTransformDimension = "2d" | "3d";
+
+export interface LinearTransformBase extends GraphObjectBase {
+  kind: "linearTransform";
+  dimension: LinearTransformDimension;
+}
+
+export interface LinearTransformObject2D extends LinearTransformBase {
+  dimension: "2d";
+  m11: string;
+  m12: string;
+  m21: string;
+  m22: string;
+}
+
+export interface LinearTransformObject3D extends LinearTransformBase {
+  dimension: "3d";
+  m11: string;
+  m12: string;
+  m13: string;
+  m21: string;
+  m22: string;
+  m23: string;
+  m31: string;
+  m32: string;
+  m33: string;
+}
+
+export type LinearTransformObject = LinearTransformObject2D | LinearTransformObject3D;
+
 export type GraphObject =
   | SurfaceGraphObject
   | ParametricCurveObject
@@ -220,4 +258,5 @@ export type GraphObject =
   | VectorObject
   | LineObject
   | RayObject
-  | SegmentObject;
+  | SegmentObject
+  | LinearTransformObject;

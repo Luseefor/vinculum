@@ -11,7 +11,8 @@ export function parseGraphObjectKind(value: string): GraphObjectKind | null {
     value === "vector" ||
     value === "line" ||
     value === "ray" ||
-    value === "segment"
+    value === "segment" ||
+    value === "linearTransform"
   ) {
     return value;
   }

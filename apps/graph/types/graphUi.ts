@@ -158,11 +158,24 @@ export interface GraphUiState {
    * Never serialized; no history entries.
    */
   geometryAnalysisBySourceId: Record<string, GeometryAnalysisConfig>;
+  /**
+   * S28 transient linearTransform analysis keyed by transform id:
+   * referenced Vector id plus overlay toggles. Computed facts (Av,
+   * eigenpairs, properties) live nowhere — recomputed synchronously
+   * from live sources every render. Never serialized; no history.
+   */
+  linearTransformAnalysisBySourceId: Record<string, LinearTransformAnalysisConfig>;
 }
 
 export interface GeometryAnalysisConfig {
   secondaryId: string;
   showOverlay: boolean;
+}
+
+export interface LinearTransformAnalysisConfig {
+  vectorId: string | null;
+  showVector: boolean;
+  showEigen: boolean;
 }
 
 export type IntegralAnalysisMode =

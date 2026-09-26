@@ -7,6 +7,7 @@ import {
 } from "@/lib/graph/createGeometryPrimitiveGraphs";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
+import { createLinearTransformGraph } from "@/lib/graph/createLinearTransformGraph";
 import { createPlaneGraph } from "@/lib/graph/createPlaneGraph";
 import { createPointGraph } from "@/lib/graph/createPointGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
@@ -16,7 +17,7 @@ import {
   DEFAULT_SCENE_NAME,
   type SceneDocument
 } from "@/lib/scene/sceneSchema";
-import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 
 export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
   if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
@@ -48,6 +49,13 @@ export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
       (expr) => expr.trim()
     );
   }
+  if (object.kind === "linearTransform") {
+    const entries =
+      object.dimension === "2d"
+        ? [object.m11, object.m12, object.m21, object.m22]
+        : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
+    return !entries.some((expr) => expr.trim());
+  }
   return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
 }
 
@@ -58,7 +66,7 @@ export function createEmptyGraphObject(
     id?: string;
     color?: string;
     visible?: boolean;
-    dimension?: VectorFieldDimension;
+    dimension?: VectorFieldDimension | LinearTransformDimension;
   } = {}
 ): GraphObject {
   if (kind === "parametricCurve") {
@@ -144,6 +152,27 @@ export function createEmptyGraphObject(
     });
   }
 
+  if (kind === "linearTransform") {
+    if (options.dimension === "3d") {
+      return createLinearTransformGraph({
+        colorIndex,
+        id: options.id,
+        color: options.color,
+        visible: options.visible,
+        dimension: "3d",
+        entries: { m11: "", m12: "", m13: "", m21: "", m22: "", m23: "", m31: "", m32: "", m33: "" }
+      });
+    }
+    return createLinearTransformGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      dimension: "2d",
+      entries: { m11: "", m12: "", m21: "", m22: "" }
+    });
+  }
+
   if (kind === "vector") {
     return createVectorGraph({
       colorIndex,
@@ -220,7 +249,7 @@ export function createGraphObject(
     id?: string;
     color?: string;
     visible?: boolean;
-    dimension?: VectorFieldDimension;
+    dimension?: VectorFieldDimension | LinearTransformDimension;
   } = {}
 ): GraphObject {
   if (kind === "parametricCurve") {
@@ -271,6 +300,16 @@ export function createGraphObject(
 
   if (kind === "point") {
     return createPointGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
+  }
+
+  if (kind === "linearTransform") {
+    return createLinearTransformGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      dimension: options.dimension === "3d" ? "3d" : "2d"
+    });
   }
 
   if (kind === "vector") {

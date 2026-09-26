@@ -35,6 +35,26 @@ function firstPrimitiveCoordinateError(
   return null;
 }
 
+function firstTransformEntryError(
+  object: Extract<GraphObject, { kind: "linearTransform" }>
+): string | null {
+  const fields =
+    object.dimension === "2d"
+      ? [object.m11, object.m12, object.m21, object.m22]
+      : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
+  const scope = getEditorParameterScope();
+  for (const expr of fields) {
+    if (!expr.trim()) {
+      continue;
+    }
+    const compiled = compileGeometryCoordinate(expr, scope);
+    if (compiled.error) {
+      return compiled.error;
+    }
+  }
+  return null;
+}
+
 export function getExpressionRowValidation(object: GraphObject): ExpressionValidationState {
   if (object.kind === "surface") {
     return { error: compileSurfaceExpression(object.equation, object.orientation || "z").error };
@@ -91,6 +111,12 @@ export function getExpressionRowValidation(object: GraphObject): ExpressionValid
     // valid-but-unrendered downstream; per-field messages live in the
     // coordinate editor).
     return { error: firstPrimitiveCoordinateError(object) };
+  }
+
+  if (object.kind === "linearTransform") {
+    // S28: first entry hard error, or null (per-cell messages live in
+    // the matrix editor).
+    return { error: firstTransformEntryError(object) };
   }
 
   return { error: compilePlaneEquation(object.equation).error };

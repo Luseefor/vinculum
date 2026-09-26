@@ -1,6 +1,10 @@
 import type {
   ImplicitSurfaceDomain,
   ImplicitSurfaceObject,
+  LinearTransformDimension,
+  LinearTransformObject,
+  LinearTransformObject2D,
+  LinearTransformObject3D,
   LineObject,
   ParametricCurveObject,
   ParametricSurfaceDomain,
@@ -559,5 +563,82 @@ export function createDefaultSegmentObject(
     bzExpr: options.bzExpr ?? defaultSegmentEndpoints.bzExpr,
     visible: options.visible ?? true,
     color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+// S28 linear-transform defaults: identity in both dimensions (PART 12 —
+// never a flashy default that distorts the scene on creation).
+export const defaultLinearTransform2DEntries = {
+  m11: "1",
+  m12: "0",
+  m21: "0",
+  m22: "1"
+};
+
+export const defaultLinearTransform3DEntries = {
+  m11: "1",
+  m12: "0",
+  m13: "0",
+  m21: "0",
+  m22: "1",
+  m23: "0",
+  m31: "0",
+  m32: "0",
+  m33: "1"
+};
+
+interface CreateDefaultLinearTransformGraphOptions {
+  id: string;
+  dimension: LinearTransformDimension;
+  index?: number;
+  entries?: Partial<Record<string, string>>;
+  visible?: boolean;
+  color?: string;
+}
+
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions & { dimension: "2d" }
+): LinearTransformObject2D;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions & { dimension: "3d" }
+): LinearTransformObject3D;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions
+): LinearTransformObject;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions
+): LinearTransformObject {
+  const color = options.color ?? pickDefaultGraphColor(options.index);
+  const visible = options.visible ?? true;
+  if (options.dimension === "2d") {
+    const defaults = defaultLinearTransform2DEntries;
+    return {
+      id: options.id,
+      kind: "linearTransform",
+      dimension: "2d",
+      m11: options.entries?.m11 ?? defaults.m11,
+      m12: options.entries?.m12 ?? defaults.m12,
+      m21: options.entries?.m21 ?? defaults.m21,
+      m22: options.entries?.m22 ?? defaults.m22,
+      visible,
+      color
+    };
+  }
+  const defaults = defaultLinearTransform3DEntries;
+  return {
+    id: options.id,
+    kind: "linearTransform",
+    dimension: "3d",
+    m11: options.entries?.m11 ?? defaults.m11,
+    m12: options.entries?.m12 ?? defaults.m12,
+    m13: options.entries?.m13 ?? defaults.m13,
+    m21: options.entries?.m21 ?? defaults.m21,
+    m22: options.entries?.m22 ?? defaults.m22,
+    m23: options.entries?.m23 ?? defaults.m23,
+    m31: options.entries?.m31 ?? defaults.m31,
+    m32: options.entries?.m32 ?? defaults.m32,
+    m33: options.entries?.m33 ?? defaults.m33,
+    visible,
+    color
   };
 }

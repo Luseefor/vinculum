@@ -1,19 +1,19 @@
 "use client";
 
-import type { GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
+import type { GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 
 interface GraphTypeSelectorProps {
   value: GraphObjectKind;
   dimension?: VectorFieldDimension;
-  onChange: (kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
+  onChange: (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => void;
 }
 
 const GRAPH_TYPE_OPTIONS: Array<{
   label: string;
   value: string;
   kind: GraphObjectKind;
-  dimension?: VectorFieldDimension;
+  dimension?: VectorFieldDimension | LinearTransformDimension;
 }> = [
   { label: "Surface", value: "surface", kind: "surface" },
   { label: "Curve", value: "parametricCurve", kind: "parametricCurve" },
@@ -25,12 +25,17 @@ const GRAPH_TYPE_OPTIONS: Array<{
   { label: "Line", value: "line", kind: "line" },
   { label: "Ray", value: "ray", kind: "ray" },
   { label: "Segment", value: "segment", kind: "segment" },
+  { label: "2D Linear Transformation", value: "linearTransform:2d", kind: "linearTransform", dimension: "2d" },
+  { label: "3D Linear Transformation", value: "linearTransform:3d", kind: "linearTransform", dimension: "3d" },
   { label: "2D Vector Field", value: "vectorField:2d", kind: "vectorField", dimension: "2d" },
   { label: "3D Vector Field", value: "vectorField:3d", kind: "vectorField", dimension: "3d" }
 ];
 
 export default function GraphTypeSelector({ value, dimension, onChange }: GraphTypeSelectorProps) {
-  const selectValue = value === "vectorField" ? `vectorField:${dimension ?? "2d"}` : value;
+  const selectValue =
+    value === "vectorField" || value === "linearTransform"
+      ? `${value}:${dimension ?? "2d"}`
+      : value;
 
   return (
     <select

@@ -1,8 +1,8 @@
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
-import type { GraphObject } from "@vinculum/scene/types";
-import type { ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
+import type { GraphObject, LinearTransformObject2D } from "@vinculum/scene/types";
+import type { LinearTransformAnalysisConfig, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import {
   tryAppendExplicitCompiledCurve,
   tryAppendImplicitRenderableGraph,
@@ -11,14 +11,17 @@ import {
 import { escapeRegExp } from "./graph2dCanvasImplicitParse";
 import { buildParametricPolylineHV } from "./graph2dCanvasParametricPolyline";
 import { buildVectorFieldArrows } from "./graph2dCanvasVectorField";
-import type { AxisPairSpec, RenderableGraph } from "./graph2dCanvasTypes";
+import { analyzeEigen } from "@/lib/math/matrixEigen";
+import { resolveLinearTransform } from "@/lib/math/linearTransformResolve";
+import type { AxisPairSpec, LinearTransformLayer, RenderableGraph } from "./graph2dCanvasTypes";
 
 export function buildRenderableGraphsFromScene(
   objects: GraphObject[],
   axisPair: AxisPairSpec,
   params: Record<string, number>,
   scalarViz: Record<string, ScalarVizConfig> = {},
-  streamlines: Record<string, StreamlineVizConfig> = {}
+  streamlines: Record<string, StreamlineVizConfig> = {},
+  linearAnalysis: Record<string, LinearTransformAnalysisConfig> = {}
 ): RenderableGraph[] {
   const graphs: RenderableGraph[] = [];
 
@@ -126,6 +129,31 @@ export function buildRenderableGraphsFromScene(
       obj.kind === "ray" ||
       obj.kind === "segment"
     ) {
+      continue;
+    }
+
+    // S28: 2D linear transformations resolve synchronously (microseconds)
+    // and draw basis + unit square natively in R². XY pair only (PART 14):
+    // matrix rows are canonical (x,y), never reinterpreted per pair.
+    // 3D transforms skip here — shared Three scene only.
+    if (obj.kind === "linearTransform") {
+      if (obj.dimension !== "2d") {
+        continue;
+      }
+      const attachment = linearTransformAttachmentFor(obj, axisPair, params, linearAnalysis);
+      if (attachment) {
+        graphs.push({
+          id: obj.id,
+          color: obj.color,
+          verticalLineValue: null,
+          horizontalLineValue: null,
+          evaluate: null,
+          implicitEvaluate: null,
+          hatchDomain: null,
+          polylineHV: null,
+          linearTransform: attachment
+        });
+      }
       continue;
     }
 
@@ -286,5 +314,45 @@ function scalarAttachmentFor(
   return {
     sourceId: obj.id,
     domain: { uMin: obj.domain.xMin, uMax: obj.domain.xMax, vMin: obj.domain.yMin, vMax: obj.domain.yMax }
+  };
+}
+
+// S28 linearTransform attach gate: 2D dimension + XY pair only (PART 14 —
+// matrix rows are canonical (x,y), never reinterpreted per pair) + live
+// resolution. 3D transforms skip here (shared Three scene only).
+function linearTransformAttachmentFor(
+  obj: LinearTransformObject2D,
+  axisPair: AxisPairSpec,
+  params: Record<string, number>,
+  linearAnalysis: Record<string, LinearTransformAnalysisConfig>
+): LinearTransformLayer | null {
+  if (axisPair.horizontal !== "x" || axisPair.vertical !== "y") {
+    return null;
+  }
+  const resolved = resolveLinearTransform(
+    {
+      dimension: "2d",
+      entries: { m11: obj.m11, m12: obj.m12, m21: obj.m21, m22: obj.m22 }
+    },
+    params
+  );
+  if (resolved.status !== "ok") {
+    return null;
+  }
+  const showEigen = linearAnalysis[obj.id]?.showEigen ?? false;
+  const eigenDirections: Array<[number, number]> = [];
+  if (showEigen) {
+    const analysis = analyzeEigen([...resolved.matrix], 2);
+    for (const entry of analysis.entries) {
+      if (entry.kind === "real" && entry.vector.length === 2) {
+        eigenDirections.push([entry.vector[0] as number, entry.vector[1] as number]);
+      }
+    }
+  }
+  return {
+    dimension: 2,
+    matrix: [...resolved.matrix] as [number, number, number, number],
+    eigenDirections,
+    showEigen
   };
 }

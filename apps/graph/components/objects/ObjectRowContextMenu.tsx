@@ -1,13 +1,13 @@
 "use client";
 
 import type { LegacyRef } from "react";
-import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { cn } from "@/components/ui/styles";
 import { Portal } from "@/components/ui/portal";
 
 const CONVERT_OPTIONS: Array<{
   kind: GraphObjectKind;
-  dimension?: VectorFieldDimension;
+  dimension?: VectorFieldDimension | LinearTransformDimension;
   label: string;
   value: string;
 }> = [
@@ -21,6 +21,8 @@ const CONVERT_OPTIONS: Array<{
   { kind: "line", label: "Infinite line", value: "line" },
   { kind: "ray", label: "Ray", value: "ray" },
   { kind: "segment", label: "Segment", value: "segment" },
+  { kind: "linearTransform", dimension: "2d", label: "2D linear transformation", value: "linearTransform:2d" },
+  { kind: "linearTransform", dimension: "3d", label: "3D linear transformation", value: "linearTransform:3d" },
   { kind: "vectorField", dimension: "2d", label: "2D vector field", value: "vectorField:2d" },
   { kind: "vectorField", dimension: "3d", label: "3D vector field", value: "vectorField:3d" }
 ] as const;
@@ -30,7 +32,7 @@ type ObjectRowContextMenuProps = {
   menuOpen: boolean;
   menuPos: { top: number; left: number } | null;
   menuRef: LegacyRef<HTMLDivElement>;
-  onConvertKind: (kind: GraphObjectKind, dimension?: VectorFieldDimension) => void;
+  onConvertKind: (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => void;
   onRemove: () => void;
 };
 
@@ -60,7 +62,9 @@ export function ObjectRowContextMenu({
           const isCurrent =
             object.kind === kind &&
             (kind !== "vectorField" ||
-              (object.kind === "vectorField" && object.dimension === dimension));
+              (object.kind === "vectorField" && object.dimension === dimension)) &&
+            (kind !== "linearTransform" ||
+              (object.kind === "linearTransform" && object.dimension === dimension));
           return (
             <button
               key={value}

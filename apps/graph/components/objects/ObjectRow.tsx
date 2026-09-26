@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { GraphObject, GraphObjectKind, VectorFieldDimension } from "@vinculum/scene/types";
+import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/math/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
 import GeometryCoordinateFields from "./GeometryCoordinateFields";
+import MatrixEntryEditor from "./MatrixEntryEditor";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
 import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";
 
@@ -55,6 +56,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const xExprInputRef = useRef<HTMLInputElement>(null);
   const pExprInputRef = useRef<HTMLInputElement>(null);
   const primitiveFirstInputRef = useRef<HTMLInputElement>(null);
+  const matrixFirstCellRef = useRef<HTMLInputElement>(null);
 
   const [localEq, setLocalEq] = useState("");
   const [localX, setLocalX] = useState("");
@@ -195,7 +197,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     return null;
   }, [object, localEq, localX, localY, localZ, localP, localQ, localR]);
 
-  const convertKind = (kind: GraphObjectKind, dimension?: VectorFieldDimension) => {
+  const convertKind = (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => {
     setObjectKind(object.id, kind, dimension);
     onSelect(object.id);
     closeMenu();
@@ -237,7 +239,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               object.kind === "ray" ||
               object.kind === "segment"
             ? primitiveFirstInputRef.current
-            : eqInputRef.current;
+            : object.kind === "linearTransform"
+              ? matrixFirstCellRef.current
+              : eqInputRef.current;
     if (!target) {
       return;
     }
@@ -264,6 +268,22 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
       handleCreateNext();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.currentTarget.blur();
+    }
+  };
+
+  const handleMatrixCellKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    // PART 41: Enter commits the cell (blur reconciles); never
+    // create-next from middle cells.
+    if (event.repeat || event.nativeEvent.isComposing) {
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      event.currentTarget.blur();
       return;
     }
     if (event.key === "Escape") {
@@ -308,11 +328,21 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               <span className="block truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>            </button>
             <div className="mt-0.5">
               <select
-                value={object.kind === "vectorField" ? `vectorField:${object.dimension}` : object.kind}
+                value={
+                  object.kind === "vectorField"
+                    ? `vectorField:${object.dimension}`
+                    : object.kind === "linearTransform"
+                      ? `linearTransform:${object.dimension}`
+                      : object.kind
+                }
                 onChange={(e) => {
                   const next = e.target.value;
                   if (next === "vectorField:2d" || next === "vectorField:3d") {
                     convertKind("vectorField", next === "vectorField:2d" ? "2d" : "3d");
+                    return;
+                  }
+                  if (next === "linearTransform:2d" || next === "linearTransform:3d") {
+                    convertKind("linearTransform", next === "linearTransform:2d" ? "2d" : "3d");
                     return;
                   }
                   convertKind(next as GraphObjectKind);
@@ -330,6 +360,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 <option value="line">Infinite Line</option>
                 <option value="ray">Ray</option>
                 <option value="segment">Segment</option>
+                <option value="linearTransform:2d">2D Linear Transformation</option>
+                <option value="linearTransform:3d">3D Linear Transformation</option>
+                <option value="linearTransform">Linear Transformation</option>
                 <option value="vectorField:2d">2D Vector Field</option>
                 <option value="vectorField:3d">3D Vector Field</option>
               </select>
@@ -646,6 +679,13 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 object={object}
                 firstInputRef={primitiveFirstInputRef}
                 onEnterKey={handleEquationKeyDown}
+              />
+            )}
+            {object.kind === "linearTransform" && (
+              <MatrixEntryEditor
+                object={object}
+                firstCellRef={matrixFirstCellRef}
+                onEnterKey={handleMatrixCellKeyDown}
               />
             )}
             {definitionDiagnostic ? (

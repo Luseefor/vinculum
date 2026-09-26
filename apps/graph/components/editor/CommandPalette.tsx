@@ -18,6 +18,8 @@ const COMMANDS = [
   { id: "add-implicit-surface", label: "Add Implicit Surface" },
   { id: "add-2d-vector-field", label: "Add 2D Vector Field" },
   { id: "add-3d-vector-field", label: "Add 3D Vector Field" },
+  { id: "add-2d-linear-transform", label: "Add 2D Linear Transformation" },
+  { id: "add-3d-linear-transform", label: "Add 3D Linear Transformation" },
   { id: "add-plane", label: "Add Plane" },
   { id: "add-point", label: "Add Point" },
   { id: "add-vector", label: "Add Vector" },

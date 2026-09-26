@@ -1,4 +1,4 @@
-import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LinearTransformObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
   MAX_PARAMETRIC_SURFACE_RESOLUTION,
@@ -77,6 +77,10 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (kind === "point") {
     return parsePointObject(rawObject, objectIndex, id, color, visible, errors);
+  }
+
+  if (kind === "linearTransform") {
+    return parseLinearTransformObject(rawObject, objectIndex, id, color, visible, errors);
   }
 
   return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
@@ -764,4 +768,56 @@ function parseGeometryPrimitiveObject(
     return null;
   }
   return { id, kind, color, visible, ...values } as VectorObject | LineObject | RayObject | SegmentObject;
+}
+
+const LINEAR_TRANSFORM_ENTRY_FIELDS = {
+  "2d": ["m11", "m12", "m21", "m22"],
+  "3d": ["m11", "m12", "m13", "m21", "m22", "m23", "m31", "m32", "m33"]
+} as const;
+
+// S28: canonical linearTransform import validation (PART 39): dimension,
+// exact required entry count per dimension, per-entry expression
+// syntax/safety through the shared coordinate compiler (live parameter
+// scope, mirroring the vectorField authoritative-compiler precedent), and
+// no finiteness probe (parameter-backed entries resolve at runtime).
+// Missing entries, extra dimensions, unsafe nesting, and spatial locals
+// reject with no partial mutation.
+function parseLinearTransformObject(
+  rawObject: Record<string, unknown>,
+  objectIndex: number,
+  id: string,
+  color: string,
+  visible: boolean,
+  errors: string[]
+): LinearTransformObject | null {
+  const dimensionPath = `objects[${objectIndex}].dimension`;
+  const dimensionRaw = rawObject.dimension;
+  if (dimensionRaw !== "2d" && dimensionRaw !== "3d") {
+    errors.push(`${dimensionPath} must be one of: 2d, 3d.`);
+    return null;
+  }
+  const dimension = dimensionRaw;
+  const fields = LINEAR_TRANSFORM_ENTRY_FIELDS[dimension];
+  const values: Record<string, string> = {};
+  const scope = getEditorParameterScope();
+  for (const field of fields) {
+    const expr = requireString(rawObject[field], `objects[${objectIndex}].${field}`, errors);
+    if (expr === null) {
+      return null;
+    }
+    if (!expr.trim()) {
+      errors.push(`objects[${objectIndex}].${field} cannot be empty.`);
+      return null;
+    }
+    const compiled = compileGeometryCoordinate(expr, scope);
+    if (compiled.error) {
+      errors.push(`objects[${objectIndex}].${field}: ${compiled.error}`);
+      return null;
+    }
+    values[field] = expr;
+  }
+  if (dimension === "2d") {
+    return { id, kind: "linearTransform", dimension: "2d", color, visible, ...values } as LinearTransformObject;
+  }
+  return { id, kind: "linearTransform", dimension: "3d", color, visible, ...values } as LinearTransformObject;
 }

@@ -4,6 +4,7 @@ import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
 import { buildGeometryAnalysisSlice } from "./graphStoreSliceGeometryAnalysis";
+import { buildLinearTransformSlice } from "./graphStoreSliceLinearTransform";
 import { buildIntegralSlice } from "./graphStoreSliceIntegral";
 import { buildScalarVizSlice } from "./graphStoreSliceScalarViz";
 import { buildStreamlineSlice } from "./graphStoreSliceStreamline";
@@ -38,6 +39,7 @@ export const useGraphStore = create<GraphStoreState>()(
       cameraResetVersion: 0,
       ...buildAnalysisSlice(set),
       ...buildGeometryAnalysisSlice(set),
+      ...buildLinearTransformSlice(set),
       ...buildIntegralSlice(set),
       ...buildScalarVizSlice(set),
       ...buildStreamlineSlice(set),
@@ -83,6 +85,9 @@ export const useGraphStore = create<GraphStoreState>()(
           // S27: geometry-analysis records are selection pairs only
           // (facts recompute live); equally transient.
           geometryAnalysisBySourceId: {},
+          // S28: linearTransform analysis (vector selection + overlay
+          // toggles) is transient UI; facts recompute live.
+          linearTransformAnalysisBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

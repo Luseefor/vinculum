@@ -186,6 +186,36 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
     };
   }
 
+  if (object.kind === "linearTransform") {
+    return {
+      id: object.id,
+      kind: object.kind,
+      visible: object.visible,
+      color: object.color,
+      payload:
+        object.dimension === "2d"
+          ? {
+              dimension: object.dimension,
+              m11: object.m11,
+              m12: object.m12,
+              m21: object.m21,
+              m22: object.m22
+            }
+          : {
+              dimension: object.dimension,
+              m11: object.m11,
+              m12: object.m12,
+              m13: object.m13,
+              m21: object.m21,
+              m22: object.m22,
+              m23: object.m23,
+              m31: object.m31,
+              m32: object.m32,
+              m33: object.m33
+            }
+    };
+  }
+
   return {
     id: object.id,
     kind: object.kind,

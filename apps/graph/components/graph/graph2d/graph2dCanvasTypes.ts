@@ -65,6 +65,10 @@ export interface RenderableGraph {
   // S24: streamline attachment. Set only for 2D vector fields with a live
   // enabled config; the draw layer resolves cached polylines by sourceId.
   streamlines?: StreamlineAttachment | null;
+  // S28: 2D linear-transformation layer (resolved matrix + real
+  // eigendirections at build time). Only 2D transforms under the XY pair
+  // produce values; every other path omits the key.
+  linearTransform?: LinearTransformLayer | null;
 }
 
 export interface ScalarFieldAttachment {
@@ -74,6 +78,16 @@ export interface ScalarFieldAttachment {
 
 export interface StreamlineAttachment {
   sourceId: string;
+}
+
+// Canonical 2D linear-transformation layer data (S28): resolved entries
+// plus real unit eigendirections computed at build time (microseconds,
+// synchronous). Pure data; no Canvas types.
+export interface LinearTransformLayer {
+  dimension: 2;
+  matrix: [number, number, number, number];
+  eigenDirections: Array<[number, number]>;
+  showEigen: boolean;
 }
 
 // Canonical 2D parametric data (S5): projected math-frame points plus the

@@ -83,10 +83,12 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
   // S24: same pattern for streamline polylines.
   const streamlineConfigs = useGraphStore((state) => state.ui.streamlineVizBySourceId);
   const streamlineResults = useStreamlineResultsStore((state) => state.entries);
+  // S28: eigen-toggle liveness for transform layers (build-time only).
+  const linearTransformAnalysis = useGraphStore((state) => state.ui.linearTransformAnalysisBySourceId);
 
   const renderableGraphs = useMemo<RenderableGraph[]>(
-    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs, streamlineConfigs),
-    [axisPair, objects, paramScope, scalarConfigs, streamlineConfigs]
+    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis),
+    [axisPair, objects, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis]
   );
 
   // S23: request desired scalar jobs when sources/configs/params change.

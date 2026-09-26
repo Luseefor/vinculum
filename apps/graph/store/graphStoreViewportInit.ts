@@ -62,6 +62,7 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     scalarVizBySourceId: {},
     streamlineVizBySourceId: {},
     integralAnalysisBySourceId: {},
-    geometryAnalysisBySourceId: {}
+    geometryAnalysisBySourceId: {},
+    linearTransformAnalysisBySourceId: {}
   };
 }

@@ -39,6 +39,13 @@ export function isGraphObjectRenderable3D(object: GraphObject): boolean {
       (expr) => expr.trim().length > 0
     );
   }
+  if (object.kind === "linearTransform") {
+    const entries =
+      object.dimension === "2d"
+        ? [object.m11, object.m12, object.m21, object.m22]
+        : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
+    return entries.some((expr) => expr.trim().length > 0);
+  }
   return false;
 }
 

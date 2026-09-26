@@ -10,6 +10,7 @@ import { pruneIntegralForSourceId } from "./graphStoreSliceIntegral";
 import { pruneScalarVizForSourceId } from "./graphStoreSliceScalarViz";
 import { pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
 import { updateGeometryPrimitiveField } from "./graphStoreGeometryPrimitiveField";
+import { updateLinearTransformField } from "./graphStoreLinearTransformField";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
@@ -42,7 +43,7 @@ function dropReferencingIntegralResults(ui: GraphUiState, fieldId: string): Grap
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updatePlaneEquation"
+  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updateLinearTransformEntry" | "updatePlaneEquation"
 > {
   return {
     updateSurfaceEquation: (id, equation) => {
@@ -296,6 +297,35 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           // that source (no-ops via same-ref when nothing is attached).
           // Primitives carry no S21–S25 analysis attachments; the prune
           // keeps the contract uniform if that ever changes.
+          ui: pruneAnalysisForSourceId(state.ui, id)
+        };
+      });
+    },
+
+    updateLinearTransformEntry: (id, field, value) => {
+      set((state) => {
+        const object = findObjectById(state.scene.objects, id);
+        if (!object || object.kind !== "linearTransform") {
+          return state;
+        }
+
+        const nextObject = updateLinearTransformField(object, field, value);
+        if (!nextObject) {
+          return state;
+        }
+
+        const command: SceneCommand = {
+          type: "UPDATE_OBJECT",
+          payload: {
+            object: nextObject
+          }
+        };
+
+        return {
+          scene: applySceneCommand(state.scene, command),
+          // Matrix entries feed synchronous Inspector/overlay math;
+          // transient analysis follows live values with no invalidation
+          // bookkeeping (PART 37). S21 prune keeps the uniform contract.
           ui: pruneAnalysisForSourceId(state.ui, id)
         };
       });

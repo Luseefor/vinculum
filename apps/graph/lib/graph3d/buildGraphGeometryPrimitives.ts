@@ -52,11 +52,11 @@ export interface PrimitiveDisplayMath {
   ray: Ray3 | null;
 }
 
-function stampPrimitiveGroup(group: Object3D, id: string): void {
+export function stampPrimitiveGroup(group: Object3D, id: string): void {
   group.userData.vinculumId = id;
 }
 
-function makeInvisibleProxy(id: string): Mesh {
+export function makeInvisibleProxy(id: string): Mesh {
   const geometry = new CylinderGeometry(1, 1, 1, 6);
   const material = new MeshBasicMaterial();
   material.colorWrite = false;
@@ -73,7 +73,7 @@ const scratchDirection = new Vector3();
 const scratchMidpoint = new Vector3();
 const scratchQuaternion = new Quaternion();
 
-function orientUnitY(
+export function orientUnitY(
   target: Mesh,
   fromWorld: Vector3,
   directionWorld: Vector3,
@@ -89,7 +89,7 @@ function orientUnitY(
   target.updateMatrixWorld();
 }
 
-function placeProxyBetween(proxy: Mesh, fromWorld: Vector3, toWorld: Vector3): void {
+export function placeProxyBetween(proxy: Mesh, fromWorld: Vector3, toWorld: Vector3): void {
   scratchDirection.copy(toWorld).sub(fromWorld);
   const length = scratchDirection.length();
   if (!Number.isFinite(length) || length <= 0) {
@@ -152,13 +152,13 @@ function directionWorldOf(vector: { x: number; y: number; z: number }): Vector3 
 // Arrow proportions: head length clamped (never a giant arrowhead, never
 // zero), shaft radius mildly magnitude-coupled but bounded (PART 12:
 // restrained thickness independent of magnitude within reason).
-function arrowProportions(length: number): { headLength: number; shaftRadius: number; headRadius: number } {
+export function arrowProportions(length: number): { headLength: number; shaftRadius: number; headRadius: number } {
   const headLength = Math.min(Math.min(Math.max(length * 0.25, 0.12), 0.6), Math.max(length * 0.8, 1e-9));
   const shaftRadius = Math.min(Math.max(length * 0.015, 0.012), 0.06);
   return { headLength, shaftRadius, headRadius: shaftRadius * 2.8 };
 }
 
-function buildArrowHead(id: string, color: string): Mesh {
+export function buildArrowHead(id: string, color: string): Mesh {
   const head = new Mesh(
     new ConeGeometry(1, 1, 12),
     new MeshStandardMaterial({ color: new Color(color), roughness: 0.55, metalness: 0.15 })
@@ -167,7 +167,7 @@ function buildArrowHead(id: string, color: string): Mesh {
   return head;
 }
 
-function placeArrowHead(head: Mesh, tipWorld: Vector3, directionWorld: Vector3, headLength: number, headRadius: number): void {
+export function placeArrowHead(head: Mesh, tipWorld: Vector3, directionWorld: Vector3, headLength: number, headRadius: number): void {
   scratchDirection.copy(directionWorld).normalize();
   scratchQuaternion.setFromUnitVectors(CANONICAL_UP, scratchDirection);
   head.quaternion.copy(scratchQuaternion);

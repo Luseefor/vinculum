@@ -84,6 +84,7 @@ export default function EditorShell() {
   const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
   const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
   const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
+  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
   const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
   const addPointObject = useGraphStore((state) => state.addPointObject);
   const addVectorObject = useGraphStore((state) => state.addVectorObject);
@@ -858,6 +859,20 @@ export default function EditorShell() {
       }
       return;
     }
+    if (commandId === "add-2d-linear-transform") {
+      const createdId = addLinearTransformObject("2d");
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
+    if (commandId === "add-3d-linear-transform") {
+      const createdId = addLinearTransformObject("3d");
+      if (createdId) {
+        requestEquationFocus(createdId);
+      }
+      return;
+    }
     if (commandId === "add-vector") {
       const createdId = addVectorObject();
       if (createdId) {
@@ -897,7 +912,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addImplicitSurface, addVectorFieldObject, addPlaneObject, addPointObject, addVectorObject, addLineObject, addRayObject, addSegmentObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addImplicitSurface, addVectorFieldObject, addLinearTransformObject, addPlaneObject, addPointObject, addVectorObject, addLineObject, addRayObject, addSegmentObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;

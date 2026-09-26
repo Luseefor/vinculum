@@ -1,4 +1,6 @@
 import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
+import { createLinearTransformGraph } from "@/lib/graph/createLinearTransformGraph";
+import { convertLinearTransformDimension } from "./graphStoreLinearTransformField";
 import {
   createLineGraph,
   createRayGraph,
@@ -21,6 +23,7 @@ import {
 } from "./graphStoreObjectFactory";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
 import { pruneGeometryAnalysisForSourceId } from "./graphStoreSliceGeometryAnalysis";
+import { pruneLinearTransformAnalysisForSourceId } from "./graphStoreSliceLinearTransform";
 import { clearIntegralFieldSelection, integralSourcesReferencingField } from "./graphStoreSliceIntegral";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
@@ -36,6 +39,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "addImplicitSurface"
   | "addVectorFieldObject"
   | "addPointObject"
+  | "addLinearTransformObject"
   | "addVectorObject"
   | "addLineObject"
   | "addRayObject"
@@ -71,6 +75,10 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
     addPointObject: () => {
       return appendObject(set, (index) => createPointGraph({ colorIndex: index }));
+    },
+
+    addLinearTransformObject: (dimension) => {
+      return appendObject(set, (index) => createLinearTransformGraph({ colorIndex: index, dimension }));
     },
 
     addVectorObject: () => {
@@ -131,6 +139,34 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         }
 
         const currentObject = state.scene.objects[index];
+        // S28 PART 41: linearTransform dimension switches preserve
+        // entries deterministically (2D→3D embeds on XY with z fixed;
+        // 3D→2D keeps the top-left 2×2) instead of rebuilding defaults.
+        // This branch precedes the generic same-kind early return below.
+        if (currentObject.kind === "linearTransform" && kind === "linearTransform") {
+          const targetDimension = dimension === "3d" ? "3d" : dimension === "2d" ? "2d" : currentObject.dimension;
+          if (targetDimension === currentObject.dimension) {
+            return state;
+          }
+          const converted = convertLinearTransformDimension(currentObject, targetDimension);
+          const dimensionCommand: SceneCommand = {
+            type: "UPDATE_OBJECT",
+            payload: {
+              object: converted
+            }
+          };
+          useScalarVizResultsStore.getState().removeForSource(id);
+          useStreamlineResultsStore.getState().removeForSource(id);
+          useIntegralResultsStore.getState().removeForSource(id);
+          const uiWithoutGeometry = pruneGeometryAnalysisForSourceId(state.ui, id);
+          return {
+            scene: applySceneCommand(state.scene, dimensionCommand),
+            ui: pruneLinearTransformAnalysisForSourceId(
+              clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutGeometry, id), id),
+              id
+            )
+          };
+        }
         // Vector conversions need a dimension: explicit choice wins, else
         // preserve the current field's dimension, else default to 2D.
         const vectorDimension =
@@ -173,10 +209,14 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         }
         // S27: kind switches drop the converted source's geometry
         // analysis and any analysis referencing it (overlays GC in tick).
+        // S28: same for linearTransform analysis (transform or vector).
         const uiWithoutGeometry = pruneGeometryAnalysisForSourceId(state.ui, id);
         return {
           scene: applySceneCommand(state.scene, command),
-          ui: clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutGeometry, id), id)
+          ui: pruneLinearTransformAnalysisForSourceId(
+            clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutGeometry, id), id),
+            id
+          )
         };
       });
     }

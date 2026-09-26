@@ -2,6 +2,7 @@ import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { findObjectById, resolveSelectedObjectId } from "./graphStoreSelection";
 import { clearAllDerivedForSource } from "./graphStoreSliceScalarViz";
 import { pruneGeometryAnalysisForSourceId } from "./graphStoreSliceGeometryAnalysis";
+import { pruneLinearTransformAnalysisForSourceId } from "./graphStoreSliceLinearTransform";
 import { clearIntegralFieldSelection, integralSourcesReferencingField } from "./graphStoreSliceIntegral";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
@@ -108,11 +109,13 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
         }
         // S27 PART 32: drop the deleted source's own analysis and any
         // analysis referencing it as secondary (overlays GC in tick).
+        // S28: same for linearTransform analysis (transform or vector).
         const uiWithoutGeometry = pruneGeometryAnalysisForSourceId(state.ui, id);
+        const uiWithoutLinear = pruneLinearTransformAnalysisForSourceId(uiWithoutGeometry, id);
         return {
           scene: nextScene,
           ui: {
-            ...clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutGeometry, id), id),
+            ...clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutLinear, id), id),
             selectedObjectId: nextSelectedObjectId,
             focusEquationForObjectId:
               state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId

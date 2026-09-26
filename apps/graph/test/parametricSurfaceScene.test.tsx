@@ -425,7 +425,7 @@ describe("parametric surface store semantics", () => {
     render(<GraphTypeSelector value="surface" onChange={() => undefined} />);
     const select = screen.getByLabelText("Graph type") as HTMLSelectElement;
     const values = Array.from(select.options).map((option) => option.value);
-    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "vectorField:2d", "vectorField:3d"]);
+    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
   });
 
   it("lists Parametric Surface templates in both workspace quick-add orders", () => {

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
 import GeometryAnalysisSection from "./GeometryAnalysisSection";
 import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
+import LinearTransformInspector from "./LinearTransformInspector";
 import IntegralAnalysisSection from "./IntegralAnalysisSection";
 import ScalarVisualizationSection from "./ScalarVisualizationSection";
 import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
@@ -67,6 +68,14 @@ export default function GraphInspector() {
         <div className="mt-3">
           <GeometryAnalysisSection key={selectedObject.id} object={selectedObject} />
         </div>
+      </section>
+    );
+  }
+
+  if (selectedObject.kind === "linearTransform") {
+    return (
+      <section id="graph-inspector">
+        <LinearTransformInspector object={selectedObject} />
       </section>
     );
   }

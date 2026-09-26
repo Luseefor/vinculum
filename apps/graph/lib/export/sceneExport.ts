@@ -174,8 +174,16 @@ export function export2dSvg(input: {
   // four geometric primitives are 3D mathematical geometry with no
   // established 2D projection model in the exporter — explicit warning,
   // never silent omission.
+  // S28: canonical linearTransform objects always warn (PART 70) — the
+  // 2D transform layer is derived analysis rendering with no established
+  // SVG projection in the exporter, independent of renderable presence.
+  // Never silently omitted.
   const renderedIds = new Set(renderables.map((graph) => graph.id));
   for (const object of input.objects) {
+    if (object.visible && object.kind === "linearTransform") {
+      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
+      continue;
+    }
     if (
       object.visible &&
       (object.kind === "parametricSurface" ||

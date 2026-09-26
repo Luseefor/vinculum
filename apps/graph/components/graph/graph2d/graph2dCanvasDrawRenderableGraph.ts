@@ -1,5 +1,6 @@
 import { drawGraph2dExplicitFunctionCurve } from "./graph2dCanvasDrawRenderableGraphExplicitCurve";
 import { drawGraph2dVerticalHorizontalLinesAndPolyline } from "./graph2dCanvasDrawRenderableGraphLinesPolyline";
+import { drawLinearTransformLayer } from "./graph2dCanvasDrawLinearTransform";
 import { drawVectorFieldArrows } from "./graph2dCanvasVectorField";
 import { drawHatchedDomain, drawImplicitContour } from "./graph2dCanvasImplicitDraw";
 import type { ViewportTransform } from "./graph2dCanvasProbes";
@@ -29,6 +30,15 @@ export function drawRenderableGraph2d(
 
   if (graph.vectorField) {
     drawVectorFieldArrows(graph.vectorField, graph.color, dc, mathToScreen);
+    ctx.restore();
+    return;
+  }
+
+  // S28: 2D linear-transformation basis + unit square (XY only, resolved
+  // at build). Drawn in the per-graph pass: above the reference grid,
+  // below selection/probe overlays (PART 62 — no layer reorder).
+  if (graph.linearTransform) {
+    drawLinearTransformLayer(graph.linearTransform, graph.color, dc, mathToScreen);
     ctx.restore();
     return;
   }
