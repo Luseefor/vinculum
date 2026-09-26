@@ -1,5 +1,6 @@
 import { compile } from "mathjs";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getParamScopeSignature } from "./paramScope";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 import type { CompiledSurfaceExpression, SurfaceEvaluator } from "./compileExpressionTypes";
 import { formatExpressionError } from "./expressionErrorFormat";
@@ -19,8 +20,16 @@ const NAN_EVALUATOR: SurfaceEvaluator = () => Number.NaN;
 const SURFACE_COMPILE_CACHE_LIMIT = 128;
 const surfaceCompileCache = new Map<string, CompiledSurfaceExpression>();
 
-function makeSurfaceCompileCacheKey(expression: string, orientation: "x" | "y" | "z"): string {
-  return `${orientation}::${expression}`;
+function makeSurfaceCompileCacheKey(
+  expression: string,
+  orientation: "x" | "y" | "z",
+  params: Record<string, number>
+): string {
+  // S29-R5: the safety check depends on the live parameter set
+  // (allowedSymbols = param keys), so the cache key must carry the snapshot
+  // signature. Previously same-text/different-params shared entries, serving
+  // stale accept/reject after param add/remove.
+  return `${orientation}::${expression}::${getParamScopeSignature(params)}`;
 }
 
 function getCachedSurfaceCompile(key: string): CompiledSurfaceExpression | null {
@@ -48,7 +57,11 @@ export function compileSurfaceExpression(
   expression: string,
   orientation: "x" | "y" | "z" = "z"
 ): CompiledSurfaceExpression {
-  const cacheKey = makeSurfaceCompileCacheKey(expression, orientation);
+  // S29-R5: snapshot the live scope once per call so safety, cache key, and
+  // smoke-evaluation agree (previously safety read live scope but the key
+  // omitted it).
+  const scopeSnapshot = getEditorParameterScope();
+  const cacheKey = makeSurfaceCompileCacheKey(expression, orientation, scopeSnapshot);
   const cached = getCachedSurfaceCompile(cacheKey);
   if (cached) {
     return cached;
@@ -77,7 +90,7 @@ export function compileSurfaceExpression(
   const safety = validateExpressionSafety(body, {
     operation: "compile-surface",
     expressionLabel: "Surface equation",
-    allowedSymbols: Object.keys(getEditorParameterScope()),
+    allowedSymbols: Object.keys(scopeSnapshot),
   });
   if (!safety.ok) {
     const safetyResult: CompiledSurfaceExpression = {

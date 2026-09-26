@@ -197,7 +197,10 @@ function evaluateExpression(
   scope: Record<string, number>
 ): number {
   try {
-    const value = expression.evaluate({ x, y, z, ...scope });
+    // S29-R1: locals win over same-named editor parameters (S19 convention).
+    // The previous `{ x, y, z, ...scope }` order let a parameter named
+    // x/y/z shadow the probe point, corrupting coefficient extraction.
+    const value = expression.evaluate({ ...scope, x, y, z });
     const numeric = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numeric) ? numeric : Number.NaN;
   } catch {

@@ -357,6 +357,12 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
     getTrackedObjectIds: () => [...generations.keys()],
 
     dispose: () => {
+      // S29-R3: dispose must not wipe the shared status store. Four manager
+      // instances (geometry + scalar + streamline + integral) share one
+      // `useGeometryComputeStore`; `clearAll()` here erased sibling
+      // pipelines' pending/error on every engine unmount (mode switch, quad
+      // teardown, StrictMode remount). Clear only IDs this manager tracks.
+      const tracked = [...generations.keys()];
       disposed = true;
       try {
         transport?.terminate();
@@ -367,7 +373,9 @@ export function createGeometryComputeManager(options: GeometryComputeManagerOpti
       inFlight = null;
       queued.clear();
       generations.clear();
-      useGeometryComputeStore.getState().clearAll();
+      for (const objectId of tracked) {
+        useGeometryComputeStore.getState().clearStatus(objectId);
+      }
     }
   };
 }

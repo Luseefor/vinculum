@@ -19,8 +19,16 @@ const MAX_ERROR_LENGTH = 92;
 const PARAMETRIC_COMPILE_CACHE_LIMIT = 128;
 const parametricCompileCache = new Map<string, CompiledParametricExpression>();
 
-function makeParametricCacheKey(xExpr: string, yExpr: string, zExpr: string): string {
-  return `${xExpr}\u0000${yExpr}\u0000${zExpr}`;
+function makeParametricCacheKey(
+  xExpr: string,
+  yExpr: string,
+  zExpr: string,
+  params: Record<string, number>
+): string {
+  // S29-R6: legacy key omitted the parameter snapshot, so param add/remove
+  // served stale accept/reject. Include the snapshot signature like the
+  // S25 explicit-params variant.
+  return [xExpr, yExpr, zExpr, getParamScopeSignature(params)].join("\u0000");
 }
 
 function getCachedParametricCompile(key: string): CompiledParametricExpression | null {
@@ -49,7 +57,8 @@ export function compileParametricExpressions(
   yExpr: string,
   zExpr: string
 ): CompiledParametricExpression {
-  const cacheKey = makeParametricCacheKey(xExpr, yExpr, zExpr);
+  const scopeSnapshot = getEditorParameterScope();
+  const cacheKey = makeParametricCacheKey(xExpr, yExpr, zExpr, scopeSnapshot);
   const cached = getCachedParametricCompile(cacheKey);
   if (cached) {
     return cached;

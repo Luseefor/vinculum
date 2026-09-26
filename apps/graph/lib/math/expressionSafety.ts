@@ -142,9 +142,16 @@ export function validateExpressionSafety(expression: string, context: Expression
     return { ok: false, violation: complexityViolation };
   }
 
-  const allowedSymbols = context.allowedSymbols?.length
-    ? new Set([...BASE_ALLOWED_SYMBOLS, ...context.allowedSymbols])
-    : null;
+  // S29-R8: an explicitly provided (even empty) allowedSymbols list must
+  // still enforce the base-symbol gate. The old `?.length` check treated
+  // `[]` the same as `undefined`, disabling symbol validation exactly when
+  // no scene parameters exist — so `a*t` compiled clean then evaluated to
+  // NaN everywhere. `undefined` (parser structural checks without a param
+  // context) still skips the gate; `[]` checks against base symbols only.
+  const allowedSymbols =
+    context.allowedSymbols !== undefined
+      ? new Set([...BASE_ALLOWED_SYMBOLS, ...context.allowedSymbols])
+      : null;
 
   const unsupportedFunction = findFirstUnsupportedFunction(node);
   if (unsupportedFunction) {

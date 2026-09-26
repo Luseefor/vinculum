@@ -74,10 +74,19 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
   }
 
   const normalizedObjects: GraphObject[] = [];
+  const seenObjectIds = new Set<string>();
 
   migratedInput.objects.forEach((rawObject, objectIndex) => {
     const parsedObject = parseGraphObject(rawObject, objectIndex, errors);
     if (parsedObject) {
+      // S29-R7: duplicate object IDs alias scene nodes (selection, worker
+      // generations keyed by ID, overlay namespaces). Reject fail-closed
+      // instead of silently aliasing two nodes.
+      if (seenObjectIds.has(parsedObject.id)) {
+        errors.push(`objects[${objectIndex}].id must be unique. Duplicate id "${parsedObject.id}".`);
+        return;
+      }
+      seenObjectIds.add(parsedObject.id);
       normalizedObjects.push(parsedObject);
     }
   });
@@ -199,6 +208,7 @@ function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurem
   }
 
   const normalized: SceneMeasurement[] = [];
+  const seenMeasurementIds = new Set<string>();
 
   value.forEach((rawMeasurement, index) => {
     const path = `measurements[${index}]`;
@@ -210,6 +220,11 @@ function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurem
     const id = typeof rawMeasurement.id === "string" ? rawMeasurement.id.trim() : "";
     if (id.length === 0) {
       errors.push(`${path}.id must be a non-empty string.`);
+      return;
+    }
+    // S29-R7: duplicate measurement IDs alias probe pins/selection.
+    if (seenMeasurementIds.has(id)) {
+      errors.push(`${path}.id must be unique. Duplicate id "${id}".`);
       return;
     }
 
@@ -230,6 +245,7 @@ function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurem
         point,
         label
       });
+      seenMeasurementIds.add(id);
       return;
     }
 
@@ -268,6 +284,7 @@ function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurem
               }
         )
       );
+      seenMeasurementIds.add(id);
       return;
     }
 
