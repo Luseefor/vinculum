@@ -25,7 +25,7 @@ import { updateParametricSurfaceField } from "@/store/graphStoreParametricSurfac
 import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "@/components/objects/objectRowUtils";
 import GraphTypeSelector from "@/components/expressions/GraphTypeSelector";
-import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
+import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 import type { ParametricSurfaceObject } from "@vinculum/scene/types";
 import { Group, Mesh } from "three";
 
@@ -428,11 +428,13 @@ describe("parametric surface store semantics", () => {
     expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
   });
 
-  it("lists Parametric Surface templates in both workspace quick-add orders", () => {
+  it("keeps Parametric Surface reachable in both workspaces (behind More)", () => {
     for (const workspace of ["geometry", "math"] as const) {
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("Parametric Surface");
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("Parametric Sphere");
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("Parametric Torus");
+      const reachable = [
+        ...quickAddDescriptors(workspace).map((entry) => entry.key),
+        ...moreAddDescriptors(workspace).map((entry) => entry.key)
+      ];
+      expect(reachable).toContain("parametricSurface");
     }
   });
 });

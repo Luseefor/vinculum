@@ -25,6 +25,14 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -174,6 +182,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
@@ -189,6 +198,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
@@ -214,6 +224,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
@@ -237,6 +248,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
@@ -261,6 +273,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("1/x");
@@ -276,6 +289,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("0");
@@ -293,6 +307,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Radial -> rotation -> nonlinear with no settle waits.
@@ -315,6 +330,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Scene" }).click();
@@ -325,6 +341,7 @@ test.describe("S20 vector fields", () => {
     await page.reload();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await toGeometry(page);
+    await showMoreAdd(page);
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(100);
@@ -343,6 +360,7 @@ test.describe("S20 vector fields", () => {
     await expect.poll(async () => countFieldPixels(page, canvas2d, FIELD_BLUE), { timeout: 15000 }).toBeGreaterThan(150);
     // Geometry Studio tolerates the 2D field (skipped in 3D, no crash).
     await toGeometry(page);
+    await showMoreAdd(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     await toMathLab(page);
@@ -379,6 +397,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("sin(factorial(x))");
@@ -392,6 +411,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);

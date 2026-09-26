@@ -4,8 +4,10 @@ import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import type { WorkspaceId } from "@/types/graphUi";
 
+// S30: one canonical naming system — visible text matches the accessible
+// name everywhere (Geometry Studio / Math Lab).
 const WORKSPACES: Array<{ id: WorkspaceId; short: string; label: string; title: string }> = [
-  { id: "geometry", short: "Geometry", label: "Geometry Studio", title: "Geometry Studio — spatial objects" },
+  { id: "geometry", short: "Geometry Studio", label: "Geometry Studio", title: "Geometry Studio — spatial objects" },
   { id: "math", short: "Math Lab", label: "Math Lab", title: "Math Lab — equations and analysis" }
 ];
 

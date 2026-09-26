@@ -27,6 +27,38 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function addPreset(page: Page, name: string) {
+  // S30: templates live in the Add Object menu.
+  await page.getByRole("button", { name: "Open object menu" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
+async function openAnalyze(page: Page) {
+  // S30: analysis sections live under the Analyze tab. Guarded so sheet
+  // flows and Object-tab assertions never trip on the navigation itself.
+  const tab = page.getByRole("tab", { name: "Analyze" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
+async function openObject(page: Page) {
+  // S30 companion to openAnalyze: definition/domain editors live under the
+  // Object tab. Guarded like openAnalyze.
+  const tab = page.getByRole("tab", { name: "Object" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -128,15 +160,18 @@ async function countChangedPixels(page: Page, canvas: Locator, beforeUrl: string
 }
 
 async function openAnalysisSection(page: Page) {
+  await openAnalyze(page);
   await expect(page.getByText("Differential Analysis").first()).toBeVisible({ timeout: 10000 });
 }
 
 async function pickCenter(page: Page, canvas: Locator) {
+  await openAnalyze(page);
   await page.getByRole("button", { name: "Pick analysis point on surface" }).click();
   await canvas.click();
 }
 
 async function pickAt(page: Page, canvas: Locator, fx: number, fy: number) {
+  await openAnalyze(page);
   await page.getByRole("button", { name: "Pick analysis point on surface" }).click();
   const box = await canvas.boundingBox();
   if (!box) {
@@ -180,7 +215,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -201,7 +236,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -240,7 +275,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -269,7 +304,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -289,17 +324,20 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
     // Heavy edit at max resolution: the worker stays busy for seconds.
     await page.getByLabel("Equation", { exact: true }).first().fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
-    await page.getByLabel("Resolution", { exact: true }).first().fill("48");
+        await openObject(page);
+        await page.getByLabel("Resolution", { exact: true }).first().fill("48");
     // While pending, Pick stays disabled with an updating hint.
+    await openAnalyze(page);
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeDisabled({ timeout: 15000 });
     await settleCompute(page);
     // Settled: picking works again.
+    await openAnalyze(page);
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeEnabled({ timeout: 15000 });
 
     expect(pageErrors).toEqual([]);
@@ -310,6 +348,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2-z^2=0");
@@ -333,7 +372,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -361,7 +400,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -382,7 +421,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
@@ -405,11 +444,13 @@ test.describe("S21 differential analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
+    await openAnalyze(page);
     await expect(page.getByText("Differential Analysis")).toBeVisible();
+    await openAnalyze(page);
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeVisible();
     await page.keyboard.press("Escape");
 
@@ -420,11 +461,13 @@ test.describe("S21 differential analysis", () => {
   test("L: nested unsafe source stays rejected with analysis inert", async ({ page }) => {    const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("sin(factorial(x)) + y + z = 0");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await openAnalysisSection(page);
+    await openAnalyze(page);
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeDisabled();
 
     expect(pageErrors).toEqual([]);
@@ -435,7 +478,7 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);

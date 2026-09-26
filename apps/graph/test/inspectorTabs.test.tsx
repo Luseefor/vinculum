@@ -12,24 +12,25 @@ describe("InspectorPanel tablist", () => {
     state.selectObject(id);
   });
 
-  it("exposes tabs with roving tabindex and arrow-key navigation", () => {
+  it("exposes Object/Analyze/Styles/Links/Adv tabs with roving tabindex and arrow-key navigation", () => {
     render(<InspectorPanel mode="object" activeToolLabel="Pan" />);
     const tablist = screen.getByRole("tablist", { name: "Inspector sections" });
     expect(tablist).toBeInTheDocument();
-    const propsTab = screen.getByRole("tab", { name: "Props" });
+    const objectTab = screen.getByRole("tab", { name: "Object" });
+    const analyzeTab = screen.getByRole("tab", { name: "Analyze" });
     const stylesTab = screen.getByRole("tab", { name: "Styles" });
-    expect(propsTab).toHaveAttribute("aria-selected", "true");
+    expect(objectTab).toHaveAttribute("aria-selected", "true");
     expect(stylesTab).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tabpanel")).toBeInTheDocument();
 
-    propsTab.focus();
+    objectTab.focus();
     fireEvent.keyDown(tablist, { key: "ArrowRight" });
-    expect(stylesTab).toHaveAttribute("aria-selected", "true");
-    expect(stylesTab).toHaveFocus();
+    expect(analyzeTab).toHaveAttribute("aria-selected", "true");
+    expect(analyzeTab).toHaveFocus();
 
     fireEvent.keyDown(tablist, { key: "ArrowLeft" });
-    expect(propsTab).toHaveAttribute("aria-selected", "true");
-    expect(propsTab).toHaveFocus();
+    expect(objectTab).toHaveAttribute("aria-selected", "true");
+    expect(objectTab).toHaveFocus();
 
     fireEvent.keyDown(tablist, { key: "End" });
     const advancedTab = screen.getByRole("tab", { name: "Adv" });
@@ -37,7 +38,19 @@ describe("InspectorPanel tablist", () => {
     expect(advancedTab).toHaveFocus();
 
     fireEvent.keyDown(tablist, { key: "Home" });
-    expect(propsTab).toHaveAttribute("aria-selected", "true");
-    expect(propsTab).toHaveFocus();
+    expect(objectTab).toHaveAttribute("aria-selected", "true");
+    expect(objectTab).toHaveFocus();
+  });
+
+  it("shows definition on Object and contextual analysis on Analyze for a surface", () => {
+    render(<InspectorPanel mode="object" activeToolLabel="Pan" />);
+    // Object tab: domain editors, no analysis sections.
+    expect(screen.getByLabelText("X Range Min")).toBeInTheDocument();
+    expect(screen.queryByTestId("integral-analysis-section")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    // Analyze tab: differential + scalar + integral for a surface.
+    expect(screen.getByTestId("integral-analysis-section")).toBeInTheDocument();
+    expect(screen.queryByLabelText("X Range Min")).not.toBeInTheDocument();
   });
 });

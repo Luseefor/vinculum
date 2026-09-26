@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import GraphTypeSelector from "@/components/expressions/GraphTypeSelector";
 import ExpressionRow from "@/components/expressions/ExpressionRow";
-import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
+import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 import { getVectorFieldComponentDiagnostics } from "@/lib/math/expressionDiagnostics";
 import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 
@@ -33,16 +33,21 @@ describe("vector field creation surfaces (S20 Slice 6b)", () => {
     expect((screen.getByLabelText("Graph type") as HTMLSelectElement).value).toBe("vectorField:2d");
   });
 
-  it("prioritizes vector fields in Math Lab without displacing Geometry Studio", () => {
-    expect(WORKSPACE_CONTENT.math.quickAddOrder.slice(0, 2)).toEqual(["2D Vector Field", "3D Vector Field"]);
+  it("prioritizes vector fields in Math Lab Quick Add without displacing Geometry Studio", () => {
+    expect(quickAddDescriptors("math").map((entry) => entry.label)).toContain("2D Vector Field");
+    expect(quickAddDescriptors("math").map((entry) => entry.label)).toContain("3D Vector Field");
     for (const workspace of ["geometry", "math"] as const) {
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("2D Vector Field");
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("3D Vector Field");
+      const reachable = [
+        ...quickAddDescriptors(workspace).map((entry) => entry.key),
+        ...moreAddDescriptors(workspace).map((entry) => entry.key)
+      ];
+      expect(reachable).toContain("vectorField-2d");
+      expect(reachable).toContain("vectorField-3d");
     }
-    const geometryOrder = WORKSPACE_CONTENT.geometry.quickAddOrder;
-    expect(geometryOrder.indexOf("3D Vector Field")).toBeGreaterThan(
-      geometryOrder.indexOf("Implicit Surface")
-    );
+    // S30: in Geometry Studio both fields sit behind More, ordered after
+    // the graph kinds (fields never displace geometry primitives).
+    const geometryMore = moreAddDescriptors("geometry").map((entry) => entry.key);
+    expect(geometryMore.indexOf("vectorField-3d")).toBeGreaterThan(geometryMore.indexOf("implicitSurface"));
   });
 
   it("renders P/Q inputs for 2D fields and P/Q/R for 3D fields", () => {

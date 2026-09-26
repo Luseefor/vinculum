@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import ObjectTree from "@/components/objects/ObjectTree";
-import { Button } from "@/components/ui/button";
+import AddObjectMenu from "@/components/objects/AddObjectMenu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEditorStore } from "@/lib/store/editorStore";
+import { createObjectByKey } from "@/lib/objects/objectCreation";
+import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 import { useGraphStore } from "@/store/graphStore";
 import { SearchIcon } from "@/components/layout/icons";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
-import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 
 interface ObjectBrowserPanelProps {
   width: number;
@@ -24,102 +25,12 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const selectedMeasurementId = useGraphStore((state) => state.ui.selectedMeasurementId);
   const removeMeasurement = useGraphStore((state) => state.removeMeasurement);
   const selectMeasurement = useGraphStore((state) => state.selectMeasurement);
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
-  const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addPointObject = useGraphStore((state) => state.addPointObject);
-  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
-  const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
-  const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
-  const addVectorObject = useGraphStore((state) => state.addVectorObject);
-  const addLineObject = useGraphStore((state) => state.addLineObject);
-  const addRayObject = useGraphStore((state) => state.addRayObject);
-  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
-  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
-  const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
-  const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
-  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
-  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
-  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
-  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const workspace = useGraphStore((state) => state.ui.workspace);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
+  const [showMoreAdd, setShowMoreAdd] = useState(false);
 
-  const createAndFocus = (create: () => string) => {
-    const id = create();
-    if (id) {
-      requestEquationFocus(id);
-    }
-    return id;
-  };
-
-  const createSphere = () => {
-    const id = addSurfaceObject();
-    updateSurfaceEquation(id, "sqrt(max(0, 9 - x^2 - y^2))");
-    updateSurfaceDomain(id, { xMin: -3, xMax: 3, yMin: -3, yMax: 3 });
-    addConsoleEvent("Created sphere surface preset");
-    return id;
-  };
-
-  const createCylinder = () => {
-    const id = addSurfaceObject();
-    updateSurfaceEquation(id, "sqrt(max(0, 4 - x^2))");
-    updateSurfaceDomain(id, { xMin: -2, xMax: 2, yMin: -6, yMax: 6 });
-    addConsoleEvent("Created cylinder surface preset");
-    return id;
-  };
-
-  const createPoint = () => {
-    // S27: Quick Add Point creates the real canonical point kind (PART 1).
-    // Historical all-zero parametricCurve presets stay untouched.
-    // Creation-focus matches every other quick-add (row expands, x focused).
-    const id = addPointObject();
-    if (id) {
-      requestEquationFocus(id);
-    }
-    addConsoleEvent("Created point");
-    return id;
-  };
-
-  const createParametricSphere = () => {
-    const id = addParametricSurface();
-    updateParametricSurfaceExpression(id, "xExpr", "sin(u) * cos(v)");
-    updateParametricSurfaceExpression(id, "yExpr", "sin(u) * sin(v)");
-    updateParametricSurfaceExpression(id, "zExpr", "cos(u)");
-    updateParametricSurfaceExpression(id, "uMin", 0);
-    updateParametricSurfaceExpression(id, "uMax", 3.1415926536);
-    updateParametricSurfaceExpression(id, "vMin", 0);
-    updateParametricSurfaceExpression(id, "vMax", 6.2831853072);
-    addConsoleEvent("Created parametric sphere preset");
-    return id;
-  };
-
-  const createParametricTorus = () => {
-    const id = addParametricSurface();
-    updateParametricSurfaceExpression(id, "xExpr", "(2 + 0.5 * cos(v)) * cos(u)");
-    updateParametricSurfaceExpression(id, "yExpr", "(2 + 0.5 * cos(v)) * sin(u)");
-    updateParametricSurfaceExpression(id, "zExpr", "0.5 * sin(v)");
-    updateParametricSurfaceExpression(id, "uMin", 0);
-    updateParametricSurfaceExpression(id, "uMax", 6.2831853072);
-    updateParametricSurfaceExpression(id, "vMin", 0);
-    updateParametricSurfaceExpression(id, "vMax", 6.2831853072);
-    addConsoleEvent("Created parametric torus preset");
-    return id;
-  };
-
-  const createImplicitSphere = () => {
-    const id = addImplicitSurface();
-    updateImplicitSurfaceExpression(id, "equation", "x^2 + y^2 + z^2 = 1");
-    updateImplicitSurfaceExpression(id, "xMin", -1.5);
-    updateImplicitSurfaceExpression(id, "xMax", 1.5);
-    updateImplicitSurfaceExpression(id, "yMin", -1.5);
-    updateImplicitSurfaceExpression(id, "yMax", 1.5);
-    updateImplicitSurfaceExpression(id, "zMin", -1.5);
-    updateImplicitSurfaceExpression(id, "zMax", 1.5);
-    addConsoleEvent("Created implicit sphere preset");
-    return id;
-  };
+  const quickDescriptors = quickAddDescriptors(workspace);
+  const moreDescriptors = moreAddDescriptors(workspace);
 
   return (
     <aside
@@ -163,16 +74,9 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
           ))}
         </div>
 
-        <Button
-          variant="secondary"
-          className="h-8 w-full rounded-[6px] border-[var(--border-strong)] bg-[var(--surface-raised)] text-[12px] font-semibold"
-          onClick={() => {
-            createAndFocus(() => addEmptyObject());
-            addConsoleEvent("Added new object");
-          }}
-        >
-          + Add Object
-        </Button>
+        {/* S30: the complete categorized catalog lives in AddObjectMenu;
+            its "+ Add Object" still creates an empty object. */}
+        <AddObjectMenu />
       </div>
 
       <ScrollArea className="min-h-0 flex-1 px-2 py-2">
@@ -234,42 +138,35 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
       <div className="border-t border-[var(--border-subtle)] p-2">
         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Quick Add</p>
         <div className="grid grid-cols-2 gap-1.5">
-          {[
-            { label: "Surface", onClick: () => createAndFocus(() => addSurfaceObject()) },
-            { label: "Curve", onClick: () => createAndFocus(() => addParametricCurve()) },
-            { label: "Parametric Surface", onClick: () => createAndFocus(() => addParametricSurface()) },
-            { label: "Implicit Surface", onClick: () => createAndFocus(() => addImplicitSurface()) },
-            { label: "2D Vector Field", onClick: () => createAndFocus(() => addVectorFieldObject("2d")) },
-            { label: "3D Vector Field", onClick: () => createAndFocus(() => addVectorFieldObject("3d")) },
-            { label: "Sphere", onClick: () => createAndFocus(createSphere) },
-            { label: "Cylinder", onClick: () => createAndFocus(createCylinder) },
-            { label: "Parametric Sphere", onClick: () => createAndFocus(createParametricSphere) },
-            { label: "Parametric Torus", onClick: () => createAndFocus(createParametricTorus) },
-            { label: "Implicit Sphere", onClick: () => createAndFocus(createImplicitSphere) },
-            { label: "Plane", onClick: () => createAndFocus(() => addPlaneObject()) },
-            { label: "Point", onClick: () => createAndFocus(createPoint) },
-            { label: "Vector", onClick: () => createAndFocus(() => addVectorObject()) },
-            { label: "Infinite Line", onClick: () => createAndFocus(() => addLineObject()) },
-            { label: "Segment", onClick: () => createAndFocus(() => addSegmentObject()) },
-            { label: "Ray", onClick: () => createAndFocus(() => addRayObject()) },
-            { label: "2D Linear Transformation", onClick: () => createAndFocus(() => addLinearTransformObject("2d")) },
-            { label: "3D Linear Transformation", onClick: () => createAndFocus(() => addLinearTransformObject("3d")) }
-          ]
-            .slice()
-            .sort(
-              (a, b) =>
-                WORKSPACE_CONTENT[workspace].quickAddOrder.indexOf(a.label) -
-                WORKSPACE_CONTENT[workspace].quickAddOrder.indexOf(b.label)
-            )
-            .map((item) => (
+          {quickDescriptors.map((item) => (
             <button
-              key={item.label}
-              onClick={item.onClick}
+              key={item.key}
+              onClick={() => createObjectByKey(item.key)}
               className="h-7 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]"
             >
               {item.label}
             </button>
           ))}
+          {showMoreAdd
+            ? moreDescriptors.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => createObjectByKey(item.key)}
+                  className="h-7 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]"
+                >
+                  {item.label}
+                </button>
+              ))
+            : null}
+          <button
+            type="button"
+            onClick={() => setShowMoreAdd((value) => !value)}
+            aria-label={showMoreAdd ? "Show fewer object types" : "Show more object types"}
+            aria-expanded={showMoreAdd}
+            className="h-7 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-tertiary)] outline-none transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]"
+          >
+            {showMoreAdd ? "Less" : "More…"}
+          </button>
         </div>
         <p className="mt-2 border-t border-[var(--border-subtle)] pt-1.5 text-[11px] text-[var(--text-tertiary)]">
           <span className="font-mono">{selectedObjectId ? selectedObjectId.slice(0, 8) : "none"}</span>

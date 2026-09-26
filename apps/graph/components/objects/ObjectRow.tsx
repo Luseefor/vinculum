@@ -351,7 +351,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 aria-label="Select object type"
               >
                 <option value="surface">Surface</option>
-                <option value="parametricCurve">Curve</option>
+                <option value="parametricCurve">Parametric Curve</option>
                 <option value="parametricSurface">Parametric Surface</option>
                 <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>

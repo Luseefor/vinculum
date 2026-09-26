@@ -8,6 +8,7 @@ import { routePointerToPaneIndex } from "@/lib/graph3d/graphThreeGeometryViews";
 import type { GeometryView } from "@/lib/types/ui";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { cn } from "@/components/ui/styles";
+import CanvasEmptyState from "@/components/viewport/CanvasEmptyState";
 
 function paneFraction(index: number, paneCount: number): { left: string; top: string } {
   if (paneCount <= 1) {
@@ -126,6 +127,8 @@ export default function GeometryViewport({
         onPointerDownCapture={handleContainerPointerDownCapture}
         onWheelCapture={handleContainerWheelCapture}
       >
+        {/* S30: single empty-scene prompt (the engine canvas mounts once). */}
+        <CanvasEmptyState workspaceId="geometry" />
         {panes.map((pane, index) => {
           const position = paneFraction(index, panes.length);
           return (

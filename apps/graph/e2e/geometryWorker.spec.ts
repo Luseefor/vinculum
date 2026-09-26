@@ -24,6 +24,20 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function addPreset(page: Page, name: string) {
+  // S30: templates live in the Add Object menu.
+  await page.getByRole("button", { name: "Open object menu" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -87,7 +101,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -109,7 +123,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
     // Three rapid edits with no settle waits: a stale empty must never win.
@@ -136,6 +150,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
@@ -168,6 +183,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Slow compute so the delete below lands while the job is in flight.
@@ -189,6 +205,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2 + y^2 + z^2 = 1");
@@ -211,7 +228,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Parametric Sphere", exact: true }).click();
+    await addPreset(page, "Parametric Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -233,7 +250,7 @@ test.describe("S19 workerized geometry", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Implicit Sphere", exact: true }).click();
+    await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();

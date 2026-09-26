@@ -1,13 +1,13 @@
+// S30 Object tab: definition + domain/sampling editors for the selected
+// object. Analysis sections live in AnalysisInspector; this tab stays compact
+// so selecting an object never reveals 800px of advanced controls at once.
+
 "use client";
 
 import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
-import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
-import GeometryAnalysisSection from "./GeometryAnalysisSection";
 import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import LinearTransformInspector from "./LinearTransformInspector";
-import IntegralAnalysisSection from "./IntegralAnalysisSection";
-import ScalarVisualizationSection from "./ScalarVisualizationSection";
 import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_VECTOR_FIELD_2D_DENSITY,
@@ -16,17 +16,19 @@ import {
 } from "@vinculum/scene/defaults";
 import { useGraphStore } from "@/store/graphStore";
 import DomainSection from "./DomainSection";
-import VectorCalculusSection from "./VectorCalculusSection";
-import StreamlineSection from "./StreamlineSection";
 
-export default function GraphInspector() {
+export function useSelectedGraphObject(): GraphObject | null {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
-
-  const selectedObject = useMemo<GraphObject | null>(
+  return useMemo<GraphObject | null>(
     () => objects.find((object) => object.id === selectedObjectId) ?? null,
     [objects, selectedObjectId]
   );
+}
+
+export default function ObjectInspector() {
+  const objects = useGraphStore((state) => state.scene.objects);
+  const selectedObject = useSelectedGraphObject();
 
   if (!selectedObject) {
     return (
@@ -40,7 +42,7 @@ export default function GraphInspector() {
   if (selectedObject.kind === "parametricCurve") {
     return (
       <section id="graph-inspector">
-        <ParametricCurveInspector object={selectedObject} />
+        <ParametricCurveDefinition object={selectedObject} />
       </section>
     );
   }
@@ -48,7 +50,7 @@ export default function GraphInspector() {
   if (selectedObject.kind === "parametricSurface") {
     return (
       <section id="graph-inspector">
-        <ParametricSurfaceInspector object={selectedObject} />
+        <ParametricSurfaceDefinition object={selectedObject} />
       </section>
     );
   }
@@ -56,7 +58,7 @@ export default function GraphInspector() {
   if (selectedObject.kind === "implicitSurface") {
     return (
       <section id="graph-inspector">
-        <ImplicitSurfaceInspector object={selectedObject} />
+        <ImplicitSurfaceDefinition object={selectedObject} />
       </section>
     );
   }
@@ -65,9 +67,6 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <PlaneInspector />
-        <div className="mt-3">
-          <GeometryAnalysisSection key={selectedObject.id} object={selectedObject} />
-        </div>
       </section>
     );
   }
@@ -75,24 +74,19 @@ export default function GraphInspector() {
   if (selectedObject.kind === "linearTransform") {
     return (
       <section id="graph-inspector">
-        <LinearTransformInspector object={selectedObject} />
+        <LinearTransformInspector object={selectedObject} section="definition" />
       </section>
     );
   }
 
-  // S20: full field inspector — sampling box, density, and appearance
-  // hints. Scale/normalize/color live under the Styles tab.
   if (selectedObject.kind === "vectorField") {
     return (
       <section id="graph-inspector">
-        <VectorFieldInspector object={selectedObject} objects={objects} />
+        <VectorFieldDefinition object={selectedObject} objects={objects} />
       </section>
     );
   }
 
-  // S26/S27: geometric primitives share one compact inspector
-  // (definition editor only — no analysis sections; integral targets stay
-  // curve/surface-only by construction below).
   if (
     selectedObject.kind === "point" ||
     selectedObject.kind === "vector" ||
@@ -105,9 +99,6 @@ export default function GraphInspector() {
     return (
       <section id="graph-inspector">
         <GeometryPrimitiveInspector key={primitive.id} object={primitive} index={primitiveIndex} />
-        <div className="mt-3">
-          <GeometryAnalysisSection key={`analysis-${primitive.id}`} object={primitive} />
-        </div>
       </section>
     );
   }
@@ -130,23 +121,15 @@ export default function GraphInspector() {
 
       <p className="mb-2 px-0.5 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
         Tessellation, color, and wireframe are in the <span className="font-semibold text-[var(--text-secondary)]">Styles</span> tab.
+        Analysis lives in the <span className="font-semibold text-[var(--text-secondary)]">Analyze</span> tab.
       </p>
 
       <DomainSection object={selectedSurfaceObject} />
-      <div className="mt-3">
-        <DifferentialAnalysisSection object={selectedSurfaceObject} />
-      </div>
-      <div className="mt-3">
-        <ScalarVisualizationSection object={selectedSurfaceObject} />
-      </div>
-      <div className="mt-3">
-        <IntegralAnalysisSection key={selectedSurfaceObject.id} object={selectedSurfaceObject} />
-      </div>
     </section>
   );
 }
 
-function VectorFieldInspector({ object, objects }: { object: VectorFieldObject; objects: GraphObject[] }) {
+function VectorFieldDefinition({ object, objects }: { object: VectorFieldObject; objects: GraphObject[] }) {
   const updateVectorFieldExpression = useGraphStore((state) => state.updateVectorFieldExpression);
   const selectedIndex = objects.findIndex((candidate) => candidate.id === object.id);
   const selectedTitle = selectedIndex >= 0 ? `#${selectedIndex + 1}` : "";
@@ -246,22 +229,17 @@ function VectorFieldInspector({ object, objects }: { object: VectorFieldObject; 
           />
         </label>
       </div>
-      <div className="mt-3">
-        <VectorCalculusSection object={object} />
-      </div>
-      <div className="mt-3">
-        <StreamlineSection object={object} />
-      </div>
     </section>
   );
 }
 
-function ParametricCurveInspector({ object }: { object: ParametricCurveObject }) {  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+function ParametricCurveDefinition({ object }: { object: ParametricCurveObject }) {
+  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
 
   return (
     <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
       <header className="pb-3">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Curve</h3>
+        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Parametric Curve</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
           Edit x(t), y(t), z(t) in the list. Domain and sample count apply to both 2D and 3D views.
         </p>
@@ -318,14 +296,11 @@ function ParametricCurveInspector({ object }: { object: ParametricCurveObject })
           />
         </label>
       </div>
-      <div className="mt-3">
-        <IntegralAnalysisSection key={object.id} object={object} />
-      </div>
     </section>
   );
 }
 
-function ParametricSurfaceInspector({ object }: { object: ParametricSurfaceObject }) {
+function ParametricSurfaceDefinition({ object }: { object: ParametricSurfaceObject }) {
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
 
   return (
@@ -421,14 +396,11 @@ function ParametricSurfaceInspector({ object }: { object: ParametricSurfaceObjec
           />
         </label>
       </div>
-      <div className="mt-3">
-        <IntegralAnalysisSection key={object.id} object={object} />
-      </div>
     </section>
   );
 }
 
-function ImplicitSurfaceInspector({ object }: { object: ImplicitSurfaceObject }) {
+function ImplicitSurfaceDefinition({ object }: { object: ImplicitSurfaceObject }) {
   const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
 
   const rangeFields = [
@@ -490,17 +462,12 @@ function ImplicitSurfaceInspector({ object }: { object: ImplicitSurfaceObject })
           />
         </label>
       </div>
-      <div className="mt-3">
-        <DifferentialAnalysisSection object={object} />
-      </div>
-      <div className="mt-3">
-        <ScalarVisualizationSection object={object} />
-      </div>
     </section>
   );
 }
 
-function PlaneInspector() {  return (
+function PlaneInspector() {
+  return (
     <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
       <header className="pb-3">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>

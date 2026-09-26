@@ -20,6 +20,14 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -57,8 +65,9 @@ test.describe("S15 workspace workflows", () => {
     await expect(page.getByRole("button", { name: "Math Lab" })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await setEquation(page, 0, "z = x^2 + y^2");
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Plane", exact: true }).click();
-    await page.getByRole("button", { name: "Curve", exact: true }).click();
+    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await setEquation(page, 1, "x^2 + y^2 = 1");
     await expect(page.getByTestId("scene-object-count")).toHaveText("4");
@@ -99,10 +108,17 @@ test.describe("S15 workspace workflows", () => {
     await page.getByRole("button", { name: "Plane", exact: true }).click();
     await expect(page.locator('input[placeholder="ax + by + cz + d = 0"]').first()).toBeFocused({ timeout: 8000 });
 
-    // Workflow 5: 2D/3D switching from Geometry, no stale canvas.
-    await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "2D only" }).click();
-    await expect(page.locator('canvas[data-graph2d-canvas="true"]').first()).toBeVisible();
-    await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "3D only" }).click();
+    // Workflow 5: view/layout switching inside Geometry Studio, no stale
+    // canvas. S30: the 2D/3D "View type" group is Math-Lab-only by design
+    // (Geometry is the spatial 3D lens); Geometry switches Perspective/XY
+    // via its View select and Single/Split via its Layout select.
+    await page.getByRole("combobox", { name: "Geometry view" }).selectOption("xy");
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
+    await page.getByRole("combobox", { name: "Geometry view" }).selectOption("perspective");
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
+    await page.getByRole("combobox", { name: "Geometry layout" }).selectOption("split");
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
+    await page.getByRole("combobox", { name: "Geometry layout" }).selectOption("single");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
 
     // Workflow 6: save/reload keeps scene; workspace preference coherent.
@@ -118,7 +134,9 @@ test.describe("S15 workspace workflows", () => {
     await page.getByRole("button", { name: "Math Lab" }).click();
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await setEquation(page, 0, "1/(x^2+y^2)");
-    await expect(page.getByText(/non-finite/i)).toHaveCount(0);
+    // S30: scoped to the definition diagnostic (see workspace-shell.spec.ts);
+    // Integral Analysis may report domain non-finiteness contextually.
+    await expect(page.getByTestId("expression-diagnostic")).toHaveCount(0);
     await setEquation(page, 0, "sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
 

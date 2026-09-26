@@ -92,7 +92,9 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     }
     const normalized = [object.xExpr, object.yExpr, object.zExpr].map((v) => v.replace(/\s+/g, ""));
     const isPoint = normalized.every((v) => v === "0" || v === "0.0");
-    return isPoint ? { label: "Point", type: "Point" } : { label: "Curve", type: "Curve" };
+    // S30: canonical creation taxonomy — rows match descriptors
+    // ("Parametric Curve", legacy all-zero preset keeps "Point").
+    return isPoint ? { label: "Point", type: "Point" } : { label: "Parametric Curve", type: "Parametric Curve" };
   }
   // S20: compact field identity — never the full component list in a
   // collapsed row (PART 30). Must precede `.equation` access below, which
@@ -145,7 +147,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
       return { label: "Expression", type: "Choose type in menu" };
     }
     return {
-      label: "Line",
+      label: "Infinite Line",
       type: formatPrimitiveSnippet(
         `(${object.pxExpr},${object.pyExpr},${object.pzExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>`
       )

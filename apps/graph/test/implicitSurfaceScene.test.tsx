@@ -29,7 +29,7 @@ import { sampleImplicitScalarField as sampleImplicitScalarFieldSpy } from "@/lib
 import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "@/components/objects/objectRowUtils";
 import GraphTypeSelector from "@/components/expressions/GraphTypeSelector";
-import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
+import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 
 // Call-through spies: count builder/sampler invocations without changing behavior.
 vi.mock("@/lib/graph3d/buildGraphImplicitSurface", async (importOriginal) => {
@@ -459,9 +459,12 @@ describe("implicit surface store semantics", () => {
     expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
   });
 
-  it("lists Implicit Surface in both workspace quick-add orders", () => {
-    for (const workspace of ["geometry", "math"] as const) {
-      expect(WORKSPACE_CONTENT[workspace].quickAddOrder).toContain("Implicit Surface");
-    }
+  it("keeps Implicit Surface reachable in both workspaces (quick in Math, More in Geometry)", () => {
+    expect(quickAddDescriptors("math").map((entry) => entry.key)).toContain("implicitSurface");
+    const geometryReachable = [
+      ...quickAddDescriptors("geometry").map((entry) => entry.key),
+      ...moreAddDescriptors("geometry").map((entry) => entry.key)
+    ];
+    expect(geometryReachable).toContain("implicitSurface");
   });
 });

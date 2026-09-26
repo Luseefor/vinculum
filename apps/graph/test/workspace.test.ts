@@ -5,6 +5,7 @@ import { createInitialUiState } from "@/store/graphStoreViewportInit";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { createSceneDocument } from "@/lib/scene/sceneSchema";
 import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
+import { OBJECT_DESCRIPTORS, moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 
 describe("workspace state", () => {
   beforeEach(() => {
@@ -81,24 +82,38 @@ describe("workspace state", () => {
 });
 
 describe("workspace content config", () => {
-  it("covers the same Quick Add actions in both workspaces with different priority", () => {
-    const geometry = [...WORKSPACE_CONTENT.geometry.quickAddOrder].sort();
-    const math = [...WORKSPACE_CONTENT.math.quickAddOrder].sort();
-    expect(geometry).toEqual(math);
-    expect(WORKSPACE_CONTENT.geometry.quickAddOrder).not.toEqual(WORKSPACE_CONTENT.math.quickAddOrder);
-    // S26: Geometry Studio leads geometry-first (Point, Vector, Infinite
-    // Line, Segment, Ray, Plane per PART 28).
-    expect(WORKSPACE_CONTENT.geometry.quickAddOrder[0]).toBe("Point");
-    expect(WORKSPACE_CONTENT.geometry.quickAddOrder.slice(0, 6)).toEqual([
+  it("prioritizes six Quick Add actions per workspace from one descriptor source", () => {
+    // S30: Quick Add shows 6 high-value actions per workspace; everything
+    // else sits behind More. Geometry leads spatial-first, Math Lab leads
+    // expression-first.
+    expect(quickAddDescriptors("geometry").map((entry) => entry.label)).toEqual([
       "Point",
       "Vector",
       "Infinite Line",
       "Segment",
-      "Ray",
-      "Plane"
+      "Plane",
+      "Surface"
     ]);
-    // S20: vector fields lead in Math Lab.
-    expect(WORKSPACE_CONTENT.math.quickAddOrder[0]).toBe("2D Vector Field");
+    expect(quickAddDescriptors("math").map((entry) => entry.label)).toEqual([
+      "Surface",
+      "Parametric Curve",
+      "Implicit Surface",
+      "3D Vector Field",
+      "2D Vector Field",
+      "2D Linear Transformation"
+    ]);
+  });
+
+  it("keeps every canonical kind reachable behind More in both workspaces", () => {
+    for (const workspace of ["geometry", "math"] as const) {
+      const reachable = new Set([
+        ...quickAddDescriptors(workspace).map((entry) => entry.key),
+        ...moreAddDescriptors(workspace).map((entry) => entry.key)
+      ]);
+      for (const entry of OBJECT_DESCRIPTORS) {
+        expect(reachable.has(entry.key)).toBe(true);
+      }
+    }
   });
 
   it("labels workspaces without marketing copy", () => {

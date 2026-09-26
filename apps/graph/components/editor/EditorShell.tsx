@@ -18,6 +18,8 @@ import SharedSceneConfirmDialog from "@/components/scene/SharedSceneConfirmDialo
 import ThemeSync from "@/components/theme/ThemeSync";
 import { Sheet } from "@/components/ui/sheet";
 import ViewportHost from "@/components/viewport/ViewportHost";
+import { createObjectByKey } from "@/lib/objects/objectCreation";
+import { descriptorByCommandId } from "@/lib/objects/objectDescriptors";
 import GeometryViewport from "@/components/viewport/GeometryViewport";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
@@ -79,19 +81,6 @@ export default function EditorShell() {
   const setProjectAutosaveStatus = useGraphStore((state) => state.setProjectAutosaveStatus);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
-  const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
-  const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
-  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
-  const addPointObject = useGraphStore((state) => state.addPointObject);
-  const addVectorObject = useGraphStore((state) => state.addVectorObject);
-  const addLineObject = useGraphStore((state) => state.addLineObject);
-  const addRayObject = useGraphStore((state) => state.addRayObject);
-  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
-  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
   const setWorkspace = useGraphStore((state) => state.setWorkspace);
 
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -803,103 +792,131 @@ export default function EditorShell() {
     if (commandId === "geometry-layout-quad") { setGeometryLayout("quad"); return; }
     if (commandId === "switch-workspace-geometry") { setWorkspace("geometry"); return; }
     if (commandId === "switch-workspace-math") { setWorkspace("math"); return; }
-    if (commandId === "add-surface") {
-      const createdId = addSurfaceObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-curve") {
-      const createdId = addParametricCurve();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-parametric-surface") {
-      const createdId = addParametricSurface();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-implicit-surface") {
-      const createdId = addImplicitSurface();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-plane") {
-      const createdId = addPlaneObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-point") {
-      const createdId = addPointObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-2d-vector-field") {
-      const createdId = addVectorFieldObject("2d");
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-3d-vector-field") {
-      const createdId = addVectorFieldObject("3d");
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-2d-linear-transform") {
-      const createdId = addLinearTransformObject("2d");
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-3d-linear-transform") {
-      const createdId = addLinearTransformObject("3d");
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-vector") {
-      const createdId = addVectorObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-line") {
-      const createdId = addLineObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-ray") {
-      const createdId = addRayObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
-    if (commandId === "add-segment") {
-      const createdId = addSegmentObject();
-      if (createdId) {
-        requestEquationFocus(createdId);
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
       }
-      return;
     }
     if (commandId === "delete-selected") {
       const selectedId = useGraphStore.getState().ui.selectedObjectId;
@@ -912,7 +929,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, addSurfaceObject, addParametricCurve, addParametricSurface, addImplicitSurface, addVectorFieldObject, addLinearTransformObject, addPlaneObject, addPointObject, addVectorObject, addLineObject, addRayObject, addSegmentObject, requestEquationFocus, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
@@ -1071,6 +1088,7 @@ export default function EditorShell() {
                       viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
                       selectedLabel={selectedLabel}
                       snapLabel={snapLabel}
+                      workspaceId="math"
                     />
                   </div>
                 )}

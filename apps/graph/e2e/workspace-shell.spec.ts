@@ -36,6 +36,14 @@ async function setEquation(page: Page, index: number, equation: string) {
   await expect(input).toHaveValue(equation);
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -71,15 +79,20 @@ test.describe("Workspace shell", () => {
     await expect(canvas3d).toBeVisible();
 
     // S9 + S10 + S11 semantics through the real editor.
+    // S30: scope to the definition diagnostic. A singular-but-valid equation
+    // must not produce an equation-level diagnostic (S9 sampling-domain
+    // rule); the Integral Analysis section may still report domain
+    // non-finiteness contextually once it auto-computes.
     await setEquation(page, 0, "1/(x^2+y^2)");
-    await expect(page.getByText(/non-finite/i)).toHaveCount(0);
+    await expect(page.getByTestId("expression-diagnostic")).toHaveCount(0);
     await setEquation(page, 0, "sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await setEquation(page, 0, "z = x^2 + y^2");
 
     // Plane + parametric companions, selection follows clicks.
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Plane", exact: true }).click();
-    await page.getByRole("button", { name: "Curve", exact: true }).click();
+    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("3");
     await page.getByRole("button", { name: "Select Surface #1" }).click();
     await expect(page.getByRole("button", { name: "Selected Surface #1" })).toBeVisible();

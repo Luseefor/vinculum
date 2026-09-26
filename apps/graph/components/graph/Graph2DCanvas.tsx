@@ -218,7 +218,9 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
       {(showPerfHud || metrics.warningLevel !== "ok") && (
         <div
-          className={`pointer-events-none absolute right-3 top-3 z-[22] flex max-w-[min(320px,calc(100%-4rem))] flex-col gap-0.5 rounded-[5px] border px-2 py-1 font-mono text-[10px] leading-snug shadow-sm backdrop-blur-sm ${
+          // S30: bottom-right, clear of the pane label (top-left) and the
+          // zoom stack (right-center). Same placement as the 3D badge.
+          className={`pointer-events-none absolute bottom-3 right-3 z-[22] flex max-w-[min(320px,calc(100%-4rem))] flex-col gap-0.5 rounded-[5px] border px-2 py-1 font-mono text-[10px] leading-snug shadow-sm backdrop-blur-sm ${
             metrics.warningLevel === "critical"
               ? "border-amber-500/60 bg-[var(--surface-overlay)]/90 text-amber-200"
               : metrics.warningLevel === "warning"

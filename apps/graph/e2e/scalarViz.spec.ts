@@ -25,6 +25,23 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function openAnalyze(page: Page) {
+  // S30: analysis sections live under the Analyze tab. Guarded so sheet
+  // flows and Object-tab assertions never trip on the navigation itself.
+  const tab = page.getByRole("tab", { name: "Analyze" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -140,9 +157,12 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     // Legend appears with the finite range once the worker result lands.
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("Range", { timeout: 15000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("50");
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
@@ -159,10 +179,13 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const heatOnly = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show contours").click();
     await expect
       .poll(async () => countChangedPixels(page, canvas, heatOnly ?? ""), { timeout: 15000 })
@@ -179,8 +202,11 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 - y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await page.getByLabel("Show contours").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("zero contour included", {
       timeout: 15000
     });
@@ -196,8 +222,11 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = 1/x");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await page.getByLabel("Show contours").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     await expect(page.locator('canvas[data-graph2d-canvas="true"]').first()).toBeVisible();
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
@@ -215,6 +244,7 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + 2*y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show gradient field").click();
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
@@ -231,13 +261,17 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = tan(x) + y");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await page.getByLabel("Show contours").click();
+    await openAnalyze(page);
     await page.getByLabel("Show gradient field").click();
     await expect(page.getByText("Gradient unavailable for this expression.")).toBeVisible({
       timeout: 15000
     });
     // Heat still applies (section stays fully enabled).
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible();
     await expect(page.getByLabel("Hide heat map")).toBeVisible();
 
@@ -249,16 +283,19 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("Range", { timeout: 25000 });
     // Unit tests pin exact zero contours for the sphere; here the mesh
     // repaint plus the finite range prove the slice landed.
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("-1");
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 25000 })
@@ -272,14 +309,17 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const atZero = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Slice value").fill("0.8");
     await expect
       .poll(async () => countChangedPixels(page, canvas, atZero ?? ""), { timeout: 25000 })
@@ -293,15 +333,19 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
     await page.getByLabel("Geometry view").selectOption("perspective");
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible();
     await page.getByLabel("Geometry layout").selectOption("quad");
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible();
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -314,6 +358,7 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Rapid expression race with no settle waits (equation edits precede
@@ -322,11 +367,15 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-9");
     await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
     // Rapid slice moves: only the latest value sticks.
+    await openAnalyze(page);
     await page.getByLabel("Slice value").fill("0.5");
+    await openAnalyze(page);
     await page.getByLabel("Slice value").fill("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
 
     expect(pageErrors).toEqual([]);
@@ -340,7 +389,9 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const shown = await screenshotPixels(page, canvas);
@@ -365,13 +416,18 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("50", { timeout: 15000 });
     // Bowl -> saddle edits prune the derived config by design: no stale
     // "50" may linger. Re-enabling shows the saddle range [-12.5, 12.5].
     await page.getByLabel("Equation", { exact: true }).first().fill("z = (x^2 - y^2)/2");
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).not.toBeVisible({ timeout: 15000 });
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("12.5", { timeout: 15000 });
     expect(await page.getByTestId("scalar-viz-legend").textContent()).not.toContain("50");
 
@@ -386,7 +442,9 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
@@ -397,6 +455,7 @@ test.describe("S23 scalar field visualization", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await to2DOnly(page);
     // Canonical source survived; transient heat did not auto-enable.
+    await openAnalyze(page);
     await expect(page.getByLabel("Show heat map")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -410,13 +469,17 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     await toGeometry(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible();
     await toMathLab(page);
     await to2DOnly(page);
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -432,6 +495,7 @@ test.describe("S23 scalar field visualization", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
+    await openAnalyze(page);
     await expect(page.getByText("Scalar Visualization")).toBeVisible();
     await expect(page.getByLabel("Show heat map")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -448,6 +512,7 @@ test.describe("S23 scalar field visualization", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = sin(factorial(x)) + y");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
+    await openAnalyze(page);
     await expect(page.getByText("Fix the source equation to enable scalar visualization.")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -461,9 +526,13 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
+    await openAnalyze(page);
     await page.getByLabel("Show contours").click();
+    await openAnalyze(page);
     await page.getByLabel("Show gradient field").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

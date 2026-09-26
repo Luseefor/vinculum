@@ -24,6 +24,14 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -108,7 +116,7 @@ test.describe("S26 geometry primitives", () => {
     await toGeometry(page);
     await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await expect(page.getByRole("button", { name: "Selected Line #1" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Selected Infinite Line #1" })).toBeVisible();
     await page.getByLabel("Line point x").first().fill("-1");
     await page.getByLabel("Line direction x").first().fill("3");
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -121,6 +129,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Ray", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Ray #1" })).toBeVisible();
@@ -181,6 +190,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Vector", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector component x").first().fill("r");
@@ -225,9 +235,10 @@ test.describe("S26 geometry primitives", () => {
     // Select a different target first (add a curve), then sweep
     // clean clicks along the arrow's screen span: the first click on the
     // fat invisible proxy selects the vector (misses change nothing).
-    await page.getByRole("button", { name: "Curve", exact: true }).click();
+    await showMoreAdd(page);
+    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await expect(page.getByRole("button", { name: "Selected Curve #2" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Selected Parametric Curve #2" })).toBeVisible();
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -275,6 +286,7 @@ test.describe("S26 geometry primitives", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Ray", exact: true }).click();
     await setGeometryLayout(page, "Split");
     await settleScene(page);
@@ -368,6 +380,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Ray", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await toGeometry(page);
@@ -385,6 +398,7 @@ test.describe("S26 geometry primitives", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Vector", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");

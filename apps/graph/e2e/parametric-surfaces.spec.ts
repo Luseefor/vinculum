@@ -18,6 +18,29 @@ async function startClean(page: Page) {
   }
 }
 
+async function addPreset(page: Page, name: string) {
+  // S30: templates live in the Add Object menu.
+  await page.getByRole("button", { name: "Open object menu" }).click();
+  await page.getByRole("button", { name, exact: true }).click();
+}
+
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function openAnalyze(page: Page) {
+  // S30: analysis sections live under the Analyze tab. Guarded so sheet
+  // flows and Object-tab assertions never trip on the navigation itself.
+  const tab = page.getByRole("tab", { name: "Analyze" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -42,7 +65,7 @@ async function setGeometryView(page: Page, view: "Perspective" | "XY" | "XZ" | "
 }
 
 async function addParametricSphere(page: Page) {
-  await page.getByRole("button", { name: "Parametric Sphere", exact: true }).click();
+  await addPreset(page, "Parametric Sphere");
   await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 }
 
@@ -93,6 +116,7 @@ test.describe("S17 parametric surfaces", () => {
   test("Quick Add creates a parametric surface with x(u,v) focused; Enter creates next", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // New objects auto-select; creation focus lands in the row's x(u,v)
@@ -140,6 +164,7 @@ test.describe("S17 parametric surfaces", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Asymmetric map x = u, y = 2v, z = 3u + v over the default ±5 domain.
@@ -203,7 +228,7 @@ test.describe("S17 parametric surfaces", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Parametric Torus", exact: true }).click();
+    await addPreset(page, "Parametric Torus");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -224,6 +249,7 @@ test.describe("S17 parametric surfaces", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Parametric x(u,v) =", { exact: true }).fill("1 / u");
@@ -297,6 +323,7 @@ test.describe("S17 parametric surfaces", () => {
   test("Math Lab creates the same canonical object visible in Geometry Studio", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Parametric Surface #1" })).toBeVisible();
@@ -329,6 +356,7 @@ test.describe("S17 parametric surfaces", () => {
     await startClean(page);
     // At this width the object panel starts collapsed; open it first.
     await page.getByRole("button", { name: "Objects", exact: true }).click();
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // The new row auto-expands; the ObjectRow input commits immediately.

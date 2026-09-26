@@ -25,6 +25,23 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function openAnalyze(page: Page) {
+  // S30: analysis sections live under the Analyze tab. Guarded so sheet
+  // flows and Object-tab assertions never trip on the navigation itself.
+  const tab = page.getByRole("tab", { name: "Analyze" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -53,7 +70,17 @@ function inspector(page: Page) {
   return page.locator("#graph-inspector");
 }
 
+async function openObject(page: Page) {
+  // S30 companion to openAnalyze: definition/domain editors live under the
+  // Object tab. Guarded like openAnalyze.
+  const tab = page.getByRole("tab", { name: "Object" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 async function setCell(page: Page, row: number, col: number, value: string) {
+  await openObject(page);
   await inspector(page).getByLabel(`Row ${row} column ${col}`).fill(value);
 }
 
@@ -72,10 +99,15 @@ test.describe("S28 linear algebra", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("2");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-invertible")).toHaveText("Yes");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-scale")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Preserved");
 
     expect(pageErrors).toEqual([]);
@@ -90,9 +122,13 @@ test.describe("S28 linear algebra", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("6", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-scale")).toHaveText("6");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("2");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-inverse")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -106,8 +142,11 @@ test.describe("S28 linear algebra", () => {
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "-1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("-1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Reversed");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-scale")).toHaveText("1");
 
     expect(pageErrors).toEqual([]);
@@ -121,8 +160,11 @@ test.describe("S28 linear algebra", () => {
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 2, "1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Preserved");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-eigen")).toBeVisible({ timeout: 10000 });
 
     expect(pageErrors).toEqual([]);
@@ -139,8 +181,11 @@ test.describe("S28 linear algebra", () => {
     await setCell(page, 1, 2, "-1");
     await setCell(page, 2, 1, "1");
     await setCell(page, 2, 2, "0");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Preserved");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-eigen-none")).toContainText("No real eigendirections.");
 
     expect(pageErrors).toEqual([]);
@@ -156,9 +201,13 @@ test.describe("S28 linear algebra", () => {
     await setCell(page, 1, 2, "2");
     await setCell(page, 2, 1, "2");
     await setCell(page, 2, 2, "4");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("0", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-invertible")).toHaveText("No");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Collapsed / singular");
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
 
@@ -174,7 +223,9 @@ test.describe("S28 linear algebra", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "0");
     await setCell(page, 2, 2, "0");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("0", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-invertible")).toHaveText("No");
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
 
@@ -186,14 +237,19 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
     await setCell(page, 3, 3, "4");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("24", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("3");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-scale")).toHaveText("24");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Preserved");
     await expect(graph3dCanvas(page)).toBeVisible();
 
@@ -205,11 +261,15 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 3, 3, "-1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("-1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Reversed");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-scale")).toHaveText("1");
 
     expect(pageErrors).toEqual([]);
@@ -220,6 +280,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Vector", exact: true }).click();
@@ -236,9 +297,13 @@ test.describe("S28 linear algebra", () => {
     await setCell(page, 3, 1, "7");
     await setCell(page, 3, 2, "8");
     await setCell(page, 3, 3, "9");
+    await openAnalyze(page);
     await page.getByLabel("Vector for transformation analysis").selectOption({ index: 1 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("1", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("4");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("7");
 
     expect(pageErrors).toEqual([]);
@@ -253,6 +318,7 @@ test.describe("S28 linear algebra", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "r");
     // Default r=2.5: det reads 2.5; driving the slider to 4 updates live.
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("2.5", { timeout: 10000 });
     await page.getByRole("button", { name: "PARAMETERS" }).click();
     const slider = page.getByLabel("Parameter r");
@@ -269,6 +335,7 @@ test.describe("S28 linear algebra", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }, "4");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("4", { timeout: 10000 });
 
     expect(pageErrors).toEqual([]);
@@ -279,6 +346,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
@@ -292,11 +360,16 @@ test.describe("S28 linear algebra", () => {
     await inspector(page).getByLabel("Vector component y").fill("2");
     await inspector(page).getByLabel("Vector component z").fill("3");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
+    await openAnalyze(page);
     await page.getByLabel("Vector for transformation analysis").selectOption({ index: 1 });
     // diag(2,3,4)·<1,2,3> = <2,6,12>; origin (10,20,30) excluded.
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("2", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("6");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toContainText("12");
+    await openAnalyze(page);
     await page.getByRole("switch", { name: "Show transformed vector" }).click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -309,16 +382,20 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await page.getByRole("button", { name: "Vector", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
+    await openAnalyze(page);
     await page.getByLabel("Vector for transformation analysis").selectOption({ index: 1 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: /Vector #2/ }).click();
     await page.keyboard.press("Delete");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
+    await openAnalyze(page);
     await expect(page.getByLabel("Vector for transformation analysis")).toHaveValue("");
 
     expect(pageErrors).toEqual([]);
@@ -329,11 +406,14 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-eigen")).toBeVisible({ timeout: 10000 });
+    await openAnalyze(page);
     await page.getByRole("switch", { name: "Show eigendirections" }).click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -346,13 +426,16 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("2", { timeout: 10000 });
     await page.getByLabel("Geometry layout").selectOption("quad");
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("2");
     await page.getByLabel("Geometry layout").selectOption("single");
 
@@ -364,10 +447,12 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
     await setCell(page, 3, 3, "4");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("24", { timeout: 10000 });
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
@@ -379,7 +464,9 @@ test.describe("S28 linear algebra", () => {
     await settleScene(page);
     // Canvas mousedown clears selection by product convention; reselect.
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("24", { timeout: 10000 });
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("3");
 
     expect(pageErrors).toEqual([]);
@@ -390,6 +477,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2*pi");
@@ -410,13 +498,17 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "5");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("5", { timeout: 10000 });
     await page.getByRole("button", { name: "Undo" }).click();
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
     await page.getByRole("button", { name: "Redo" }).click();
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("5", { timeout: 10000 });
 
     expect(pageErrors).toEqual([]);
@@ -429,11 +521,15 @@ test.describe("S28 linear algebra", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible({ timeout: 10000 });
     await toGeometry(page);
+    await showMoreAdd(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible();
     await toMathLab(page);
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -450,6 +546,7 @@ test.describe("S28 linear algebra", () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expect(page.getByLabel("Row 1 column 1")).toBeVisible();
+    await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible();
     await page.keyboard.press("Escape");
 

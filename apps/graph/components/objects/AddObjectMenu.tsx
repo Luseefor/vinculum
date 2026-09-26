@@ -3,341 +3,150 @@
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/lib/store/editorStore";
+import {
+  createAndFocus,
+  createBoxPlateauPreset,
+  createCylinderPreset,
+  createCylinderShellPreset,
+  createImplicitSpherePreset,
+  createImplicitTorusPreset,
+  createObjectByKey,
+  createParametricSpherePreset,
+  createParametricTorusPreset,
+  createProjectionPreset,
+  createSlicePlanePreset,
+  createSphereCapPreset,
+  createSpherePreset
+} from "@/lib/objects/objectCreation";
+import { descriptorByKey } from "@/lib/objects/objectDescriptors";
 import { useGraphStore } from "@/store/graphStore";
+
+// S30: kind entries render from the central descriptors (labels cannot drift
+// from Quick Add / palette / context menu). Only presentation ORDER lives
+// here; templates and Analysis helpers stay bespoke menu items.
+const GRAPH_KIND_KEYS = [
+  "parametricCurve",
+  "surface",
+  "parametricSurface",
+  "implicitSurface",
+  "vectorField-2d",
+  "vectorField-3d",
+  "linearTransform-2d",
+  "linearTransform-3d"
+];
+
+const PRIMITIVE_KIND_KEYS = ["point", "vector", "line", "segment", "ray", "plane"];
 
 export default function AddObjectMenu() {
   const [open, setOpen] = useState(false);
-  const objects = useGraphStore((state) => state.scene.objects);
-  const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addParametricSurface = useGraphStore((state) => state.addParametricSurface);
-  const addImplicitSurface = useGraphStore((state) => state.addImplicitSurface);
-  const addVectorFieldObject = useGraphStore((state) => state.addVectorFieldObject);
-  const addLinearTransformObject = useGraphStore((state) => state.addLinearTransformObject);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
-  const addPointObject = useGraphStore((state) => state.addPointObject);
-  const addVectorObject = useGraphStore((state) => state.addVectorObject);
-  const addLineObject = useGraphStore((state) => state.addLineObject);
-  const addRayObject = useGraphStore((state) => state.addRayObject);
-  const addSegmentObject = useGraphStore((state) => state.addSegmentObject);
-  const requestEquationFocus = useGraphStore((state) => state.requestEquationFocus);
-  const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
-  const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
-  const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
-  const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
-  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
-  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
 
-  const selectedObject = useMemo(
-    () => objects.find((object) => object.id === selectedObjectId) ?? null,
-    [objects, selectedObjectId]
-  );
-
-  const createSurfaceTemplate = useCallback(
-    (equation: string, message: string, domain?: { xMin: number; xMax: number; yMin: number; yMax: number }) => {
-      const id = addSurfaceObject();
-      updateSurfaceEquation(id, equation);
-      if (domain) {
-        updateSurfaceDomain(id, domain);
-      }
-      requestEquationFocus(id);
+  const createMenuKind = useCallback(
+    (key: string, message: string) => {
+      createObjectByKey(key);
       addConsoleEvent(message);
     },
-    [addConsoleEvent, addSurfaceObject, requestEquationFocus, updateSurfaceDomain, updateSurfaceEquation]
-  );
-
-  const createParametricSurfaceTemplate = useCallback(
-    (
-      expressions: { xExpr: string; yExpr: string; zExpr: string },
-      domain: { uMin: number; uMax: number; vMin: number; vMax: number },
-      message: string
-    ) => {
-      const id = addParametricSurface();
-      updateParametricSurfaceExpression(id, "xExpr", expressions.xExpr);
-      updateParametricSurfaceExpression(id, "yExpr", expressions.yExpr);
-      updateParametricSurfaceExpression(id, "zExpr", expressions.zExpr);
-      updateParametricSurfaceExpression(id, "uMin", domain.uMin);
-      updateParametricSurfaceExpression(id, "uMax", domain.uMax);
-      updateParametricSurfaceExpression(id, "vMin", domain.vMin);
-      updateParametricSurfaceExpression(id, "vMax", domain.vMax);
-      requestEquationFocus(id);
-      addConsoleEvent(message);
-    },
-    [addConsoleEvent, addParametricSurface, requestEquationFocus, updateParametricSurfaceExpression]
-  );
-
-  const createImplicitSurfaceTemplate = useCallback(
-    (
-      equation: string,
-      domain: { xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number },
-      message: string
-    ) => {
-      const id = addImplicitSurface();
-      updateImplicitSurfaceExpression(id, "equation", equation);
-      updateImplicitSurfaceExpression(id, "xMin", domain.xMin);
-      updateImplicitSurfaceExpression(id, "xMax", domain.xMax);
-      updateImplicitSurfaceExpression(id, "yMin", domain.yMin);
-      updateImplicitSurfaceExpression(id, "yMax", domain.yMax);
-      updateImplicitSurfaceExpression(id, "zMin", domain.zMin);
-      updateImplicitSurfaceExpression(id, "zMax", domain.zMax);
-      requestEquationFocus(id);
-      addConsoleEvent(message);
-    },
-    [addConsoleEvent, addImplicitSurface, requestEquationFocus, updateImplicitSurfaceExpression]
-  );
-
-  const createAndFocus = useCallback(
-    (create: () => string) => {
-      const id = create();
-      if (id) {
-        requestEquationFocus(id);
-      }
-    },
-    [requestEquationFocus]
+    [addConsoleEvent]
   );
 
   const sections = useMemo(
-    () => [
-      {
-        title: "Graphs",
-        items: [
-          {
-            label: "2D / 3D Curve",
-            onClick: () => {
-              createAndFocus(() => addParametricCurve());
-              addConsoleEvent("Created parametric curve from Add menu");
-            }
-          },
-          {
-            label: "Surface",
-            onClick: () => {
-              createAndFocus(() => addSurfaceObject());
-              addConsoleEvent("Created surface from Add menu");
-            }
-          },
-          {
-            label: "Parametric Surface",
-            onClick: () => {
-              createAndFocus(() => addParametricSurface());
-              addConsoleEvent("Created parametric surface from Add menu");
-            }
-          },
-          {
-            label: "Implicit Surface",
-            onClick: () => {
-              createAndFocus(() => addImplicitSurface());
-              addConsoleEvent("Created implicit surface from Add menu");
-            }
-          },
-          {
-            label: "2D Vector Field",
-            onClick: () => {
-              createAndFocus(() => addVectorFieldObject("2d"));
-              addConsoleEvent("Created 2D vector field from Add menu");
-            }
-          },
-          {
-            label: "3D Vector Field",
-            onClick: () => {
-              createAndFocus(() => addVectorFieldObject("3d"));
-              addConsoleEvent("Created 3D vector field from Add menu");
-            }
-          },
-          {
-            label: "2D Linear Transformation",
-            onClick: () => {
-              createAndFocus(() => addLinearTransformObject("2d"));
-              addConsoleEvent("Created 2D linear transformation from Add menu");
-            }
-          },
-          {
-            label: "3D Linear Transformation",
-            onClick: () => {
-              createAndFocus(() => addLinearTransformObject("3d"));
-              addConsoleEvent("Created 3D linear transformation from Add menu");
-            }
+    () => {
+      const label = (key: string): string => descriptorByKey(key)?.label ?? key;
+      const kindItem = (key: string) => {
+        const entryLabel = label(key);
+        return {
+          label: entryLabel,
+          onClick: () => {
+            createMenuKind(key, `Created ${entryLabel} from Add menu`);
           }
-        ]
-      },
-      {
-        title: "Primitives",
-        items: [
-          {
-            label: "Point",
-            onClick: () => {
-              createAndFocus(() => addPointObject());
-              addConsoleEvent("Created point from Add menu");
-            }
-          },
-          {
-            label: "Vector",
-            onClick: () => {
-              createAndFocus(() => addVectorObject());
-              addConsoleEvent("Created vector from Add menu");
-            }
-          },
-          {
-            label: "Infinite Line",
-            onClick: () => {
-              createAndFocus(() => addLineObject());
-              addConsoleEvent("Created infinite line from Add menu");
-            }
-          },
-          {
-            label: "Segment",
-            onClick: () => {
-              createAndFocus(() => addSegmentObject());
-              addConsoleEvent("Created segment from Add menu");
-            }
-          },
-          {
-            label: "Ray",
-            onClick: () => {
-              createAndFocus(() => addRayObject());
-              addConsoleEvent("Created ray from Add menu");
-            }
-          },
-          {
-            label: "Plane",
-            onClick: () => {
-              createAndFocus(() => addPlaneObject());
-              addConsoleEvent("Created plane from Add menu");
-            }
-          },
-          {
-            label: "Implicit Sphere",
-            onClick: () => {
-              createImplicitSurfaceTemplate(
-                "x^2 + y^2 + z^2 = 1",
-                { xMin: -1.5, xMax: 1.5, yMin: -1.5, yMax: 1.5, zMin: -1.5, zMax: 1.5 },
-                "Created implicit sphere template"
-              );
-            }
-          },
-          {
-            label: "Implicit Torus",
-            onClick: () => {
-              createImplicitSurfaceTemplate(
-                "(x^2 + y^2 + z^2 + 3.75)^2 - 16 * (x^2 + y^2) = 0",
-                { xMin: -3, xMax: 3, yMin: -3, yMax: 3, zMin: -1, zMax: 1 },
-                "Created implicit torus template"
-              );
-            }
-          },
-          {
-            label: "Parametric Sphere",
-            onClick: () => {
-              createParametricSurfaceTemplate(
-                { xExpr: "sin(u) * cos(v)", yExpr: "sin(u) * sin(v)", zExpr: "cos(u)" },
-                { uMin: 0, uMax: 3.1415926536, vMin: 0, vMax: 6.2831853072 },
-                "Created parametric sphere template"
-              );
-            }
-          },
-          {
-            label: "Parametric Torus",
-            onClick: () => {
-              createParametricSurfaceTemplate(
-                {
-                  xExpr: "(2 + 0.5 * cos(v)) * cos(u)",
-                  yExpr: "(2 + 0.5 * cos(v)) * sin(u)",
-                  zExpr: "0.5 * sin(v)"
-                },
-                { uMin: 0, uMax: 6.2831853072, vMin: 0, vMax: 6.2831853072 },
-                "Created parametric torus template"
-              );
-            }
-          },
-          {
-            label: "Sphere Cap",
-            onClick: () => {
-              createSurfaceTemplate(
-                "sqrt(max(0, 9 - x^2 - y^2))",
-                "Created sphere cap surface template",
-                { xMin: -3, xMax: 3, yMin: -3, yMax: 3 }
-              );
-            }
-          },
-          {
-            label: "Cylinder Shell",
-            onClick: () => {
-              createSurfaceTemplate(
-                "sqrt(max(0, 4 - x^2))",
-                "Created cylinder shell surface template",
-                { xMin: -2, xMax: 2, yMin: -6, yMax: 6 }
-              );
-            }
-          },
-          {
-            label: "Box Plateau",
-            onClick: () => {
-              createSurfaceTemplate(
-                "1",
-                "Created box plateau surface template",
-                { xMin: -1, xMax: 1, yMin: -1, yMax: 1 }
-              );
-            }
-          }
-        ]
-      },
-      {
-        title: "Analysis",
-        items: [
-          {
-            label: "Slice Plane",
-            onClick: () => {
-              const id = addPlaneObject();
-              updatePlaneEquation(id, "z = 0");
-              requestEquationFocus(id);
-              addConsoleEvent("Created slice plane at z=0");
-            }
-          },
-          {
-            label: "Projection",
-            onClick: () => {
-              if (!selectedObject || selectedObject.kind !== "parametricCurve") {
-                addConsoleEvent("Projection requires a selected parametric curve");
-                return;
+        };
+      };
+      return [
+        {
+          title: "Graphs",
+          items: GRAPH_KIND_KEYS.map(kindItem)
+        },
+        {
+          title: "Primitives",
+          items: [
+            ...PRIMITIVE_KIND_KEYS.map(kindItem),
+            {
+              label: "Sphere",
+              onClick: () => {
+                createSpherePreset();
               }
-              const id = addParametricCurve();
-              updateParametricExpression(id, "xExpr", selectedObject.xExpr);
-              updateParametricExpression(id, "yExpr", selectedObject.yExpr);
-              updateParametricExpression(id, "zExpr", "0");
-              updateParametricExpression(id, "tMin", selectedObject.tMin);
-              updateParametricExpression(id, "tMax", selectedObject.tMax);
-              updateParametricExpression(id, "samples", selectedObject.samples);
-              requestEquationFocus(id);
-              addConsoleEvent("Projected selected parametric curve onto z=0");
+            },
+            {
+              label: "Cylinder",
+              onClick: () => {
+                createCylinderPreset();
+              }
+            },
+            {
+              label: "Implicit Sphere",
+              onClick: () => {
+                createImplicitSpherePreset("Created implicit sphere template");
+              }
+            },
+            {
+              label: "Implicit Torus",
+              onClick: () => {
+                createImplicitTorusPreset();
+              }
+            },
+            {
+              label: "Parametric Sphere",
+              onClick: () => {
+                createParametricSpherePreset("Created parametric sphere template");
+              }
+            },
+            {
+              label: "Parametric Torus",
+              onClick: () => {
+                createParametricTorusPreset("Created parametric torus template");
+              }
+            },
+            {
+              label: "Sphere Cap",
+              onClick: () => {
+                createSphereCapPreset();
+              }
+            },
+            {
+              label: "Cylinder Shell",
+              onClick: () => {
+                createCylinderShellPreset();
+              }
+            },
+            {
+              label: "Box Plateau",
+              onClick: () => {
+                createBoxPlateauPreset();
+              }
             }
-          }
-        ]
-      }
-    ],
-    [
-      addConsoleEvent,
-      addParametricCurve,
-      addParametricSurface,
-      addImplicitSurface,
-      addLineObject,
-      addLinearTransformObject,
-      addRayObject,
-      addSegmentObject,
-      addVectorFieldObject,
-      addVectorObject,
-      addPlaneObject,
-      addSurfaceObject,
-      createAndFocus,
-      createImplicitSurfaceTemplate,
-      createParametricSurfaceTemplate,
-      createSurfaceTemplate,
-      requestEquationFocus,
-      selectedObject,
-      updateParametricExpression,
-      updatePlaneEquation
-    ]
+          ]
+        },
+        {
+          title: "Analysis",
+          items: [
+            {
+              label: "Slice Plane",
+              onClick: () => {
+                createSlicePlanePreset();
+              }
+            },
+            {
+              label: "Projection",
+              onClick: () => {
+                createProjectionPreset();
+              }
+            }
+          ]
+        }
+      ];
+    },
+    [createMenuKind]
   );
 
   return (
@@ -348,7 +157,9 @@ export default function AddObjectMenu() {
           variant="secondary"
           className="justify-center"
           onClick={() => {
-            addEmptyObject();
+            // S30: empty-object creation focuses its definition like every
+            // other creation path (was a focus regression vs Quick Add).
+            createAndFocus(() => addEmptyObject());
             addConsoleEvent("Added empty expression");
           }}
         >

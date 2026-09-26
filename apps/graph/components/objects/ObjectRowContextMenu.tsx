@@ -2,30 +2,24 @@
 
 import type { LegacyRef } from "react";
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
+import { OBJECT_DESCRIPTORS } from "@/lib/objects/objectDescriptors";
 import { cn } from "@/components/ui/styles";
 import { Portal } from "@/components/ui/portal";
 
-const CONVERT_OPTIONS: Array<{
+// S30: Convert labels render from the central descriptors (Title Case
+// everywhere; previously this menu alone used sentence-case). Exported for
+// unit coverage of the 14-entry Title-Case taxonomy.
+export const CONVERT_OPTIONS: Array<{
   kind: GraphObjectKind;
   dimension?: VectorFieldDimension | LinearTransformDimension;
   label: string;
   value: string;
-}> = [
-  { kind: "surface", label: "Surface", value: "surface" },
-  { kind: "parametricCurve", label: "Parametric curve", value: "parametricCurve" },
-  { kind: "parametricSurface", label: "Parametric surface", value: "parametricSurface" },
-  { kind: "implicitSurface", label: "Implicit surface", value: "implicitSurface" },
-  { kind: "plane", label: "Plane", value: "plane" },
-  { kind: "point", label: "Point", value: "point" },
-  { kind: "vector", label: "Vector", value: "vector" },
-  { kind: "line", label: "Infinite line", value: "line" },
-  { kind: "ray", label: "Ray", value: "ray" },
-  { kind: "segment", label: "Segment", value: "segment" },
-  { kind: "linearTransform", dimension: "2d", label: "2D linear transformation", value: "linearTransform:2d" },
-  { kind: "linearTransform", dimension: "3d", label: "3D linear transformation", value: "linearTransform:3d" },
-  { kind: "vectorField", dimension: "2d", label: "2D vector field", value: "vectorField:2d" },
-  { kind: "vectorField", dimension: "3d", label: "3D vector field", value: "vectorField:3d" }
-] as const;
+}> = OBJECT_DESCRIPTORS.map((entry) => ({
+  kind: entry.kind,
+  dimension: entry.dimension,
+  label: entry.label,
+  value: entry.dimension ? `${entry.kind}:${entry.dimension}` : entry.kind
+}));
 
 type ObjectRowContextMenuProps = {
   object: GraphObject;

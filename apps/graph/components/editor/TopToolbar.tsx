@@ -1103,6 +1103,7 @@ export default function TopToolbar({
               ) : null}
             </>
           ) : (
+          <>
           <div
             className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
             role="group"
@@ -1126,6 +1127,75 @@ export default function TopToolbar({
               </button>
             ))}
           </div>
+          {activeViewType === "both" ? (
+            <div
+              className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
+              role="group"
+              aria-label="Multi-panel layout"
+            >
+              <button
+                type="button"
+                aria-pressed={activeLayout === "split"}
+                aria-label="Side-by-side layout"
+                onClick={() => onLayoutChange("split")}
+                className={cn(
+                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                  activeLayout === "split"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+                )}
+              >
+                Split
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeLayout === "quad"}
+                aria-label="Four-panel layout"
+                onClick={() => onLayoutChange("quad")}
+                className={cn(
+                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                  activeLayout === "quad"
+                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
+                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+                )}
+              >
+                Quad
+              </button>
+            </div>
+          ) : null}
+          {activeViewType !== "3d" ? (
+            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+              2D Plane
+              <Select
+                data-testid="toolbar-2d-plane-select"
+                aria-label="2D Plane"
+                value={plane2d}
+                onChange={(event) => onPlane2dChange(event.target.value as Axis2DPair)}
+                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+              >
+                <option value="xy">XY</option>
+                <option value="xz">XZ</option>
+                <option value="yz">YZ</option>
+              </Select>
+            </label>
+          ) : null}
+          {activeViewType !== "2d" ? (
+            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+              3D Base
+              <Select
+                data-testid="toolbar-3d-base-select"
+                aria-label="3D Base"
+                value={base3d}
+                onChange={(event) => onBase3dChange(event.target.value as Axis2DPair)}
+                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
+              >
+                <option value="xy">Base XY</option>
+                <option value="xz">Base XZ</option>
+                <option value="yz">Base YZ</option>
+              </Select>
+            </label>
+          ) : null}
+          </>
           )}
           <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
             Tool

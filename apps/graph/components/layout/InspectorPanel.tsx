@@ -3,10 +3,11 @@
 import { useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { OrbitAtomIcon } from "@/components/layout/icons";
 import AdvancedTab from "@/components/inspector/AdvancedTab";
-import AnimationTab from "@/components/inspector/AnimationTab";
+import AnalysisTab from "@/components/inspector/AnalysisTab";
 import AppearanceTab from "@/components/inspector/AppearanceTab";
 import ConstraintsTab from "@/components/inspector/ConstraintsTab";
-import PropertiesTab from "@/components/inspector/PropertiesTab";
+import ObjectTab from "@/components/inspector/ObjectTab";
+import { createAndFocus } from "@/lib/objects/objectCreation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
@@ -15,8 +16,6 @@ interface InspectorPanelProps {
   width?: number;
   mode?: "tool" | "object" | "scene";
   activeToolLabel?: string;
-  onApplyTool?: () => void;
-  onCancelTool?: () => void;
   onOpenExamples?: () => void;
 }
 
@@ -24,16 +23,17 @@ export default function InspectorPanel({
   width,
   mode = "scene",
   activeToolLabel = "Tool",
-  onApplyTool,
-  onCancelTool,
   onOpenExamples
 }: InspectorPanelProps) {
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const measurementCount = useGraphStore((state) => state.scene.measurements.length);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
-  const [tab, setTab] = useState<"properties" | "appearance" | "constraints" | "animation" | "advanced">("properties");
-  const tabIds = ["properties", "appearance", "constraints", "animation", "advanced"] as const;
+  // S30: Object (definition) / Analyze (contextual analysis) / Styles /
+  // Links / Adv. Global parameter animation lives in the bottom-dock
+  // PARAMETERS tab, not in the per-object Inspector.
+  const [tab, setTab] = useState<"object" | "analysis" | "appearance" | "constraints" | "advanced">("object");
+  const tabIds = ["object", "analysis", "appearance", "constraints", "advanced"] as const;
   type InspectorTabId = (typeof tabIds)[number];
   const tabButtonRefs = useRef<Partial<Record<InspectorTabId, HTMLButtonElement | null>>>({});
 
@@ -46,13 +46,13 @@ export default function InspectorPanel({
     const currentIndex = tabIds.indexOf(tab);
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      focusTab(tabIds[(currentIndex + 1) % tabIds.length] ?? "properties");
+      focusTab(tabIds[(currentIndex + 1) % tabIds.length] ?? "object");
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
-      focusTab(tabIds[(currentIndex - 1 + tabIds.length) % tabIds.length] ?? "properties");
+      focusTab(tabIds[(currentIndex - 1 + tabIds.length) % tabIds.length] ?? "object");
     } else if (event.key === "Home") {
       event.preventDefault();
-      focusTab("properties");
+      focusTab("object");
     } else if (event.key === "End") {
       event.preventDefault();
       focusTab("advanced");
@@ -77,27 +77,19 @@ export default function InspectorPanel({
         </div>
 
         {mode === "tool" ? (
-          <div className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2 text-[12px]">
+          <div className="space-y-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2 text-[12px]">
             <p className="font-medium text-[var(--accent-ink)]">{activeToolLabel}</p>
-            <p className="text-[var(--text-tertiary)]">Follow viewport steps, then apply or cancel.</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={onApplyTool} className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[12px] font-medium text-[var(--accent-ink)] outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]">
-                Apply
-              </button>
-              <button type="button" onClick={onCancelTool} className="h-8 flex-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]">
-                Cancel
-              </button>
-            </div>
+            <p className="text-[var(--text-tertiary)]">Follow the viewport steps. Press Escape to stop.</p>
           </div>
         ) : null}
 
         <div className="flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--border-subtle)]" role="tablist" aria-label="Inspector sections" onKeyDown={handleTabListKeyDown}>
           {(
             [
-              ["properties", "Props"],
+              ["object", "Object"],
+              ["analysis", "Analyze"],
               ["appearance", "Styles"],
               ["constraints", "Links"],
-              ["animation", "Anim"],
               ["advanced", "Adv"]
             ] as const
           ).map(([id, label]) => (
@@ -156,7 +148,7 @@ export default function InspectorPanel({
                 </button>
                 <button
                   type="button"
-                  onClick={() => addEmptyObject()}
+                  onClick={() => createAndFocus(() => addEmptyObject())}
                   className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Add Object
@@ -165,10 +157,10 @@ export default function InspectorPanel({
             </div>
           ) : (
             <div className="space-y-4">
-              {tab === "properties" && <PropertiesTab />}
+              {tab === "object" && <ObjectTab />}
+              {tab === "analysis" && <AnalysisTab />}
               {tab === "appearance" && <AppearanceTab />}
               {tab === "constraints" && <ConstraintsTab />}
-              {tab === "animation" && <AnimationTab />}
               {tab === "advanced" && <AdvancedTab />}
             </div>
           )}

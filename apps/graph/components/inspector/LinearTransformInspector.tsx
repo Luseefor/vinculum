@@ -50,7 +50,15 @@ function formatTuple(values: number[]): string {
   return `<${values.map((value) => formatNumber(value)).join(", ")}>`;
 }
 
-export default function LinearTransformInspector({ object }: { object: LinearTransformObject }) {
+export default function LinearTransformInspector({
+  object,
+  section = "both"
+}: {
+  object: LinearTransformObject;
+  // S30: the Object tab renders definition (matrix grid + dimension), the
+  // Analyze tab renders properties / vector application / eigen analysis.
+  section?: "both" | "definition" | "analysis";
+}) {
   const objects = useGraphStore((state) => state.scene.objects);
   const setObjectKind = useGraphStore((state) => state.setObjectKind);
   const analysis = useGraphStore((state) => state.ui.linearTransformAnalysisBySourceId[object.id]);
@@ -153,6 +161,8 @@ export default function LinearTransformInspector({ object }: { object: LinearTra
         </span>
       </div>
 
+      {section !== "analysis" ? (
+      <>
       <MatrixEntryEditor object={object} />
 
       <div className="mt-2 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
@@ -175,7 +185,11 @@ export default function LinearTransformInspector({ object }: { object: LinearTra
           <option value="3d">3D</option>
         </select>
       </div>
+      </>
+      ) : null}
 
+      {section !== "definition" ? (
+      <>
       <div className="mt-3 flex flex-col gap-1" role="status" aria-label="Transformation properties">
         <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Properties</h4>
         {resolved.status !== "ok" || !properties ? (
@@ -318,6 +332,8 @@ export default function LinearTransformInspector({ object }: { object: LinearTra
           </>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   );
 }

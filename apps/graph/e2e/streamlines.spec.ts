@@ -25,6 +25,23 @@ async function startClean(page: Page) {
   }
 }
 
+async function showMoreAdd(page: Page) {
+  // S30: Quick Add shows six actions per workspace; the rest sit behind More.
+  const more = page.getByRole("button", { name: "Show more object types" });
+  if ((await more.count()) > 0 && (await more.first().isVisible())) {
+    await more.first().click();
+  }
+}
+
+async function openAnalyze(page: Page) {
+  // S30: analysis sections live under the Analyze tab. Guarded so sheet
+  // flows and Object-tab assertions never trip on the navigation itself.
+  const tab = page.getByRole("tab", { name: "Analyze" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -141,7 +158,9 @@ test.describe("S24 streamlines", () => {
     await page.getByLabel("Vector field Q component").first().fill("0");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toContainText("curves", { timeout: 15000 });
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
@@ -161,7 +180,9 @@ test.describe("S24 streamlines", () => {
     await page.getByLabel("Vector field Q component").first().fill("x");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toContainText("curves", { timeout: 15000 });
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
@@ -179,7 +200,9 @@ test.describe("S24 streamlines", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toContainText("curves", { timeout: 15000 });
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
@@ -197,6 +220,7 @@ test.describe("S24 streamlines", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("1/x");
     await page.getByLabel("Vector field Q component").first().fill("1");
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
     await expect(page.locator('canvas[data-graph2d-canvas="true"]').first()).toBeVisible();
     await page.waitForTimeout(3000);
@@ -212,14 +236,19 @@ test.describe("S24 streamlines", () => {
     await to2DOnly(page);
     await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     const before = await page.getByTestId("streamline-count").textContent();
+    await openAnalyze(page);
     await page.getByLabel("Seed density").fill("10");
     await expect
       .poll(async () => page.getByTestId("streamline-count").textContent(), { timeout: 15000 })
       .not.toBe(before);
+    await openAnalyze(page);
     await page.getByLabel("Trace length").selectOption("long");
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
 
     expect(pageErrors).toEqual([]);
@@ -230,10 +259,13 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await page.getByRole("tab", { name: "Styles" }).click();
     await expectNoComputePending(page, async () => {
@@ -243,7 +275,8 @@ test.describe("S24 streamlines", () => {
       await page.getByLabel("Arrow scale", { exact: true }).fill("2");
       await page.keyboard.press("Tab");
     });
-    await page.getByRole("tab", { name: "Props" }).click();
+    await page.getByRole("tab", { name: "Analyze" }).click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -254,6 +287,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("-y");
@@ -262,7 +296,9 @@ test.describe("S24 streamlines", () => {
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 25000 })
@@ -276,20 +312,25 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("-y");
     await page.getByLabel("Vector field Q component").first().fill("x");
     await page.getByLabel("Vector field R component").first().fill("0");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await page.getByLabel("Geometry layout").selectOption("quad");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible();
     for (const view of ["xy", "xz", "yz", "perspective"] as const) {
       await page.getByLabel("Geometry view").selectOption(view);
+      await openAnalyze(page);
       await expect(page.getByTestId("streamline-count")).toBeVisible();
     }
 
@@ -301,6 +342,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("-y");
@@ -309,7 +351,9 @@ test.describe("S24 streamlines", () => {
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 25000 })
@@ -323,6 +367,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Rapid expression race with no settle waits (edits precede enabling,
@@ -336,13 +381,19 @@ test.describe("S24 streamlines", () => {
     await page.getByLabel("Vector field P component").first().fill("x");
     await page.getByLabel("Vector field Q component").first().fill("-y");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await expect(page.locator("body")).toContainText("x");
     // Rapid config race: only the latest density settles.
+    await openAnalyze(page);
     await page.getByLabel("Seed density").fill("2");
+    await openAnalyze(page);
     await page.getByLabel("Seed density").fill("4");
+    await openAnalyze(page);
     await page.getByLabel("Seed density").fill("3");
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
 
     expect(pageErrors).toEqual([]);
@@ -355,7 +406,9 @@ test.describe("S24 streamlines", () => {
     await to2DOnly(page);
     await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const shown = await screenshotPixels(page, canvas);
@@ -366,6 +419,7 @@ test.describe("S24 streamlines", () => {
       .poll(async () => countChangedPixels(page, canvas, shown ?? ""), { timeout: 15000 })
       .toBeGreaterThan(500);
     // Numerics stay cached while hidden; unhide restores without re-pick.
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible();
     await expectNoComputePending(page, async () => {
       await page.getByRole("button", { name: "Show object" }).first().click();
@@ -379,10 +433,13 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
     await page.locator('[aria-label^="Selected "]').first().click();
     await page.keyboard.press("Backspace");
@@ -399,14 +456,18 @@ test.describe("S24 streamlines", () => {
     await to2DOnly(page);
     await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     await toGeometry(page);
+    await showMoreAdd(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // 2D-field streamlines have no 3D overlay, but the config persists.
     await expect(page.getByLabel("Hide streamlines")).toBeVisible();
     await toMathLab(page);
     await to2DOnly(page);
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -419,7 +480,9 @@ test.describe("S24 streamlines", () => {
     await to2DOnly(page);
     await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
+    await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
@@ -429,6 +492,7 @@ test.describe("S24 streamlines", () => {
     await page.reload();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await to2DOnly(page);
+    await openAnalyze(page);
     await expect(page.getByLabel("Show streamlines")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -444,6 +508,7 @@ test.describe("S24 streamlines", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
+    await openAnalyze(page);
     await expect(page.getByRole("heading", { name: "Streamlines" })).toBeVisible();
     await expect(page.getByLabel("Show streamlines")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -456,10 +521,12 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
+    await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Vector field P component").first().fill("sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
+    await openAnalyze(page);
     await expect(page.getByText("Fix the component expressions to enable streamlines.")).toBeVisible();
 
     expect(pageErrors).toEqual([]);

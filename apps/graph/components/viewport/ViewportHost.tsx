@@ -1,8 +1,10 @@
 "use client";
 
 import { cloneElement, isValidElement, type ReactNode } from "react";
+import CanvasEmptyState from "@/components/viewport/CanvasEmptyState";
 import SplitViewport from "@/components/viewport/SplitViewport";
 import type { ViewportMode } from "@/lib/types/ui";
+import type { WorkspaceId } from "@/types/graphUi";
 import { cn } from "@/components/ui/styles";
 
 interface ViewportHostProps {
@@ -13,9 +15,23 @@ interface ViewportHostProps {
   viewport3d: ReactNode;
   selectedLabel: string;
   snapLabel: string;
+  workspaceId: WorkspaceId;
 }
 
-function Pane({ selectedLabel, snapLabel, children }: { selectedLabel: string; snapLabel: string; children: ReactNode }) {
+function Pane({
+  selectedLabel,
+  snapLabel,
+  children,
+  showEmptyPrompt = false,
+  workspaceId
+}: {
+  selectedLabel: string;
+  snapLabel: string;
+  children: ReactNode;
+  /** S30: the empty-scene prompt renders once per layout (first pane). */
+  showEmptyPrompt?: boolean;
+  workspaceId?: WorkspaceId;
+}) {
   return (
     <section className="relative h-full w-full min-w-0 overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
       {/* Bottom-left: scene selection + snap (keeps bottom-right free for zoom/reset controls). */}
@@ -34,6 +50,7 @@ function Pane({ selectedLabel, snapLabel, children }: { selectedLabel: string; s
       </div>
 
       {children}
+      {showEmptyPrompt && workspaceId ? <CanvasEmptyState workspaceId={workspaceId} /> : null}
     </section>
   );
 }
@@ -44,7 +61,8 @@ export default function ViewportHost({
   viewport2dQuadTop,
   viewport3d,
   selectedLabel,
-  snapLabel
+  snapLabel,
+  workspaceId
 }: ViewportHostProps) {
   const mountViewport = (node: ReactNode, key: string): ReactNode => {
     if (isValidElement(node)) return cloneElement(node, { key });
@@ -53,7 +71,7 @@ export default function ViewportHost({
 
   if (mode === "2d") {
     return (
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel} showEmptyPrompt workspaceId={workspaceId}>
         {mountViewport(viewport2d, "single-2d")}
       </Pane>
     );
@@ -61,7 +79,7 @@ export default function ViewportHost({
 
   if (mode === "3d") {
     return (
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel} showEmptyPrompt workspaceId={workspaceId}>
         {mountViewport(viewport3d, "single-3d")}
       </Pane>
     );
@@ -71,7 +89,7 @@ export default function ViewportHost({
     return (
       <SplitViewport
         primary={
-          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel} showEmptyPrompt workspaceId={workspaceId}>
             {mountViewport(viewport2d, "split-2d")}
           </Pane>
         }
@@ -88,7 +106,7 @@ export default function ViewportHost({
 
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-px bg-[var(--border-strong)]">
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel} showEmptyPrompt workspaceId={workspaceId}>
         {mountViewport(viewport2d, "quad-xy")}
       </Pane>
       <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>

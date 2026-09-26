@@ -1,28 +1,35 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 interface SplitViewportProps {
   primary: ReactNode;
   secondary: ReactNode;
 }
 
+// S30: single responsive tree. The previous dual-tree (desktop + mobile
+// copies) mounted every viewport twice in split mode — two WebGL contexts,
+// two engines, duplicate worker jobs — and remounted everything when
+// resizing across the lg breakpoint. One tree, CSS-driven stacking.
 export default function SplitViewport({ primary, secondary }: SplitViewportProps) {
   const [ratio, setRatio] = useState(0.5);
   const style = useMemo(
-    () => ({
-      gridTemplateColumns: `${(ratio * 100).toFixed(2)}% 10px minmax(0,1fr)`
-    }),
+    () =>
+      ({
+        "--split-ratio": `${(ratio * 100).toFixed(2)}%`
+      }) as CSSProperties,
     [ratio]
   );
 
   return (
-    <>
-      <div className="relative hidden h-full w-full lg:grid" style={style}>
-        <div className="min-h-0 border-r border-[var(--border-strong)]">{primary}</div>
-        <div
-          className="relative cursor-col-resize bg-[var(--surface-bg)]"
-          onPointerDown={(event) => {
+    <div
+      className="relative grid h-full w-full grid-cols-1 grid-rows-2 lg:grid-cols-[var(--split-ratio)_10px_minmax(0,1fr)] lg:grid-rows-1"
+      style={style}
+    >
+      <div className="min-h-0 border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-r lg:border-[var(--border-strong)]">{primary}</div>
+      <div
+        className="relative hidden cursor-col-resize bg-[var(--surface-bg)] lg:block"
+        onPointerDown={(event) => {
             const element = event.currentTarget.parentElement;
             if (!element) {
               return;
@@ -53,11 +60,6 @@ export default function SplitViewport({ primary, secondary }: SplitViewportProps
           </div>
         </div>
         <div className="min-h-0">{secondary}</div>
-      </div>
-      <div className="grid h-full w-full grid-cols-1 grid-rows-2 lg:hidden">
-        <div className="min-h-0 border-b border-[var(--border-subtle)]">{primary}</div>
-        <div className="min-h-0">{secondary}</div>
-      </div>
-    </>
+    </div>
   );
 }

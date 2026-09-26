@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { OBJECT_DESCRIPTORS } from "@/lib/objects/objectDescriptors";
 
 interface ContextMenuProps {
   open: boolean;
@@ -25,14 +26,14 @@ function buildItems({
   snapEnabled,
   currentMode
 }: Pick<ContextMenuProps, "hasSelection" | "canUndo" | "canRedo" | "snapEnabled" | "currentMode">): ContextItem[] {
+  // S30: all 14 creation entries from the central descriptors (previously
+  // only 7 kinds; point/vector/line/ray/segment/transforms were missing).
+  const creationItems: ContextItem[] = OBJECT_DESCRIPTORS.map((entry) => ({
+    id: entry.commandId,
+    label: entry.commandLabel
+  }));
   return [
-    { id: "add-surface", label: "Add Surface" },
-    { id: "add-curve", label: "Add Parametric Curve" },
-    { id: "add-parametric-surface", label: "Add Parametric Surface" },
-    { id: "add-implicit-surface", label: "Add Implicit Surface" },
-    { id: "add-2d-vector-field", label: "Add 2D Vector Field" },
-    { id: "add-3d-vector-field", label: "Add 3D Vector Field" },
-    { id: "add-plane", label: "Add Plane" },
+    ...creationItems,
     { id: "separator-1", label: "", disabled: true },
     { id: "toggle-2d", label: currentMode === "2d" ? "2D Active" : "Switch to 2D", disabled: currentMode === "2d" },
     { id: "toggle-3d", label: currentMode === "3d" ? "3D Active" : "Switch to 3D", disabled: currentMode === "3d" },
@@ -80,7 +81,9 @@ export default function ContextMenu({
     const viewportHeight = window.innerHeight;
     const rect = menuRef.current?.getBoundingClientRect();
     const menuWidth = rect?.width ?? 240;
-    const menuHeight = rect?.height ?? 340;
+    // S30: measure the real menu height (14 creation entries grew it well
+    // past the old 340px assumption) and cap it to the viewport with scroll.
+    const menuHeight = Math.min(rect?.height ?? 340, viewportHeight - PADDING * 2);
 
     const clampedX = Math.min(Math.max(x, PADDING), Math.max(PADDING, viewportWidth - menuWidth - PADDING));
     const clampedY = Math.min(Math.max(y, PADDING), Math.max(PADDING, viewportHeight - menuHeight - PADDING));
@@ -99,7 +102,7 @@ export default function ContextMenu({
         ref={menuRef}
         role="menu"
         aria-label="Scene context menu"
-        className="absolute z-[100] min-w-[12rem] max-w-60 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
+        className="absolute z-[100] min-w-[12rem] max-w-60 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
         style={{ left: position.x, top: position.y }}
         onClick={(event) => event.stopPropagation()}
       >

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import { usePerformanceMetricsSnapshot } from "@/lib/performance/usePerformanceMetrics";
+import AnimationTab from "@/components/inspector/AnimationTab";
 
 type DockTab = BottomPanelTab | "measurements" | "performance";
 
@@ -72,6 +73,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
       {!collapsed && (
         <div className="min-h-0 flex-1 overflow-auto p-3">
           {extraTab === null && activeTab === "parameters" && (
+            <>
             <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
               {parameters.map((param) => (
                 <div key={param.id} className="flex min-w-0 items-center gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
@@ -95,6 +97,12 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
                 <p className="text-[11px] font-medium text-[var(--text-tertiary)] italic">No parameters defined.</p>
               )}
             </div>
+            {/* S30: global parameter animation lives with the parameters it
+                drives, not in the per-object Inspector. */}
+            <div className="mt-3 max-w-2xl">
+              <AnimationTab />
+            </div>
+            </>
           )}
 
           {extraTab === null && activeTab === "console" && (

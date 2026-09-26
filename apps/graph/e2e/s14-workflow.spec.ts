@@ -57,9 +57,11 @@ test.describe("S14 object workflow matrix", () => {
     await eqInput.fill("z = sin(x)");
     await expect(page.getByTestId("expression-diagnostic")).toHaveCount(0);
 
-    // G: S9/S10/S11 through the editor.
+    // G: S9/S10/S11 through the editor. Scoped to the definition
+    // diagnostic (S30): Integral Analysis may report domain non-finiteness
+    // contextually once its worker result arrives.
     await eqInput.fill("1/(x^2+y^2)");
-    await expect(page.getByText(/non-finite/i)).toHaveCount(0);
+    await expect(page.getByTestId("expression-diagnostic")).toHaveCount(0);
     await eqInput.fill("sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await eqInput.fill("z = x^2 + y^2");
