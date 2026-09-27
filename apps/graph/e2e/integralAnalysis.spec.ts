@@ -229,14 +229,11 @@ test.describe("S25 integral analysis", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = 0");
-    await page.getByRole("textbox", { name: "X Range Min" }).fill("-1");
-    await page.getByRole("textbox", { name: "X Range Min" }).press("Tab");
-    await page.getByRole("textbox", { name: "X Range Max" }).fill("1");
-    await page.getByRole("textbox", { name: "X Range Max" }).press("Tab");
-    await page.getByRole("textbox", { name: "Y Range Min" }).fill("-1");
-    await page.getByRole("textbox", { name: "Y Range Min" }).press("Tab");
-    await page.getByRole("textbox", { name: "Y Range Max" }).fill("1");
-    await page.getByRole("textbox", { name: "Y Range Max" }).press("Tab");
+    // S32: compact paired domain in the expression-first Object tab.
+    await page.locator("#graph-inspector").getByLabel("x min").fill("-1");
+    await page.locator("#graph-inspector").getByLabel("x max").fill("1");
+    await page.locator("#graph-inspector").getByLabel("y min").fill("-1");
+    await page.locator("#graph-inspector").getByLabel("y max").fill("1");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("4", { timeout: 15000 });
 
@@ -251,14 +248,11 @@ test.describe("S25 integral analysis", () => {
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByLabel("Equation", { exact: true }).first().fill("z = 0");
-    await page.getByRole("textbox", { name: "X Range Min" }).fill("-1");
-    await page.getByRole("textbox", { name: "X Range Min" }).press("Tab");
-    await page.getByRole("textbox", { name: "X Range Max" }).fill("1");
-    await page.getByRole("textbox", { name: "X Range Max" }).press("Tab");
-    await page.getByRole("textbox", { name: "Y Range Min" }).fill("-1");
-    await page.getByRole("textbox", { name: "Y Range Min" }).press("Tab");
-    await page.getByRole("textbox", { name: "Y Range Max" }).fill("1");
-    await page.getByRole("textbox", { name: "Y Range Max" }).press("Tab");
+    // S32: compact paired domain in the expression-first Object tab.
+    await page.locator("#graph-inspector").getByLabel("x min").fill("-1");
+    await page.locator("#graph-inspector").getByLabel("x max").fill("1");
+    await page.locator("#graph-inspector").getByLabel("y min").fill("-1");
+    await page.locator("#graph-inspector").getByLabel("y max").fill("1");
     await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
@@ -509,7 +503,8 @@ test.describe("S25 integral analysis", () => {
     // object-row pending dot observes geometry jobs, so assert value
     // stability across a geometry settle instead of zero pending here).
     const before = await page.getByTestId("integral-result-value").textContent();
-        await openObject(page);
+        // S32: resolution lives in the Styles tab (Tessellation section).
+        await page.getByRole("tab", { name: "Styles" }).first().click();
         await page.getByLabel("Resolution", { exact: true }).first().fill("24");
     await settleCompute(page);
     await openAnalyze(page);

@@ -44,13 +44,15 @@ describe("InspectorPanel tablist", () => {
 
   it("shows definition on Object and contextual analysis on Analyze for a surface", () => {
     render(<InspectorPanel mode="object" activeToolLabel="Pan" />);
-    // Object tab: domain editors, no analysis sections.
-    expect(screen.getByLabelText("X Range Min")).toBeInTheDocument();
-    expect(screen.queryByTestId("integral-analysis-section")).not.toBeInTheDocument();
+    // Object tab: expression-first definition with compact domain. Analysis
+    // mounts on demand (S32: selection alone starts no analysis compute).
+    expect(screen.getByLabelText("Surface expression z = f(x,y)")).toBeVisible();
+    expect(screen.getByLabelText("x min")).toBeVisible();
+    expect(screen.queryByTestId("integral-analysis-section")).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
     // Analyze tab: differential + scalar + integral for a surface.
-    expect(screen.getByTestId("integral-analysis-section")).toBeInTheDocument();
-    expect(screen.queryByLabelText("X Range Min")).not.toBeInTheDocument();
+    expect(screen.getByTestId("integral-analysis-section")).toBeVisible();
+    expect(screen.queryByLabelText("Surface expression z = f(x,y)")).toBeNull();
   });
 });

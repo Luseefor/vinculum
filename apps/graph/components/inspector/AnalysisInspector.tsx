@@ -26,7 +26,7 @@ export default function AnalysisInspector() {
 
   if (!selectedObject) {
     return (
-      <div id="graph-inspector" className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
+      <div data-inspector-section className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
         <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">No selection</p>
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to analyze it.</p>
       </div>
@@ -35,7 +35,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "parametricCurve") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <IntegralAnalysisSection key={selectedObject.id} object={selectedObject} />
       </section>
     );
@@ -43,7 +43,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "parametricSurface") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <IntegralAnalysisSection key={selectedObject.id} object={selectedObject} />
       </section>
     );
@@ -51,7 +51,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "implicitSurface") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <DifferentialAnalysisSection object={selectedObject} />
         <ScalarVisualizationSection object={selectedObject} />
       </section>
@@ -60,7 +60,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "plane") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <GeometryAnalysisSection key={selectedObject.id} object={selectedObject} />
       </section>
     );
@@ -68,7 +68,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "linearTransform") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <LinearTransformInspector object={selectedObject} section="analysis" />
       </section>
     );
@@ -76,7 +76,7 @@ export default function AnalysisInspector() {
 
   if (selectedObject.kind === "vectorField") {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <VectorCalculusSection object={selectedObject} />
         <StreamlineSection object={selectedObject} />
       </section>
@@ -91,14 +91,14 @@ export default function AnalysisInspector() {
     selectedObject.kind === "segment"
   ) {
     return (
-      <section id="graph-inspector" className="flex flex-col gap-3">
+      <section data-inspector-section className="flex flex-col gap-3">
         <GeometryAnalysisSection key={`analysis-${selectedObject.id}`} object={selectedObject} />
       </section>
     );
   }
 
   return (
-    <section id="graph-inspector" className="flex flex-col gap-3">
+    <section data-inspector-section className="flex flex-col gap-3">
       <DifferentialAnalysisSection object={selectedObject} />
       <ScalarVisualizationSection object={selectedObject} />
       <IntegralAnalysisSection key={selectedObject.id} object={selectedObject} />

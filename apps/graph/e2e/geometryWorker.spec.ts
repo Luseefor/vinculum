@@ -155,6 +155,8 @@ test.describe("S19 workerized geometry", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
     await eqInput.fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    // S32: resolution lives in the Styles tab (Tessellation section).
+    await page.getByRole("tab", { name: "Styles" }).first().click();
     await page.getByLabel("Resolution", { exact: true }).first().fill("48");
     // Heavy compute is now in flight. Every interaction below must complete
     // promptly (generous bound distinguishes responsive from multi-second
@@ -189,6 +191,8 @@ test.describe("S19 workerized geometry", () => {
     // Slow compute so the delete below lands while the job is in flight.
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
     await eqInput.fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    // S32: resolution lives in the Styles tab (Tessellation section).
+    await page.getByRole("tab", { name: "Styles" }).first().click();
     await page.getByLabel("Resolution", { exact: true }).first().fill("48");
     await page.locator('[aria-label^="Selected "]').first().click();
     await page.keyboard.press("Backspace");

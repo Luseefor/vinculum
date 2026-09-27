@@ -101,7 +101,7 @@ export default function InspectorPanel({
               role="tab"
               id={`inspector-tab-${id}`}
               aria-selected={tab === id}
-              aria-controls={`inspector-panel-${id}`}
+              aria-controls="graph-inspector"
               tabIndex={tab === id ? 0 : -1}
               onClick={() => setTab(id)}
               className={cn(
@@ -121,9 +121,9 @@ export default function InspectorPanel({
 
       <ScrollArea className="min-h-0 flex-1">
         <div
-          key={`${mode}-${tab}-${selectedObjectId ?? "none"}`}
+          key={`${mode}-${selectedObjectId ?? "none"}`}
           role="tabpanel"
-          id={`inspector-panel-${tab}`}
+          id="graph-inspector"
           aria-labelledby={`inspector-tab-${tab}`}
           tabIndex={0}
           className="min-w-0 p-3 outline-none transition-opacity duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
@@ -159,6 +159,11 @@ export default function InspectorPanel({
             </div>
           ) : (
             <div className="space-y-4">
+              {/* S32: tabs mount on demand so selecting an object never starts
+                  analysis compute; expression drafts are per-keystroke
+                  canonical commits, so Object↔Analyze switches preserve work.
+                  (The wrapper above keeps a stable key/id across tab
+                  switches to avoid remounting shared chrome.) */}
               {tab === "object" && <ObjectTab />}
               {tab === "analysis" && <AnalysisTab />}
               {tab === "appearance" && <AppearanceTab />}

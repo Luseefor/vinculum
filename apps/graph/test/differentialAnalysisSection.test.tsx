@@ -171,7 +171,9 @@ describe("DifferentialAnalysisSection rendering (S21 Slice 4)", () => {
       .setDifferentialAnalysisPoint(id, { x: 1, y: 2, z: 9 }, identityOf(object));
     render(<DifferentialAnalysisSection object={liveObject(id)} />);
     expect(screen.getByText(/P = \(1, 2, 9\)/)).toBeDefined();
-    expect(screen.getByText(/Gradient \/ Normal/)).toBeDefined();
+    // S32: explicit surfaces label the function gradient precisely (implicit
+    // surfaces show the level-set normal instead of a merged label).
+    expect(screen.getByText(/Function gradient =/)).toBeDefined();
     expect(screen.getByText(/Tangent:/)).toBeDefined();
     const normalSwitch = screen.getByLabelText("Hide normal arrow");
     fireEvent.click(normalSwitch);

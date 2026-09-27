@@ -59,6 +59,14 @@ async function openObject(page: Page) {
   }
 }
 
+async function openStyles(page: Page) {
+  // S32: resolution lives in the Styles tab (Tessellation section).
+  const tab = page.getByRole("tab", { name: "Styles" });
+  if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
+    await tab.first().click();
+  }
+}
+
 function collectErrors(page: Page) {
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -198,9 +206,10 @@ test.describe("S21 differential analysis", () => {
     // The paraboloid bowl fills the upper viewport; the center pixel is
     // grid. Click upper-middle to land on the surface.
     await pickAt(page, canvas, 0.5, 0.28);
-    // Point, gradient/normal, and tangent equation appear.
+    // Point, function gradient, and tangent equation appear.
     await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/Gradient \/ Normal = </)).toBeVisible();
+    // S32: explicit surfaces label the function gradient precisely.
+    await expect(page.getByText(/Function gradient = </)).toBeVisible();
     await expect(page.getByText(/Tangent:/)).toBeVisible();
     // The patch + normal arrow repaint the viewport.
     await expect
@@ -223,7 +232,8 @@ test.describe("S21 differential analysis", () => {
     const before = await screenshotPixels(page, canvas);
     await pickCenter(page, canvas);
     await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/Gradient \/ Normal = </)).toBeVisible();
+    // S32: implicit surfaces label the level-set normal precisely.
+    await expect(page.getByText(/Level-set normal = </)).toBeVisible();
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
       .toBeGreaterThan(200);
@@ -248,7 +258,7 @@ test.describe("S21 differential analysis", () => {
     for (const view of ["xy", "xz", "yz", "perspective"] as const) {
       await page.getByLabel("Geometry view").selectOption(view);
       await expect(page.getByText(/^P = \(/)).toBeVisible();
-      await expect(page.getByText(/Gradient \/ Normal = </)).toBeVisible();
+      await expect(page.getByText(/Level-set normal = </)).toBeVisible();
     }
     // Overlay presence in perspective (patch faces the camera here)...
     await page.getByLabel("Geometry view").selectOption("perspective");
@@ -330,7 +340,7 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     // Heavy edit at max resolution: the worker stays busy for seconds.
     await page.getByLabel("Equation", { exact: true }).first().fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
-        await openObject(page);
+        await openStyles(page);
         await page.getByLabel("Resolution", { exact: true }).first().fill("48");
     // While pending, Pick stays disabled with an updating hint.
     await openAnalyze(page);

@@ -412,7 +412,8 @@ describe("parametric surface store semantics", () => {
     expect(isGraphObjectWithoutExpressions(makeSurface({ xExpr: "", yExpr: "", zExpr: "" }))).toBe(true);
     expect(getObjectRowDisplayMeta(makeSurface())).toEqual({
       label: "Parametric Surface",
-      type: "Parametric Surface"
+      // S32: collapsed rows prioritize the mathematical definition.
+      type: "r(u,v) = <sin(u) * cos(v), si…"
     });
   });
 

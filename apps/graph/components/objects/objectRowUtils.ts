@@ -7,6 +7,11 @@ function formatPrimitiveSnippet(snippet: string): string {
   return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
 }
 
+function formatMathSnippet(snippet: string): string {
+  const compact = snippet.replace(/\s+/g, " ").trim();
+  return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+}
+
 function formatVectorFieldSnippet(object: VectorFieldObject): string {
   const coords = object.dimension === "2d" ? "x,y" : "x,y,z";
   const components =
@@ -88,13 +93,24 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
       return { label: "Expression", type: "Choose type in menu" };
     }
     if (object.kind === "parametricSurface") {
-      return { label: "Parametric Surface", type: "Parametric Surface" };
+      // S32: collapsed rows prioritize the mathematical definition.
+      return {
+        label: "Parametric Surface",
+        type: formatMathSnippet(`r(u,v) = <${object.xExpr}, ${object.yExpr}, ${object.zExpr}>`)
+      };
     }
     const normalized = [object.xExpr, object.yExpr, object.zExpr].map((v) => v.replace(/\s+/g, ""));
     const isPoint = normalized.every((v) => v === "0" || v === "0.0");
     // S30: canonical creation taxonomy — rows match descriptors
     // ("Parametric Curve", legacy all-zero preset keeps "Point").
-    return isPoint ? { label: "Point", type: "Point" } : { label: "Parametric Curve", type: "Parametric Curve" };
+    // S32: non-degenerate curves show the tuple definition in the row.
+    if (isPoint) {
+      return { label: "Point", type: "Point" };
+    }
+    return {
+      label: "Parametric Curve",
+      type: formatMathSnippet(`r(t) = <${object.xExpr}, ${object.yExpr}, ${object.zExpr}>`)
+    };
   }
   // S20: compact field identity — never the full component list in a
   // collapsed row (PART 30). Must precede `.equation` access below, which
@@ -217,10 +233,20 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     return { label: "Expression", type: "Choose type in menu" };
   }
   if (object.kind === "implicitSurface") {
-    return { label: "Implicit Surface", type: "Implicit Surface" };
+    // S32: collapsed rows prioritize the mathematical definition.
+    return { label: "Implicit Surface", type: formatMathSnippet(object.equation) };
   }
-  const equation = object.equation.replace(/\s+/g, "");
-  if (equation === "sqrt(max(0,9-x^2-y^2))") return { label: "Sphere", type: "Sphere" };
-  if (equation === "sqrt(max(0,4-x^2))") return { label: "Cylinder", type: "Cylinder" };
-  return { label: "Surface", type: "Surface" };
+  if (object.kind === "surface") {
+    const orientation = object.orientation ?? "z";
+    const preset = object.equation.replace(/\s+/g, "");
+    if (preset === "sqrt(max(0,9-x^2-y^2))") return { label: "Sphere", type: formatMathSnippet(`${orientation} = ${object.equation}`) };
+    if (preset === "sqrt(max(0,4-x^2))") return { label: "Cylinder", type: formatMathSnippet(`${orientation} = ${object.equation}`) };
+    // S32: collapsed rows prioritize the mathematical definition.
+    return { label: "Surface", type: formatMathSnippet(`${orientation} = ${object.equation}`) };
+  }
+  // All equation-bearing kinds (plane, surface, implicitSurface) are handled
+  // above; remaining kinds carry no equation.
+  const _exhaustive: never = object;
+  void _exhaustive;
+  return { label: "Expression", type: "Choose type in menu" };
 }

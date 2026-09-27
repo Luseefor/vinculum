@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ParametricCurveObject,
   ParametricSurfaceObject,
@@ -96,13 +96,15 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
     config?.vectorFieldId !== undefined &&
     (!fieldObject || (fieldObject as VectorFieldObject).kind !== "vectorField" || (fieldObject as VectorFieldObject).dimension !== "3d");
 
+  const orientationAxis = object.kind === "surface" ? (object.orientation ?? "z") : null;
   const orientationLabels = useMemo(() => {
-    if (object.kind === "surface") {
-      const axis = object.orientation ?? "z";
-      return { native: `Native (+${axis})`, reversed: `Reversed (−${axis})` } as const;
+    if (orientationAxis === null) {
+      return { native: "u×v (native)", reversed: "Reversed" } as const;
     }
-    return { native: "Native (u×v)", reversed: "Reversed" } as const;
-  }, [object]);
+    // S32: explicit-surface orientation in mathematical +axis/−axis form
+    // (values stay native/reversed for the engine).
+    return { native: `+${orientationAxis} (native)`, reversed: `−${orientationAxis} (reversed)` } as const;
+  }, [orientationAxis]);
 
   return (
     <section
@@ -175,6 +177,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
               (candidate): candidate is VectorFieldObject =>
                 candidate.kind === "vectorField" && candidate.dimension === "3d"
             )}
+            numberFor={(fieldId) => objects.findIndex((candidate) => candidate.id === fieldId)}
             selectedId={config?.vectorFieldId ?? null}
             onSelect={(vectorFieldId) => setConfig(object.id, { vectorFieldId })}
           />
@@ -234,6 +237,28 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
 
 function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: (value: string) => void }) {
   const [draft, setDraft] = useState<string | undefined>(undefined);
+  const draftRef = useRef<string | undefined>(undefined);
+  const onCommitRef = useRef(onCommit);
+  // Ref assignment in an effect (never during render) so a concurrent
+  // aborted render cannot leave a stale draft for the unmount cleanup.
+  useEffect(() => {
+    draftRef.current = draft;
+    onCommitRef.current = onCommit;
+  });
+  // S32: commit the pending draft on unmount (Object↔Analyze switch,
+  // selection change) so a valid typed integrand is never silently
+  // destroyed. Follows the established blur/Enter commit model.
+  useEffect(
+    () => () => {
+      const pending = draftRef.current;
+      if (pending !== undefined && pending !== committed) {
+        onCommitRef.current(pending);
+      }
+    },
+    // Mount-only cleanup contract: refs carry the latest values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
   return (
     <label className="block">
       <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
@@ -268,10 +293,12 @@ function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: 
 
 function FieldSelector({
   fields,
+  numberFor,
   selectedId,
   onSelect
 }: {
   fields: VectorFieldObject[];
+  numberFor: (fieldId: string) => number;
   selectedId: string | null;
   onSelect: (fieldId: string | null) => void;
 }) {
@@ -289,11 +316,15 @@ function FieldSelector({
         className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
       >
         <option value="">Select a field…</option>
-        {fields.map((field, index) => (
-          <option key={field.id} value={field.id}>
-            3D field #{index + 1} ({field.pExpr}, {field.qExpr}, {field.rExpr})
-          </option>
-        ))}
+        {fields.map((field) => {
+          // S32: global scene numbering matches the navigator row order.
+          const number = numberFor(field.id);
+          return (
+            <option key={field.id} value={field.id}>
+              3D Vector Field #{number + 1} — &lt;{field.pExpr}, {field.qExpr}, {field.rExpr}&gt;
+            </option>
+          );
+        })}
       </select>
     </label>
   );

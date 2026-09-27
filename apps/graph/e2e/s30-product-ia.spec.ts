@@ -163,8 +163,11 @@ test.describe("S30 product information architecture", () => {
     await startClean(page);
     await page.getByRole("button", { name: "Surface", exact: true }).click();
     await expect(page.getByRole("tab", { name: "Object" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#domain-x-range-min")).toBeVisible();
-    await expect(page.getByTestId("integral-analysis-section")).not.toBeVisible();
+    // S32: expression-first definition with compact domain (replaces the
+    // legacy #domain-x-range-min DomainSection ids).
+    await expect(page.locator("#graph-inspector").getByLabel("Surface expression z = f(x,y)")).toBeVisible();
+    await expect(page.locator("#graph-inspector").getByLabel("x min")).toBeVisible();
+    await expect(page.getByTestId("integral-analysis-section")).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });

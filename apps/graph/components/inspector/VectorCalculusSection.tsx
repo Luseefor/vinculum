@@ -84,6 +84,12 @@ export default function VectorCalculusSection({ object }: { object: VectorFieldO
         </p>
       </header>
       <PointInputs key={object.id} object={object} recordPoint={record?.point} onCommit={setPoint} />
+      {model.status === "empty" && (
+        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+          Enter a point in the field domain to inspect the Jacobian, divergence, and{" "}
+          {is2D ? "scalar curl" : "curl"}.
+        </p>
+      )}
       {model.status === "invalid-field" && (
         <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
           Field has errors — fix the component expressions to enable calculus.

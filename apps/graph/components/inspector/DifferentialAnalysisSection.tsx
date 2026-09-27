@@ -95,7 +95,10 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
             P = ({formatNumber(model.point.x)}, {formatNumber(model.point.y)}, {formatNumber(model.point.z)})
           </p>
           <p className="font-mono text-[12px] text-[var(--text-secondary)]">
-            Gradient / Normal = &lt;{formatNumber(model.gradient.x)}, {formatNumber(model.gradient.y)},{" "}
+            {/* S32: preserve the S21/S22 mathematical distinction — explicit
+                surfaces show the function gradient, implicit surfaces the
+                level-set normal. Never merge both under one "Gradient" label. */}
+            {object.kind === "surface" ? "Function gradient = " : "Level-set normal = "}&lt;{formatNumber(model.gradient.x)}, {formatNumber(model.gradient.y)},{" "}
             {formatNumber(model.gradient.z)}&gt;
           </p>
           <p className="break-words font-mono text-[12px] text-[var(--text-secondary)]">

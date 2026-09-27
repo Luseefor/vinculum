@@ -39,8 +39,14 @@ function collectErrors(page: Page) {
 }
 
 async function setEquation(page: Page, index: number, equation: string) {
+  // Creation-focus expansion settles asynchronously across commits; wait for
+  // the expected row input instead of racing it (S32-R1: pre-existing focus
+  // timing race, exposed under dev-server load — same delay on base).
+  await expect
+    .poll(async () => page.locator(SURFACE_INPUT).count(), { timeout: 10000 })
+    .toBeGreaterThanOrEqual(index + 1);
   const input = page.locator(SURFACE_INPUT).nth(index);
-  if ((await input.count()) === 0 || !(await input.isVisible())) {
+  if (!(await input.isVisible())) {
     await page.getByRole("button", { name: "Expand definition" }).first().click();
   }
   await expect(input).toBeVisible();

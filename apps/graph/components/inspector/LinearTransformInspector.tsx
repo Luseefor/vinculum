@@ -13,7 +13,6 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import { Switch } from "@/components/ui/switch";
-import { getObjectRowDisplayMeta } from "@/components/objects/objectRowUtils";
 import MatrixEntryEditor from "@/components/objects/MatrixEntryEditor";
 import { resolveVectorGeometry } from "@/lib/math/geometryResolve";
 import {
@@ -251,11 +250,12 @@ export default function LinearTransformInspector({
           >
             <option value="">Select a vector…</option>
             {vectorOptions.map((candidate) => {
-              const meta = getObjectRowDisplayMeta(candidate);
               const candidateIndex = objects.findIndex((o) => o.id === candidate.id);
+              const snippet = `<${candidate.vxExpr}, ${candidate.vyExpr}, ${candidate.vzExpr}>`;
+              const short = snippet.length > 28 ? `${snippet.slice(0, 27)}…` : snippet;
               return (
                 <option key={candidate.id} value={candidate.id}>
-                  {meta.label} #{candidateIndex + 1} ({candidate.kind})
+                  Vector #{candidateIndex + 1} — {short}
                 </option>
               );
             })}

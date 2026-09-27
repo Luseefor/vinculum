@@ -385,9 +385,12 @@ test.describe("S20 vector fields", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(page.getByLabel("Density", { exact: true })).toBeVisible();
+    // S32: definition first (P component visible), sampling disclosed.
+    await expect(page.locator("#graph-inspector").getByLabel("Vector field P component")).toBeVisible();
+    await page.locator("#graph-inspector").getByText(/Sampling · density/).click();
+    await expect(page.getByLabel("Field density per axis")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByLabel("Density", { exact: true })).not.toBeVisible();
+    await expect(page.getByLabel("Field density per axis")).not.toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);

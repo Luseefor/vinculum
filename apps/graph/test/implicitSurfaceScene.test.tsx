@@ -443,7 +443,8 @@ describe("implicit surface store semantics", () => {
     expect(isGraphObjectWithoutExpressions(makeImplicit({ equation: "" }))).toBe(true);
     expect(getObjectRowDisplayMeta(makeImplicit())).toEqual({
       label: "Implicit Surface",
-      type: "Implicit Surface"
+      // S32: collapsed rows prioritize the mathematical definition.
+      type: "x^2 + y^2 + z^2 = 1"
     });
   });
 
