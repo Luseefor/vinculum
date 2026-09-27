@@ -80,7 +80,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     if (!object.equation.trim()) {
       return { label: "Expression", type: "Choose type in menu" };
     }
-    return { label: "Plane", type: "Plane" };
+    return { label: "Plane", type: formatPrimitiveSnippet(object.equation) };
   }
   if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
     const allEmpty = ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
@@ -117,7 +117,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     }
     return {
       label: "Point",
-      type: formatPrimitiveSnippet(`(${object.xExpr},${object.yExpr},${object.zExpr})`)
+      type: formatPrimitiveSnippet(`P=(${object.xExpr},${object.yExpr},${object.zExpr})`)
     };
   }
   if (object.kind === "vector") {
@@ -132,7 +132,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     if (allEmpty) {
       return { label: "Expression", type: "Choose type in menu" };
     }
-    return { label: "Vector", type: formatPrimitiveSnippet(`<${object.vxExpr},${object.vyExpr},${object.vzExpr}>`) };
+    return { label: "Vector", type: formatPrimitiveSnippet(`v=<${object.vxExpr},${object.vyExpr},${object.vzExpr}>`) };
   }
   if (object.kind === "line") {
     const allEmpty = ![
@@ -149,7 +149,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     return {
       label: "Infinite Line",
       type: formatPrimitiveSnippet(
-        `(${object.pxExpr},${object.pyExpr},${object.pzExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>`
+        `L:(${object.pxExpr},${object.pyExpr},${object.pzExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>`
       )
     };
   }
@@ -168,7 +168,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     return {
       label: "Ray",
       type: formatPrimitiveSnippet(
-        `(${object.oxExpr},${object.oyExpr},${object.ozExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>,t>=0`
+        `R:(${object.oxExpr},${object.oyExpr},${object.ozExpr})+t<${object.dxExpr},${object.dyExpr},${object.dzExpr}>,t\u22650`
       )
     };
   }
@@ -187,7 +187,7 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     return {
       label: "Segment",
       type: formatPrimitiveSnippet(
-        `(${object.axExpr},${object.ayExpr},${object.azExpr})→(${object.bxExpr},${object.byExpr},${object.bzExpr})`
+        `S:(${object.axExpr},${object.ayExpr},${object.azExpr})→(${object.bxExpr},${object.byExpr},${object.bzExpr})`
       )
     };
   }

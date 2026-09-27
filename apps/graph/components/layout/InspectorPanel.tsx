@@ -105,7 +105,9 @@ export default function InspectorPanel({
               tabIndex={tab === id ? 0 : -1}
               onClick={() => setTab(id)}
               className={cn(
-                "h-8 min-w-[62px] shrink-0 border-b-2 border-transparent px-1.5 text-[11px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
+                // S31: five tabs share the rail evenly so Links/Adv are never
+                // clipped at narrow inspector widths.
+                "h-8 min-w-0 flex-1 border-b-2 border-transparent px-1 text-[10px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
                 tab === id
                   ? "border-[var(--accent)] text-[var(--accent-ink)]"
                   : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"

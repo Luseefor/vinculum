@@ -3,7 +3,7 @@ import { getComputeStatusForObject } from "@/lib/compute/geometryComputeStatus";
 import { analysisSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { pickAnalysisSourcePoint } from "./graphThreeAnalysisPick";
 import { pickWorldPointFromCanvasPointer } from "./graphThreeEnginePickWorld";
-import { pickGeometryPrimitiveAtPointer } from "./graphThreePrimitivePick";
+import { pickGeometryPrimitiveAtPointer, pickHitsAnyVisibleObject } from "./graphThreePrimitivePick";
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStroke";
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
@@ -164,6 +164,29 @@ export function attemptPrimitivePick(
     pickOverride
   });
   if (!id) {
+    // S31 deselect (Part DESELECT): a genuine clean miss on empty space
+    // clears object selection. Any visible hit — a mesh, a derived overlay,
+    // a marker — preserves it. Drags never reach here (moved>=6 returns
+    // earlier); probe/measure/draw tools never call this path.
+    const store = useGraphStore.getState();
+    if (store.ui.selectedObjectId === null) {
+      return;
+    }
+    if (
+      pickHitsAnyVisibleObject(event, {
+        renderer: deps.renderer,
+        camera: deps.camera,
+        raycaster: deps.raycaster,
+        ndc: deps.ndc,
+        objectsRoot: deps.objectsRoot,
+        baselinePlane: deps.baselinePlane,
+        tempGround: deps.tempGround,
+        pickOverride
+      })
+    ) {
+      return;
+    }
+    store.deselectObject();
     return;
   }
   useGraphStore.getState().selectObject(id);

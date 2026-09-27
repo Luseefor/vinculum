@@ -51,3 +51,37 @@ export function pickGeometryPrimitiveAtPointer(
   }
   return null;
 }
+
+function isEffectivelyVisible(object: Object3D): boolean {
+  let current: Object3D | null = object;
+  while (current) {
+    if (current.visible === false) {
+      return false;
+    }
+    current = current.parent;
+  }
+  return true;
+}
+
+/**
+ * S31 empty-space test (Part DESELECT): true when the pick ray hits no
+ * VISIBLE scene content at all — no proxy, no mesh, no derived overlay.
+ * Hidden objects do not block deselection (the user sees empty space).
+ * Used to deselect on genuine clean misses only; any hit (including a
+ * non-pickable derived overlay) preserves the current selection.
+ */
+export function pickHitsAnyVisibleObject(
+  event: { clientX: number; clientY: number },
+  args: PickWorldFromCanvasArgs
+): boolean {
+  if (!setPickRaycaster(event, args)) {
+    return false;
+  }
+  const hits = args.raycaster.intersectObjects(args.objectsRoot.children, true);
+  for (const hit of hits) {
+    if (isEffectivelyVisible(hit.object)) {
+      return true;
+    }
+  }
+  return false;
+}

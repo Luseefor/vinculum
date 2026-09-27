@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 import ObjectRow from "@/components/objects/ObjectRow";
@@ -50,6 +50,26 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
     });
     return map;
   }, [objects]);
+
+  // S31 row-follow policy (Part 2): a canvas selection highlights the row
+  // and scrolls it into view only when offscreen (block:nearest never
+  // yanks an already-visible list). Selection never forces expansion —
+  // expansion stays user-driven / create-driven in ObjectRow.
+  useEffect(() => {
+    if (!selectedObjectId) {
+      return;
+    }
+    const container = listRef.current;
+    const row = container?.querySelector<HTMLElement>(`[data-object-row-select="${selectedObjectId}"]`);
+    if (!container || !row || typeof row.scrollIntoView !== "function") {
+      return;
+    }
+    const rowRect = row.getBoundingClientRect();
+    const listRect = container.getBoundingClientRect();
+    if (rowRect.top < listRect.top || rowRect.bottom > listRect.bottom) {
+      row.scrollIntoView({ block: "nearest" });
+    }
+  }, [selectedObjectId]);
 
   if (objects.length === 0) {
     return (

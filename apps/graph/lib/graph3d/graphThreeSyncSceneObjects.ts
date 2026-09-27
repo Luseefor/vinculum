@@ -8,8 +8,10 @@ import {
   getGraphObjectRenderSignature,
   getGraphObjectStructureSignature,
   sceneHasVisibleSurface,
+  syncGeometrySelectionEmphasis,
   syncNonRenderableObjectNode
 } from "@/lib/graph3d/buildGraphObjects";
+import { useGraphStore } from "@/store/graphStore";
 import { getParameterSignature } from "./graphThreeEngineDom";
 import {
   isWorkerizedComputeKind,
@@ -118,6 +120,20 @@ export function syncThreeSceneObjects(
     objectStructureSignatures.delete(id);
     prunedIds.push(id);
   }
+
+  // S31 selection emphasis (Part 1): material-only brightening for the
+  // selected geometric object. Runs on every sync so rebuilt nodes pick it
+  // up; selection-only changes arrive via objectsDirty (no signature, no
+  // rebuild, no worker jobs).
+  const kindsById = new Map<string, GraphObject["kind"]>();
+  for (const object of allObjects) {
+    kindsById.set(object.id, object.kind);
+  }
+  syncGeometrySelectionEmphasis(
+    objectNodes,
+    kindsById,
+    useGraphStore.getState().ui.selectedObjectId
+  );
 
   if (computeContext) {
     // Drop compute ownership for deleted objects so late results for them

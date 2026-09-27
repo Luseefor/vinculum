@@ -14,6 +14,7 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
   | "toggleObjectVisibility"
   | "setObjectVisibility"
   | "selectObject"
+  | "deselectObject"
   | "removeObject"
   | "requestEquationFocus"
   | "clearEquationFocus"
@@ -67,6 +68,23 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
             ...state.ui,
             selectedObjectId: id,
             differentialAnalysisPickArmedId: disarm ? null : armedId
+          }
+        };
+      });
+    },
+
+    // S31 empty-canvas deselect (Part DESELECT): clears object selection on
+    // a genuine clean miss. Never disarms an armed analysis pick (S21 misses
+    // stay armed), never touches measurements, scene, or history.
+    deselectObject: () => {
+      set((state) => {
+        if (state.ui.selectedObjectId === null) {
+          return state;
+        }
+        return {
+          ui: {
+            ...state.ui,
+            selectedObjectId: null
           }
         };
       });

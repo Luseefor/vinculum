@@ -52,7 +52,7 @@ function FactRow({ label, value, testId }: { label: string; value: string; testI
   );
 }
 
-function FactsBlock({ facts }: { facts: GeometryAnalysisFacts }) {
+function FactsBlock({ facts, primaryKind }: { facts: GeometryAnalysisFacts; primaryKind: GraphObject["kind"] }) {
   switch (facts.pair) {
     case "point-point":
       return <FactRow label="Distance" value={formatDistance(facts.distance)} testId="geometry-fact-distance" />;
@@ -93,7 +93,7 @@ function FactsBlock({ facts }: { facts: GeometryAnalysisFacts }) {
     case "linear-linear":
       return <LinearLinearFacts facts={facts} />;
     case "linear-plane":
-      return <LinearPlaneFacts facts={facts} />;
+      return <LinearPlaneFacts facts={facts} primaryKind={primaryKind} />;
     case "plane-plane":
       return <PlanePlaneFacts facts={facts} />;
     case "unresolved":
@@ -168,8 +168,20 @@ function LinearLinearFacts({
   );
 }
 
-function LinearPlaneFacts({ facts }: { facts: Extract<GeometryAnalysisFacts, { pair: "linear-plane" }> }) {
+function LinearPlaneFacts({
+  facts,
+  primaryKind
+}: {
+  facts: Extract<GeometryAnalysisFacts, { pair: "linear-plane" }>;
+  primaryKind: GraphObject["kind"];
+}) {
   const intersection = facts.intersection;
+  const outsideDomainMessage =
+    primaryKind === "ray"
+      ? "Intersection lies behind the ray origin."
+      : primaryKind === "segment"
+        ? "No intersection on this segment."
+        : "Outside ray/segment domain.";
   return (
     <>
       <FactRow
@@ -181,7 +193,7 @@ function LinearPlaneFacts({ facts }: { facts: Extract<GeometryAnalysisFacts, { p
               ? "Contained in plane."
               : intersection.kind === "parallel"
                 ? "Parallel, disjoint."
-                : "Outside ray/segment domain."
+                : outsideDomainMessage
         }
         testId="geometry-fact-relation"
       />
@@ -217,24 +229,35 @@ function PlanePlaneFacts({ facts }: { facts: Extract<GeometryAnalysisFacts, { pa
 
 /** Whether this pair kind offers a construction overlay toggle. */
 export function geometryPairHasOverlay(facts: GeometryAnalysisFacts): boolean {
+  return geometryOverlayToggleLabel(facts) !== null;
+}
+
+/**
+ * S31 contextual overlay action label (Part 12): one visual treatment, but
+ * the verb names the actual construction — projection, closest connection,
+ * intersection, or overlap — instead of a generic "construction".
+ */
+export function geometryOverlayToggleLabel(facts: GeometryAnalysisFacts): string | null {
   switch (facts.pair) {
     case "point-linear":
     case "point-plane":
-      return true;
+      return "Show projection";
     case "linear-linear":
-      return (
-        facts.relation.kind === "intersect" ||
-        facts.relation.kind === "overlap" ||
-        facts.relation.kind === "parallel-disjoint" ||
-        facts.relation.kind === "skew" ||
-        facts.relation.kind === "disjoint"
-      );
+      return facts.relation.kind === "intersect"
+        ? "Show intersection"
+        : facts.relation.kind === "overlap"
+          ? "Show overlap"
+          : facts.relation.kind === "parallel-disjoint" ||
+              facts.relation.kind === "skew" ||
+              facts.relation.kind === "disjoint"
+            ? "Show closest connection"
+            : null;
     case "linear-plane":
-      return facts.intersection.kind === "point";
+      return facts.intersection.kind === "point" ? "Show intersection" : null;
     case "plane-plane":
-      return facts.intersection.kind === "line";
+      return facts.intersection.kind === "line" ? "Show intersection line" : null;
     default:
-      return false;
+      return null;
   }
 }
 
@@ -257,6 +280,11 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
   // A stored secondary may have been deleted or converted since: fall
   // back to "select another object" instead of resolving a ghost.
   const secondary = config ? objects.find((candidate) => candidate.id === config.secondaryId) ?? null : null;
+
+  const primaryMeta = getObjectRowDisplayMeta(object);
+  const primaryIndex = objects.findIndex((candidate) => candidate.id === object.id);
+  const secondaryMeta = secondary ? getObjectRowDisplayMeta(secondary) : null;
+  const secondaryIndex = secondary ? objects.findIndex((candidate) => candidate.id === secondary.id) : -1;
 
   const facts = useMemo<GeometryAnalysisFacts | null>(() => {
     if (!config || !secondary) {
@@ -283,6 +311,11 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
         </p>
       </header>
       <div className="flex flex-col gap-2">
+        <p className="px-0.5 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+          From {primaryMeta.label} #{primaryIndex + 1}
+          {" · "}
+          With {secondary && secondaryMeta ? `${secondaryMeta.label} #${secondaryIndex + 1}` : "—"}
+        </p>
         <label className="block">
           <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Second object
@@ -306,7 +339,7 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
               const candidateIndex = objects.findIndex((o) => o.id === candidate.id);
               return (
                 <option key={candidate.id} value={candidate.id}>
-                  {meta.label} #{candidateIndex + 1} ({candidate.kind})
+                  {meta.label} #{candidateIndex + 1} — {meta.type}
                 </option>
               );
             })}
@@ -319,17 +352,20 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
         ) : (
           facts && (
             <div className="flex flex-col gap-1">
-              <FactsBlock facts={facts} />
-              {geometryPairHasOverlay(facts) && (
-                <div className="mt-1 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
-                  <span className="text-[12px] text-[var(--text-secondary)]">Show construction</span>
-                  <Switch
-                    checked={config.showOverlay}
-                    onCheckedChange={(checked) => setGeometryAnalysis(object.id, { showOverlay: checked })}
-                    ariaLabel={config.showOverlay ? "Hide construction overlay" : "Show construction overlay"}
-                  />
-                </div>
-              )}
+              <FactsBlock facts={facts} primaryKind={object.kind} />
+              {(() => {
+                const overlayLabel = geometryOverlayToggleLabel(facts);
+                return overlayLabel ? (
+                  <div className="mt-1 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
+                    <span className="text-[12px] text-[var(--text-secondary)]">{overlayLabel}</span>
+                    <Switch
+                      checked={config.showOverlay}
+                      onCheckedChange={(checked) => setGeometryAnalysis(object.id, { showOverlay: checked })}
+                      ariaLabel={config.showOverlay ? overlayLabel.replace("Show", "Hide") : overlayLabel}
+                    />
+                  </div>
+                ) : null;
+              })()}
             </div>
           )
         )}

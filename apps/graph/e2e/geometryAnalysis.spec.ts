@@ -144,7 +144,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-point")).toContainText("3");
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show projection" }).click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
 
@@ -255,7 +255,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-point")).toContainText("1");
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show intersection" }).click();
     await settleScene(page);
 
     expect(pageErrors).toEqual([]);
@@ -286,7 +286,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-distance")).toHaveText("1");
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show closest connection" }).click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
 
@@ -377,7 +377,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-point")).toBeVisible();
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show intersection" }).click();
     await settleScene(page);
 
     expect(pageErrors).toEqual([]);
@@ -408,14 +408,14 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
     await openAnalyze(page);
-    await expect(page.getByTestId("geometry-fact-relation")).toHaveText("Outside ray/segment domain.", {
+    await expect(page.getByTestId("geometry-fact-relation")).toHaveText("Intersection lies behind the ray origin.", {
       timeout: 10000
     });
     await page.getByRole("button", { name: /Segment #2/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
     await openAnalyze(page);
-    await expect(page.getByTestId("geometry-fact-relation")).toHaveText("Outside ray/segment domain.", {
+    await expect(page.getByTestId("geometry-fact-relation")).toHaveText("No intersection on this segment.", {
       timeout: 10000
     });
 
@@ -456,7 +456,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-relation")).toHaveText("Intersecting.", { timeout: 10000 });
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show intersection line" }).click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
 
@@ -590,7 +590,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-distance")).toHaveText("4", { timeout: 10000 });
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show projection" }).click();
     await page.getByLabel("Geometry layout").selectOption("quad");
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -623,7 +623,7 @@ test.describe("S27 geometry relations", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-distance")).toHaveText("4", { timeout: 10000 });
     await openAnalyze(page);
-    await page.getByRole("switch", { name: "Show construction overlay" }).click();
+    await page.getByRole("switch", { name: "Show projection" }).click();
     await page.getByRole("button", { name: "Hide object" }).first().click();
     await settleScene(page);
     await openAnalyze(page);
@@ -662,14 +662,24 @@ test.describe("S27 geometry relations", () => {
     await page.getByRole("button", { name: "Point", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.locator("#graph-inspector").getByLabel("Point x").fill("2*pi");
+    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await page.getByRole("button", { name: /Point #1/ }).click();
+    await openAnalyze(page);
+    await selectSecondObject(page, "Infinite Line #2");
+    await openAnalyze(page);
+    await expect(page.getByTestId("geometry-fact-distance")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
     await page.locator("#project-name-input").fill("s27-points");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
-    await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await expect(page.getByRole("button", { name: /Point #1/ })).toBeVisible();
+    // Transient analysis does not persist: the chooser resets live.
+    await page.getByRole("button", { name: /Point #1/ }).click();
+    await openAnalyze(page);
+    await expect(page.getByText("Select another object.")).toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);

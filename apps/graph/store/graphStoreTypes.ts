@@ -130,6 +130,7 @@ export interface GraphStoreState {
   toggleObjectVisibility: (id: string) => void;
   setObjectVisibility: (id: string, visible: boolean) => void;
   selectObject: (id: string) => void;
+  deselectObject: () => void;
   removeObject: (id: string) => void;
   requestEquationFocus: (id: string) => void;
   clearEquationFocus: () => void;

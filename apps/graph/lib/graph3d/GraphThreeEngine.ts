@@ -486,9 +486,16 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   };
 
   let prevSceneRef = useGraphStore.getState().scene;
+  let prevSelectedId = useGraphStore.getState().ui.selectedObjectId;
   const unsub = useGraphStore.subscribe((state) => {
     if (state.scene !== prevSceneRef) {
       prevSceneRef = state.scene;
+      tickRuntime.objectsDirty = true;
+    }
+    // S31 selection emphasis is material-only (no signature, no rebuild):
+    // a selection-only change still needs one sync pass to apply it.
+    if (state.ui.selectedObjectId !== prevSelectedId) {
+      prevSelectedId = state.ui.selectedObjectId;
       tickRuntime.objectsDirty = true;
     }
   });

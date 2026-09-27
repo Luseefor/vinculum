@@ -4,11 +4,11 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import LinearTransformInspector from "./LinearTransformInspector";
-import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitSurfaceObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_VECTOR_FIELD_2D_DENSITY,
   MAX_VECTOR_FIELD_3D_DENSITY,
@@ -66,7 +66,7 @@ export default function ObjectInspector() {
   if (selectedObject.kind === "plane") {
     return (
       <section id="graph-inspector">
-        <PlaneInspector />
+        <PlaneInspector object={selectedObject} />
       </section>
     );
   }
@@ -466,16 +466,58 @@ function ImplicitSurfaceDefinition({ object }: { object: ImplicitSurfaceObject }
   );
 }
 
-function PlaneInspector() {
+function PlaneInspector({ object }: { object: PlaneGraphObject }) {
+  const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
+  const [draft, setDraft] = useState(object.equation);
+  const [focused, setFocused] = useState(false);
+  // Adopt external edits (undo, row edits) when not focused; typing never
+  // clobbers (S30 draft discipline).
+  useEffect(() => {
+    if (!focused) {
+      setDraft(object.equation);
+    }
+  }, [object.equation, focused]);
+  const commit = (value: string) => {
+    if (value !== object.equation) {
+      updatePlaneEquation(object.id, value);
+    }
+  };
   return (
     <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
       <header className="pb-3">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          Edit the plane equation in the list. 2D view shows the intersection with the axis plane you chose in the
+          2D view shows the intersection with the axis plane you chose in the
           toolbar. Color and wireframe live under the Styles tab.
         </p>
       </header>
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          Equation
+        </span>
+        <Input
+          value={focused ? draft : object.equation}
+          aria-label="Plane equation"
+          onChange={(event) => {
+            setDraft(event.target.value);
+            updatePlaneEquation(object.id, event.target.value);
+          }}
+          onFocus={() => {
+            setDraft(object.equation);
+            setFocused(true);
+          }}
+          onBlur={() => {
+            setFocused(false);
+            commit(draft);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+          className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+        />
+      </label>
     </section>
   );
 }

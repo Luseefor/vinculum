@@ -27,7 +27,7 @@ describe("GeometryAnalysisSection (S27 PART 22/56)", () => {
     });
     expect(screen.getByTestId("geometry-fact-point")).toHaveTextContent("3");
     expect(screen.getByTestId("geometry-fact-distance")).toHaveTextContent("4");
-    expect(screen.getByLabelText("Show construction overlay")).toBeInTheDocument();
+    expect(screen.getByLabelText("Show projection")).toBeInTheDocument();
   });
 
   it("filters incompatible secondaries and reports unresolved sources", () => {

@@ -208,9 +208,11 @@ export default function EditorShell() {
       if (!target) {
         return;
       }
-      const isCanvasTarget =
-        Boolean(target.closest('canvas[data-graph2d-canvas="true"]')) ||
-        Boolean(target.closest('canvas[data-graph3d-canvas="true"]'));
+      // S31: DOM-level deselect covers the 2D canvas only. The 3D engine
+      // deselects on genuine clean misses (never on orbit/pan drags) via
+      // attemptPrimitivePick; clearing here on pointerdown would wrongly
+      // deselect when a drag starts.
+      const isCanvasTarget = Boolean(target.closest('canvas[data-graph2d-canvas="true"]'));
       if (!isCanvasTarget) {
         return;
       }
