@@ -48,7 +48,8 @@ import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDerivedUpdates";
 import { captureEvent } from "@/lib/analytics/posthog";
-
+import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
+import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
@@ -254,6 +255,11 @@ export default function EditorShell() {
   }, []);
 
   const runUndo = useCallback(() => {
+    // S33 PART 78: global undo is not processed until a drag transaction
+    // ends (the snapshot must not mutate under an active drag).
+    if (isDragTransactionActive()) {
+      return;
+    }
     const current = getCurrentSceneSnapshot();
     const previous = undoHistory(current);
     if (!previous) return;
@@ -263,6 +269,10 @@ export default function EditorShell() {
   }, [addConsoleEvent, applySceneSnapshot, undoHistory]);
 
   const runRedo = useCallback(() => {
+    // S33 PART 78: symmetric with undo during an active drag.
+    if (isDragTransactionActive()) {
+      return;
+    }
     const current = getCurrentSceneSnapshot();
     const next = redoHistory(current);
     if (!next) return;
@@ -280,8 +290,18 @@ export default function EditorShell() {
       return;
     }
 
-    if (historyActionRef.current) {
+    // S33-R8: consume the cancel-restore flag unconditionally first — a
+    // short-circuit would leave it armed to skip the next legitimate edit.
+    const historyActionConsumed = consumeHistoryActionFlag();
+    if (historyActionRef.current || historyActionConsumed) {
       historyActionRef.current = false;
+      lastSceneSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    // S33 PART 24: pointermove commits during a drag transaction never push
+    // history (commit pushes the single pre-drag snapshot on release).
+    if (isDragTransactionActive()) {
       lastSceneSnapshotRef.current = currentSnapshot;
       return;
     }
@@ -338,7 +358,12 @@ export default function EditorShell() {
         return;
       }
       if (event.key === "Escape") {
-        // Functional updates return identical state when nothing is open so
+        // S33 PART 47: an active drag cancels first — the engine restores
+        // pre-drag values. Shell skips its own Escape handling so one
+        // keypress never double-processes (no menu/pick side effects).
+        if (isDragTransactionActive()) {
+          return;
+        }        // Functional updates return identical state when nothing is open so
         // idle keypresses never force a shell re-render (which would churn
         // downstream effect subscriptions such as drawer Escape handlers).
         setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
@@ -360,10 +385,25 @@ export default function EditorShell() {
         return;
       }
       if (event.key === "Delete" || event.key === "Backspace") {
+        // S33 PART 77/78: no destructive or history edits mid-drag.
+        if (isDragTransactionActive()) {
+          return;
+        }
         const selectedId = useGraphStore.getState().ui.selectedObjectId;
         if (selectedId) {
           event.preventDefault();
           removeObject(selectedId);
+        }
+        return;
+      }
+      // S33 PART 11/71: F frames the selection (Fit Scene when nothing is
+      // selected). Window-level with typing/modifier guards — equivalent to
+      // canvas focus without adding tab stops; equation inputs keep F.
+      if (event.key === "f" || event.key === "F") {
+        if (!isDragTransactionActive()) {
+          requestCanvasFrame(
+            useGraphStore.getState().ui.selectedObjectId ? "selected" : "scene"
+          );
         }
         return;
       }
@@ -794,6 +834,20 @@ export default function EditorShell() {
     if (commandId === "geometry-layout-quad") { setGeometryLayout("quad"); return; }
     if (commandId === "switch-workspace-geometry") { setWorkspace("geometry"); return; }
     if (commandId === "switch-workspace-math") { setWorkspace("math"); return; }
+    // S33 PART 10/42: camera-only framing (never math/scene/analysis).
+    // Distinct from Reset View (restores default cameras).
+    if (commandId === "frame-selected") {
+      if (!isDragTransactionActive()) {
+        requestCanvasFrame("selected");
+      }
+      return;
+    }
+    if (commandId === "fit-scene") {
+      if (!isDragTransactionActive()) {
+        requestCanvasFrame("scene");
+      }
+      return;
+    }
     {
       // S30: creation funnels through the central descriptors path so
       // palette/context creation cannot drift from Quick Add / Add Object.
@@ -921,6 +975,11 @@ export default function EditorShell() {
       }
     }
     if (commandId === "delete-selected") {
+      // S33 PART 77: deleting mid-drag is cancelled safely by the engine;
+      // the command path refuses to start one (no crash, no orphan handle).
+      if (isDragTransactionActive()) {
+        return;
+      }
       const selectedId = useGraphStore.getState().ui.selectedObjectId;
       if (selectedId) {
         removeObject(selectedId);

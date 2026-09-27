@@ -52,6 +52,11 @@ function buildItems({
     { id: "redo", label: "Redo", disabled: !canRedo },
     { id: "toggle-snap", label: `Snap: ${snapEnabled ? "On" : "Off"}` },
     { id: "reset-view", label: "Reset View" },
+    // S33 PART 10/12: camera-only framing next to Reset View (kept
+    // distinct: Frame fits the selection, Fit fits visible content,
+    // Reset restores default cameras).
+    { id: "frame-selected", label: "Frame Selected", disabled: !hasSelection },
+    { id: "fit-scene", label: "Fit Scene" },
     { id: "delete-selected", label: hasSelection ? "Delete Selected" : "Delete Selected (None)", disabled: !hasSelection }
   ];
 }

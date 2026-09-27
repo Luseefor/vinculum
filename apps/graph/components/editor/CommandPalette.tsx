@@ -47,6 +47,8 @@ const COMMANDS: PaletteCommand[] = [
   { id: "geometry-layout-quad", label: "Geometry Layout: Quad", category: "View", aliases: ["geometry", "layout", "quad"] },
   { id: "toggle-snap", label: "Toggle Snap", category: "Scene", aliases: ["snap", "grid"] },
   { id: "reset-view", label: "Reset View", category: "Scene", aliases: ["reset", "camera", "view"] },
+  { id: "frame-selected", label: "Frame Selected", category: "View", aliases: ["frame", "focus", "camera", "selection", "zoom"] },
+  { id: "fit-scene", label: "Fit Scene", category: "View", aliases: ["fit", "frame", "camera", "overview", "zoom"] },
   { id: "undo", label: "Undo", category: "Scene", aliases: ["undo", "history"] },
   { id: "redo", label: "Redo", category: "Scene", aliases: ["redo", "history"] },
   { id: "export-scene-json", label: "Export Scene JSON", category: "Scene", aliases: ["export", "json", "save", "download"] },

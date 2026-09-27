@@ -273,7 +273,18 @@ export function multiViewWheel(
   if (!Number.isFinite(deltaUnits) || deltaUnits === 0) {
     return false;
   }
-  state.ortho.zoomByFactor(view, Math.exp(deltaUnits * WHEEL_ZOOM_SENSITIVITY));
+  // S33 PART 38: cursor-anchored ortho zoom (Math 2D consistency). The pane
+  // rect for the routed view scopes NDC; center zoom is the safe fallback.
+  const rects = paneRectsForContainer(state, containerRect.width, containerRect.height);
+  const paneIndex = state.panes.indexOf(view);
+  const rect = rects[paneIndex];
+  if (rect && rect.width > 0 && rect.height > 0) {
+    const ndcX = ((point.x - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((point.y - rect.top) / rect.height) * 2 + 1;
+    state.ortho.zoomTowardScreen(view, ndcX, ndcY, rect, Math.exp(deltaUnits * WHEEL_ZOOM_SENSITIVITY));
+  } else {
+    state.ortho.zoomByFactor(view, Math.exp(deltaUnits * WHEEL_ZOOM_SENSITIVITY));
+  }
   return true;
 }
 

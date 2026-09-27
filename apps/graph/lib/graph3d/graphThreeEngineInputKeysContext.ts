@@ -1,5 +1,6 @@
 import { useGraphStore } from "@/store/graphStore";
 import { isTypingTarget } from "./graphThreeEngineDom";
+import { isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 
 export function createGraphThreeKeyboardAndContextHandlers(
@@ -16,12 +17,20 @@ export function createGraphThreeKeyboardAndContextHandlers(
     }
     if (event.key === "Alt") {
       tickRuntime.isAltDown = true;
-    } else if (event.key === "1") {
-      useGraphStore.getState().setCanvas3dTool("pan");
-    } else if (event.key === "2") {
-      useGraphStore.getState().setCanvas3dTool("probe");
-    } else if (event.key === "3") {
-      useGraphStore.getState().setCanvas3dTool("draw");
+    } else if (event.key === "1" || event.key === "2" || event.key === "3") {
+      // S33-R10: tool hotkeys are ignored mid-drag (the next-frame tick
+      // cancels the drag with restore; switching first could land one
+      // stray write before the cancel).
+      if (isDragTransactionActive()) {
+        return;
+      }
+      if (event.key === "1") {
+        useGraphStore.getState().setCanvas3dTool("pan");
+      } else if (event.key === "2") {
+        useGraphStore.getState().setCanvas3dTool("probe");
+      } else {
+        useGraphStore.getState().setCanvas3dTool("draw");
+      }
     } else if (event.key === "Escape") {
       useGraphStore.getState().clearProbes();
       clearSketch();

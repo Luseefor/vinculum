@@ -81,8 +81,7 @@ export class GeometryOrthoController {
   }
 
   /** Grab-pan: content follows the pointer. Positive dx moves content right. */
-  panByPixels(view: OrthoView, dxPixels: number, dyPixels: number, rect: PaneRect): void {
-    const camera = this.getCamera(view);
+  panByPixels(view: OrthoView, dxPixels: number, dyPixels: number, rect: PaneRect): void {    const camera = this.getCamera(view);
     const state = this.getState(view);
     camera.updateMatrixWorld();
     const worldPerPixel = state.span / Math.max(1, Math.min(rect.width, rect.height));
@@ -92,6 +91,30 @@ export class GeometryOrthoController {
     state.center.addScaledVector(up, dyPixels * worldPerPixel);
   }
 
+  /**
+   * S33 object-follow delta: world-space motion for a pointer that moved
+   * (dxPixels, dyPixels) so dragged content tracks the pointer (the inverse
+   * of grab-pan). Read-only: caller applies it to resolved coordinates.
+   */
+  dragWorldDelta(
+    view: OrthoView,
+    dxPixels: number,
+    dyPixels: number,
+    rect: PaneRect
+  ): { x: number; y: number; z: number } {
+    const camera = this.getCamera(view);
+    const state = this.getState(view);
+    camera.updateMatrixWorld();
+    const worldPerPixel = state.span / Math.max(1, Math.min(rect.width, rect.height));
+    const right = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const up = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    return {
+      x: (right.x * dxPixels - up.x * dyPixels) * worldPerPixel,
+      y: (right.y * dxPixels - up.y * dyPixels) * worldPerPixel,
+      z: (right.z * dxPixels - up.z * dyPixels) * worldPerPixel
+    };
+  }
+
   /** Center zoom; factor > 1 zooms out. Clamped to scene-safe extents. */
   zoomByFactor(view: OrthoView, factor: number): void {
     if (!Number.isFinite(factor) || factor <= 0) {
@@ -99,6 +122,49 @@ export class GeometryOrthoController {
     }
     const state = this.getState(view);
     state.span = Math.min(MAX_ORTHO_SPAN, Math.max(MIN_ORTHO_SPAN, state.span * factor));
+  }
+
+  /**
+   * S33 cursor-anchored zoom (Math 2D consistency, PART 38): the world
+   * point under the cursor stays under the cursor. Pure camera math —
+   * engine state, span clamps, and orientation tables untouched.
+   */
+  zoomTowardScreen(
+    view: OrthoView,
+    ndcX: number,
+    ndcY: number,
+    rect: PaneRect,
+    factor: number
+  ): void {
+    if (!Number.isFinite(factor) || factor <= 0 || !Number.isFinite(ndcX) || !Number.isFinite(ndcY)) {
+      return;
+    }
+    const camera = this.getCamera(view);
+    const state = this.getState(view);
+    this.updateFrustum(view, rect);
+    camera.updateMatrixWorld();
+    const right = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const up = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const minSide = Math.max(1, Math.min(rect.width, rect.height));
+    const worldPerPixel = state.span / minSide;
+    // World offset of the cursor from the pane center, in camera axes.
+    const offsetX = (ndcX * Math.max(1, rect.width)) / 2;
+    const offsetY = (ndcY * Math.max(1, rect.height)) / 2;
+    const beforeX = state.center.x + (right.x * offsetX + up.x * offsetY) * worldPerPixel;
+    const beforeY = state.center.y + (right.y * offsetX + up.y * offsetY) * worldPerPixel;
+    const beforeZ = state.center.z + (right.z * offsetX + up.z * offsetY) * worldPerPixel;
+    this.zoomByFactor(view, factor);
+    this.updateFrustum(view, rect);
+    camera.updateMatrixWorld();
+    const newRight = new Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const newUp = new Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const newWorldPerPixel = state.span / minSide;
+    const afterX = state.center.x + (newRight.x * offsetX + newUp.x * offsetY) * newWorldPerPixel;
+    const afterY = state.center.y + (newRight.y * offsetX + newUp.y * offsetY) * newWorldPerPixel;
+    const afterZ = state.center.z + (newRight.z * offsetX + newUp.z * offsetY) * newWorldPerPixel;
+    state.center.x += beforeX - afterX;
+    state.center.y += beforeY - afterY;
+    state.center.z += beforeZ - afterZ;
   }
 
   resetView(view: OrthoView): void {

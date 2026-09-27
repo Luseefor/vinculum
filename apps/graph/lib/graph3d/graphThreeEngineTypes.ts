@@ -11,6 +11,14 @@ export interface GraphThreeEngine {
   setActiveGeometryView: (view: GeometryView) => void;
   resetActiveGeometryPane: () => void;
   /**
+   * S33 camera-only framing (never math/scene/analysis): fit the selected
+   * object into the active pane (perspective keeps direction; ortho fits
+   * without rotating). False when nothing frameable is selected.
+   */
+  frameSelectedObject: () => boolean;
+  /** S33 camera-only fit of visible content in the active pane. */
+  fitSceneToView: () => boolean;
+  /**
    * Suspend/resume the frame loop (workspace switching). Suspension keeps
    * the scene, cameras, and sync state intact; resume reattaches listeners
    * and restarts the loop. Disposal remains separate.

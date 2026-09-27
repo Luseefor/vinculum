@@ -40,7 +40,7 @@ function collectErrors(page: Page) {
 
 async function setEquation(page: Page, index: number, equation: string) {
   // Creation-focus expansion settles asynchronously across commits; wait for
-  // the expected row input instead of racing it (S32-R1: pre-existing focus
+  // the expected row input instead of racing it (S33-R1: pre-existing focus
   // timing race, exposed under dev-server load — same delay on base).
   await expect
     .poll(async () => page.locator(SURFACE_INPUT).count(), { timeout: 10000 })

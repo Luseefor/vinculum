@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createGraphThreeEngine } from "@/lib/graph3d/GraphThreeEngine";
+import { subscribeCanvasFrameRequests } from "@/lib/interaction/canvasFrameRequests";
 import { useGraphStore } from "@/store/graphStore";
 import { format3dBasePlaneLabel } from "@/components/viewport/viewportLabelFormat";
 import { cn } from "@/components/ui/styles";
@@ -38,7 +39,17 @@ export default function GraphCanvas({ suspended = false }: { suspended?: boolean
 
     const engine = createGraphThreeEngine(element);
     engineRef.current = engine;
+    // S33 Frame Selected / Fit Scene in the legacy perspective view
+    // (Math Lab 3D); orthographic drag handles live in Geometry panes.
+    const unsubscribeFrame = subscribeCanvasFrameRequests((kind) => {
+      if (kind === "selected") {
+        engine.frameSelectedObject();
+      } else {
+        engine.fitSceneToView();
+      }
+    });
     return () => {
+      unsubscribeFrame();
       engine.dispose();
       engineRef.current = null;
     };

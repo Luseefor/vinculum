@@ -66,3 +66,33 @@ describe("ObjectRow workspace behavior", () => {
     expect(screen.getByRole("button", { name: "Hide object" })).toBeVisible();
   });
 });
+
+describe("ObjectRow drag-transaction safety (S33-R7)", () => {
+  beforeEach(() => {
+    useGraphStore.getState().resetScene();
+  });
+
+  it("refuses row-menu deletion while a drag transaction is active", async () => {
+    const { beginDragTransaction, resetDragTransactionForTests } = await import(
+      "@/lib/interaction/dragHistoryTransaction"
+    );
+    const object = addSurface("z = x^2 + y^2");
+    render(
+      <ObjectRow object={object} index={0} selected={true} onSelect={vi.fn()} onToggleVisibility={vi.fn()} />
+    );
+    expect(beginDragTransaction(object.id)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Object actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    // Guarded like the Delete key and palette paths: the object survives,
+    // so no undo entry is silently lost mid-drag.
+    expect(
+      useGraphStore.getState().scene.objects.find((candidate) => candidate.id === object.id)
+    ).toBeDefined();
+    resetDragTransactionForTests();
+    fireEvent.click(screen.getByRole("button", { name: "Object actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Remove" }));
+    expect(
+      useGraphStore.getState().scene.objects.find((candidate) => candidate.id === object.id)
+    ).toBeUndefined();
+  });
+});

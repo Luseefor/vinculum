@@ -22,6 +22,7 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   measurementLabels: CSS2DObject[];
   analysisOverlayRoot: Group;
   analysisOverlayCache: Map<string, { key: string; group: Group }>;
+  interactionRoot: Group;
   hoverMarker: Mesh;
   gridMesh: Mesh;
   gridMaterial: ShaderMaterial;
@@ -58,6 +59,7 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     measurementLabels,
     analysisOverlayRoot,
     analysisOverlayCache,
+    interactionRoot,
     hoverMarker,
     gridMesh,
     gridMaterial,
@@ -131,6 +133,11 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
   }
   analysisOverlayCache.clear();
   scene.remove(analysisOverlayRoot);
+
+  // S33: interaction-handle overlay (materials already disposed by the
+  // interaction module; the empty namespaced group detaches here so no
+  // transient renderer resource outlives the engine).
+  scene.remove(interactionRoot);
 
   hoverMarker.geometry.dispose();
   (hoverMarker.material as MeshBasicMaterial).dispose();

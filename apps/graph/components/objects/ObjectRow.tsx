@@ -19,6 +19,7 @@ import GeometryCoordinateFields from "./GeometryCoordinateFields";
 import MatrixEntryEditor from "./MatrixEntryEditor";
 import { getObjectRowDisplayMeta, isExpressionRowEmpty } from "./objectRowUtils";
 import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";
+import { isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 
 interface ObjectRowProps {
   object: GraphObject;
@@ -204,6 +205,13 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   };
 
   const handleRemove = () => {
+    // S33-R7: row-menu deletion mid-drag would lose its undo entry (the
+    // shell suppresses all pushes while a transaction is active) — refuse
+    // it like the Delete key and palette paths.
+    if (isDragTransactionActive()) {
+      closeMenu();
+      return;
+    }
     removeObject(object.id);
     closeMenu();
   };

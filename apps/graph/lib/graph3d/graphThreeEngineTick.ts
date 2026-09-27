@@ -83,6 +83,8 @@ export type GraphThreeEngineTickDeps = {
   container: HTMLElement;
   multiView: GeometryMultiViewState;
   isSuspended: () => boolean;
+  /** S33 canvas interaction pass (hover/handles/cursor), before render. */
+  onFrameEnd?: () => void;
 };
 
 export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () => void {
@@ -118,7 +120,8 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     requestNextFrame,
     container,
     multiView,
-    isSuspended
+    isSuspended,
+    onFrameEnd
   } = deps;
 
   const formatProbe = (p: { x: number; y: number; z: number }) =>
@@ -365,6 +368,10 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
     }
+
+    // S33 canvas interaction pass (hover pick, emphasis, handles, cursor)
+    // runs before the frame is scheduled so state stays frame-coherent.
+    onFrameEnd?.();
 
     requestNextFrame(tick);
   };

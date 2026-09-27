@@ -58,6 +58,9 @@ export function applyObjectColorToNode(node: Object3D, colorHex: string): void {
 // stashes each material's base color in userData, deselect restores it
 // exactly. No scene mutation, no signature impact, no worker jobs.
 const SELECTION_BRIGHTEN_AMOUNT = 0.45;
+// S33 hover emphasis: same stash mechanism, visibly weaker than selection
+// (PART 3). Selection always wins: hover never applies to the selected id.
+const HOVER_BRIGHTEN_AMOUNT = 0.18;
 const BASE_COLOR_KEY = "vinculumBaseColorHex";
 
 function eachColor(material: unknown, visit: (color: Color) => void): void {
@@ -119,6 +122,44 @@ export const SELECTION_EMPHASIS_KINDS: ReadonlySet<GraphObjectKind> = new Set([
   "segment",
   "plane"
 ]);
+
+/**
+ * S33 hover emphasis: material-only brightening weaker than selection.
+ * Shares the S31 base-color stash (no extra allocation); `hovered=false`
+ * restores the exact base color. Selection state is applied separately —
+ * callers must skip the selected id so selection always wins.
+ */
+export function applyHoverEmphasisToNode(node: Object3D, hovered: boolean): void {
+  const white = new Color("#ffffff");
+  node.traverse((child) => {
+    if (!(child instanceof Mesh || child instanceof Line || child instanceof LineSegments)) {
+      return;
+    }
+    const material = child.material as Material | Material[];
+    const entries = Array.isArray(material) ? material : [material];
+    for (const entry of entries) {
+      const record = entry as Material & { userData: Record<string, unknown> };
+      const userData = record.userData ?? {};
+      record.userData = userData;
+      if (typeof userData[BASE_COLOR_KEY] !== "string") {
+        let base: string | null = null;
+        eachColor(entry, (color) => {
+          if (base === null) {
+            base = `#${color.getHexString()}`;
+          }
+        });
+        userData[BASE_COLOR_KEY] = base ?? "#ffffff";
+      }
+      const baseHex = userData[BASE_COLOR_KEY] as string;
+      eachColor(entry, (color) => {
+        color.set(baseHex);
+        if (hovered) {
+          color.lerp(white, HOVER_BRIGHTEN_AMOUNT);
+        }
+      });
+    }
+  });
+}
 
 export function syncGeometrySelectionEmphasis(
   objectNodes: ReadonlyMap<string, Object3D>,

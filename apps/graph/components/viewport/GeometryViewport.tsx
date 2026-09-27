@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { createGraphThreeEngine } from "@/lib/graph3d/GraphThreeEngine";
 import type { GraphThreeEngine } from "@/lib/graph3d/graphThreeEngineTypes";
+import { subscribeCanvasFrameRequests } from "@/lib/interaction/canvasFrameRequests";
 import { GEOMETRY_VIEW_LABELS, computePaneRects, resolveGeometryPanes } from "@/lib/graph3d/graphThreeGeometryViews";
 import { routePointerToPaneIndex } from "@/lib/graph3d/graphThreeGeometryViews";
 import type { GeometryView } from "@/lib/types/ui";
@@ -58,7 +59,16 @@ export default function GeometryViewport({
     }
     const engine = createGraphThreeEngine(element);
     engineRef.current = engine;
+    // S33 Frame Selected / Fit Scene (camera-only): the active pane frames.
+    const unsubscribeFrame = subscribeCanvasFrameRequests((kind) => {
+      if (kind === "selected") {
+        engine.frameSelectedObject();
+      } else {
+        engine.fitSceneToView();
+      }
+    });
     return () => {
+      unsubscribeFrame();
       engine.dispose();
       engineRef.current = null;
     };

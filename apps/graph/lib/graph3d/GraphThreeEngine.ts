@@ -54,6 +54,7 @@ import { createGraphThreeEngineInputHandlers } from "./graphThreeEngineInputHand
 import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
+import { createCanvasInteraction } from "./graphThreeCanvasInteraction";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
 import { applyGeometryComputeResult } from "@/lib/compute/geometryComputeSync";
 import {
@@ -322,6 +323,10 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const analysisOverlayRoot = new Group();
   scene.add(analysisOverlayRoot);
   const analysisOverlayCache = new Map<string, { key: string; group: Group }>();
+  // S33: explicit interaction-handle namespace (PART 63) — separate from
+  // analysis overlays so neither cleanup can sweep the other.
+  const interactionRoot = new Group();
+  scene.add(interactionRoot);
 
   const hoverMarker = new Mesh(
     new SphereGeometry(0.08, 10, 10),
@@ -545,7 +550,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     handlePointerDown: basePointerDown,
     handlePointerUp: basePointerUp,
     handlePointerLeave: basePointerLeave,
-    handleKeyDown,
+    handleKeyDown: baseKeyDown,
     handleKeyUp,
     handleContextMenu
   } = createGraphThreeEngineInputHandlers({
@@ -567,7 +572,42 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     resolvePickContext
   });
 
+  // S33 canvas interaction (hover/handles/drags/framing). Created after the
+  // input handlers so it can wrap them with the PART 1 precedence model.
+  const interaction = createCanvasInteraction({
+    renderer,
+    camera,
+    controls,
+    raycaster,
+    ndc,
+    objectsRoot,
+    interactionRoot,
+    objectNodes,
+    container,
+    multiView,
+    baselinePlane,
+    tempGround,
+    getPickContext: resolvePickContext
+  });
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // S33 Escape hierarchy: the viewport (child effect, registered first)
+    // cancels an active drag before EditorShell (parent effect) sees the
+    // keypress — so the shell's drag-active guard only fires when the engine
+    // deliberately skipped (typing target). One Escape otherwise performs at
+    // most the drag-cancel plus benign no-op menu closes, never a
+    // destructive action.
+    if (interaction.handleKeyDown(event)) {
+      return;
+    }
+    baseKeyDown(event);
+  };
+
   const handlePointerMove = (event: PointerEvent) => {
+    // An active handle drag consumes the gesture (no camera pan alongside).
+    if (interaction.handlePointerMove(event)) {
+      return;
+    }
     multiViewPointerMove(multiView, container, event);
     basePointerMove(event);
   };
@@ -590,6 +630,16 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   };
 
   const handlePointerDown = (event: PointerEvent) => {
+    // S33 PART 26: a draggable handle wins over the orthographic camera
+    // grab-drag; tool/armed-pick precedence is enforced inside.
+    if (interaction.handlePointerDown(event)) {
+      return;
+    }
+    // S33-R5: a second pointer during an active drag is fully ignored (no
+    // camera gesture and no selection alongside the object drag).
+    if (interaction.isDragging()) {
+      return;
+    }
     const orthoDragStarted = multiViewPointerDown(
       multiView,
       container,
@@ -612,12 +662,14 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   };
 
   const handlePointerUp = (event: PointerEvent) => {
+    interaction.handlePointerUp(event);
     releaseOrthoPointerCapture();
     multiViewPointerUp(multiView);
     basePointerUp(event);
   };
 
   const handlePointerLeave = () => {
+    interaction.handlePointerLeave();
     // With pointer capture a leave cannot fire mid-drag; without capture
     // (unsupported platform) this still ends a drag that left the canvas.
     releaseOrthoPointerCapture();
@@ -679,7 +731,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     requestNextFrame,
     container,
     multiView,
-    isSuspended: () => suspended
+    isSuspended: () => suspended,
+    onFrameEnd: () => interaction.tick()
   });
 
   const resize = () => {
@@ -743,6 +796,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   return {
     setGeometryPanes: (panes) => {
+      // S33 PART 76: a layout/view switch ends an active drag with restore
+      // before the pane semantics change (no axis corruption).
+      interaction.endForViewSwitch();
       setGeometryMultiViewPanes(multiView, panes);
       if (!multiView.panes) {
         controls.enabled = true;
@@ -764,12 +820,17 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     resetActiveGeometryPane: () => {
       resetActiveGeometryView(multiView, resetCamera);
     },
+    frameSelectedObject: () => interaction.frameSelected(),
+    fitSceneToView: () => interaction.fitScene(),
     setSuspended: (value: boolean) => {
       if (value === suspended) {
         return;
       }
       suspended = value;
       if (suspended) {
+        // Workspace switch hides the canvas: commit current drag work
+        // (preserve math) rather than restoring it away.
+        interaction.endForSuspend();
         releaseOrthoPointerCapture();
         cancelGeometryMultiViewDrag(multiView);
         window.cancelAnimationFrame(animationHandle);
@@ -787,6 +848,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     },
     dispose: () => {
       window.cancelAnimationFrame(animationHandle);
+      interaction.dispose();
       releaseOrthoPointerCapture();
       computeManager.dispose();
       unsub();
@@ -826,6 +888,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         measurementLabels,
         analysisOverlayRoot,
         analysisOverlayCache,
+        interactionRoot,
         hoverMarker,
         gridMesh,
         gridMaterial,
