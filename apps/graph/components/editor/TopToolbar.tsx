@@ -37,7 +37,8 @@ import {
   RedoIcon, 
   ChevronDownIcon, 
   SunIcon, 
-  MoonIcon 
+  MoonIcon,
+  MoreHorizontalIcon 
 } from "@/components/layout/icons";
 import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
 import WorkspaceSwitcher from "@/components/editor/WorkspaceSwitcher";
@@ -66,24 +67,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { captureEvent } from "@/lib/analytics/posthog";
+import { isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
+import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
 
-// Narrow viewports (< lg) get a compact view/tool row instead of the full
-// middle cluster. JS-gated (not CSS-only) so responsive variants never
-// coexist in the DOM and accessible names stay unique.
-function useCompactToolbarBar(): boolean {
-  const [compact, setCompact] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return;
-    }
-    const query = window.matchMedia("(max-width: 1023.5px)");
-    const update = () => setCompact(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-  return compact;
-}
+// S34: removed local matchMedia breakpoint (PART 2) — compact chrome now
+// follows the central shell composition from editorStore, so responsive
+// variants never coexist in the DOM and accessible names stay unique.
 
 export default function TopToolbar({
   canUndo,
@@ -150,7 +139,10 @@ export default function TopToolbar({
   });
   const [projectsVersion, setProjectsVersion] = useState(0);
   const [showBrandImageFallback, setShowBrandImageFallback] = useState(false);
-  const compactBar = useCompactToolbarBar();
+  const composition = useEditorStore((state) => state.responsiveComposition);
+  // S34 PART 2: single breakpoint source (shell composition) instead of a
+  // local matchMedia interpretation. Compact chrome below wide (1100px).
+  const compactBar = composition !== "wide";
   const lastOpenExamplesSignalRef = useRef(openExamplesSignal);
 
    const [is3dCanvasAvailable, setIs3dCanvasAvailable] = useState(false);
@@ -588,6 +580,7 @@ export default function TopToolbar({
         onOpenExample={handleOpenExample}
       />
       <header className="z-50 flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 font-sans">
+      {compactBar ? null : (
       <div className="flex shrink-0 items-center gap-1.5 pr-1">
         {showBrandImageFallback ? (
           <>
@@ -606,13 +599,15 @@ export default function TopToolbar({
           />
         )}
       </div>
+      )}
 
-      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
 
-      <WorkspaceSwitcher />
+      <WorkspaceSwitcher compact={compactBar} />
 
-      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
 
+      {compactBar ? null : (
       <div className="flex shrink-0 items-center gap-1">
         <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
           <DropdownMenuTrigger>
@@ -707,12 +702,18 @@ export default function TopToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="mx-1 h-4 w-px bg-[var(--border-strong)]" />
+        <div className="compact-hide-divider mx-1 h-4 w-px bg-[var(--border-strong)]" />
+      </div>
+      )}
 
-        <div className="flex items-center gap-0.5">
-          <ToolbarAction onClick={onUndo} disabled={!canUndo} icon={<UndoIcon className="h-3.5 w-3.5" />} title="Undo" />
+      {/* S34 PART 17/59: Undo stays reachable on every composition (touch
+          users need discoverable Undo); Redo joins the overflow menu below
+          wide widths (one tap away, still enabled-state honest). */}
+      <div className="flex shrink-0 items-center gap-0.5">
+        <ToolbarAction onClick={onUndo} disabled={!canUndo} icon={<UndoIcon className="h-3.5 w-3.5" />} title="Undo" />
+        {!compactBar ? (
           <ToolbarAction onClick={onRedo} disabled={!canRedo} icon={<RedoIcon className="h-3.5 w-3.5" />} title="Redo" />
-        </div>
+        ) : null}
       </div>
 
       {!compactBar ? (
@@ -873,8 +874,49 @@ export default function TopToolbar({
       </div>
       ) : null}
 
-      <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
 
+      {compactBar ? (
+        <CompactChromeRightCluster
+          objectsOpen={objectsOpen}
+          onToggleObjects={onToggleObjects}
+          showObjectsToggle={showObjectsToggle}
+          inspectorOpen={inspectorOpen}
+          onToggleInspector={onToggleInspector}
+          objectCount={objectCount}
+          canRedo={canRedo}
+          onRedo={onRedo}
+          autosaveStatus={autosaveStatus}
+          autosaveError={autosaveError}
+          themeMode={themeMode}
+          onCycleTheme={() =>
+            setThemeMode(themeMode === "light" ? "dark" : themeMode === "dark" ? "system" : "light")
+          }
+          onNewScene={handleNewSceneMenuClick}
+          onOpenExample={() => {
+            setExamplesDialogError(null);
+            setExamplesDialogOpen(true);
+          }}
+          onOpenWelcome={() => onOpenWelcome?.()}
+          onImport={() => openSceneDialog("import")}
+          onExportJson={handleExportJson}
+          onCopyShareLink={handleCopyShareLink}
+          onFrameSelected={() => {
+            if (!isDragTransactionActive()) {
+              requestCanvasFrame("selected");
+            }
+          }}
+          onFitScene={() => {
+            if (!isDragTransactionActive()) {
+              requestCanvasFrame("scene");
+            }
+          }}
+          onOpenShare={() => {
+            setShareDialogOpen(true);
+            captureEvent("share_dialog_opened");
+          }}
+        />
+      ) : (
       <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto px-1 py-0.5">
         <Button
           type="button"
@@ -1001,6 +1043,7 @@ export default function TopToolbar({
           </PopoverContent>
         </Popover>
       </div>
+      )}
 
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="max-w-md">
@@ -1218,8 +1261,160 @@ export default function TopToolbar({
   );
 }
 
-function ToolbarAction({ onClick, disabled, icon, title }: any) {
+// S34 PART 14–17: compact right cluster. Always visible: Objects (with
+// count), Inspector, Undo/Redo (in the main row), and one overflow menu.
+// Secondary actions (Scene, Examples, Share, Export, Autosave status,
+// theme) live in the overflow. Autosave errors surface as a dot on the
+// overflow trigger so critical status is never lost (PART 134).
+function CompactChromeRightCluster({
+  objectsOpen,
+  onToggleObjects,
+  showObjectsToggle,
+  inspectorOpen,
+  onToggleInspector,
+  objectCount,
+  canRedo,
+  onRedo,
+  autosaveStatus,
+  autosaveError,
+  themeMode,
+  onCycleTheme,
+  onNewScene,
+  onOpenExample,
+  onOpenWelcome,
+  onImport,
+  onExportJson,
+  onCopyShareLink,
+  onOpenShare,
+  onFrameSelected,
+  onFitScene
+}: {
+  objectsOpen: boolean;
+  onToggleObjects: () => void;
+  showObjectsToggle: boolean;
+  inspectorOpen: boolean;
+  onToggleInspector: () => void;
+  objectCount: number;
+  canRedo: boolean;
+  onRedo: () => void;
+  autosaveStatus: string;
+  autosaveError: string | null;
+  themeMode: string;
+  onCycleTheme: () => void;
+  onNewScene: () => void;
+  onOpenExample: () => void;
+  onOpenWelcome: () => void;
+  onImport: () => void;
+  onExportJson: () => void;
+  onCopyShareLink: () => void;
+  onOpenShare: () => void;
+  onFrameSelected: () => void;
+  onFitScene: () => void;
+}) {
+  const [moreOpen, setMoreOpen] = useState(false);
   return (
+    <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 px-1 py-0.5">
+      {showObjectsToggle ? (
+        <Button
+          type="button"
+          onClick={onToggleObjects}
+          aria-pressed={objectsOpen}
+          variant={objectsOpen ? "primary" : "secondary"}
+          size="sm"
+          className="uppercase tracking-wide"
+        >
+          Objects
+          <span
+            data-testid="compact-object-count"
+            aria-hidden="true"
+            className="ml-1 rounded bg-[var(--surface-muted)] px-1 font-mono text-[11px]"
+          >
+            {objectCount}
+          </span>
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        onClick={onToggleInspector}
+        variant={inspectorOpen ? "primary" : "secondary"}
+        size="sm"
+        className="uppercase tracking-wide"
+      >
+        Inspector
+      </Button>
+      <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
+        <DropdownMenuTrigger>
+          {(props) => (
+            <button
+              ref={props.ref as any}
+              type="button"
+              aria-label="More actions"
+              aria-expanded={props["aria-expanded"]}
+              aria-controls={props["aria-controls"]}
+              aria-haspopup={props["aria-haspopup"]}
+              onClick={props.onClick}
+              onKeyDown={props.onKeyDown}
+              className={cn(
+                "relative flex h-8 w-8 items-center justify-center rounded-md border transition-all",
+                moreOpen
+                  ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+              )}
+            >
+              <MoreHorizontalIcon className="h-3.5 w-3.5" />
+              {autosaveStatus === "error" ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-rose-400"
+                />
+              ) : null}
+            </button>
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[240px] p-0">
+          <ScrollArea className="overflow-menu-scroll p-1.5">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Scene</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onNewScene}>New scene</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenExample}>Open example...</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenWelcome}>Welcome / Getting started</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onImport}>Import...</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportJson}>Export JSON</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Share</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onCopyShareLink}>Copy share link</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenShare}>Open share/export dialog</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>View</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onFrameSelected}>Frame selected</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onFitScene}>Fit scene</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>History</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onRedo} disabled={!canRedo}>Redo</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => {}} disabled>
+                Autosave: {autosaveStatus}
+                {autosaveError ? ` — ${autosaveError}` : ""}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onCycleTheme}>Theme: {themeMode}</DropdownMenuItem>
+            </DropdownMenuGroup>
+          </ScrollArea>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function ToolbarAction({ onClick, disabled, icon, title }: any) {  return (
     <button
       onClick={onClick}
       disabled={disabled}

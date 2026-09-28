@@ -93,6 +93,30 @@ function panesKey(panes: GeometryView[] | null): string {
   return panes ? panes.join("+") : "legacy";
 }
 
+/**
+ * S34 PART 97: hover emphasis only on hover-capable devices. Touch has no
+ * hover — selection (store-driven) carries all meaning there, and no stuck
+ * hover can linger after a tap. Cached per module lifetime (capability does
+ * not change without a device change; avoids per-frame MediaQueryList).
+ */
+let hoverCapableCache: boolean | null = null;
+
+function hoverCapable(): boolean {
+  if (hoverCapableCache !== null) {
+    return hoverCapableCache;
+  }
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    hoverCapableCache = true;
+    return true;
+  }
+  try {
+    hoverCapableCache = !window.matchMedia("(hover: none)").matches;
+  } catch {
+    hoverCapableCache = true;
+  }
+  return hoverCapableCache;
+}
+
 export function createCanvasInteraction(deps: CanvasInteractionDeps) {
   const { renderer, camera, controls, raycaster, ndc, objectsRoot, interactionRoot } = deps;
   const { container, multiView } = deps;
@@ -178,7 +202,13 @@ export function createCanvasInteraction(deps: CanvasInteractionDeps) {
       return;
     }
     const handles = eligibleDragHandles(selected, pane).map((entry) => entry.handle);
-    syncInteractionHandles(interactionRoot, selected, handles);
+    // S34 PART 94: camera-aware grab area — ~constant screen size across
+    // zoom (presentation only; marker visuals and math untouched).
+    const span = multiView.ortho.getState(pane).span;
+    const proxyScale = Number.isFinite(span) && span > 0
+      ? Math.min(3, Math.max(0.6, span / 12))
+      : 1;
+    syncInteractionHandles(interactionRoot, selected, handles, proxyScale);
   };
 
   const endDragCleanup = () => {
@@ -311,8 +341,20 @@ export function createCanvasInteraction(deps: CanvasInteractionDeps) {
     return mathToWorld3D(merged);
   };
 
-  const tryStartDrag = (event: { clientX: number; clientY: number; button: number; pointerId: number }): boolean => {
-    if (event.button !== 0) {
+  const tryStartDrag = (event: { clientX: number; clientY: number; button: number; pointerId: number; pointerType?: string }): boolean => {
+    // S34-R19: button gate matches the camera path (touch/pen report
+    // button 0 on contact; non-mouse button<=0 accepted, mouse needs 0).
+    const eligibleButton =
+      event.button === 0 || (event.pointerType !== undefined && event.pointerType !== "mouse" && event.button <= 0);
+    if (!eligibleButton) {
+      return false;
+    }
+    // S34-R20: a second finger never starts a handle drag mid camera
+    // gesture (pan/pinch owns all pointers until release); the reverse
+    // (camera during handle drag) is swallowed by the engine caller.
+    // Nullish (not strict) comparison: synthetic multi-view states in
+    // tests may omit these fields entirely.
+    if (multiView.drag != null || multiView.pinch != null) {
       return false;
     }
     const state = useGraphStore.getState();
@@ -475,7 +517,6 @@ export function createCanvasInteraction(deps: CanvasInteractionDeps) {
     }
     const state = useGraphStore.getState();
     const selectedId = state.ui.selectedObjectId;
-
     // Mid-drag guards: tool/view/workspace/selection/deletion changes end
     // the gesture safely (PART 76/77/78). Arming an analysis pick mid-drag
     // also ends it (handles must not move geometry under an explicit tool).
@@ -521,10 +562,12 @@ export function createCanvasInteraction(deps: CanvasInteractionDeps) {
       lastEmphasisKey = "";
     }
 
-    // Hover pick, coalesced to one raycast per frame (PART 4).
+    // Hover pick, coalesced to one raycast per frame (PART 4). Touch
+    // devices skip hover entirely (S34 PART 97).
     const tool = state.ui.canvas3dTool;
     if (
       hoverRequested &&
+      hoverCapable() &&
       !activeDrag &&
       !cameraDragging &&
       tool === "pan" &&

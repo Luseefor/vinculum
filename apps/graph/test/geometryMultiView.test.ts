@@ -430,3 +430,52 @@ describe("renderGeometryMultiViewPanes shared-scene loop", () => {
     expect(zeroDeps.renderer.render).not.toHaveBeenCalled();
   });
 });
+
+describe("S34 touch pinch (ortho zoom + pan)", () => {
+  it("two pointers pinch-zoom toward their midpoint without jumping", async () => {
+    const { multiViewPointerDown: down } = await import("@/lib/graph3d/graphThreeGeometryMultiView");
+    const state = createGeometryMultiViewState();
+    const container = fakeContainer(1440, 900);
+    setGeometryMultiViewPanes(state, ["perspective", "xy"]);
+    state.ortho.updateFrustum("xy", { left: 720, top: 0, width: 720, height: 900 });
+    const spanBefore = state.ortho.getState("xy").span;
+    // First finger starts a pan; second finger converts it to a pinch.
+    expect(down(state, container, { clientX: 1000, clientY: 450, button: 0, pointerId: 1, pointerType: "touch" }, "pan")).toBe(true);
+    expect(down(state, container, { clientX: 1180, clientY: 450, button: 0, pointerId: 2, pointerType: "touch" }, "pan")).toBe(true);
+    expect(state.drag).toBeNull();
+    expect(state.pinch?.view).toBe("xy");
+    expect(state.pinch?.distance).toBeCloseTo(180, 9);
+    // Spread fingers apart (180 → 260): zooms in (span shrinks), no jump.
+    const { multiViewPointerMove: move } = await import("@/lib/graph3d/graphThreeGeometryMultiView");
+    move(state, container, { clientX: 960, clientY: 450, pointerId: 1 });
+    move(state, container, { clientX: 1220, clientY: 450, pointerId: 2 });
+    const spanAfter = state.ortho.getState("xy").span;
+    expect(spanAfter).toBeLessThan(spanBefore);
+    expect(spanAfter).toBeCloseTo(spanBefore * (180 / 260), 6);
+    // Lifting one finger ends the pinch without resuming a pan.
+    const { multiViewPointerUp: up } = await import("@/lib/graph3d/graphThreeGeometryMultiView");
+    up(state, 2);
+    expect(state.pinch).toBeNull();
+    expect(state.drag).toBeNull();
+    move(state, container, { clientX: 900, clientY: 450, pointerId: 1 });
+    expect(state.ortho.getState("xy").span).toBeCloseTo(spanAfter, 9);
+  });
+
+  it("pinch midpoint pan tracks fingers", async () => {
+    const mod = await import("@/lib/graph3d/graphThreeGeometryMultiView");
+    const state = createGeometryMultiViewState();
+    const container = fakeContainer(1440, 900);
+    setGeometryMultiViewPanes(state, ["perspective", "xy"]);
+    state.ortho.updateFrustum("xy", { left: 720, top: 0, width: 720, height: 900 });
+    mod.multiViewPointerDown(state, container, { clientX: 1000, clientY: 450, button: 0, pointerId: 1, pointerType: "touch" }, "pan");
+    mod.multiViewPointerDown(state, container, { clientX: 1180, clientY: 450, button: 0, pointerId: 2, pointerType: "touch" }, "pan");
+    const centerBefore = state.ortho.getState("xy").center.clone();
+    // Both fingers slide right 72px at constant spread: pure pan, no zoom.
+    mod.multiViewPointerMove(state, container, { clientX: 1072, clientY: 450, pointerId: 1 });
+    mod.multiViewPointerMove(state, container, { clientX: 1252, clientY: 450, pointerId: 2 });
+    const center = state.ortho.getState("xy").center;
+    expect(state.ortho.getState("xy").span).toBeCloseTo(12, 9);
+    // worldPerPixel = 12/720; content follows fingers: center moves -72*wpp in x.
+    expect(center.x).toBeCloseTo(centerBefore.x - 72 * (12 / 720), 6);
+  });
+});

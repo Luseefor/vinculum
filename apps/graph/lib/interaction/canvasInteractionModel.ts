@@ -28,9 +28,32 @@ export type CanvasInteractionState =
 /** Clean-click threshold shared by selection, analysis pick, and drags. */
 export const CANVAS_CLEAN_CLICK_PX = 6;
 
-export function isCleanClick(startX: number, startY: number, endX: number, endY: number): boolean {
+/**
+ * S34 PART 50: pointer-aware clean-click threshold. Touch taps must
+ * tolerate minor finger movement; mouse precision is never weakened; pen
+ * sits between. Centralized so mouse/touch/pen never diverge per caller.
+ */
+export type CanvasPointerType = "mouse" | "touch" | "pen";
+
+export function cleanClickThresholdForPointerType(pointerType?: string | null): number {
+  if (pointerType === "touch") {
+    return 12;
+  }
+  if (pointerType === "pen") {
+    return 8;
+  }
+  return CANVAS_CLEAN_CLICK_PX;
+}
+
+export function isCleanClick(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  pointerType?: string | null
+): boolean {
   if (!Number.isFinite(startX) || !Number.isFinite(startY) || !Number.isFinite(endX) || !Number.isFinite(endY)) {
     return false;
   }
-  return Math.hypot(endX - startX, endY - startY) < CANVAS_CLEAN_CLICK_PX;
+  return Math.hypot(endX - startX, endY - startY) < cleanClickThresholdForPointerType(pointerType);
 }

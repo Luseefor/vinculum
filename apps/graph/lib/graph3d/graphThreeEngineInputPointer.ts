@@ -1,6 +1,7 @@
 import { useGraphStore } from "@/store/graphStore";
 import { getComputeStatusForObject } from "@/lib/compute/geometryComputeStatus";
 import { analysisSourceIdentity } from "@/store/graphStoreSliceAnalysis";
+import { isCleanClick } from "@/lib/interaction/canvasInteractionModel";
 import { pickAnalysisSourcePoint } from "./graphThreeAnalysisPick";
 import { pickWorldPointFromCanvasPointer } from "./graphThreeEnginePickWorld";
 import { pickGeometryPrimitiveAtPointer, pickHitsAnyVisibleObject } from "./graphThreePrimitivePick";
@@ -106,8 +107,8 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     const anchor = mutable.analysisPickDown;
     mutable.analysisPickDown = null;
     if (armedId && anchor && event) {
-      const moved = Math.hypot(event.clientX - anchor.x, event.clientY - anchor.y);
-      if (moved < 6) {
+      // S34 PART 50: pointer-aware threshold (touch tolerates finger drift).
+      if (isCleanClick(anchor.x, anchor.y, event.clientX, event.clientY, event.pointerType)) {
         attemptAnalysisPick(deps, armedId, event);
       }
     }
@@ -115,8 +116,8 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     const primitiveAnchor = mutable.primitivePickDown;
     mutable.primitivePickDown = null;
     if (state.ui.canvas3dTool === "pan" && primitiveAnchor && event) {
-      const moved = Math.hypot(event.clientX - primitiveAnchor.x, event.clientY - primitiveAnchor.y);
-      if (moved < 6) {
+      // S34 PART 50: pointer-aware threshold (touch tolerates finger drift).
+      if (isCleanClick(primitiveAnchor.x, primitiveAnchor.y, event.clientX, event.clientY, event.pointerType)) {
         attemptPrimitivePick(deps, event);
       }
     }

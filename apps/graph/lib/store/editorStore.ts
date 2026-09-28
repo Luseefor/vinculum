@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BottomPanelTab, GeometryLayout, GeometryView, ViewportMode } from "@/lib/types/ui";
+import type { ResponsiveComposition } from "@/lib/responsive/composition";
 
 interface EditorParameter {
   id: string;
@@ -80,6 +81,7 @@ interface EditorStoreState {
   responsiveInspectorDrawer: boolean;
   responsiveLeftRail: boolean;
   responsiveBottomCollapsed: boolean;
+  responsiveComposition: ResponsiveComposition;
   activeResizeHandle: "left" | "right" | "bottom" | null;
   resizePointerId: number | null;
   bottomPanelToggleSource: "manual" | "drag" | "breakpoint";
@@ -109,6 +111,7 @@ interface EditorStoreState {
     inspectorDrawer?: boolean;
     leftRail?: boolean;
     bottomCollapsed?: boolean;
+    composition?: ResponsiveComposition;
   }) => void;
   setBottomPanelToggleSource: (source: "manual" | "drag" | "breakpoint") => void;
   setBottomPanelTab: (tab: BottomPanelTab) => void;
@@ -149,6 +152,11 @@ export const useEditorStore = create<EditorStoreState>()(
       responsiveInspectorDrawer: false,
       responsiveLeftRail: false,
       responsiveBottomCollapsed: false,
+      // S34: always starts "wide" so SSR and first client render match
+      // (lazy window-init would break hydration on compact viewports); the
+      // shell observer corrects it on mount. One frame of wide chrome may
+      // flash on phones — benign and self-correcting.
+      responsiveComposition: "wide",
       activeResizeHandle: null,
       resizePointerId: null,
       bottomPanelToggleSource: "manual",
@@ -212,7 +220,8 @@ export const useEditorStore = create<EditorStoreState>()(
         set((state) => ({
           responsiveInspectorDrawer: flags.inspectorDrawer ?? state.responsiveInspectorDrawer,
           responsiveLeftRail: flags.leftRail ?? state.responsiveLeftRail,
-          responsiveBottomCollapsed: flags.bottomCollapsed ?? state.responsiveBottomCollapsed
+          responsiveBottomCollapsed: flags.bottomCollapsed ?? state.responsiveBottomCollapsed,
+          responsiveComposition: flags.composition ?? state.responsiveComposition
         })),
       setBottomPanelToggleSource: (source) => set({ bottomPanelToggleSource: source }),
       setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
@@ -363,6 +372,22 @@ export const useEditorStore = create<EditorStoreState>()(
     }),
     {
       name: "vinculum-editor-layout",
+      // S34-R14: viewport-derived responsive flags are transient
+      // (observer-owned) — never persist or restore them across sessions.
+      partialize: (state) => {
+        const {
+          responsiveComposition: _composition,
+          responsiveInspectorDrawer: _drawer,
+          responsiveLeftRail: _rail,
+          responsiveBottomCollapsed: _bottom,
+          ...durable
+        } = state;
+        void _composition;
+        void _drawer;
+        void _rail;
+        void _bottom;
+        return durable as EditorStoreState;
+      },
       merge: (persistedState, currentState) => {
         if (!persistedState || typeof persistedState !== "object") {
           return currentState;

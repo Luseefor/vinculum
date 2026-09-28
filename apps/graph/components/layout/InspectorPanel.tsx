@@ -105,9 +105,10 @@ export default function InspectorPanel({
               tabIndex={tab === id ? 0 : -1}
               onClick={() => setTab(id)}
               className={cn(
-                // S31: five tabs share the rail evenly so Links/Adv are never
-                // clipped at narrow inspector widths.
-                "h-8 min-w-0 flex-1 border-b-2 border-transparent px-1 text-[10px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
+                // S34 PART 35: tabs keep natural width and the row scrolls on
+                // compact sheets instead of crushing labels into each other.
+                // Object/Analyze stay first in DOM order (always discoverable).
+                "h-8 min-w-0 shrink-0 border-b-2 border-transparent px-2 text-[10px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
                 tab === id
                   ? "border-[var(--accent)] text-[var(--accent-ink)]"
                   : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"

@@ -24,6 +24,46 @@ export function graph2dViewportPatchZoomAtScreen(
   };
 }
 
+/**
+ * S34 two-finger pinch patch (camera-only): zoom toward the finger midpoint
+ * and pan with it. Scale-based (unlike the ortho span model): spreading
+ * fingers (distance grows) zooms IN, so the factor is current/previous —
+ * never the inverse (S34-B1).
+ */
+export function graph2dPinchViewportPatch(
+  previous: { distance: number; midX: number; midY: number },
+  current: { distance: number; midX: number; midY: number },
+  width: number,
+  height: number,
+  viewport: Viewport2D
+): Pick<Viewport2D, "scale" | "centerX" | "centerY"> | null {
+  if (
+    !Number.isFinite(previous.distance) ||
+    !Number.isFinite(current.distance) ||
+    previous.distance <= 0 ||
+    current.distance <= 0 ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+  const zoomed = graph2dViewportPatchZoomAtScreen(
+    current.midX,
+    current.midY,
+    current.distance / previous.distance,
+    width,
+    height,
+    viewport
+  );
+  return {
+    scale: zoomed.scale,
+    centerX: zoomed.centerX - (current.midX - previous.midX) / zoomed.scale,
+    centerY: zoomed.centerY + (current.midY - previous.midY) / zoomed.scale
+  };
+}
+
 export interface Graph2dWheelGesture {
   deltaX: number;
   deltaY: number;

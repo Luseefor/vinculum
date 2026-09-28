@@ -42,12 +42,26 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     if (!aside) {
       return;
     }
-    restoreFocusRef.current = document.activeElement;
-    const items = () =>
+    restoreFocusRef.current = document.activeElement;    const items = () =>
       [...aside.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter(
         (element) => !element.hasAttribute("disabled")
       );
     (items()[0] ?? aside).focus({ preventScroll: true });
+    // S34 PART 46/47: keep the focused field visible when the virtual
+    // keyboard shrinks the viewport (and on plain focus changes) without a
+    // custom keyboard detector — nearest-block scrolling only, no jumps.
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        aside.contains(target) &&
+        typeof target.scrollIntoView === "function"
+      ) {
+        // Nearest on both axes: never horizontal-jump wide matrix content.
+        target.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    };
+    aside.addEventListener("focusin", onFocusIn);
     const onTrapTab = (event: KeyboardEvent) => {
       if (event.key !== "Tab") {
         return;
@@ -69,8 +83,17 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     aside.addEventListener("keydown", onTrapTab);
     return () => {
       aside.removeEventListener("keydown", onTrapTab);
+      aside.removeEventListener("focusin", onFocusIn);
+      // S34 PART 107: return focus to the trigger — unless focus already
+      // moved into another still-mounted overlay (menu/dialog), which owns
+      // it now. The unmount race (Chrome resets activeElement to body
+      // during DOM removal) still restores correctly; a detached trigger
+      // focus is a harmless no-op.
       const restoreTarget = restoreFocusRef.current;
-      if (restoreTarget instanceof HTMLElement && aside.contains(document.activeElement)) {
+      const active = document.activeElement;
+      const inOtherOverlay =
+        active instanceof HTMLElement && active.closest('[role="dialog"], [role="menu"]') !== null;
+      if (restoreTarget instanceof HTMLElement && !inOtherOverlay) {
         restoreTarget.focus({ preventScroll: true });
       }
       restoreFocusRef.current = null;
@@ -82,7 +105,10 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
   }
 
   return (
-    <div className={cn("fixed inset-0 z-50 block lg:hidden")}>
+    // S34-R11: no lg:hidden gate — mounting is composition-driven (compact
+    // includes short landscape ≥1024px wide), so a CSS breakpoint would hide
+    // a mounted, focus-trapped dialog. Callers render null outside compact.
+    <div className={cn("sheet-viewport fixed inset-0 z-50 block")}>
       <button
         type="button"
         className="absolute inset-0 bg-[var(--surface-backdrop)]"
@@ -110,7 +136,9 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
             Close
           </Button>
         </div>
-        <div className="h-[calc(100%-41px)]">{children}</div>
+        {/* S34: the sheet owns vertical overflow so content scrolls even if
+            a future child lacks its own scroller. */}
+        <div className="h-[calc(100%-41px)] overflow-y-auto">{children}</div>
       </aside>
     </div>
   );

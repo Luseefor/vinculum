@@ -256,3 +256,112 @@ body {
   border: 2px solid var(--surface-bg);
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
+
+/* S34 responsive composition layer (PART 12/13/32/62/63/86/87/88/97/98).
+ * Behavioral forks live in editorStore.responsiveComposition; this file
+ * holds presentation-only rules scoped to [data-composition] (shell root)
+ * and coarse-pointer media. No math, no state, no DOM duplication. */
+
+/* Dynamic viewport height with vh fallback (address-bar resize safety). */
+.app-shell {
+  height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.sheet-viewport {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Shell + workspace rows can never hold scroll offsets (PART 30/31/88):
+ * overflow:clip on BOTH axes forbids even programmatic scroll offsets
+ * (unlike hidden) — Chrome computes a lone clip axis back to hidden, so
+ * both must be clip. Focus/scrollIntoView then skip these containers and
+ * land in the nearest real scroller (panel lists, sheet content). */
+.app-shell,
+.app-shell main {
+  overflow-x: clip;
+  overflow-y: clip;
+}
+
+/* Compact sheets respect lateral safe areas without hardcoding devices. */
+[data-composition="compact"] aside[role="dialog"] {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Compact header density (PART 15): one concise row. Smaller switcher
+ * and action padding so workspace + undo/redo + Objects + Inspector +
+ * overflow fit 390px without wrapping into a giant toolbar. */
+[data-composition="compact"] header {
+  gap: 2px;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+[data-composition="compact"] header [role="group"][aria-label="Workspace"] {
+  gap: 0;
+  padding: 2px;
+}
+
+[data-composition="compact"] header [role="group"][aria-label="Workspace"] > button {
+  padding-left: 4px;
+  padding-right: 4px;
+  font-size: 10px;
+  letter-spacing: normal;
+}
+
+[data-composition="compact"] header .btn {
+  padding-left: 6px;
+  padding-right: 6px;
+  font-size: 10px;
+}
+
+[data-composition="compact"] header .compact-hide-divider {
+  display: none;
+}
+[data-composition="compact"] aside[role="dialog"] button,
+[data-composition="compact"] aside[role="dialog"] select,
+[data-composition="compact"] header button {
+  min-height: 40px;
+  min-width: 40px;
+}
+
+[data-composition="compact"] aside[role="dialog"] > div > button {
+  min-height: 44px;
+}
+
+@media (pointer: coarse) {
+  /* Tablets with mouse-class chrome (medium composition): coarse pointers
+   * get the same practical minima (PART 98 adapts presentation only). */
+  header button,
+  header select,
+  aside[role="dialog"] button,
+  aside[role="dialog"] select {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
+
+/* Compact inspector/matrix density (PART 36/87): fit without app scroll.
+ * Tables keep full table semantics (PART 41) — no display overrides; the
+ * Jacobian and matrix grids already fit compact widths via min-w-0. */
+[data-composition="compact"] #graph-inspector {
+  min-width: 0;
+}
+
+/* Short viewports (landscape phones, PART 11/69): cap the bottom dock so
+ * the canvas keeps working height; dock content scrolls internally. */
+.overflow-menu-scroll {
+  max-height: 60vh;
+  max-height: 60dvh;
+}
+
+@media (max-height: 500px) {
+  .bottom-dock {
+    max-height: 32vh;
+    max-height: 32dvh;
+  }
+}

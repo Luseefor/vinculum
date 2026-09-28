@@ -39,7 +39,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
   return (
     <section
       className={cn(
-        "flex flex-col border-t border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-all duration-300",
+        "bottom-dock flex flex-col border-t border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-all duration-300",
         collapsed ? "h-9" : ""
       )}
       style={!collapsed ? { height } : {}}

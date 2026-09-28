@@ -11,11 +11,18 @@ const WORKSPACES: Array<{ id: WorkspaceId; short: string; label: string; title: 
   { id: "math", short: "Math Lab", label: "Math Lab", title: "Math Lab — equations and analysis" }
 ];
 
+// S34 PART 15: compact short text ("Geometry") with the full accessible
+// label preserved for screen readers.
+const COMPACT_SHORT: Record<WorkspaceId, string> = {
+  geometry: "Geometry",
+  math: "Math Lab"
+};
+
 /**
  * Compact workspace switcher. UI organization only: switching never touches
  * the canonical scene, selection, cameras, or view state.
  */
-export default function WorkspaceSwitcher() {
+export default function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
   const workspace = useGraphStore((state) => state.ui.workspace);
   const setWorkspace = useGraphStore((state) => state.setWorkspace);
 
@@ -40,7 +47,7 @@ export default function WorkspaceSwitcher() {
               : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
           )}
         >
-          {entry.short}
+          {compact ? COMPACT_SHORT[entry.id] : entry.short}
         </button>
       ))}
     </div>

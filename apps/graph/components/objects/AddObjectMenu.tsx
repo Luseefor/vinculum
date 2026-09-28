@@ -170,7 +170,7 @@ export default function AddObjectMenu() {
         </Button>
       </div>
       {open ? (
-        <div className="absolute left-0 top-full z-30 mt-2 w-full min-w-[14rem] rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-2 shadow-[var(--shadow-floating)]">
+        <div className="overflow-menu-scroll absolute left-0 top-full z-30 mt-2 w-full min-w-[14rem] overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-2 shadow-[var(--shadow-floating)]">
           {sections.map((section) => (
             <div key={section.title} className="mb-2 last:mb-0">
               <p className="mb-1 px-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{section.title}</p>

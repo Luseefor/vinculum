@@ -10,6 +10,7 @@ import EditorLayoutPremium from "@/components/editor/EditorLayoutPremium";
 import InspectorPremium from "@/components/editor/InspectorPremium";
 import InspectorShell from "@/components/editor/InspectorShell";
 import SceneNavigatorPremium from "@/components/editor/SceneNavigatorPremium";
+import SelectedObjectChip from "@/components/editor/SelectedObjectChip";
 import StatusBar from "@/components/editor/StatusBar";
 import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
 import RecoveryDialog from "@/components/projects/RecoveryDialog";
@@ -50,6 +51,7 @@ import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDeriv
 import { captureEvent } from "@/lib/analytics/posthog";
 import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
+import { compositionForViewport, type ResponsiveComposition } from "@/lib/responsive/composition";
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
@@ -127,6 +129,7 @@ export default function EditorShell() {
   const beginResize = useEditorStore((state) => state.beginResize);
   const endResize = useEditorStore((state) => state.endResize);
   const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
+  const composition = useEditorStore((state) => state.responsiveComposition);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
@@ -422,8 +425,7 @@ export default function EditorShell() {
   const [narrowRailMode, setNarrowRailMode] = useState(false);
   // Narrow-mode drawers open only on explicit user action so a fresh narrow
   // load never starts with canvas-blocking overlays.
-  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);
-  const workspace = useGraphStore((state) => state.ui.workspace);
+  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);  const workspace = useGraphStore((state) => state.ui.workspace);
   // Lazily mount each workspace tree on first visit, then keep it mounted
   // (suspended while hidden) so cameras, sync state, and engines survive
   // workspace switches without rebuilds.
@@ -434,19 +436,53 @@ export default function EditorShell() {
     );
   }, [workspace]);
 
+  // S34-R13: skip store writes when nothing changed — an unguarded
+  // observer re-renders every composition subscriber on each resize frame.
+  // Ref lives at component scope (StrictMode-safe double effects share it).
+  const responsivePrevious = useRef({ initialized: false, narrow: false, drawer: false, composition: "wide" as ResponsiveComposition });
+
   useEffect(() => {
     const node = shellRef.current;
     if (!node) return;
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? window.innerWidth;
+      const rect = entries[0]?.contentRect;
+      const width = rect?.width ?? window.innerWidth;
+      const height = rect?.height ?? window.innerHeight;
       const inspectorDrawer = width <= 1100;
+      // S34 PART 1/2: one composition source (compact <720 wide, compact
+      // short landscapes, medium <1100, wide ≥1100). Wide ≥1100 preserves
+      // S30–S33 architecture exactly.
+      const composition = compositionForViewport(width, height);
+      const narrow = composition === "compact";
+      if (
+        responsivePrevious.current.initialized &&
+        responsivePrevious.current.narrow === narrow &&
+        responsivePrevious.current.drawer === inspectorDrawer &&
+        responsivePrevious.current.composition === composition
+      ) {
+        return;
+      }
+      responsivePrevious.current.initialized = true;
+      responsivePrevious.current.narrow = narrow;
+      responsivePrevious.current.drawer = inspectorDrawer;
+      responsivePrevious.current.composition = composition;
       setInspectorDrawerMode(inspectorDrawer);
-      setNarrowRailMode(width < 1024);
-      setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false });
+      setNarrowRailMode(narrow);
+      setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false, composition });
     });
     observer.observe(node);
     return () => observer.disconnect();
   }, [setResponsiveFlags]);
+
+  // S34-R12: one-primary-sheet invariant across composition roundtrips.
+  // Toggles enforce it within compact, but a compact→widen→narrow cycle can
+  // otherwise reopen both sheets at once (two stacked fixed dialogs).
+  useEffect(() => {
+    if (!narrowRailMode) {
+      setNarrowObjectsOpen(false);
+      setInspectorOpen(false);
+    }
+  }, [narrowRailMode]);
 
   useEffect(() => {
     if (effectiveViewportMode !== "quad") {
@@ -1055,7 +1091,8 @@ export default function EditorShell() {
   return (
     <div
       ref={shellRef}
-      className="flex h-screen flex-col overflow-hidden bg-[var(--bg-primary)] font-sans"
+      data-composition={composition}
+      className="app-shell flex h-screen flex-col bg-[var(--bg-primary)] font-sans"
       onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
     >
       <ThemeSync />
@@ -1104,6 +1141,11 @@ export default function EditorShell() {
             }}
             inspectorOpen={contextInspectorOpen}
             onToggleInspector={() => {
+              // S34 PART 6: one primary sheet on compact — opening Inspector
+              // closes Objects and vice versa (no stacked full-screen sheets).
+              if (narrowRailMode) {
+                setNarrowObjectsOpen(false);
+              }
               setInspectorOpen((open) => {
                 const next = !open;
                 if (next) {
@@ -1115,6 +1157,7 @@ export default function EditorShell() {
             objectsOpen={narrowRailMode ? narrowObjectsOpen : !leftCollapsed}
             onToggleObjects={() => {
               if (narrowRailMode) {
+                setInspectorOpen(false);
                 setNarrowObjectsOpen((open) => !open);
                 return;
               }
@@ -1159,6 +1202,17 @@ export default function EditorShell() {
               <div className="pointer-events-none absolute left-3 top-3 z-[11] rounded border border-[var(--border-strong)] bg-[var(--surface-overlay)] px-2 py-1 text-[10px] text-[var(--text-secondary)]">
                 {viewportFallbackMessage}
               </div>
+            ) : null}
+            {narrowRailMode && selectedObjectId ? (
+              <SelectedObjectChip
+                objectId={selectedObjectId}
+                onInspect={() => {
+                  // S34 PART 6/22: one primary surface — Inspect closes Objects.
+                  setNarrowObjectsOpen(false);
+                  setUserClosedInspector(false);
+                  setInspectorOpen(true);
+                }}
+              />
             ) : null}
           </>
         }
@@ -1233,7 +1287,7 @@ export default function EditorShell() {
         onContinue={handleCloseWelcome}
         onClose={handleCloseWelcome}
       />
-      <Sheet open={inspectorOpen || (!narrowRailMode && inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
+      <Sheet open={narrowRailMode && inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
         <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
       </Sheet>
       <Sheet open={narrowRailMode && narrowObjectsOpen} onOpenChange={setNarrowObjectsOpen} title="Objects">

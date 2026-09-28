@@ -175,11 +175,16 @@ function readHandle(node: Object3D): InteractionHandleHit | null {
  * Rebuild the handle overlay for the selected object. Callers invoke this
  * on selection / pane / scene-sync changes (never per pointermove):
  * positions derive from the same resolvers the renderer uses.
+ *
+ * proxyScale keeps the invisible grab area at a practical screen size as
+ * the pane zooms (S34 PART 94: larger touch proxy without enlarging the
+ * visual marker or touching canonical math). 1 = default span.
  */
 export function syncInteractionHandles(
   root: Group,
   object: GraphObject | null,
-  handles: InteractionHandleKind[]
+  handles: InteractionHandleKind[],
+  proxyScale = 1
 ): void {
   clearInteractionHandles(root);
   if (!object || handles.length === 0) {
@@ -220,6 +225,7 @@ export function syncInteractionHandles(
     proxy.material.depthWrite = false;
     proxy.material.depthTest = false;
     proxy.position.copy(marker.position);
+    proxy.scale.setScalar(proxyScale);
     proxy.visible = object.visible !== false;
     stampHandle(proxy, object.id, handle);
     namespace.add(marker);

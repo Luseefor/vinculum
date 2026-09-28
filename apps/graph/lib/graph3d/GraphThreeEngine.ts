@@ -612,21 +612,38 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     basePointerMove(event);
   };
 
-  // S16-R6: pointer id currently captured for an ortho grab-drag, if any.
-  let orthoCapturePointerId: number | null = null;
+  // S16-R6: pointer ids currently captured for ortho gestures (S34: can
+  // hold two during a touch pinch). Capture targets the canvas so its own
+  // move/up listeners stay in the event path; legacy mode never captures.
+  let orthoCapturePointerIds: number[] = [];
 
-  const releaseOrthoPointerCapture = () => {
-    if (orthoCapturePointerId === null) {
+  const releaseOrthoPointerCapture = (pointerId?: number) => {
+    const ids = pointerId === undefined ? [...orthoCapturePointerIds] : [pointerId];
+    if (ids.length === 0) {
       return;
     }
+    for (const capturedId of ids) {
+      try {
+        if (renderer.domElement.hasPointerCapture?.(capturedId)) {
+          renderer.domElement.releasePointerCapture(capturedId);
+        }
+      } catch {
+        // Already released or capture unsupported; nothing to clean up.
+      }
+      orthoCapturePointerIds = orthoCapturePointerIds.filter((id) => id !== capturedId);
+    }
+  };
+
+  const captureOrthoPointer = (pointerId: number) => {
     try {
-      if (renderer.domElement.hasPointerCapture?.(orthoCapturePointerId)) {
-        renderer.domElement.releasePointerCapture(orthoCapturePointerId);
+      renderer.domElement.setPointerCapture(pointerId);
+      if (!orthoCapturePointerIds.includes(pointerId)) {
+        orthoCapturePointerIds.push(pointerId);
       }
     } catch {
-      // Already released or capture unsupported; nothing to clean up.
+      // Pointer capture unsupported (or already released); the drag still
+      // works while the pointer stays over the canvas.
     }
-    orthoCapturePointerId = null;
   };
 
   const handlePointerDown = (event: PointerEvent) => {
@@ -646,26 +663,29 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       event,
       useGraphStore.getState().ui.canvas3dTool
     );
-    // S16-R6: keep an ortho grab-drag alive when the pointer leaves the
-    // canvas mid-gesture. Capture targets the canvas so its own move/up
-    // listeners stay in the event path; legacy mode never captures.
+    // S16-R6: keep ortho gestures alive when a pointer leaves the canvas
+    // mid-gesture (S34: each touch pointer captures independently).
     if (orthoDragStarted) {
-      try {
-        renderer.domElement.setPointerCapture(event.pointerId);
-        orthoCapturePointerId = event.pointerId;
-      } catch {
-        // Pointer capture unsupported (or already released); the drag still
-        // works while the pointer stays over the canvas.
-      }
+      captureOrthoPointer(event.pointerId);
     }
     basePointerDown(event);
   };
 
   const handlePointerUp = (event: PointerEvent) => {
     interaction.handlePointerUp(event);
-    releaseOrthoPointerCapture();
-    multiViewPointerUp(multiView);
+    // S34-R17: release only the lifting pointer (a pinch partner keeps its
+    // capture); cancel/suspend/dispose paths still release all.
+    releaseOrthoPointerCapture(event.pointerId);
+    multiViewPointerUp(multiView, event.pointerId);
     basePointerUp(event);
+  };
+
+  const handleEnginePointerCancel = (event: PointerEvent) => {
+    // S34-R18: OS-cancelled touches must not leak pinch/pointer/capture
+    // state into the next gesture (the interaction module commits or clears
+    // the object drag itself via its own listener).
+    releaseOrthoPointerCapture(event.pointerId);
+    multiViewPointerUp(multiView, event.pointerId);
   };
 
   const handlePointerLeave = () => {
@@ -774,6 +794,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   renderer.domElement.addEventListener("pointerdown", handlePointerDown);
   renderer.domElement.addEventListener("pointerup", handlePointerUp);
   renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+  renderer.domElement.addEventListener("pointercancel", handleEnginePointerCancel);
   container.addEventListener("pointerdown", handleContainerPointerDownCapture, true);
   container.addEventListener("wheel", handleContainerWheelCapture, { passive: false, capture: true });
 
@@ -866,6 +887,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
+      renderer.domElement.removeEventListener("pointercancel", handleEnginePointerCancel);
       container.removeEventListener("pointerdown", handleContainerPointerDownCapture, true);
       container.removeEventListener("wheel", handleContainerWheelCapture, true);
       renderer.domElement.removeEventListener("contextmenu", handleContextMenu);

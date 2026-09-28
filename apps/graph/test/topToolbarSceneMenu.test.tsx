@@ -83,7 +83,8 @@ vi.mock("@/store/graphStore", () => ({
 }));
 
 vi.mock("@/lib/store/editorStore", () => ({
-  useEditorStore: (selector: (state: { showPerfHud: boolean }) => unknown) => selector({ showPerfHud: false })
+  useEditorStore: (selector: (state: { showPerfHud: boolean; responsiveComposition: string }) => unknown) =>
+    selector({ showPerfHud: false, responsiveComposition: "wide" })
 }));
 
 vi.mock("@/components/ui/portal", () => ({
