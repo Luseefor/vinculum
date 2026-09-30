@@ -22,6 +22,7 @@ import type {
 } from "@vinculum/scene/types";
 import type { SurfaceOrientation } from "@vinculum/scene/types";
 import { Input } from "@/components/ui/input";
+import { StatusCallout } from "@/components/ui/StatusCallout";
 import { useGraphStore } from "@/store/graphStore";
 import {
   getImplicitSurfaceEquationDiagnostics,
@@ -46,13 +47,9 @@ function DiagnosticNote({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <p
-      data-testid="math-definition-diagnostic"
-      role="status"
-      className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] leading-snug text-amber-700 dark:text-amber-300"
-    >
+    <StatusCallout tone="error" testId="math-definition-diagnostic" role="status">
       {message}
-    </p>
+    </StatusCallout>
   );
 }
 

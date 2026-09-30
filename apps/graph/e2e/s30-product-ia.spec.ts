@@ -70,13 +70,13 @@ test.describe("S30 product information architecture", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await expect(page.getByText("Add a point, line, surface…")).toBeVisible();
+    await expect(page.getByText("Add a point, line, or surface to begin.").first()).toBeVisible();
     for (const name of ["Create Point", "Create Vector", "Create Infinite Line"]) {
       await expect(page.getByRole("button", { name })).toBeVisible();
     }
     await page.getByRole("button", { name: "Create Point" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await expect(page.getByText("Add a point, line, surface…")).not.toBeVisible();
+    await expect(page.getByText("Add a point, line, or surface to begin.")).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -84,7 +84,7 @@ test.describe("S30 product information architecture", () => {
   test("B: Math empty state invites expression entry with usable Quick Add", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await expect(page.getByText("Add an expression or mathematical object")).toBeVisible();
+    await expect(page.getByText("Add an expression or field to begin.").first()).toBeVisible();
     for (const name of ["Create Surface", "Create Parametric Curve", "Create Implicit Surface"]) {
       await expect(page.getByRole("button", { name })).toBeVisible();
     }

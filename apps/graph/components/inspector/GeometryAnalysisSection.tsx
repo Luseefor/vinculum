@@ -15,6 +15,7 @@ import { parametersToScope } from "@/lib/store/editorParameters";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import { Switch } from "@/components/ui/switch";
 import { getObjectRowDisplayMeta } from "@/components/objects/objectRowUtils";
+import { FactRow } from "@/components/inspector/FactRow";
 import {
   computeGeometryFacts,
   geometryPairSupported,
@@ -39,17 +40,6 @@ function formatDistance(distance: number | null): string {
     return "—";
   }
   return formatNumber(distance);
-}
-
-function FactRow({ label, value, testId }: { label: string; value: string; testId?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
-      <span data-testid={testId} className="font-mono text-[12px] text-[var(--text-primary)]">
-        {value}
-      </span>
-    </div>
-  );
 }
 
 function FactsBlock({ facts, primaryKind }: { facts: GeometryAnalysisFacts; primaryKind: GraphObject["kind"] }) {

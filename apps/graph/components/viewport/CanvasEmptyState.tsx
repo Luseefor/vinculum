@@ -7,6 +7,7 @@
 
 import { createObjectByKey } from "@/lib/objects/objectCreation";
 import { quickAddDescriptors } from "@/lib/objects/objectDescriptors";
+import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 import { useGraphStore } from "@/store/graphStore";
 import type { WorkspaceId } from "@/types/graphUi";
 
@@ -22,15 +23,13 @@ export default function CanvasEmptyState({ workspaceId }: { workspaceId: Workspa
   }
 
   const actions = quickAddDescriptors(workspaceId).slice(0, 3);
-  const hint =
-    workspaceId === "geometry" ? "Add a point, line, surface…" : "Add an expression or mathematical object";
+  const hint = WORKSPACE_CONTENT[workspaceId].emptyHint;
 
   return (
-    // S30: bottom-center, clear of the primary interaction zone (canvas
-    // center must keep receiving hover/orbit gestures) and of the Scene
-    // chip (bottom-left) and zoom controls (right).
+    // S30/S35: bottom-center, clear of the primary interaction zone and of
+    // first-run tips (top). Scene chip stays bottom-left; zoom stays right.
     <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center p-6 pb-8">
-      <div className="pointer-events-auto flex max-w-[300px] flex-col items-center gap-2.5 rounded-[8px] border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/92 px-4 py-3.5 text-center shadow-sm backdrop-blur-sm">
+      <div className="pointer-events-auto flex max-w-[300px] flex-col items-center gap-2.5 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-4 py-3.5 text-center shadow-sm">
         <p className="text-[13px] font-medium text-[var(--text-primary)]">{hint}</p>
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {actions.map((entry) => (
@@ -39,7 +38,7 @@ export default function CanvasEmptyState({ workspaceId }: { workspaceId: Workspa
               type="button"
               aria-label={`Create ${entry.label}`}
               onClick={() => createObjectByKey(entry.key)}
-              className="h-7 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+              className="h-7 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
             >
               {entry.label}
             </button>

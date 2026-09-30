@@ -12,7 +12,7 @@ import InspectorShell from "@/components/editor/InspectorShell";
 import SceneNavigatorPremium from "@/components/editor/SceneNavigatorPremium";
 import SelectedObjectChip from "@/components/editor/SelectedObjectChip";
 import StatusBar from "@/components/editor/StatusBar";
-import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
+import FirstRunHint from "@/components/onboarding/FirstRunHint";
 import RecoveryDialog from "@/components/projects/RecoveryDialog";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
 import SharedSceneConfirmDialog from "@/components/scene/SharedSceneConfirmDialog";
@@ -102,7 +102,7 @@ export default function EditorShell() {
   const [sharedSceneError, setSharedSceneError] = useState<string | null>(null);
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
   const [welcomeDialogError, setWelcomeDialogError] = useState<string | null>(null);
-  const [welcomeDontShowAgain, setWelcomeDontShowAgain] = useState(false);
+  const [touchHints, setTouchHints] = useState(false);
   const [examplesOpenSignal, setExamplesOpenSignal] = useState(0);
   const [viewportFallbackMessage, setViewportFallbackMessage] = useState<string | null>(null);
   const [isGraphStoreHydrated, setIsGraphStoreHydrated] = useState(false);
@@ -130,6 +130,7 @@ export default function EditorShell() {
   const endResize = useEditorStore((state) => state.endResize);
   const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
   const composition = useEditorStore((state) => state.responsiveComposition);
+  const geometryView = useEditorStore((state) => state.geometryView);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
   const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
@@ -601,6 +602,17 @@ export default function EditorShell() {
   }, [isGraphStoreHydrated]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(pointer: coarse)");
+    const sync = () => setTouchHints(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
     if (!isGraphStoreHydrated || hasCheckedWelcomeRef.current) {
       return;
     }
@@ -778,45 +790,16 @@ export default function EditorShell() {
   );
 
   const handleCloseWelcome = useCallback(() => {
-    if (welcomeDontShowAgain) {
-      persistWelcomePreference(true);
-    }
+    // S35: dismiss always persists — no checkbox dark pattern.
+    persistWelcomePreference(true);
     setWelcomeDialogOpen(false);
-  }, [persistWelcomePreference, welcomeDontShowAgain]);
-
-  const handleWelcomeStartBlankScene = useCallback(() => {
-    try {
-      clearHistory();
-      resetViewport2D();
-      requestCameraReset();
-      resetScene();
-      setCurrentProjectSession(null);
-      setProjectAutosaveStatus("idle");
-      if (welcomeDontShowAgain) {
-        persistWelcomePreference(true);
-      }
-      setWelcomeDialogOpen(false);
-    } catch {
-      setWelcomeDialogError("Blank scene could not be started. Try New Scene from the Scene menu.");
-    }
-  }, [
-    clearHistory,
-    persistWelcomePreference,
-    resetScene,
-    requestCameraReset,
-    resetViewport2D,
-    setCurrentProjectSession,
-    setProjectAutosaveStatus,
-    welcomeDontShowAgain
-  ]);
+  }, [persistWelcomePreference]);
 
   const handleWelcomeOpenExamples = useCallback(() => {
-    if (welcomeDontShowAgain) {
-      persistWelcomePreference(true);
-    }
+    persistWelcomePreference(true);
     setWelcomeDialogOpen(false);
     setExamplesOpenSignal((current) => current + 1);
-  }, [persistWelcomePreference, welcomeDontShowAgain]);
+  }, [persistWelcomePreference]);
 
   const handleViewportResetView = useCallback(() => {
     try {
@@ -1105,7 +1088,11 @@ export default function EditorShell() {
             onRedo={runRedo}
             onOpenWelcome={() => {
               setWelcomeDialogError(null);
-              setWelcomeDontShowAgain(false);
+              try {
+                setWelcomeOnboardingDismissed(false);
+              } catch {
+                // Preference reset is best-effort; still show tips this session.
+              }
               setWelcomeDialogOpen(true);
             }}
             openExamplesSignal={examplesOpenSignal}
@@ -1177,7 +1164,7 @@ export default function EditorShell() {
               onResetView={handleViewportResetView}
               onExportSceneJson={handleViewportExportSceneJson}
             >
-              <div className="h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
+              <div className="relative h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
                 {(workspace === "geometry" || visitedWorkspaces.geometry) && (
                   <div className={workspace === "geometry" ? "h-full w-full" : "hidden"}>
                     <GeometryViewport suspended={workspace !== "geometry"} />
@@ -1196,6 +1183,23 @@ export default function EditorShell() {
                     />
                   </div>
                 )}
+                <div className="pointer-events-none absolute inset-0 z-20">
+                  <FirstRunHint
+                    open={welcomeDialogOpen}
+                    workspace={workspace}
+                    error={welcomeDialogError}
+                    touchHints={touchHints}
+                    canvasMode={
+                      workspace === "math"
+                        ? "math"
+                        : geometryView === "perspective"
+                          ? "perspective"
+                          : "ortho"
+                    }
+                    onDismiss={handleCloseWelcome}
+                    onOpenExamples={handleWelcomeOpenExamples}
+                  />
+                </div>
               </div>
             </GraphViewportErrorBoundary>
             {viewportFallbackMessage ? (
@@ -1276,16 +1280,6 @@ export default function EditorShell() {
         error={sharedSceneError}
         onConfirm={handleOpenSharedScene}
         onCancel={handleCancelSharedScene}
-      />
-      <WelcomeDialog
-        open={welcomeDialogOpen}
-        error={welcomeDialogError}
-        dontShowAgain={welcomeDontShowAgain}
-        onDontShowAgainChange={setWelcomeDontShowAgain}
-        onOpenExamples={handleWelcomeOpenExamples}
-        onStartBlankScene={handleWelcomeStartBlankScene}
-        onContinue={handleCloseWelcome}
-        onClose={handleCloseWelcome}
       />
       <Sheet open={narrowRailMode && inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
         <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />

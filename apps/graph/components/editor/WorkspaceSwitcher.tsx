@@ -41,7 +41,7 @@ export default function WorkspaceSwitcher({ compact = false }: { compact?: boole
           title={entry.title}
           onClick={() => setWorkspace(entry.id)}
           className={cn(
-            "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+            "h-7 rounded-[var(--radius-sm)] px-2 text-[11px] font-semibold outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
             workspace === entry.id
               ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
               : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"

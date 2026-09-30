@@ -34,6 +34,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
 
   return (
     <aside
+      aria-label="Scene Navigator"
       className="flex h-full shrink-0 flex-col border-r border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
       style={{ width }}
     >
@@ -99,7 +100,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
                 return (
                   <div
                     key={measurement.id}
-                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 text-[12px] ${isSelected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent-ink)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60"}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2 py-1.5 text-[12px] ${isSelected ? "bg-[var(--accent-soft)] text-[var(--accent-ink)] shadow-[inset_2px_0_0_var(--accent)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60"}`}
                   >
                     <button
                       type="button"

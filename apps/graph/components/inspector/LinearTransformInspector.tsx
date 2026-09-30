@@ -32,18 +32,9 @@ import {
   trace2,
   trace3
 } from "@/lib/math/matrix";
+import { FactRow } from "@/components/inspector/FactRow";
+import { StatusCallout } from "@/components/ui/StatusCallout";
 import { analyzeEigen, formatComplexValue } from "@/lib/math/matrixEigen";
-
-function FactRow({ label, value, testId }: { label: string; value: string; testId?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[11px] text-[var(--text-secondary)]">{label}</span>
-      <span data-testid={testId} className="font-mono text-[12px] text-[var(--text-primary)]">
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function formatTuple(values: number[]): string {
   return `<${values.map((value) => formatNumber(value)).join(", ")}>`;
@@ -287,12 +278,12 @@ export default function LinearTransformInspector({
           Eigendirections
         </h4>
         {!eigen || eigen.unavailable ? (
-          <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]">Eigen analysis unavailable.</p>
+          <StatusCallout tone="neutral">Eigen analysis unavailable.</StatusCallout>
         ) : eigen.realDirectionCount === 0 ? (
           <>
-            <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" data-testid="linear-fact-eigen-none">
+            <StatusCallout tone="neutral" testId="linear-fact-eigen-none">
               No real eigendirections.
-            </p>
+            </StatusCallout>
             {eigen.entries
               .filter((entry) => entry.kind === "complex")
               .slice(0, 2)

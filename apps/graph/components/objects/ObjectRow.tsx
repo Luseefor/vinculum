@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
+import { StatusCallout } from "@/components/ui/StatusCallout";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import {
@@ -313,8 +314,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[6px] px-2 py-1.5 transition-all duration-100 motion-reduce:transition-none",
-          selected ? "border border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-muted)]/60"
+          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2 py-1.5 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
+          selected
+            ? "bg-[var(--accent-soft)] shadow-[inset_2px_0_0_var(--accent)]"
+            : "hover:bg-[var(--surface-muted)]/60"
         )}
       >
         <span
@@ -697,15 +700,17 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               />
             )}
             {definitionDiagnostic ? (
-              <p
-                id={`obj-${object.id}-diagnostic`}
-                data-testid="expression-diagnostic"
+              <StatusCallout
+                tone="error"
                 role="alert"
-                className="rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-snug text-amber-700 dark:text-amber-300"
+                testId="expression-diagnostic"
+                className="text-[10px]"
               >
-                {definitionDiagnostic.message}
-                {definitionDiagnostic.suggestion ? ` ${definitionDiagnostic.suggestion}` : ""}
-              </p>
+                <span id={`obj-${object.id}-diagnostic`}>
+                  {definitionDiagnostic.message}
+                  {definitionDiagnostic.suggestion ? ` ${definitionDiagnostic.suggestion}` : ""}
+                </span>
+              </StatusCallout>
             ) : null}
           </div>
         </div>

@@ -61,6 +61,7 @@ export default function InspectorPanel({
 
   return (
     <aside
+      aria-label="Inspector"
       className="flex h-full shrink-0 flex-col border-l border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
       style={width ? { width } : undefined}
     >
@@ -108,10 +109,12 @@ export default function InspectorPanel({
                 // S34 PART 35: tabs keep natural width and the row scrolls on
                 // compact sheets instead of crushing labels into each other.
                 // Object/Analyze stay first in DOM order (always discoverable).
-                "h-8 min-w-0 shrink-0 border-b-2 border-transparent px-2 text-[10px] font-semibold uppercase tracking-wide outline-none transition-all duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.98]",
+                "h-8 min-w-0 shrink-0 border-b-2 border-transparent px-2.5 text-[11px] font-medium tracking-wide outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
                 tab === id
                   ? "border-[var(--accent)] text-[var(--accent-ink)]"
-                  : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                  : id === "object" || id === "analysis"
+                    ? "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
               )}
             >
               {label}
@@ -134,25 +137,25 @@ export default function InspectorPanel({
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
                 <OrbitAtomIcon className="h-4 w-4 text-[var(--accent-ink)]" />
               </div>
-              <p className="text-[13px] font-semibold text-[var(--text-primary)]">Scene Context</p>
+              <p className="text-[13px] font-semibold text-[var(--text-primary)]">No selection</p>
               <p className="mt-1 max-w-[220px] text-[12px] text-[var(--text-tertiary)]">
-                Select an object or activate a tool to show actionable controls here.
+                Select an object to edit its definition and analysis.
               </p>
               <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
-                {objectCount} {objectCount === 1 ? "object" : "objects"} · {measurementCount} {measurementCount === 1 ? "measure" : "measures"} · {activeToolLabel}
+                {objectCount} {objectCount === 1 ? "object" : "objects"} · {measurementCount} {measurementCount === 1 ? "measure" : "measures"}
               </p>
               <div className="mt-3 flex w-full max-w-[240px] gap-2">
                 <button
                   type="button"
                   onClick={onOpenExamples}
-                  className="h-8 flex-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Examples
                 </button>
                 <button
                   type="button"
                   onClick={() => createAndFocus(() => addEmptyObject())}
-                  className="h-8 flex-1 rounded-[6px] border border-[var(--accent)] bg-[var(--accent-soft)] text-[11px] font-semibold uppercase tracking-wide text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-soft)] text-[12px] font-medium text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
                 >
                   Add Object
                 </button>

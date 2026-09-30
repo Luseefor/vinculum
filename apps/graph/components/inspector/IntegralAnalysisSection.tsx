@@ -15,6 +15,7 @@ import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { buildIntegralJob, getIntegralSyncContext, syncIntegralAnalysis } from "@/lib/compute/integralSync";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
+import { StatusCallout } from "@/components/ui/StatusCallout";
 import type { IntegralAnalysisConfig, IntegralAnalysisMode } from "@/types/graphUi";
 
 type IntegralTarget =
@@ -393,9 +394,9 @@ function ResultBody({
             {Number.isFinite(liveResult.estimatedError) ? `~${formatNumber(liveResult.estimatedError as number)}` : "unavailable"}
           </p>
           {liveResult.convergenceWarning === true && (
-            <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]">
+            <StatusCallout tone="warning" className="mt-1">
               Result has not converged closely at this quality.
-            </p>
+            </StatusCallout>
           )}
         </div>
       );

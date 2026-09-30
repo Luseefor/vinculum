@@ -236,11 +236,13 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
             <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No matching commands.</p>
           ) : null}
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-3 py-2 text-[10px] text-[var(--text-tertiary)]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] px-3 py-2 text-[10px] text-[var(--text-tertiary)]">
           <span>
             {filtered.length} match{filtered.length === 1 ? "" : "es"}
           </span>
-          <span>Cmd/Ctrl+K or Cmd/Ctrl+Shift+P · ↑/↓ Navigate · Enter Run · Esc Close</span>
+          <span className="ml-auto text-right">
+            ⌘/Ctrl+K · Undo/Redo · F Frame · Esc
+          </span>
         </div>
       </DialogContent>
     </Dialog>

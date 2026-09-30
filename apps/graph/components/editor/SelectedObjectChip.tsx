@@ -22,7 +22,7 @@ export default function SelectedObjectChip({
   }
   const meta = getObjectRowDisplayMeta(object);
   return (
-    <div className="pointer-events-auto absolute bottom-3 left-1/2 z-[11] flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 py-1 pl-3 pr-1 shadow-sm backdrop-blur-sm">
+    <div className="pointer-events-auto absolute bottom-3 left-1/2 z-[11] flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] py-1 pl-3 pr-1 shadow-sm">
       <span className="min-w-0 truncate text-[12px] font-semibold text-[var(--text-primary)]">
         {meta.label} #{index + 1}
       </span>
@@ -30,7 +30,7 @@ export default function SelectedObjectChip({
         type="button"
         onClick={onInspect}
         aria-label={`Inspect ${meta.label} ${index + 1}`}
-        className="flex h-10 shrink-0 items-center rounded-full bg-[var(--accent-soft)] px-3 text-[12px] font-semibold uppercase tracking-wide text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+        className="flex h-10 shrink-0 items-center rounded-[var(--radius-md)] bg-[var(--accent-soft)] px-3 text-[12px] font-semibold uppercase tracking-wide text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
       >
         Inspect
       </button>

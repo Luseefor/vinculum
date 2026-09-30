@@ -648,7 +648,7 @@ export default function TopToolbar({
                 >
                   Open example...
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Welcome / Getting started</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Show tips again</DropdownMenuItem>
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
@@ -1377,7 +1377,7 @@ function CompactChromeRightCluster({
               <DropdownMenuLabel>Scene</DropdownMenuLabel>
               <DropdownMenuItem onSelect={onNewScene}>New scene</DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenExample}>Open example...</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenWelcome}>Welcome / Getting started</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenWelcome}>Show tips again</DropdownMenuItem>
               <DropdownMenuItem onSelect={onImport}>Import...</DropdownMenuItem>
               <DropdownMenuItem onSelect={onExportJson}>Export JSON</DropdownMenuItem>
             </DropdownMenuGroup>

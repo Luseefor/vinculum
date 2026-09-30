@@ -15,10 +15,10 @@ export interface WorkspaceContent {
 export const WORKSPACE_CONTENT: Record<WorkspaceId, WorkspaceContent> = {
   geometry: {
     label: "Geometry Studio",
-    emptyHint: "Add a geometric object to begin."
+    emptyHint: "Add a point, line, or surface to begin."
   },
   math: {
     label: "Math Lab",
-    emptyHint: "Add an equation or graph to begin."
+    emptyHint: "Add an expression or field to begin."
   }
 };

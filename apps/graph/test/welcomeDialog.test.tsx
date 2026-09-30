@@ -1,47 +1,70 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
+import FirstRunHint, { canvasNavHint, firstRunCopy } from "@/components/onboarding/FirstRunHint";
 
-describe("WelcomeDialog", () => {
-  it("renders onboarding actions and toggles don't show again", () => {
-    const onDontShowAgainChange = vi.fn();
+describe("FirstRunHint", () => {
+  it("renders non-blocking getting-started tips for Geometry", () => {
+    const onDismiss = vi.fn();
     render(
-      <WelcomeDialog
+      <FirstRunHint
         open={true}
+        workspace="geometry"
         error={null}
-        dontShowAgain={false}
-        onDontShowAgainChange={onDontShowAgainChange}
+        onDismiss={onDismiss}
         onOpenExamples={vi.fn()}
-        onStartBlankScene={vi.fn()}
-        onContinue={vi.fn()}
-        onClose={vi.fn()}
       />
     );
 
-    expect(screen.getByRole("dialog", { name: /welcome to vinculum/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("checkbox", { name: /don't show again/i }));
-    expect(onDontShowAgainChange).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: "Open example" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Start blank scene" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(screen.getByTestId("first-run-hint")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /getting started/i })).toBeInTheDocument();
+    expect(screen.getByText(firstRunCopy("geometry").title)).toBeInTheDocument();
+    expect(screen.getByText(/Drag to orbit/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /got it/i }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it("closes on escape", () => {
-    const onClose = vi.fn();
+  it("uses Math Lab copy and touch navigation hints", () => {
     render(
-      <WelcomeDialog
+      <FirstRunHint
         open={true}
+        workspace="math"
         error={null}
-        dontShowAgain={false}
-        onDontShowAgainChange={vi.fn()}
+        touchHints
+        canvasMode="math"
+        onDismiss={vi.fn()}
         onOpenExamples={vi.fn()}
-        onStartBlankScene={vi.fn()}
-        onContinue={vi.fn()}
-        onClose={onClose}
       />
     );
 
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(firstRunCopy("math").title)).toBeInTheDocument();
+    expect(screen.getByText(canvasNavHint("math", true))).toBeInTheDocument();
+  });
+
+  it("exposes a named dismiss control", () => {
+    const onDismiss = vi.fn();
+    render(
+      <FirstRunHint
+        open={true}
+        workspace="geometry"
+        error={null}
+        onDismiss={onDismiss}
+        onOpenExamples={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /dismiss getting started tips/i }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders nothing when closed", () => {
+    const { container } = render(
+      <FirstRunHint
+        open={false}
+        workspace="geometry"
+        error={null}
+        onDismiss={vi.fn()}
+        onOpenExamples={vi.fn()}
+      />
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });
