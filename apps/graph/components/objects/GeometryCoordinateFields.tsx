@@ -228,14 +228,14 @@ export default function GeometryCoordinateFields({
     <div className="flex flex-col gap-1.5">
       {groups.map((group) => (
         <div key={group.name}>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <p className="mb-1 text-[11px] font-medium text-[var(--text-secondary)]">
             {group.name}
           </p>
           <div className="grid grid-cols-3 gap-1.5">
             {group.fields.map((def, index) => (
               <div
                 key={def.field}
-                className="flex items-center gap-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
               >
                 <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0">
                   {def.coord}

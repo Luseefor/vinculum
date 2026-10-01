@@ -1,8 +1,8 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { BufferGeometry, Line, LineSegments, Object3D, Scene } from "three";
 import { LineBasicMaterial, Mesh, MeshBasicMaterial } from "three";
 import type { Group } from "three";
-import type { ShaderMaterial } from "three";
-import type { WebGLRenderer } from "three";
+import type { Material } from "three";
 import type { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { disposeObject3D } from "@/lib/graph3d/buildGraphObjects";
 
@@ -25,7 +25,7 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   interactionRoot: Group;
   hoverMarker: Mesh;
   gridMesh: Mesh;
-  gridMaterial: ShaderMaterial;
+  gridMaterial: Material;
   axisLineGeometry: BufferGeometry | null;
   axisLineSegments: LineSegments | null;
   axisTubeGroup: Group | null;
@@ -37,7 +37,7 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   warningBadge: HTMLDivElement;
   probeBadge: HTMLDivElement;
   hoverProbeBadge: HTMLDivElement;
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   labelRenderer: CSS2DRenderer;
   container: HTMLElement;
 };

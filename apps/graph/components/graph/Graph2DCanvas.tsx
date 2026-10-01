@@ -218,14 +218,13 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
       {(showPerfHud || metrics.warningLevel !== "ok") && (
         <div
-          // S30: bottom-right, clear of the pane label (top-left) and the
-          // zoom stack (right-center). Same placement as the 3D badge.
-          className={`pointer-events-none absolute bottom-3 right-3 z-[22] flex max-w-[min(320px,calc(100%-4rem))] flex-col gap-0.5 rounded-[5px] border px-2 py-1 font-mono text-[10px] leading-snug shadow-sm backdrop-blur-sm ${
+          // Bottom-right, left of the zoom stack and clear of the pane label.
+          className={`pointer-events-none absolute bottom-3 right-[3.75rem] z-[22] flex max-w-[min(300px,calc(100%-6rem))] flex-col gap-0.5 rounded-[var(--radius-md)] border bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug shadow-[var(--shadow-control)] ${
             metrics.warningLevel === "critical"
-              ? "border-amber-500/60 bg-[var(--surface-overlay)]/90 text-amber-200"
+              ? "border-[var(--status-error-border)] text-[var(--status-error-fg)]"
               : metrics.warningLevel === "warning"
-                ? "border-amber-400/40 bg-[var(--surface-overlay)]/85 text-amber-100"
-                : "border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/85 text-[var(--text-secondary)]"
+                ? "border-[var(--status-warning-border)] text-[var(--status-warning-fg)]"
+                : "border-[var(--border-subtle)] font-mono text-[var(--text-secondary)]"
           }`}
           role="status"
           aria-live="polite"

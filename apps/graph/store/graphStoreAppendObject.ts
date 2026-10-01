@@ -10,6 +10,7 @@ export function appendObject(
 
   set((state) => {
     const nextObject = createObject(state.scene.objects.length);
+    if (state.scene.objects.some((object) => object.id === nextObject.id)) return state;
     createdObjectId = nextObject.id;
 
     const nextScene = applySceneCommand(state.scene, {

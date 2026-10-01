@@ -12,6 +12,8 @@ import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
 import type { VectorCalculusState } from "@/types/graphUi";
 import {
   compileVectorFieldDifferential,
+  compileVectorLaplacian,
+  evaluateVectorLaplacian,
   evaluateVectorDifferential,
   isFieldPointInDomain,
   vectorCurl3D,
@@ -69,19 +71,18 @@ export default function VectorCalculusSection({ object }: { object: VectorFieldO
       params
     );
     const jacobian = evaluateVectorDifferential(compiled, record.point, params);
-    return { status: "values" as const, jacobian };
-  }, [object, record, paramScope, dimension]);
+    const values = is2D ? field.evaluate2D?.(record.point.x, record.point.y) : field.evaluate3D?.(record.point.x, record.point.y, record.point.z);
+    const laplacian = evaluateVectorLaplacian(compileVectorLaplacian(dimension, is2D ? [object.pExpr, object.qExpr] : [object.pExpr, object.qExpr, object.rExpr], params), { ...params, ...record.point });
+    return { status: "values" as const, jacobian, values, laplacian };
+  }, [object, record, paramScope, dimension, is2D]);
 
   return (
     <section
       data-testid="vector-calculus-section"
-      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Vector Calculus</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          Pointwise Jacobian, divergence, and {is2D ? "scalar curl" : "curl"} at a field point.
-        </p>
       </header>
       <PointInputs key={object.id} object={object} recordPoint={record?.point} onCommit={setPoint} />
       {model.status === "empty" && (
@@ -109,6 +110,8 @@ export default function VectorCalculusSection({ object }: { object: VectorFieldO
         <ValuesBody
           object={object}
           jacobian={model.jacobian}
+          fieldValues={model.values}
+          laplacian={model.laplacian}
           record={record!}
           onToggleCurl={(showCurl) => setOverlays(object.id, { showCurl })}
           onClear={() => clearRecord(object.id)}
@@ -157,7 +160,7 @@ function PointInputs({
       <div className={axes.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"}>
         {axes.map((axis) => (
           <label key={axis} className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               {axis}
             </span>
             <Input
@@ -173,7 +176,7 @@ function PointInputs({
                 }
               }}
               onBlur={() => setDrafts((prev) => ({ ...prev, [axis]: undefined }))}
-              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
             />
           </label>
         ))}
@@ -186,17 +189,24 @@ function PointInputs({
 function ValuesBody({
   object,
   jacobian,
+  fieldValues,
+  laplacian,
   record,
   onToggleCurl,
   onClear
 }: {
   object: VectorFieldObject;
   jacobian: EvaluatedJacobian;
+  fieldValues: number[] | undefined;
+  laplacian: (number | null)[];
   record: VectorCalculusState;
   onToggleCurl: (showCurl: boolean) => void;
   onClear: () => void;
 }) {
   const is2D = object.dimension === "2d";
+  const finiteField = fieldValues?.every(Number.isFinite) ? fieldValues : null;
+  const magnitude = finiteField ? Math.hypot(...finiteField) : null;
+  const direction = magnitude && finiteField ? finiteField.map((value) => value / magnitude) : null;
   const rowLabels = is2D ? ["P", "Q"] : ["P", "Q", "R"];
   const colLabels = is2D ? ["x", "y"] : ["x", "y", "z"];
   const divergence = vectorDivergence(jacobian);
@@ -209,8 +219,15 @@ function ValuesBody({
 
   return (
     <div className="mt-2 flex flex-col gap-2.5" role="status" aria-label="Vector calculus results">
+      <div className="space-y-1 font-mono text-[12px] text-[var(--text-secondary)]">
+        <p>Field value = {finiteField ? `<${finiteField.map(formatNumber).join(", ")}>` : "unavailable"}</p>
+        <p>Magnitude = {magnitude === null ? "unavailable" : formatNumber(magnitude)}</p>
+        <p data-testid="field-point-direction">Unit direction = {direction ? `<${direction.map(formatNumber).join(", ")}>` : magnitude === 0 ? "undefined (zero field)" : "unavailable"}</p>
+        {is2D && direction ? <p>Angle = {formatNumber(Math.atan2(direction[1]!, direction[0]!))} rad</p> : null}
+        <p data-testid="field-point-laplacian">Vector Laplacian = &lt;{laplacian.map((value) => value === null ? "unavailable" : formatNumber(value)).join(", ")}&gt;</p>
+      </div>
       <table data-testid="vector-calculus-jacobian" className="w-full border-collapse font-mono text-[12px]">
-        <caption className="pb-1 text-left text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+        <caption className="pb-1 text-left text-[11px] font-medium text-[var(--text-tertiary)]">
           Jacobian
         </caption>
         <thead>
@@ -266,7 +283,7 @@ function ValuesBody({
         </p>
       )}
       {!is2D && (
-        <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+        <div className="flex items-center justify-between py-1">
           <span className="text-[12px] text-[var(--text-secondary)]">Show curl vector</span>
           <Switch
             checked={record.showCurl}
@@ -280,7 +297,7 @@ function ValuesBody({
           type="button"
           onClick={onClear}
           aria-label="Clear vector calculus analysis"
-          className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+          className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
         >
           Clear
         </button>

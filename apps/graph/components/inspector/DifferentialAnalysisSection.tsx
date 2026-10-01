@@ -50,7 +50,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
   }, [model.stale, object.id, clearAnalysis]);
 
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Differential Analysis</h3>
       </header>
@@ -75,7 +75,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
                       : "Pick a point on the surface"
             }
             aria-label={armed ? "Cancel picking analysis point" : "Pick analysis point on surface"}
-            className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {armed ? "Cancel" : "Pick point"}
           </button>
@@ -107,7 +107,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
           {object.kind === "surface" && (
             <DirectionalDerivativeBlock key={object.id} object={object} point={model.point} />
           )}
-          <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+          <div className="flex items-center justify-between py-1">
             <span className="text-[12px] text-[var(--text-secondary)]">Show normal</span>
             <Switch
               checked={model.showNormal}
@@ -115,7 +115,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               ariaLabel={model.showNormal ? "Hide normal arrow" : "Show normal arrow"}
             />
           </div>
-          <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+          <div className="flex items-center justify-between py-1">
             <span className="text-[12px] text-[var(--text-secondary)]">Show tangent plane</span>
             <Switch
               checked={model.showTangent}
@@ -128,7 +128,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => armPick(object.id)}
               aria-label="Pick a new analysis point"
-              className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               Re-pick
             </button>
@@ -136,7 +136,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => clearAnalysis(object.id)}
               aria-label="Clear differential analysis"
-              className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               Clear
             </button>
@@ -153,7 +153,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => armPick(object.id)}
               aria-label="Pick analysis point on surface"
-              className="mt-2 h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="mt-2 h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               Pick point
             </button>
@@ -221,14 +221,14 @@ function DirectionalDerivativeBlock({
   };
 
   return (
-    <div data-testid="directional-derivative" className="flex flex-col gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+    <div data-testid="directional-derivative" className="flex flex-col gap-2 py-1">
+      <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
         Directional derivative
       </p>
       <div className="grid grid-cols-2 gap-2">
         {(["u", "v"] as const).map((key, index) => (
           <label key={key} className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               d{vars[index]}
             </span>
             <Input
@@ -244,7 +244,7 @@ function DirectionalDerivativeBlock({
                 }
               }}
               onBlur={() => setDrafts((prev) => ({ ...prev, [key]: undefined }))}
-              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
             />
           </label>
         ))}

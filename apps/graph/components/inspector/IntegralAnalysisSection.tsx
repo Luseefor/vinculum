@@ -15,6 +15,8 @@ import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { buildIntegralJob, getIntegralSyncContext, syncIntegralAnalysis } from "@/lib/compute/integralSync";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
+import FieldSolutionView from "./FieldSolutionView";
+import { buildIntegralSolution } from "@/lib/math/integralSolution";
 import { StatusCallout } from "@/components/ui/StatusCallout";
 import type { IntegralAnalysisConfig, IntegralAnalysisMode } from "@/types/graphUi";
 
@@ -110,20 +112,15 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
   return (
     <section
       data-testid="integral-analysis-section"
-      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Integral Analysis</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          {isCurve
-            ? "Arc length, scalar line integrals, and work over this curve."
-            : "Area, scalar surface integrals, and flux through this surface."}
-        </p>
       </header>
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Mode
             </span>
             <select
@@ -135,7 +132,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
                   setConfig(object.id, { mode: next });
                 }
               }}
-              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
             >
               {modes.map((entry) => (
                 <option key={entry.value} value={entry.value}>
@@ -145,7 +142,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Quality
             </span>
             <select
@@ -157,7 +154,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
                   setConfig(object.id, { quality });
                 }
               }}
-              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -185,7 +182,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
         )}
         {mode === "work" && (
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Direction
             </span>
             <select
@@ -194,7 +191,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
               onChange={(event) => {
                 setConfig(object.id, { direction: event.target.value === "reverse" ? -1 : 1 });
               }}
-              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
             >
               <option value="forward">Forward</option>
               <option value="reverse">Reverse</option>
@@ -203,7 +200,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
         )}
         {mode === "flux" && (
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Orientation
             </span>
             <select
@@ -212,7 +209,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
               onChange={(event) => {
                 setConfig(object.id, { orientationSign: event.target.value === "reversed" ? -1 : 1 });
               }}
-              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
             >
               <option value="native">{orientationLabels.native}</option>
               <option value="reversed">{orientationLabels.reversed}</option>
@@ -231,6 +228,7 @@ export default function IntegralAnalysisSection({ object }: { object: IntegralTa
           computeMessage={computeMessage}
           liveResult={liveResult}
         />
+        {liveResult?.status === "ok" && desired ? <FieldSolutionView solution={buildIntegralSolution(desired.payload, liveResult)} /> : null}
       </div>
     </section>
   );
@@ -262,7 +260,7 @@ function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: 
   );
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
         Scalar integrand g(x,y,z)
       </span>
       <Input
@@ -286,7 +284,7 @@ function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: 
             setDraft(undefined);
           }
         }}
-        className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 font-mono text-[13px]"
+        className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 font-mono text-[13px]"
       />
     </label>
   );
@@ -305,7 +303,7 @@ function FieldSelector({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
         Vector field
       </span>
       <select
@@ -314,7 +312,7 @@ function FieldSelector({
         onChange={(event) => {
           onSelect(event.target.value === "" ? null : event.target.value);
         }}
-        className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+        className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
       >
         <option value="">Select a field…</option>
         {fields.map((field) => {

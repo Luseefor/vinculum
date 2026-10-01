@@ -6,6 +6,8 @@
     "packages/*"
   ],
   "scripts": {
+    "build:wasm": "bun scripts/build-math-wasm.ts",
+    "test:rust": "cargo test --locked -p vinculum-math-core",
     "dev": "bun run --filter @vinculum/graph dev",
     "build": "bun run --filter @vinculum/graph build",
     "lint": "bun run --filter @vinculum/graph lint",

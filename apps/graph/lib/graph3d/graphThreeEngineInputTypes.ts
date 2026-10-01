@@ -1,6 +1,6 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { BufferGeometry, Group, Line, OrthographicCamera, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from "three";
 import type { Mesh } from "three";
-import type { WebGLRenderer } from "three";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
 export type GraphThreeEngineInputMutableState = {
@@ -23,7 +23,7 @@ export type PanePickContext = {
 export type GraphThreeEngineInputHandlersDeps = {
   mutable: GraphThreeEngineInputMutableState;
   tickRuntime: GraphThreeEngineTickRuntime;
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   camera: PerspectiveCamera;
   raycaster: Raycaster;
   ndc: Vector2;

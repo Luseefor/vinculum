@@ -62,7 +62,7 @@ describe("S32 expression-first Object tab", () => {
     expect(screen.getByLabelText("y max")).toBeDefined();
     // No duplicated resolution editor — Styles owns it.
     expect(screen.queryByLabelText("Resolution")).toBeNull();
-    expect(screen.getByText(/adjust in the Styles tab/)).toBeDefined();
+    expect(screen.queryByText(/adjust in the Styles tab/)).toBeNull();
     void id;
   });
 
@@ -107,7 +107,7 @@ describe("S32 expression-first Object tab", () => {
     expect(screen.getByLabelText("u min")).toBeDefined();
     expect(screen.getByLabelText("v max")).toBeDefined();
     expect(screen.queryByLabelText("Resolution")).toBeNull();
-    expect(screen.getByText(/adjust in the Styles tab/)).toBeDefined();
+    expect(screen.queryByText(/adjust in the Styles tab/)).toBeNull();
     void id;
   });
 

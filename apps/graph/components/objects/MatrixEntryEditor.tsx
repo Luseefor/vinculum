@@ -87,7 +87,7 @@ export default function MatrixEntryEditor({
       {fields.map((field, index) => (
           <div
             key={field}
-            className="flex min-w-0 items-center gap-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+            className="flex min-w-0 items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
           >
           <input
             ref={index === 0 ? firstCellRef : undefined}

@@ -56,14 +56,14 @@ export default function TessellationSection({ object }: TessellationSectionProps
 
   return (
     <section>
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">Tessellation</p>
-      <div className="flex flex-col gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+      <p className="mb-2 text-[11px] font-medium text-[var(--text-tertiary)]">Tessellation</p>
+      <div className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent p-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-[var(--text-secondary)]">{rangeLabel}</p>
           <span className="font-mono text-[11px] font-semibold text-[var(--accent-ink)]">{object.resolution}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center overflow-hidden rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
+          <div className="flex flex-1 items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
             <button
               type="button"
               onClick={() => stepResolution(-1)}

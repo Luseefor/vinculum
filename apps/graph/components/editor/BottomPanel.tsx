@@ -1,30 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import { useEditorStore } from "@/lib/store/editorStore";
 import type { BottomPanelTab } from "@/lib/types/ui";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/styles";
+import { CloseIcon } from "@/components/layout/icons";
 import { useGraphStore } from "@/store/graphStore";
 import { usePerformanceMetricsSnapshot } from "@/lib/performance/usePerformanceMetrics";
 import AnimationTab from "@/components/inspector/AnimationTab";
 
-type DockTab = BottomPanelTab | "measurements" | "performance";
-
-const tabs: Array<{ id: DockTab; label: string }> = [
-  { id: "parameters", label: "PARAMETERS" },
-  { id: "console", label: "CONSOLE" },
-  { id: "diagnostics", label: "DIAGNOSTICS" },
-  { id: "measurements", label: "MEASUREMENTS" },
-  { id: "performance", label: "PERFORMANCE" }
+export const DOCK_TABS: Array<{ id: BottomPanelTab; label: string }> = [
+  { id: "parameters", label: "Parameters" },
+  { id: "console", label: "Console" },
+  { id: "diagnostics", label: "Diagnostics" },
+  { id: "measurements", label: "Measurements" },
+  { id: "performance", label: "Performance" }
 ];
 
 export default function BottomPanel({ height: controlledHeight }: { height?: number }) {
   const collapsed = useEditorStore((state) => state.bottomPanelCollapsed);
+  const setCollapsed = useEditorStore((state) => state.setBottomPanelCollapsed);
   const storeHeight = useEditorStore((state) => state.bottomPanelHeight);
   const height = controlledHeight ?? storeHeight;
   const activeTab = useEditorStore((state) => state.bottomPanelTab);
-  const setTab = useEditorStore((state) => state.setBottomPanelTab);
   const parameters = useEditorStore((state) => state.parameters);
   const setParameterValue = useEditorStore((state) => state.setParameterValue);
   const consoleEvents = useEditorStore((state) => state.consoleEvents);
@@ -34,49 +30,39 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const measurements = useGraphStore((state) => state.scene.measurements);
   const perf = usePerformanceMetricsSnapshot();
-  const [extraTab, setExtraTab] = useState<"measurements" | "performance" | null>(null);
+
+  if (collapsed) {
+    return null;
+  }
+
+  const activeLabel = DOCK_TABS.find((tab) => tab.id === activeTab)?.label ?? "Panel";
 
   return (
     <section
-      className={cn(
-        "bottom-dock flex flex-col border-t border-[var(--border-strong)] bg-[var(--editor-chrome)] transition-all duration-300",
-        collapsed ? "h-9" : ""
-      )}
-      style={!collapsed ? { height } : {}}
+      aria-label={`${activeLabel} panel`}
+      className="bottom-dock flex flex-col border-t border-[var(--border-subtle)] bg-[var(--editor-chrome)]"
+      style={{ height }}
     >
-      <div className="flex h-9 items-center justify-between border-b border-[var(--border-subtle)] px-3">
-        <div className="flex h-full min-w-0 items-center gap-3 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                if (tab.id === "measurements" || tab.id === "performance") {
-                  setExtraTab(tab.id);
-                  return;
-                }
-                setExtraTab(null);
-                setTab(tab.id);
-              }}
-              className={cn(
-                "relative flex h-full items-center border-b-2 px-1 text-[10px] font-semibold uppercase tracking-[0.08em] transition-all",
-                (extraTab ? extraTab === tab.id : activeTab === tab.id) 
-                  ? "border-[var(--accent)] text-[var(--text-primary)]" 
-                  : "border-transparent text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="flex h-9 shrink-0 items-center justify-between px-4">
+        <p className="text-[12px] font-semibold text-[var(--text-primary)]">{activeLabel}</p>
+        <button
+          type="button"
+          aria-label="Close panel"
+          title="Close panel"
+          onClick={() => setCollapsed(true)}
+          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] outline-none transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      {!collapsed && (
-        <div className="min-h-0 flex-1 overflow-auto p-3">
-          {extraTab === null && activeTab === "parameters" && (
+      {(
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-3">
+          {activeTab === "parameters" && (
             <>
             <div className="grid grid-cols-1 gap-x-8 gap-y-3 md:grid-cols-2">
               {parameters.map((param) => (
-                <div key={param.id} className="flex min-w-0 items-center gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
+                <div key={param.id} className="flex min-w-0 items-center gap-3 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2">
                   <span className="w-4 text-[11px] font-semibold text-[var(--text-secondary)]">{param.id}</span>
                   <input
                     type="range"
@@ -105,7 +91,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
             </>
           )}
 
-          {extraTab === null && activeTab === "console" && (
+          {activeTab === "console" && (
             <div className="pr-1 font-mono text-[11px]">
               {consoleEvents.map((ev, i) => (
                 <div key={i} className="flex gap-2 border-b border-[var(--border-subtle)] py-1">
@@ -117,7 +103,7 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
             </div>
           )}
 
-          {extraTab === null && activeTab === "diagnostics" && (
+          {activeTab === "diagnostics" && (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <DiagnosticStat label="Viewport Mode" value={graphMode.toUpperCase()} />
               <DiagnosticStat label="Objects in Scene" value={String(objectCount)} />
@@ -125,21 +111,21 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
               <DiagnosticStat label="Selected ID" value={selectedObjectId?.slice(0, 8) ?? "NONE"} />
             </div>
           )}
-          {extraTab === "measurements" && (
+          {activeTab === "measurements" && (
             <div className="space-y-2">
               {measurements.length === 0 ? (
                 <p className="text-[12px] text-[var(--text-tertiary)]">No measurements recorded.</p>
               ) : (
                 measurements.map((measurement) => (
-                  <div key={measurement.id} className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2 text-[12px]">
-                    <span className="mr-2 font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{measurement.kind}</span>
+                  <div key={measurement.id} className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2 text-[12px]">
+                    <span className="mr-2 font-semibold text-[var(--text-tertiary)]">{measurement.kind}</span>
                     <span className="font-mono text-[var(--text-secondary)]">{measurement.id.slice(0, 12)}</span>
                   </div>
                 ))
               )}
             </div>
           )}
-          {extraTab === "performance" && (
+          {activeTab === "performance" && (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
               <DiagnosticStat
                 label="Paint Time"
@@ -163,8 +149,8 @@ export default function BottomPanel({ height: controlledHeight }: { height?: num
 
 function DiagnosticStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">{label}</p>
+    <div className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2.5">
+      <p className="text-[11px] font-medium text-[var(--text-tertiary)]">{label}</p>
       <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{value}</p>
     </div>
   );

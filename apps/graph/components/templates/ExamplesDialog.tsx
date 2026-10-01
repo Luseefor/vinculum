@@ -43,7 +43,7 @@ export default function ExamplesDialog({
           ) : (
             <ul className="space-y-1.5">
               {examples.map((example) => (
-                <li key={example.id} className="rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
+                <li key={example.id} className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] px-3 py-2.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold text-[var(--text-primary)]">{example.title}</p>

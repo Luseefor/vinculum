@@ -76,15 +76,10 @@ export default function ScalarVisualizationSection({ object }: ScalarVisualizati
   return (
     <section
       data-testid="scalar-visualization-section"
-      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Scalar Visualization</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          {isImplicit
-            ? "Planar slice of F(x,y,z) with heat and contours, derived live from the source."
-            : "Heat map, contours, and gradient field of f, derived live from the source."}
-        </p>
       </header>
       {sourceError && (
         <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
@@ -122,7 +117,7 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+    <div className="flex items-center justify-between py-1">
       <span className="text-[12px] text-[var(--text-secondary)]">{label}</span>
       <Switch
         checked={checked}
@@ -166,7 +161,7 @@ function ExplicitScalarControls({
       <ToggleRow label="Contours" checked={showContours} onChange={(checked) => onCommit({ showContours: checked })} />
       {showContours && (
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Contour count
           </span>
           <Input
@@ -184,7 +179,7 @@ function ExplicitScalarControls({
                 });
               }
             }}
-            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           />
         </label>
       )}
@@ -196,7 +191,7 @@ function ExplicitScalarControls({
       {showGradient && (
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Gradient density
             </span>
             <Input
@@ -217,11 +212,11 @@ function ExplicitScalarControls({
                   });
                 }
               }}
-              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Gradient scale
             </span>
             <Input
@@ -239,7 +234,7 @@ function ExplicitScalarControls({
                   });
                 }
               }}
-              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
             />
           </label>
         </div>
@@ -321,7 +316,7 @@ function ImplicitSliceControls({
       {sliceEnabled && (
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Slice plane
             </span>
             <select
@@ -333,7 +328,7 @@ function ImplicitSliceControls({
                   onCommit({ slicePlane: plane });
                 }
               }}
-              className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
             >
               <option value="xy">XY</option>
               <option value="xz">XZ</option>
@@ -341,7 +336,7 @@ function ImplicitSliceControls({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
               Slice value
             </span>
             <Input
@@ -355,7 +350,7 @@ function ImplicitSliceControls({
                   onCommit({ sliceValue: value });
                 }
               }}
-              className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
             />
           </label>
         </div>

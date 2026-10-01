@@ -162,7 +162,10 @@ test.describe("S34 responsive composition", () => {
     await expect(page.getByRole("dialog", { name: "Objects" })).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("wide");
-    await page.getByRole("button", { name: "Inspector", exact: true }).click();
+    // Wide opens the Inspector from selection, not a toolbar toggle.
+    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await expect(page.locator("#graph-inspector")).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("compact");
     await page.waitForTimeout(400);

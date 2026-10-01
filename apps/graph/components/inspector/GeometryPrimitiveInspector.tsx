@@ -33,8 +33,8 @@ export default function GeometryPrimitiveInspector({ object, index }: { object: 
   const title = useMemo(() => KIND_TITLES[object.kind], [object.kind]);
 
   return (
-    <div className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
-      <div className="mb-2 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5">
+    <div className="py-1">
+      <div className="mb-2 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: object.color }} />
           <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">
@@ -42,7 +42,7 @@ export default function GeometryPrimitiveInspector({ object, index }: { object: 
             {selectedTitle}
           </h3>
         </div>
-        <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <span className="rounded-[var(--radius-sm)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
           {object.kind}
         </span>
       </div>

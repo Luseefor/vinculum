@@ -292,13 +292,10 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
   return (
     <section
       data-testid="geometry-analysis-section"
-      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Geometry Analysis</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          Distances, projections, angles, and intersections with a second object.
-        </p>
       </header>
       <div className="flex flex-col gap-2">
         <p className="px-0.5 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
@@ -307,7 +304,7 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
           With {secondary && secondaryMeta ? `${secondaryMeta.label} #${secondaryIndex + 1}` : "—"}
         </p>
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Second object
           </span>
           <select
@@ -321,7 +318,7 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
                 clearGeometryAnalysis(object.id);
               }
             }}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             <option value="">Select another object…</option>
             {options.map((candidate) => {
@@ -346,7 +343,7 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
               {(() => {
                 const overlayLabel = geometryOverlayToggleLabel(facts);
                 return overlayLabel ? (
-                  <div className="mt-1 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
+                  <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-1.5">
                     <span className="text-[12px] text-[var(--text-secondary)]">{overlayLabel}</span>
                     <Switch
                       checked={config.showOverlay}

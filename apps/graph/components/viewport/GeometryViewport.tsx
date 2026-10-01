@@ -31,7 +31,7 @@ function paneFraction(index: number, paneCount: number): { left: string; top: st
 /**
  * Geometry Studio viewport: one shared Three.js scene rendered through
  * perspective + orthographic cameras with scissor viewports. Mounts exactly
- * one engine (one WebGL context, one sync path) regardless of pane count.
+ * one engine (one GPU context, one sync path) regardless of pane count.
  */
 export default function GeometryViewport({
   className = "",
@@ -42,6 +42,8 @@ export default function GeometryViewport({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GraphThreeEngine | null>(null);
+  const [renderReady, setRenderReady] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const geometryLayout = useEditorStore((state) => state.geometryLayout);
   const geometryView = useEditorStore((state) => state.geometryView);
   const geometrySplitView = useEditorStore((state) => state.geometrySplitView);
@@ -57,8 +59,12 @@ export default function GeometryViewport({
     if (!element) {
       return;
     }
-    const engine = createGraphThreeEngine(element);
+    let active = true;
+    const engine = createGraphThreeEngine(element, (message) => { if (active) setRenderError(message); });
     engineRef.current = engine;
+    engine.ready.then(() => { if (active) setRenderReady(true); }).catch(() => {
+      if (active) setRenderError("The 3D renderer could not start. Check GPU access in your browser, then retry the viewport.");
+    });
     // S33 Frame Selected / Fit Scene (camera-only): the active pane frames.
     const unsubscribeFrame = subscribeCanvasFrameRequests((kind) => {
       if (kind === "selected") {
@@ -68,6 +74,7 @@ export default function GeometryViewport({
       }
     });
     return () => {
+      active = false;
       unsubscribeFrame();
       engine.dispose();
       engineRef.current = null;
@@ -128,6 +135,7 @@ export default function GeometryViewport({
     }
   };
 
+  if (renderError) throw new Error(renderError);
   return (
     <div className={`h-full w-full ${className}`}>
       <div
@@ -137,9 +145,12 @@ export default function GeometryViewport({
         onPointerDownCapture={handleContainerPointerDownCapture}
         onWheelCapture={handleContainerWheelCapture}
       >
+        {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--surface-canvas)] text-sm text-[var(--text-secondary)]">Starting 3D renderer…</p> : null}
         {/* S30: single empty-scene prompt (the engine canvas mounts once). */}
         <CanvasEmptyState workspaceId="geometry" />
-        {panes.map((pane, index) => {
+        {/* Pane buttons pick the active pane; a single pane needs no picker
+            (the toolbar View select already names it). */}
+        {panes.length > 1 && panes.map((pane, index) => {
           const position = paneFraction(index, panes.length);
           return (
             <button
@@ -151,10 +162,10 @@ export default function GeometryViewport({
               onClick={() => activatePane(pane)}
               style={{ position: "absolute", left: position.left, top: position.top }}
               className={cn(
-                "z-20 h-7 shrink-0 rounded-[5px] border px-2 text-[11px] font-semibold uppercase tracking-wide backdrop-blur-sm transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+                "z-20 h-7 shrink-0 rounded-full border px-3 text-[12px] font-medium shadow-[var(--shadow-control)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                 activeView === pane
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "border-[var(--border-subtle)] bg-[var(--surface-overlay)]/88 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  ? "border-[var(--accent)] bg-[var(--surface-overlay)] text-[var(--accent-ink)]"
+                  : "border-[var(--border-subtle)] bg-[var(--surface-overlay)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               )}
             >
               {GEOMETRY_VIEW_LABELS[pane]}

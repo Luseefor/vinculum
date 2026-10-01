@@ -1,4 +1,5 @@
-import { compile, derivative, parse, type MathNode } from "mathjs";
+import { derivative, parse, type MathNode } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { validateExpressionSafety } from "./expressionSafety";
 import { formatExpressionError } from "./expressionErrorFormat";
 
@@ -24,6 +25,8 @@ export interface PartialDerivativeInput {
 export interface CompiledPartialDerivative {
   evaluate: (scope: Record<string, number>) => number;
   error: string | null;
+  /** Safe generated expression, available for symbolic answers and higher derivatives. */
+  expression?: string;
 }
 
 interface CompiledMathExpression {
@@ -146,6 +149,7 @@ export function compilePartialDerivative(input: PartialDerivativeInput): Compile
   }
 
   const success: CompiledPartialDerivative = {
+    expression: generated,
     evaluate: (scope) => {
       try {
         const value = compiledExpression.evaluate(scope);
@@ -162,4 +166,21 @@ export function compilePartialDerivative(input: PartialDerivativeInput): Compile
   };
   setCachedPartialDerivative(cacheKey, success);
   return success;
+}
+
+export function compileRepeatedPartialDerivative(
+  input: PartialDerivativeInput,
+  variables: readonly string[]
+): CompiledPartialDerivative {
+  if (variables.length < 1 || variables.length > 2) {
+    return { evaluate: NAN_EVALUATOR, error: "Only first and second derivatives are supported." };
+  }
+  let expression = input.expression;
+  let result: CompiledPartialDerivative = { evaluate: NAN_EVALUATOR, error: null };
+  for (const variable of variables) {
+    result = compilePartialDerivative({ ...input, expression, variable });
+    if (result.error || !result.expression) return result;
+    expression = result.expression;
+  }
+  return result;
 }

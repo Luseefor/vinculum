@@ -91,17 +91,17 @@ export default function AnimationTab() {
   ]);
 
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
       <header>
         <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Animation</h3>
       </header>
       <div className="space-y-2 pt-3">
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Parameter</span>
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Parameter</span>
           <select
             value={animation.parameterId ?? ""}
             onChange={(event) => setAnimationParameterId(event.target.value || null)}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px]"
           >
             <option value="">None</option>
             {parameters.map((parameter) => (
@@ -113,7 +113,7 @@ export default function AnimationTab() {
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Min</span>
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Min</span>
             <Input
               type="text"
               inputMode="decimal"
@@ -134,11 +134,11 @@ export default function AnimationTab() {
                   setMinDraft(String(animation.min));
                 }
               }}
-              className="h-8 rounded-[6px] text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] text-[13px]"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Max</span>
+            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Max</span>
             <Input
               type="text"
               inputMode="decimal"
@@ -159,12 +159,12 @@ export default function AnimationTab() {
                   setMaxDraft(String(animation.max));
                 }
               }}
-              className="h-8 rounded-[6px] text-[13px]"
+              className="h-8 rounded-[var(--radius-sm)] text-[13px]"
             />
           </label>
         </div>
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Speed</span>
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">Speed</span>
           <Input
             type="text"
             inputMode="decimal"
@@ -185,7 +185,7 @@ export default function AnimationTab() {
                 setSpeedDraft(String(animation.speed));
               }
             }}
-            className="h-8 rounded-[6px] text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] text-[13px]"
           />
         </label>
         <div className="flex items-center gap-2 pt-1">

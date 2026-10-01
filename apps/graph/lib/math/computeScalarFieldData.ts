@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { compileImplicitSurfaceExpression } from "./compileImplicitSurface";
 import { compileScalarFunctionGradient } from "./surfaceDifferential";
 import { validateExpressionSafety } from "./expressionSafety";

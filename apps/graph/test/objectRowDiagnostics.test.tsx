@@ -65,6 +65,22 @@ describe("ObjectRow workspace behavior", () => {
     );
     expect(screen.getByRole("button", { name: "Hide object" })).toBeVisible();
   });
+
+  it("uses the color swatch as the only visibility toggle", () => {
+    const object = addSurface("z = x^2 + y^2");
+    const onToggleVisibility = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <ObjectRow object={object} index={0} selected={false} onSelect={onSelect} onToggleVisibility={onToggleVisibility} />
+    );
+    const toggles = screen.getAllByRole("button", { name: /(Hide|Show) object/ });
+    expect(toggles).toHaveLength(1);
+    expect(toggles[0]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(toggles[0] as HTMLElement);
+    expect(onToggleVisibility).toHaveBeenCalledWith(object.id);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
 });
 
 describe("ObjectRow drag-transaction safety (S33-R7)", () => {

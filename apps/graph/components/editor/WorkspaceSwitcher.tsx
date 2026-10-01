@@ -28,7 +28,10 @@ export default function WorkspaceSwitcher({ compact = false }: { compact?: boole
 
   return (
     <div
-      className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
+      className={cn(
+        "flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5",
+        compact ? "h-8" : "h-9"
+      )}
       role="group"
       aria-label="Workspace"
     >
@@ -41,10 +44,13 @@ export default function WorkspaceSwitcher({ compact = false }: { compact?: boole
           title={entry.title}
           onClick={() => setWorkspace(entry.id)}
           className={cn(
-            "h-7 rounded-[var(--radius-sm)] px-2 text-[11px] font-semibold outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
+            "rounded-full font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1",
+            compact ? "h-7 px-2.5 text-[12px]" : "h-8 px-4 text-[13px]",
+            // Activation is instant (no fade through low-contrast mid-states);
+            // only the inactive hover color animates.
             workspace === entry.id
-              ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-              : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
+              ? "bg-[var(--accent-solid)] text-white shadow-[var(--shadow-control)]"
+              : "text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)] motion-reduce:transition-none"
           )}
         >
           {compact ? COMPACT_SHORT[entry.id] : entry.short}

@@ -31,6 +31,10 @@ export interface ExpressionSafetyContext {
   schemaVersion?: number;
   details?: Record<string, unknown>;
   allowedSymbols?: string[];
+  /** Domain-specific compilers can narrow symbols without changing legacy policies. */
+  strictSymbols?: boolean;
+  /** Extra functions are opt-in for a specific compiler, never globally enabled. */
+  additionalFunctions?: readonly string[];
 }
 
 type SafetyCheckResult =
@@ -47,6 +51,7 @@ const ALLOWED_FUNCTIONS = new Set([
   "asin",
   "acos",
   "atan",
+  "atan2",
   // Roots / absolute / exp/log
   "sqrt",
   "abs",
@@ -150,10 +155,10 @@ export function validateExpressionSafety(expression: string, context: Expression
   // context) still skips the gate; `[]` checks against base symbols only.
   const allowedSymbols =
     context.allowedSymbols !== undefined
-      ? new Set([...BASE_ALLOWED_SYMBOLS, ...context.allowedSymbols])
+      ? new Set([...(context.strictSymbols ? ["pi", "e"] : BASE_ALLOWED_SYMBOLS), ...context.allowedSymbols])
       : null;
 
-  const unsupportedFunction = findFirstUnsupportedFunction(node);
+  const unsupportedFunction = findFirstUnsupportedFunction(node, context.additionalFunctions);
   if (unsupportedFunction) {
     const violation: ExpressionSafetyViolation = {
       code: "unsupported-function",
@@ -213,7 +218,7 @@ function buildMonitoringContext(
   };
 }
 
-function findFirstUnsupportedFunction(node: MathNode): string | null {
+function findFirstUnsupportedFunction(node: MathNode, additionalFunctions: readonly string[] = []): string | null {
   let unsupported: string | null = null;
 
   const inspect = (candidate: MathNode) => {
@@ -229,7 +234,7 @@ function findFirstUnsupportedFunction(node: MathNode): string | null {
         : (fnCandidate as unknown as { name?: unknown })?.name;
 
     if (typeof fnName !== "string") return;
-    if (!ALLOWED_FUNCTIONS.has(fnName)) unsupported = fnName;
+    if (!ALLOWED_FUNCTIONS.has(fnName) && !additionalFunctions.includes(fnName)) unsupported = fnName;
   };
 
   node.traverse((childNode: MathNode) => inspect(childNode));
@@ -279,4 +284,3 @@ function findFirstNumericLiteralOutOfRange(node: MathNode): number | null {
 
   return outOfRange;
 }
-

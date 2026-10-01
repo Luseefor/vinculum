@@ -1,5 +1,5 @@
 import { MOUSE } from "three";
-import type { OrbitControls } from "three-stdlib";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 export function syncOrbitControlsToCanvas3dTool(
   controls: OrbitControls,

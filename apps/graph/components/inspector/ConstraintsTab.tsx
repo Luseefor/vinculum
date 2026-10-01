@@ -66,7 +66,7 @@ export default function ConstraintsTab() {
   const selectedLabel = selectedObjectId ? labelForObject(selectedObjectId) : "None";
 
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
+    <section className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
       <header className="p-3 pb-0">
         <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Links</h3>
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">
@@ -75,18 +75,18 @@ export default function ConstraintsTab() {
       </header>
 
       <div className="space-y-3 p-3 pt-3">
-        <div className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Source object</p>
+        <div className="rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-2">
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Source object</p>
           <p className="mt-1 text-[12px] font-medium text-[var(--text-primary)]">{selectedLabel}</p>
         </div>
 
         <label className="block space-y-1">
-          <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Target object</span>
+          <span className="block text-[11px] font-medium text-[var(--text-secondary)]">Target object</span>
           <select
             value={targetObjectId}
             onChange={(event) => setTargetObjectId(event.target.value)}
             disabled={!selectedObjectId || targetOptions.length === 0}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] disabled:opacity-60"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] disabled:opacity-60"
           >
             {targetOptions.length === 0 ? (
               <option value="">No other objects</option>
@@ -127,7 +127,7 @@ export default function ConstraintsTab() {
           ).map((item) => (
             <div
               key={item.type}
-            className="flex items-center justify-between gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2"
+            className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-2"
             >
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-[var(--text-primary)]">{item.label}</p>
@@ -148,13 +148,13 @@ export default function ConstraintsTab() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Outgoing links</p>
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Outgoing links</p>
           {!selectedObjectId ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               Select an object to manage links.
             </p>
           ) : outgoingConstraints.length === 0 ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               No outgoing links from this object.
             </p>
           ) : (
@@ -173,13 +173,13 @@ export default function ConstraintsTab() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Incoming links</p>
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Incoming links</p>
           {!selectedObjectId ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               Select an object to inspect incoming links.
             </p>
           ) : incomingConstraints.length === 0 ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               No incoming links to this object.
             </p>
           ) : (
@@ -217,15 +217,15 @@ function LinkRow({
   onRemove: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
+    <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-2">
       <div className="min-w-0">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[12px] font-semibold capitalize text-[var(--text-primary)]">{constraint.type}</p>
           <span
             className={
               constraint.enabled
-                ? "rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-500"
-                : "rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]"
+                ? "rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-medium text-emerald-500"
+                : "rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-tertiary)]"
             }
           >
             {constraint.enabled ? "On" : "Off"}
@@ -249,7 +249,7 @@ function LinkRow({
               type="button"
               aria-pressed={constraint.axisLocks[axis]}
               onClick={() => onAxisToggle(constraint.id, { [axis]: !constraint.axisLocks[axis] })}
-              className={`h-6 w-6 rounded-[6px] border text-[10px] font-semibold uppercase ${
+              className={`h-6 w-6 rounded-[var(--radius-sm)] border text-[10px] font-semibold uppercase ${
                 constraint.axisLocks[axis]
                   ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--text-primary)]"
                   : "border-[var(--border-subtle)] bg-transparent text-[var(--text-tertiary)]"
@@ -265,7 +265,7 @@ function LinkRow({
           value={constraint.offsetValue}
           disabled={constraint.type !== "offset"}
           onChange={(event) => onOffsetChange(constraint.id, Number(event.target.value))}
-          className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 font-mono text-[13px] text-[var(--text-primary)] disabled:opacity-50"
+          className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 font-mono text-[13px] text-[var(--text-primary)] disabled:opacity-50"
           min={-255}
           max={255}
           step={1}

@@ -21,7 +21,7 @@ export function Graph2DCanvasUiViewportRangeBadge({
       className={
         embedded
           ? "min-w-0 font-mono text-[10px] text-[var(--text-secondary)]"
-          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg"
+          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-[var(--shadow-floating)]"
       }
     >
       {axisPair.horizontalLabel}: [{formatCoord(viewportRange.horizontalMin)}, {formatCoord(viewportRange.horizontalMax)}]

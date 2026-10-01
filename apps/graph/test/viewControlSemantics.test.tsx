@@ -1,7 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import TopToolbar from "@/components/editor/TopToolbar";
+import ViewControls from "@/components/editor/ViewControls";
 
 vi.mock("@/lib/export/sceneExport", () => ({
   exportSceneJson: vi.fn(),
@@ -90,13 +90,15 @@ vi.mock("@/store/graphStore", () => ({
   useGraphStore: (selector: (state: typeof graphStoreState) => unknown) => selector(graphStoreState)
 }));
 
-function renderBar(props: Partial<React.ComponentProps<typeof TopToolbar>> = {}) {
+function renderBar(props: Partial<React.ComponentProps<typeof ViewControls>> = {}) {
+  const result = renderClosedBar(props);
+  fireEvent.click(screen.getByRole("button", { name: "View options" }));
+  return result;
+}
+
+function renderClosedBar(props: Partial<React.ComponentProps<typeof ViewControls>> = {}) {
   return render(
-    <TopToolbar
-      canUndo={false}
-      canRedo={false}
-      onUndo={vi.fn()}
-      onRedo={vi.fn()}
+    <ViewControls
       activeViewType="both"
       activeLayout="split"
       onViewTypeChange={vi.fn()}
@@ -111,6 +113,15 @@ function renderBar(props: Partial<React.ComponentProps<typeof TopToolbar>> = {})
 }
 
 describe("view control semantics", () => {
+  it("keeps plane and base selects one click away behind View options", () => {
+    renderClosedBar({ activeViewType: "both" });
+    expect(screen.queryByTestId("toolbar-2d-plane-select")).toBeNull();
+    expect(screen.queryByTestId("toolbar-3d-base-select")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View options" }));
+    expect(screen.getByTestId("toolbar-2d-plane-select")).toBeVisible();
+    expect(screen.getByTestId("toolbar-3d-base-select")).toBeVisible();
+  });
+
   it("does not offer Single in the view type group", () => {
     renderBar({ activeViewType: "both" });
     const viewGroup = screen.getByRole("group", { name: "View type" });

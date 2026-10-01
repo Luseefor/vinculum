@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
+import { useState, useRef, useEffect, lazy, Suspense, type ReactNode } from "react";
 import { useHistoryStore } from "@/lib/store/historyStore";
 import NewSceneDialog from "@/components/layout/NewSceneDialog";
 import ProjectDialog from "@/components/projects/ProjectDialog";
@@ -28,20 +27,21 @@ import {
 } from "@/lib/templates/examplesRegistry";
 import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
-import type { GeometryLayout, GeometryView } from "@/lib/types/ui";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { cn } from "@/components/ui/styles";
-import { 
-  VinculumMark, 
-  UndoIcon, 
-  RedoIcon, 
-  ChevronDownIcon, 
-  SunIcon, 
+import {
+  VinculumMark,
+  UndoIcon,
+  RedoIcon,
+  ChevronDownIcon,
+  SunIcon,
   MoonIcon,
-  MoreHorizontalIcon 
+  MoreHorizontalIcon,
+  ShareIcon
 } from "@/components/layout/icons";
 import ThemeAccentPopover from "@/components/theme/ThemeAccentPopover";
 import WorkspaceSwitcher from "@/components/editor/WorkspaceSwitcher";
+import ViewControls from "@/components/editor/ViewControls";
 import {
   Dialog,
   DialogContent,
@@ -52,8 +52,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +67,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
+
+const FieldSolverDialog = lazy(() => import("@/components/inspector/FieldSolverDialog"));
 
 // S34: removed local matchMedia breakpoint (PART 2) — compact chrome now
 // follows the central shell composition from editorStore, so responsive
@@ -119,6 +119,8 @@ export default function TopToolbar({
   onToggleObjects?: () => void;
   showObjectsToggle?: boolean;
 }) {
+  const [fieldSolverOpen, setFieldSolverOpen] = useState(false);
+  const [fieldSolverRequested, setFieldSolverRequested] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [newSceneOpen, setNewSceneOpen] = useState(false);
@@ -138,7 +140,6 @@ export default function TopToolbar({
     }
   });
   const [projectsVersion, setProjectsVersion] = useState(0);
-  const [showBrandImageFallback, setShowBrandImageFallback] = useState(false);
   const composition = useEditorStore((state) => state.responsiveComposition);
   // S34 PART 2: single breakpoint source (shell composition) instead of a
   // local matchMedia interpretation. Compact chrome below wide (1100px).
@@ -167,19 +168,12 @@ export default function TopToolbar({
   const viewport2dQuadTopFrame = useGraphStore((state) => state.ui.viewport2dQuadTopFrame);
   const setCurrentProjectSession = useGraphStore((state) => state.setCurrentProjectSession);
   const workspace = useGraphStore((state) => state.ui.workspace);
-  const geometryLayout = useEditorStore((state) => state.geometryLayout);
-  const geometryView = useEditorStore((state) => state.geometryView);
-  const geometrySplitView = useEditorStore((state) => state.geometrySplitView);
-  const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
-  const setGeometryView = useEditorStore((state) => state.setGeometryView);
-  const setGeometrySplitView = useEditorStore((state) => state.setGeometrySplitView);
   const setProjectAutosaveStatus = useGraphStore((state) => state.setProjectAutosaveStatus);
   const resetScene = useGraphStore((state) => state.resetScene);
   const openSceneDialog = useGraphStore((state) => state.openSceneDialog);
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
   const clearHistory = useHistoryStore((state) => state.clear);
   const showPerfHud = useEditorStore((state) => state.showPerfHud);
-  const headerLogoSrc = themeMode === "dark" ? "/brand/logo.png" : "/brand/logo_horizontal.png";
    useEffect(() => {
     try {
       setProjects(localProjectRepository.listProjects());
@@ -547,6 +541,9 @@ export default function TopToolbar({
 
   return (
     <>
+      {fieldSolverRequested ? <Suspense fallback={fieldSolverOpen ? <Dialog open onOpenChange={setFieldSolverOpen}><DialogContent className="max-w-md"><DialogHeader><DialogTitle>Field solver</DialogTitle><DialogDescription>Loading solver…</DialogDescription></DialogHeader><DialogFooter><Button onClick={() => setFieldSolverOpen(false)}>Close solver</Button></DialogFooter></DialogContent></Dialog> : null}>
+        <FieldSolverDialog open={fieldSolverOpen} onOpenChange={setFieldSolverOpen} />
+      </Suspense> : null}
       <NewSceneDialog
         open={newSceneOpen}
         onConfirm={handleConfirmNewScene}
@@ -579,418 +576,185 @@ export default function TopToolbar({
         }}
         onOpenExample={handleOpenExample}
       />
-      <header className="z-50 flex h-11 shrink-0 items-center gap-1 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 font-sans">
-      {compactBar ? null : (
-      <div className="flex shrink-0 items-center gap-1.5 pr-1">
-        {showBrandImageFallback ? (
-          <>
-            <VinculumMark className="h-4 w-4" />
-            <span className="text-[11px] font-bold tracking-tight text-[var(--text-primary)] uppercase">Vinculum</span>
-          </>
-        ) : (
-          <Image
-            src={headerLogoSrc}
-            alt="Vinculum"
-            width={160}
-            height={28}
-            className="h-4 w-auto object-contain"
-            priority
-            onError={() => setShowBrandImageFallback(true)}
-          />
+      <header
+        className={cn(
+          "relative z-50 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] font-sans",
+          compactBar
+            ? "flex h-11 items-center gap-1 px-2"
+            : "grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4"
         )}
-      </div>
-      )}
-
-      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
-
-      <WorkspaceSwitcher compact={compactBar} />
-
-      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
-
-      {compactBar ? null : (
-      <div className="flex shrink-0 items-center gap-1">
-        <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
-          <DropdownMenuTrigger>
-            {(props) => (
-              <button
-                ref={props.ref as any}
-                type="button"
-                aria-expanded={props["aria-expanded"]}
-                aria-controls={props["aria-controls"]}
-                aria-haspopup={props["aria-haspopup"]}
-                onClick={props.onClick}
-                onKeyDown={props.onKeyDown}
-                className={cn(
-                  "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12px] font-medium transition-all",
-                  fileMenuOpen
-                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-                )}
-              >
-                Scene
-                <ChevronDownIcon className={cn("h-3 w-3 transition-transform", fileMenuOpen && "rotate-180")} />
-              </button>
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[260px] p-0">
-            <ScrollArea className="max-h-[420px] p-1.5">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Scene</DropdownMenuLabel>
-                <DropdownMenuItem onSelect={handleNewSceneMenuClick}>
-                  New scene
-                  <DropdownMenuShortcut>N</DropdownMenuShortcut>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setExamplesDialogError(null);
-                    setExamplesDialogOpen(true);
-                  }}
-                >
-                  Open example...
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Show tips again</DropdownMenuItem>
-              </DropdownMenuGroup>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Projects</DropdownMenuLabel>
-                <DropdownMenuItem onSelect={handleSaveProject}>Save project</DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setProjectDialogError(null);
-                    setProjectDialogMode("saveAs");
-                  }}
-                >
-                  Save as...
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setProjectDialogError(null);
-                    setProjectDialogMode("open");
-                  }}
-                >
-                  Open project...
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Import / Export</DropdownMenuLabel>
-                <DropdownMenuItem onSelect={() => openSceneDialog("import")}>Import...</DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleExportJson}>Export JSON</DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleExport2dPng} disabled={graphMode !== "2d"}>
-                  Export 2D PNG
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleExport2dSvg} disabled={graphMode !== "2d"}>
-                  Export 2D SVG
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleExport3dPng} disabled={!is3dCanvasAvailable}>
-                  Export 3D PNG
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Share</DropdownMenuLabel>
-                <DropdownMenuItem onSelect={handleCopyShareLink}>Copy share link</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}>Open share/export dialog</DropdownMenuItem>
-              </DropdownMenuGroup>
-            </ScrollArea>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="compact-hide-divider mx-1 h-4 w-px bg-[var(--border-strong)]" />
-      </div>
-      )}
-
-      {/* S34 PART 17/59: Undo stays reachable on every composition (touch
-          users need discoverable Undo); Redo joins the overflow menu below
-          wide widths (one tap away, still enabled-state honest). */}
-      <div className="flex shrink-0 items-center gap-0.5">
-        <ToolbarAction onClick={onUndo} disabled={!canUndo} icon={<UndoIcon className="h-3.5 w-3.5" />} title="Undo" />
-        {!compactBar ? (
-          <ToolbarAction onClick={onRedo} disabled={!canRedo} icon={<RedoIcon className="h-3.5 w-3.5" />} title="Redo" />
-        ) : null}
-      </div>
-
-      {!compactBar ? (
-      <div className="mx-1 hidden min-h-0 min-w-0 flex-1 items-center justify-start lg:flex">
-        <div className="flex w-full min-w-0 justify-start overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
-          <div className="flex w-max items-center gap-1.5">
-        {workspace === "geometry" ? (
-          <>
-            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-              View
-              <Select
-                data-testid="toolbar-geometry-view-select"
-                aria-label="Geometry view"
-                value={geometryView}
-                onChange={(event) => setGeometryView(event.target.value as GeometryView)}
-                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-              >
-                <option value="perspective">Perspective</option>
-                <option value="xy">XY</option>
-                <option value="xz">XZ</option>
-                <option value="yz">YZ</option>
-              </Select>
-            </label>
-            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-              Layout
-              <Select
-                data-testid="toolbar-geometry-layout-select"
-                aria-label="Geometry layout"
-                value={geometryLayout}
-                onChange={(event) => setGeometryLayout(event.target.value as GeometryLayout)}
-                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-              >
-                <option value="single">Single</option>
-                <option value="split">Split</option>
-                <option value="quad">Quad</option>
-              </Select>
-            </label>
-            {geometryLayout === "split" ? (
-              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                Split view
-                <Select
-                  data-testid="toolbar-geometry-split-select"
-                  aria-label="Split view"
-                  value={geometrySplitView}
-                  onChange={(event) => setGeometrySplitView(event.target.value as GeometryView)}
-                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-                >
-                  <option value="xy">XY</option>
-                  <option value="xz">XZ</option>
-                  <option value="yz">YZ</option>
-                </Select>
-              </label>
-            ) : null}
-          </>
-        ) : (
-          <>
-        <div
-          className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
-          role="group"
-          aria-label="View type"
-        >
-          <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">View</span>
-          {(["2d", "3d", "both"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={activeViewType === id}
-              aria-label={id === "both" ? "2D and 3D together" : `${id.toUpperCase()} only`}
-              onClick={() => onViewTypeChange(id)}
-              className={cn(
-                "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
-                activeViewType === id
-                  ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
-              )}
-            >
-              {id === "both" ? "2D+3D" : id.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        {activeViewType === "both" ? (
-          <div
-            className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
-            role="group"
-            aria-label="Multi-panel layout"
-          >
-            <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Layout</span>
-            {(["split", "quad"] as const).map((id) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={activeLayout === id}
-                aria-label={id === "split" ? "Side-by-side layout" : "Four-panel layout"}
-                onClick={() => onLayoutChange(id)}
-                className={cn(
-                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
-                  activeLayout === id
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
-                )}
-              >
-                {id === "split" ? "Split" : "Quad"}
-              </button>
-            ))}
+      >
+      <div className={cn("flex min-w-0 items-center", compactBar ? "gap-1" : "gap-1.5")}>
+        {compactBar ? null : (
+          <div className="mr-1.5 flex shrink-0 items-center gap-2">
+            <VinculumMark className="h-7 w-7 text-[var(--text-primary)]" />
+            <span className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Vinculum</span>
           </div>
-        ) : null}
-        {activeViewType !== "3d" ? (
-          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-            2D Plane
-            <Select
-              data-testid="toolbar-2d-plane-select"
-              aria-label="2D Plane"
-              value={plane2d}
-              onChange={(event) => onPlane2dChange(event.target.value as Axis2DPair)}
-              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-            >
-              <option value="xy">XY</option>
-              <option value="xz">XZ</option>
-              <option value="yz">YZ</option>
-            </Select>
-          </label>
-        ) : null}
-        {activeViewType !== "2d" ? (
-          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-            3D Base
-            <Select
-              data-testid="toolbar-3d-base-select"
-              aria-label="3D Base"
-              value={base3d}
-              onChange={(event) => onBase3dChange(event.target.value as Axis2DPair)}
-              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-            >
-              <option value="xy">Base XY</option>
-              <option value="xz">Base XZ</option>
-              <option value="yz">Base YZ</option>
-            </Select>
-          </label>
-        ) : null}
+        )}
+        {compactBar ? <WorkspaceSwitcher compact /> : null}
+        {workspace === "math" ? <Button size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); setFieldSolverRequested(true); setFieldSolverOpen(true); }} aria-label="Open field solver">Solve</Button> : null}
+        {compactBar ? null : (
+          <>
+            <div className="compact-hide-divider mx-1.5 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+            <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
+              <DropdownMenuTrigger>
+                {(props) => (
+                  <button
+                    ref={props.ref as any}
+                    type="button"
+                    aria-expanded={props["aria-expanded"]}
+                    aria-controls={props["aria-controls"]}
+                    aria-haspopup={props["aria-haspopup"]}
+                    onClick={props.onClick}
+                    onKeyDown={props.onKeyDown}
+                    className={cn(
+                      "flex h-8 items-center gap-1 rounded-[var(--radius-sm)] px-2.5 text-[13px] font-medium outline-none transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                      fileMenuOpen
+                        ? "bg-[var(--surface-muted)] text-[var(--text-primary)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                    )}
+                  >
+                    Scene
+                    <ChevronDownIcon className={cn("h-3.5 w-3.5 opacity-70 transition-transform", fileMenuOpen && "rotate-180")} />
+                  </button>
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[260px] p-0">
+                <ScrollArea className="max-h-[420px] p-1.5">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Scene</DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={handleNewSceneMenuClick}>
+                      New scene
+                      <DropdownMenuShortcut>N</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setExamplesDialogError(null);
+                        setExamplesDialogOpen(true);
+                      }}
+                    >
+                      Open example...
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Show tips again</DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Projects</DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={handleSaveProject}>Save project</DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setProjectDialogError(null);
+                        setProjectDialogMode("saveAs");
+                      }}
+                    >
+                      Save as...
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setProjectDialogError(null);
+                        setProjectDialogMode("open");
+                      }}
+                    >
+                      Open project...
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Import / Export</DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={() => openSceneDialog("import")}>Import...</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleExportJson}>Export JSON</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleExport2dPng} disabled={graphMode !== "2d"}>
+                      Export 2D PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleExport2dSvg} disabled={graphMode !== "2d"}>
+                      Export 2D SVG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={handleExport3dPng} disabled={!is3dCanvasAvailable}>
+                      Export 3D PNG
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Share</DropdownMenuLabel>
+                    <DropdownMenuItem onSelect={handleCopyShareLink}>Copy share link</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}>Open share/export dialog</DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
-        <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-          Tool
-          <Select
-            value={activeToolLabel === "select" ? "probe" : activeToolLabel}
-            onChange={(event) => onToolChange(event.target.value as "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw")}
-            className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-          >
-            <option value="pan">Pan</option>
-            <option value="probe">Probe</option>
-            <option value="addPin">Pin</option>
-            <option value="measureDistance">Distance</option>
-            <option value="measureAngle">Angle</option>
-            <option value="draw">Sketch</option>
-          </Select>
-        </label>
-          </div>
-        </div>
-      </div>
-      ) : null}
 
-      <div className="compact-hide-divider mx-1 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
-
-      {compactBar ? (
-        <CompactChromeRightCluster
-          objectsOpen={objectsOpen}
-          onToggleObjects={onToggleObjects}
-          showObjectsToggle={showObjectsToggle}
-          inspectorOpen={inspectorOpen}
-          onToggleInspector={onToggleInspector}
-          objectCount={objectCount}
-          canRedo={canRedo}
-          onRedo={onRedo}
-          autosaveStatus={autosaveStatus}
-          autosaveError={autosaveError}
-          themeMode={themeMode}
-          onCycleTheme={() =>
-            setThemeMode(themeMode === "light" ? "dark" : themeMode === "dark" ? "system" : "light")
-          }
-          onNewScene={handleNewSceneMenuClick}
-          onOpenExample={() => {
-            setExamplesDialogError(null);
-            setExamplesDialogOpen(true);
-          }}
-          onOpenWelcome={() => onOpenWelcome?.()}
-          onImport={() => openSceneDialog("import")}
-          onExportJson={handleExportJson}
-          onCopyShareLink={handleCopyShareLink}
-          onFrameSelected={() => {
-            if (!isDragTransactionActive()) {
-              requestCanvasFrame("selected");
-            }
-          }}
-          onFitScene={() => {
-            if (!isDragTransactionActive()) {
-              requestCanvasFrame("scene");
-            }
-          }}
-          onOpenShare={() => {
-            setShareDialogOpen(true);
-            captureEvent("share_dialog_opened");
-          }}
-        />
-      ) : (
-      <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 overflow-x-auto px-1 py-0.5">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setExamplesDialogError(null);
-            setExamplesDialogOpen(true);
-          }}
-          className="uppercase tracking-wide"
-        >
-          Examples
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}
-          className="uppercase tracking-wide"
-        >
-          Share
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={handleExportJson}
-          className="uppercase tracking-wide"
-        >
-          Export
-        </Button>
-        <div className="hidden h-8 shrink-0 items-center gap-1.5 px-2 lg:flex">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Objects</span>
-          <Badge variant="default" className="h-5 rounded">{objectCount}</Badge>
-        </div>
-        <div
-          className={cn(
-            "flex h-8 min-w-0 max-w-[220px] shrink-0 items-center gap-1.5 rounded-md border bg-transparent px-2.5",
-            autosaveStatus === "error"
-              ? "border-rose-500/40"
-              : autosaveStatus === "saving"
-                ? "border-amber-500/40"
-                : autosaveStatus === "saved"
-                  ? "border-emerald-500/40"
-                  : "border-[var(--border-strong)]"
-          )}
-        >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Autosave</span>
-          <span
-            className={cn(
-              "shrink-0 text-[11px] font-semibold",
-              autosaveStatus === "error"
-                ? "text-rose-400"
-                : autosaveStatus === "saving"
-                  ? "text-amber-400"
-                  : autosaveStatus === "saved"
-                    ? "text-emerald-400"
-                    : "text-[var(--text-secondary)]"
-            )}
-          >
-            {autosaveStatus === "dirty"
-              ? "Unsaved"
-              : autosaveStatus === "saved"
-                ? "Saved"
-                : autosaveStatus === "saving"
-                  ? "Saving"
-                  : autosaveStatus === "error"
-                    ? "Error"
-                    : "Idle"}
-          </span>
-          {autosaveError ? (
-            <span className="truncate text-[10px] font-medium text-rose-300" title={autosaveError}>{autosaveError}</span>
+        {/* S34 PART 17/59: Undo stays reachable on every composition (touch
+            users need discoverable Undo); Redo joins the overflow menu below
+            wide widths (one tap away, still enabled-state honest). */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <ToolbarAction onClick={onUndo} disabled={!canUndo} icon={<UndoIcon className="h-4 w-4" />} title="Undo" />
+          {!compactBar ? (
+            <ToolbarAction onClick={onRedo} disabled={!canRedo} icon={<RedoIcon className="h-4 w-4" />} title="Redo" />
           ) : null}
         </div>
+      </div>
+
+      {compactBar ? null : <WorkspaceSwitcher />}
+
+      {compactBar ? (
+        <>
+          <div className="min-w-0 flex-1" />
+          <CompactChromeRightCluster
+            objectsOpen={objectsOpen}
+            onToggleObjects={onToggleObjects}
+            showObjectsToggle={showObjectsToggle}
+            inspectorOpen={inspectorOpen}
+            onToggleInspector={onToggleInspector}
+            objectCount={objectCount}
+            canRedo={canRedo}
+            onRedo={onRedo}
+            autosaveStatus={autosaveStatus}
+            autosaveError={autosaveError}
+            themeMode={themeMode}
+            onCycleTheme={() =>
+              setThemeMode(themeMode === "light" ? "dark" : themeMode === "dark" ? "system" : "light")
+            }
+            onNewScene={handleNewSceneMenuClick}
+            onOpenExample={() => {
+              setExamplesDialogError(null);
+              setExamplesDialogOpen(true);
+            }}
+            onOpenWelcome={() => onOpenWelcome?.()}
+            onImport={() => openSceneDialog("import")}
+            onExportJson={handleExportJson}
+            onCopyShareLink={handleCopyShareLink}
+            onFrameSelected={() => {
+              if (!isDragTransactionActive()) {
+                requestCanvasFrame("selected");
+              }
+            }}
+            onFitScene={() => {
+              if (!isDragTransactionActive()) {
+                requestCanvasFrame("scene");
+              }
+            }}
+            onOpenShare={() => {
+              setShareDialogOpen(true);
+              captureEvent("share_dialog_opened");
+            }}
+          />
+        </>
+      ) : (
+      <div className="flex min-w-0 items-center justify-end gap-1">
+        <AutosaveIndicator status={autosaveStatus} error={autosaveError} />
+        <HeaderAction
+          icon={<ShareIcon className="h-4 w-4" />}
+          label="Share"
+          onClick={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}
+        />
 
         {showObjectsToggle ? (
           <Button
@@ -999,21 +763,10 @@ export default function TopToolbar({
             aria-pressed={objectsOpen}
             variant={objectsOpen ? "primary" : "secondary"}
             size="sm"
-            className="uppercase tracking-wide"
           >
             Objects
           </Button>
         ) : null}
-
-        <Button
-          type="button"
-          onClick={onToggleInspector}
-          variant={inspectorOpen ? "primary" : "secondary"}
-          size="sm"
-          className="uppercase tracking-wide"
-        >
-          Inspector
-        </Button>
 
         <Popover open={themeMenuOpen} onOpenChange={setThemeMenuOpen}>
           <PopoverTrigger>
@@ -1027,14 +780,14 @@ export default function TopToolbar({
                 aria-haspopup={props["aria-haspopup"]}
                 onClick={props.onClick}
                 onKeyDown={props.onKeyDown}
+                title={`Theme: ${themeMode}`}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-md border transition-all",
-                  themeMenuOpen
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                  "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                  themeMenuOpen && "bg-[var(--surface-muted)] text-[var(--text-primary)]"
                 )}
               >
-                {themeMode === "dark" ? <MoonIcon className="h-3.5 w-3.5" /> : <SunIcon className="h-3.5 w-3.5" />}
+                <SunIcon aria-hidden="true" className="theme-light-only h-4 w-4" />
+                <MoonIcon aria-hidden="true" className="theme-dark-only h-4 w-4" />
               </button>
             )}
           </PopoverTrigger>
@@ -1051,9 +804,9 @@ export default function TopToolbar({
           <DialogTitle>Share and export</DialogTitle>
           <DialogDescription>Copy a share URL or trigger existing export actions.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 px-5 py-4">
-          <section className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Share</p>
+        <div className="space-y-5 px-5 py-4">
+          <section className="space-y-2">
+            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Share</p>
             <div className="grid grid-cols-1 gap-2">
               <Button type="button" variant="secondary" size="sm" onClick={handleCopyShareLink}>
                 Copy share link
@@ -1064,8 +817,8 @@ export default function TopToolbar({
             </div>
           </section>
           <Separator />
-          <section className="space-y-2 rounded-[6px] border border-[var(--border-subtle)] px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Export</p>
+          <section className="space-y-2">
+            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Export</p>
             <div className="grid grid-cols-2 gap-2">
               <Button type="button" variant="secondary" size="sm" onClick={handleExportJson}>
                 JSON
@@ -1082,7 +835,7 @@ export default function TopToolbar({
             </div>
           </section>
           {actionFeedback ? (
-            <div className="rounded-md border border-[var(--border-subtle)] bg-transparent px-3 py-2 text-[11px] text-[var(--text-secondary)]">
+            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3 py-2 text-[12px] text-[var(--text-secondary)]">
               {actionFeedback}
             </div>
           ) : null}
@@ -1096,165 +849,19 @@ export default function TopToolbar({
       </Dialog>
     </header>
       {compactBar ? (
-        <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1">
-          {workspace === "geometry" ? (
-            <>
-              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                View
-                <Select
-                  data-testid="toolbar-geometry-view-select"
-                  aria-label="Geometry view"
-                  value={geometryView}
-                  onChange={(event) => setGeometryView(event.target.value as GeometryView)}
-                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-                >
-                  <option value="perspective">Perspective</option>
-                  <option value="xy">XY</option>
-                  <option value="xz">XZ</option>
-                  <option value="yz">YZ</option>
-                </Select>
-              </label>
-              <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                Layout
-                <Select
-                  data-testid="toolbar-geometry-layout-select"
-                  aria-label="Geometry layout"
-                  value={geometryLayout}
-                  onChange={(event) => setGeometryLayout(event.target.value as GeometryLayout)}
-                  className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-                >
-                  <option value="single">Single</option>
-                  <option value="split">Split</option>
-                  <option value="quad">Quad</option>
-                </Select>
-              </label>
-              {geometryLayout === "split" ? (
-                <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                  Split view
-                  <Select
-                    data-testid="toolbar-geometry-split-select"
-                    aria-label="Split view"
-                    value={geometrySplitView}
-                    onChange={(event) => setGeometrySplitView(event.target.value as GeometryView)}
-                    className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-                  >
-                    <option value="xy">XY</option>
-                    <option value="xz">XZ</option>
-                    <option value="yz">YZ</option>
-                  </Select>
-                </label>
-              ) : null}
-            </>
-          ) : (
-          <>
-          <div
-            className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
-            role="group"
-            aria-label="View type"
-          >
-            {(["2d", "3d", "both"] as const).map((id) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={activeViewType === id}
-                aria-label={id === "both" ? "2D and 3D together" : `${id.toUpperCase()} only`}
-                onClick={() => onViewTypeChange(id)}
-                className={cn(
-                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
-                  activeViewType === id
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
-                )}
-              >
-                {id === "both" ? "2D+3D" : id.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          {activeViewType === "both" ? (
-            <div
-              className="flex h-8 shrink-0 items-center gap-0.5 rounded-md border border-[var(--border-subtle)] bg-transparent p-0.5"
-              role="group"
-              aria-label="Multi-panel layout"
-            >
-              <button
-                type="button"
-                aria-pressed={activeLayout === "split"}
-                aria-label="Side-by-side layout"
-                onClick={() => onLayoutChange("split")}
-                className={cn(
-                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
-                  activeLayout === "split"
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
-                )}
-              >
-                Split
-              </button>
-              <button
-                type="button"
-                aria-pressed={activeLayout === "quad"}
-                aria-label="Four-panel layout"
-                onClick={() => onLayoutChange("quad")}
-                className={cn(
-                  "h-7 rounded-[5px] px-2 text-[11px] font-semibold uppercase tracking-wide outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]",
-                  activeLayout === "quad"
-                    ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]/60 hover:text-[var(--text-primary)]"
-                )}
-              >
-                Quad
-              </button>
-            </div>
-          ) : null}
-          {activeViewType !== "3d" ? (
-            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-              2D Plane
-              <Select
-                data-testid="toolbar-2d-plane-select"
-                aria-label="2D Plane"
-                value={plane2d}
-                onChange={(event) => onPlane2dChange(event.target.value as Axis2DPair)}
-                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-              >
-                <option value="xy">XY</option>
-                <option value="xz">XZ</option>
-                <option value="yz">YZ</option>
-              </Select>
-            </label>
-          ) : null}
-          {activeViewType !== "2d" ? (
-            <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-              3D Base
-              <Select
-                data-testid="toolbar-3d-base-select"
-                aria-label="3D Base"
-                value={base3d}
-                onChange={(event) => onBase3dChange(event.target.value as Axis2DPair)}
-                className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-              >
-                <option value="xy">Base XY</option>
-                <option value="xz">Base XZ</option>
-                <option value="yz">Base YZ</option>
-              </Select>
-            </label>
-          ) : null}
-          </>
-          )}
-          <label className="flex h-8 shrink-0 items-center gap-1 rounded border border-[var(--border-subtle)] bg-transparent px-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-            Tool
-            <Select
-              value={activeToolLabel === "select" ? "probe" : activeToolLabel}
-              onChange={(event) => onToolChange(event.target.value as "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw")}
-              className="h-6 border-0 bg-transparent px-1 text-[12px] uppercase"
-            >
-              <option value="pan">Pan</option>
-              <option value="probe">Probe</option>
-              <option value="addPin">Pin</option>
-              <option value="measureDistance">Distance</option>
-              <option value="measureAngle">Angle</option>
-              <option value="draw">Sketch</option>
-            </Select>
-          </label>
+        <div className="flex shrink-0 items-center overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1.5">
+          <ViewControls
+            activeViewType={activeViewType}
+            onViewTypeChange={onViewTypeChange}
+            activeLayout={activeLayout}
+            onLayoutChange={onLayoutChange}
+            plane2d={plane2d}
+            onPlane2dChange={onPlane2dChange}
+            base3d={base3d}
+            onBase3dChange={onBase3dChange}
+            activeToolLabel={activeToolLabel}
+            onToolChange={onToolChange}
+          />
         </div>
       ) : null}
     </>
@@ -1321,7 +928,6 @@ function CompactChromeRightCluster({
           aria-pressed={objectsOpen}
           variant={objectsOpen ? "primary" : "secondary"}
           size="sm"
-          className="uppercase tracking-wide"
         >
           Objects
           <span
@@ -1338,7 +944,6 @@ function CompactChromeRightCluster({
         onClick={onToggleInspector}
         variant={inspectorOpen ? "primary" : "secondary"}
         size="sm"
-        className="uppercase tracking-wide"
       >
         Inspector
       </Button>
@@ -1355,7 +960,7 @@ function CompactChromeRightCluster({
               onClick={props.onClick}
               onKeyDown={props.onKeyDown}
               className={cn(
-                "relative flex h-8 w-8 items-center justify-center rounded-md border transition-all",
+                "relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors",
                 moreOpen
                   ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
                   : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
@@ -1414,15 +1019,68 @@ function CompactChromeRightCluster({
   );
 }
 
-function ToolbarAction({ onClick, disabled, icon, title }: any) {  return (
+function ToolbarAction({ onClick, disabled, icon, title }: any) {
+  return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[var(--text-secondary)] transition-all hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-30"
+      aria-label={title}
+      className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {icon}
     </button>
   );
 }
 
+const HEADER_ACTION_CLASS =
+  "flex h-8 items-center gap-1.5 rounded-[var(--radius-sm)] px-2.5 text-[13px] font-medium text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+
+function HeaderAction({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={HEADER_ACTION_CLASS}>
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+const AUTOSAVE_LABEL: Record<string, string> = {
+  dirty: "Unsaved changes",
+  saving: "Saving…",
+  saved: "Saved",
+  error: "Save failed"
+};
+
+function AutosaveIndicator({ status, error }: { status: string; error: string | null }) {
+  const label = AUTOSAVE_LABEL[status];
+  if (!label) {
+    return null;
+  }
+  return (
+    <span
+      role="status"
+      title={error ?? `Autosave: ${label}`}
+      className={cn(
+        "mr-1 hidden items-center gap-1.5 whitespace-nowrap px-1 text-[12px] xl:flex",
+        status === "error" ? "text-[var(--status-error-fg)]" : "text-[var(--text-tertiary)]"
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          status === "error"
+            ? "bg-[var(--status-error-fg)]"
+            : status === "saving"
+              ? "animate-pulse bg-amber-500 motion-reduce:animate-none"
+              : status === "dirty"
+                ? "bg-[var(--text-tertiary)]"
+                : "bg-emerald-500"
+        )}
+      />
+      {label}
+    </span>
+  );
+}

@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { formatNonFiniteEvaluationError, validateExpressionSafety } from "./expressionSafety";
 

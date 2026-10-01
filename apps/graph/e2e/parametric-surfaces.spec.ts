@@ -142,7 +142,7 @@ test.describe("S17 parametric surfaces", () => {
       await setGeometryView(page, view);
       await page.waitForTimeout(600);
       await expect(canvas).toBeVisible();
-      await expect(page.getByRole("button", { name: `${view} viewport` })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByLabel("Geometry view")).toHaveValue(view.toLowerCase());
       await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     }
     await setGeometryLayout(page, "Split");

@@ -130,6 +130,31 @@ interface EditorStoreState {
   setShowPerfHud: (value: boolean) => void;
 }
 
+const DEFAULT_LEFT_PANEL_WIDTH = 272;
+const DEFAULT_RIGHT_PANEL_WIDTH = 296;
+const EDITOR_LAYOUT_VERSION = 1;
+
+/**
+ * v0 → v1 (UI refresh): the bottom dock starts collapsed and side panels
+ * widen to the new defaults. User-chosen widths above the defaults stay.
+ */
+export function migrateEditorLayout(persistedState: unknown, version: number): Partial<EditorStoreState> {
+  if (!persistedState || typeof persistedState !== "object") {
+    return {};
+  }
+  const state = { ...(persistedState as Partial<EditorStoreState>) };
+  if (version < 1) {
+    state.bottomPanelCollapsed = true;
+    const widen = (value: unknown, fallback: number) =>
+      typeof value === "number" && Number.isFinite(value) ? Math.max(value, fallback) : fallback;
+    state.leftPanelWidth = widen(state.leftPanelWidth, DEFAULT_LEFT_PANEL_WIDTH);
+    state.leftPanelLastOpenWidth = widen(state.leftPanelLastOpenWidth, DEFAULT_LEFT_PANEL_WIDTH);
+    state.rightPanelWidth = widen(state.rightPanelWidth, DEFAULT_RIGHT_PANEL_WIDTH);
+    state.rightPanelLastOpenWidth = widen(state.rightPanelLastOpenWidth, DEFAULT_RIGHT_PANEL_WIDTH);
+  }
+  return state;
+}
+
 export const useEditorStore = create<EditorStoreState>()(
   persist(
     (set) => ({
@@ -139,12 +164,12 @@ export const useEditorStore = create<EditorStoreState>()(
       geometrySplitView: "xy",
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
-      bottomPanelCollapsed: false,
-      leftPanelWidth: 240,
-      rightPanelWidth: 248,
+      bottomPanelCollapsed: true,
+      leftPanelWidth: DEFAULT_LEFT_PANEL_WIDTH,
+      rightPanelWidth: DEFAULT_RIGHT_PANEL_WIDTH,
       bottomPanelHeight: 160,
-      leftPanelLastOpenWidth: 240,
-      rightPanelLastOpenWidth: 248,
+      leftPanelLastOpenWidth: DEFAULT_LEFT_PANEL_WIDTH,
+      rightPanelLastOpenWidth: DEFAULT_RIGHT_PANEL_WIDTH,
       bottomPanelLastOpenHeight: 160,
       leftCollapseSnapOffset: 40,
       rightCollapseSnapOffset: 40,
@@ -372,6 +397,8 @@ export const useEditorStore = create<EditorStoreState>()(
     }),
     {
       name: "vinculum-editor-layout",
+      version: EDITOR_LAYOUT_VERSION,
+      migrate: (persistedState, version) => migrateEditorLayout(persistedState, version),
       // S34-R14: viewport-derived responsive flags are transient
       // (observer-owned) — never persist or restore them across sessions.
       partialize: (state) => {

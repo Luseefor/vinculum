@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
-import { EyeIcon, EyeOffIcon, MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
+import { MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { StatusCallout } from "@/components/ui/StatusCallout";
 import { cn } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
@@ -132,6 +132,9 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const subLabel = emptyCue
     ? meta.type
     : (equationSnippet ?? meta.type);
+  // Rows lead with the definition (reference: math snippet, kind below);
+  // kinds without a formula keep their name as the primary line.
+  const formulaLine = emptyCue ? null : (equationSnippet ?? (meta.type !== meta.label ? meta.type : null));
 
   // Inline definition diagnostics (display only; commits stay immediate).
   // Errors appear only for non-empty drafts so fresh rows stay quiet.
@@ -314,17 +317,42 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2 py-1.5 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
+          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
           selected
-            ? "bg-[var(--accent-soft)] shadow-[inset_2px_0_0_var(--accent)]"
-            : "hover:bg-[var(--surface-muted)]/60"
+            ? "bg-[var(--accent-soft)]"
+            : "hover:bg-[var(--surface-muted)]"
         )}
       >
-        <span
-          className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm"
-          aria-hidden="true"
-          style={{ backgroundColor: object.color }}
-        />
+        {/* Desmos-style: the color swatch is the visibility toggle (filled =
+            shown, hollow = hidden), so rows carry no separate eye control. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleVisibility(object.id);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleVisibility(object.id);
+            }
+          }}
+          aria-label={object.visible ? "Hide object" : "Show object"}
+          aria-pressed={object.visible}
+          title={object.visible ? "Hide object" : "Show object"}
+          className="-m-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full outline-none transition-transform duration-100 hover:scale-110 focus-visible:ring-2 focus-visible:ring-[var(--accent)] motion-reduce:transition-none"
+        >
+          <span
+            aria-hidden="true"
+            className="h-3 w-3 rounded-full border-2"
+            style={{
+              borderColor: object.color,
+              backgroundColor: object.visible ? object.color : "transparent",
+              boxShadow: object.visible ? `0 0 0 3px color-mix(in srgb, ${object.color} 22%, transparent)` : "none"
+            }}
+          />
+        </button>
 
         {emptyCue ? (
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -336,7 +364,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               data-object-row-select={object.id}
               className="block w-full cursor-pointer overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
             >
-              <span className="block truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{title}</span>            </button>
+              <span className="block truncate text-[13px] font-medium text-[var(--text-primary)]">{title}</span>
+            </button>
             <div className="mt-0.5">
               <select
                 value={
@@ -358,7 +387,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                   }
                   convertKind(next as GraphObjectKind);
                 }}
-                className="h-6 rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-primary)] px-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]"
+                className="h-7 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 text-[12px] font-medium text-[var(--text-secondary)]"
                 aria-label="Select object type"
               >
                 <option value="surface">Surface</option>
@@ -389,13 +418,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
           >
             <div className="min-w-0 flex-1 overflow-hidden">
-              <span
-                className={cn(
-                  "flex min-w-0 items-center gap-1.5 truncate text-[12px] font-semibold tracking-tight",
-                  selected ? "text-[var(--accent-ink)]" : "text-[var(--text-primary)]"
-                )}
-              >
-                <span className="min-w-0 truncate">{title}</span>
+              <span className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="min-w-0 truncate" title={formulaLine ?? undefined}>
+                  {formulaLine ?? title}
+                </span>
                 {computeStatus !== "idle" && (
                   <span
                     role="img"
@@ -417,12 +443,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               </span>
               <span
                 className={cn(
-                  "block truncate font-mono text-[10px] font-medium tracking-tight",
+                  "mt-0.5 block truncate text-[11px]",
                   selected ? "text-[var(--accent-ink)]" : "text-[var(--text-tertiary)]"
                 )}
                 title={object.kind === "surface" || object.kind === "plane" ? object.equation : meta.type}
               >
-                {subLabel}
+                {formulaLine ? `${meta.label} · #${index + 1}` : subLabel}
               </span>
             </div>
           </button>
@@ -433,35 +459,14 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onToggleVisibility(object.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                e.stopPropagation();
-                onToggleVisibility(object.id);
-              }
-            }}
-            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] active:scale-[0.98]"
-            aria-label={object.visible ? "Hide object" : "Show object"}
-            aria-pressed={object.visible}
-            title={object.visible ? "Hide object" : "Show object"}
-          >
-            {object.visible ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeOffIcon className="h-3.5 w-3.5" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
             aria-label={isExpanded ? "Collapse definition" : "Expand definition"}
             aria-expanded={isExpanded}
             title={isExpanded ? "Collapse definition" : "Expand definition"}
             className={cn(
-              "flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-              isExpanded && "rotate-180"
+              "flex h-7 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+              isExpanded ? "rotate-180 opacity-100" : selected ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
             )}
           >
             <ChevronDownIcon className="h-3 w-3" />
@@ -491,7 +496,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 setMenuOpen(true);
               }
             }}
-            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:border-[var(--border-subtle)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] active:scale-[0.98]"
+            className={cn(
+              "flex h-7 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+              selected || menuOpen ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            )}
           >
             <MoreHorizontalIcon className="h-3.5 w-3.5" />
           </button>
@@ -508,16 +516,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
       />
 
       {(isExpanded || emptyCue) && (
-        <div className="mx-2 mb-2 border-l border-[var(--border-subtle)] pl-2.5 pt-1 animate-slide-up">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-              Mathematical Definition
+        <div className="mx-1 mb-2 mt-0.5 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-2.5 animate-slide-up">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
+              Definition
             </p>
           </div>
 
           <div className="flex flex-col gap-2">
             {(object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
-              <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
+              <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
                 <input
                   ref={eqInputRef}
                   type="text"
@@ -559,7 +567,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ].map((item) => (
                   <div
                     key={item.field}
-                    className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                    className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
                   >
                     <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-10">
                       {item.label}
@@ -647,7 +655,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ].map((item) => (
                   <div
                     key={item.field}
-                    className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                    className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
                   >
                     <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-14">
                       {item.label}

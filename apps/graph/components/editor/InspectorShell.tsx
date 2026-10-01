@@ -6,9 +6,10 @@ import { useGraphStore } from "@/store/graphStore";
 interface InspectorShellProps {
   width: number;
   onOpenExamples?: () => void;
+  onClose?: () => void;
 }
 
-export default function InspectorShell({ width, onOpenExamples }: InspectorShellProps) {
+export default function InspectorShell({ width, onOpenExamples, onClose }: InspectorShellProps) {
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectedMeasurementId = useGraphStore((state) => state.ui.selectedMeasurementId);
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -39,5 +40,13 @@ export default function InspectorShell({ width, onOpenExamples }: InspectorShell
                 ? "Probe"
                 : "Pan";
 
-  return <InspectorPanel width={width} mode={mode} activeToolLabel={activeToolLabel} onOpenExamples={onOpenExamples} />;
+  return (
+    <InspectorPanel
+      width={width}
+      mode={mode}
+      activeToolLabel={activeToolLabel}
+      onOpenExamples={onOpenExamples}
+      onClose={onClose}
+    />
+  );
 }

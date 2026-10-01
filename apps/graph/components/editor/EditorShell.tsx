@@ -51,6 +51,9 @@ import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDeriv
 import { captureEvent } from "@/lib/analytics/posthog";
 import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
+import CanvasToolbar from "@/components/editor/CanvasToolbar";
+import { OBJECT_SEARCH_OPEN_EVENT } from "@/components/layout/ObjectBrowserPanel";
+import type { ViewTool } from "@/components/editor/ViewControls";
 import { compositionForViewport, type ResponsiveComposition } from "@/lib/responsive/composition";
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
@@ -67,7 +70,6 @@ export default function EditorShell() {
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const setBaseline3dPlane = useGraphStore((state) => state.setBaseline3dPlane);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
-  const snapStep = useGraphStore((state) => state.ui.snapStep);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
   const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
   const setObjectVisibility = useGraphStore((state) => state.setObjectVisibility);
@@ -156,8 +158,6 @@ export default function EditorShell() {
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
   const planeSwitcherActivePair =
     effectiveViewportMode === "quad" && active2dViewport === "quadTop" ? axis2dPairQuadTop : axis2dPair;
-  const selectedLabel = selectedObjectId ? selectedObjectId.slice(0, 8) : "None";
-  const snapLabel = snapEnabled ? `ON (${snapStep})` : "OFF";
   const [inspectorDrawerMode, setInspectorDrawerMode] = useState(false);
 
   const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
@@ -188,6 +188,14 @@ export default function EditorShell() {
         activeTool === "measureDistance" ||
         activeTool === "measureAngle" ||
         activeTool === "addPin"));
+
+  // Closing the Inspector dismisses it for the current selection only; picking
+  // a different object brings it back (there is no separate header toggle).
+  useEffect(() => {
+    if (selectedObjectId || selectedMeasurementId) {
+      setUserClosedInspector(false);
+    }
+  }, [selectedObjectId, selectedMeasurementId]);
 
   const clearViewportSelection = useCallback(() => {
     useGraphStore.setState((state) => ({
@@ -413,9 +421,11 @@ export default function EditorShell() {
       }
       if (event.key === "/") {
         const search = document.getElementById("object-search-input");
+        event.preventDefault();
         if (search instanceof HTMLInputElement) {
-          event.preventDefault();
           search.focus();
+        } else {
+          window.dispatchEvent(new Event(OBJECT_SEARCH_OPEN_EVENT));
         }
       }
     };
@@ -1071,6 +1081,39 @@ export default function EditorShell() {
     window.addEventListener("pointerup", onUp);
   }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
 
+  const viewControlProps = {
+    activeViewType,
+    onViewTypeChange: (view: "2d" | "3d" | "both") => {
+      if (view === "2d") {
+        setGraphMode("2d");
+        setViewportMode("2d");
+        return;
+      }
+      if (view === "3d") {
+        setGraphMode("3d");
+        setViewportMode("3d");
+        return;
+      }
+      const nextLayout =
+        viewportMode === "split" || viewportMode === "quad" ? viewportMode : "split";
+      setViewportMode(nextLayout);
+    },
+    activeLayout,
+    onLayoutChange: (layout: "split" | "quad") => {
+      setViewportMode(layout);
+    },
+    plane2d: axis2dPair,
+    onPlane2dChange: setAxis2DPair,
+    base3d: baseline3dPlane,
+    onBase3dChange: setBaseline3dPlane,
+    activeToolLabel: activeToolLabel as ViewTool,
+    onToolChange: (tool: ViewTool) => {
+      const actualTool = tool === "select" ? "probe" : tool;
+      setActiveTool(actualTool);
+      captureEvent("tool_selected", { tool: actualTool });
+    }
+  };
+
   return (
     <div
       ref={shellRef}
@@ -1096,36 +1139,7 @@ export default function EditorShell() {
               setWelcomeDialogOpen(true);
             }}
             openExamplesSignal={examplesOpenSignal}
-            activeViewType={activeViewType}
-            onViewTypeChange={(view) => {
-              if (view === "2d") {
-                setGraphMode("2d");
-                setViewportMode("2d");
-                return;
-              }
-              if (view === "3d") {
-                setGraphMode("3d");
-                setViewportMode("3d");
-                return;
-              }
-              const nextLayout =
-                viewportMode === "split" || viewportMode === "quad" ? viewportMode : "split";
-              setViewportMode(nextLayout);
-            }}
-            activeLayout={activeLayout}
-            onLayoutChange={(layout) => {
-              setViewportMode(layout);
-            }}
-            plane2d={axis2dPair}
-            onPlane2dChange={setAxis2DPair}
-            base3d={baseline3dPlane}
-            onBase3dChange={setBaseline3dPlane}
-            activeToolLabel={activeToolLabel}
-            onToolChange={(tool) => {
-              const actualTool = tool === "select" ? "probe" : tool;
-              setActiveTool(actualTool);
-              captureEvent("tool_selected", { tool: actualTool });
-            }}
+            {...viewControlProps}
             inspectorOpen={contextInspectorOpen}
             onToggleInspector={() => {
               // S34 PART 6: one primary sheet on compact — opening Inspector
@@ -1153,6 +1167,14 @@ export default function EditorShell() {
             showObjectsToggle={narrowRailMode}
           />
         }
+        canvasToolbar={
+          composition === "wide" ? (
+            <CanvasToolbar
+              viewControls={viewControlProps}
+              onFitScene={() => runCommand("fit-scene")}
+            />
+          ) : null
+        }
         sceneNavigator={leftCollapsed || narrowRailMode ? null : <SceneNavigatorPremium width={leftWidth} />}
         sceneDivider={
           leftCollapsed || narrowRailMode ? null : <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
@@ -1177,8 +1199,6 @@ export default function EditorShell() {
                       viewport2d={<Viewport2D key="graph-2d" />}
                       viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
                       viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
-                      selectedLabel={selectedLabel}
-                      snapLabel={snapLabel}
                       workspaceId="math"
                     />
                   </div>
@@ -1240,30 +1260,19 @@ export default function EditorShell() {
         }
         inspectorPanel={
           !inspectorDrawerMode && !rightCollapsed && contextInspectorOpen ? (
-            <div className="flex min-h-0 shrink-0 flex-col bg-[var(--editor-shell)]" style={{ width: rightWidth }}>
-              <div className="flex h-9 shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Inspector</span>
-                <button
-                  type="button"
-                  aria-label="Close inspector"
-                  onClick={() => {
-                    setInspectorOpen(false);
-                    setUserClosedInspector(true);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-tertiary)] outline-none transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
-                >
-                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                    <path d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
-                </button>
-              </div>
-              <div className="min-h-0 flex-1">
-                <InspectorShell width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
-              </div>
+            <div className="flex min-h-0 shrink-0 flex-col" style={{ width: rightWidth }}>
+              <InspectorShell
+                width={rightWidth}
+                onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)}
+                onClose={() => {
+                  setInspectorOpen(false);
+                  setUserClosedInspector(true);
+                }}
+              />
             </div>
           ) : null
         }
-        bottomDivider={<div className="divider-y" onPointerDown={startBottomResize} />}
+        bottomDivider={bottomPanelCollapsed ? null : <div className="divider-y" onPointerDown={startBottomResize} />}
         bottomDock={<BottomDockPremium height={bottomPanelCollapsed ? 0 : bottomPanelHeight} />}
         statusBar={<StatusBar />}
       />

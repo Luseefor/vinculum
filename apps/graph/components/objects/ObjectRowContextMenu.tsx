@@ -51,7 +51,7 @@ export function ObjectRowContextMenu({
         style={{ top: menuPos.top, left: menuPos.left }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Convert to</p>
+        <p className="px-2.5 py-1 text-[11px] font-medium text-[var(--text-tertiary)]">Convert to</p>
         {CONVERT_OPTIONS.map(({ kind, dimension, label, value }) => {
           const isCurrent =
             object.kind === kind &&

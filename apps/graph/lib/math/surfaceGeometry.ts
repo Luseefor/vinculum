@@ -2,7 +2,7 @@ import { compileParametricSurfaceExpressions } from "./compileParametricSurface"
 import { compilePartialDerivative } from "./compilePartialDerivative";
 import { getEffectiveSurfaceOrientation } from "./surfaceExpressionOrientation";
 import { validateExpressionSafety } from "./expressionSafety";
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 
 // S25 surface differential geometry for explicit and parametric
 // surfaces. All first derivatives come from the S21 symbolic core — no

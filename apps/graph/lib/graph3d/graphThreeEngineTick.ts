@@ -1,6 +1,6 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { Group, Mesh, Object3D, PerspectiveCamera, Scene } from "three";
-import type { WebGLRenderer } from "three";
-import type { OrbitControls } from "three-stdlib";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { useGraphStore } from "@/store/graphStore";
@@ -18,6 +18,7 @@ import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { updateThreeMeasurementMarkers, updateThreeProbeMarkers } from "./graphThreeProbeMarkers";
 import { updateAnalysisOverlays, updateVectorCurlOverlays } from "./buildAnalysisOverlays";
 import { updateScalarSliceOverlays } from "./buildScalarSliceOverlays";
+import { updateScalarSurfaceOverlays } from "./buildScalarSurfaceOverlays";
 import { updateStreamlineOverlays } from "./buildStreamlineOverlays";
 import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
@@ -48,7 +49,7 @@ export type GraphThreeEngineTickDeps = {
   scene: Scene;
   camera: PerspectiveCamera;
   controls: OrbitControls;
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   labelRenderer: CSS2DRenderer;
   perfBadge: HTMLDivElement;
   gridMesh: Mesh;
@@ -242,7 +243,7 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     // result cache into the same shared overlay root. Source geometry
     // sync below is untouched (0 rebuilds from scalar controls).
     syncScalarViz(getScalarSyncContext(), storeState.scene.objects, getEditorParameterScope());
-    updateScalarSliceOverlays({
+    const scalarOverlayFrame = {
       configs: uiState.scalarVizBySourceId,
       objects: storeState.scene.objects,
       objectNodes,
@@ -251,7 +252,9 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       cache: analysisOverlayCache,
       theme: domTheme,
       params: getEditorParameterScope()
-    });
+    };
+    updateScalarSliceOverlays(scalarOverlayFrame);
+    updateScalarSurfaceOverlays(scalarOverlayFrame);
     // S24: streamline jobs (signature-tracked) plus packed-polyline
     // overlays in the same shared root. Source geometry sync below is
     // untouched (0 rebuilds from streamline controls).

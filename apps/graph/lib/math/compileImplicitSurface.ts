@@ -1,3 +1,4 @@
+import { compileRustExpression } from "./rustMath";
 import { parse } from "mathjs";
 import type { MathNode } from "mathjs";
 import { validateExpressionSafety } from "./expressionSafety";
@@ -161,7 +162,7 @@ function compileImplicitSide(expr: string, label: string, params: Record<string,
       };
     }
 
-    compiledExpression = parsedNode.compile() as CompiledMathExpression;
+    compiledExpression = compileRustExpression(parsedNode) as CompiledMathExpression;
   } catch (error) {
     return {
       expression: null,

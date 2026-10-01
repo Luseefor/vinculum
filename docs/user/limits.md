@@ -79,3 +79,28 @@ You can still download the SVG, but some object types/paths may not appear exact
 
 Vinculum is currently local-first: there is no account system and no multi-user collaboration.
 
+
+## Symbolic field analysis
+
+Symbolic derivatives use the existing expression-safety policy; unsupported
+rules show `unavailable`, with no silent numerical substitute. Simplified
+answers apply only on the original source's differentiable domain. Direction
+is undefined at a zero field or gradient. Polar field calculus requires `r > 0`;
+polar field plots omit the origin. Polar scalar surface plots start at `r = 0.05`.
+
+Complex `f(z)` expansion supports arithmetic, integer powers from 0 to 12,
+`exp`, `sin`, `cos`, and `conj`. Use explicit `u(x,y), v(x,y)` components for
+other functions. Logarithm and root branches are not automatically expanded.
+Complex divergence and curl mean divergence/curl of the real field `(u,v)`.
+Cauchy–Riemann equality at an isolated point does not prove analyticity.
+Nonlinear or dependent residual systems expose their conditions without
+claiming a closed-form solution. Harmonic-conjugate construction uses verified
+polynomial integration up to degree 8 in each integration variable.
+
+The solver's input drafts persist while the editor remains mounted. Plotted
+objects use the existing scene format and survive save/export/reload; the
+original polar or complex notation is converted to canonical expressions.
+No new persistent object kinds or scene format are introduced. Scalar functions
+of three variables can be analyzed symbolically; the solver does not plot their
+volumetric values. Integral overlays describe numerical quadrature and its error
+estimate, rather than a general theorem-proof engine.

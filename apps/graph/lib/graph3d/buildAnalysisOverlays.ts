@@ -30,6 +30,7 @@ import {
 } from "@/lib/math/vectorCalculus";
 import { analysisSourceIdentity, vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { SCALAR_SLICE_KEY_PREFIX } from "./buildScalarSliceOverlays";
+import { SCALAR_SURFACE_KEY_PREFIX } from "./buildScalarSurfaceOverlays";
 import { STREAMLINE_OVERLAY_KEY_PREFIX } from "./buildStreamlineOverlays";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 
@@ -396,6 +397,7 @@ export function updateAnalysisOverlays(frame: AnalysisOverlayFrame): void {
     if (
       sourceId.startsWith(CURL_OVERLAY_KEY_PREFIX) ||
       sourceId.startsWith(SCALAR_SLICE_KEY_PREFIX) ||
+      sourceId.startsWith(SCALAR_SURFACE_KEY_PREFIX) ||
       sourceId.startsWith(STREAMLINE_OVERLAY_KEY_PREFIX)
     ) {
       continue;

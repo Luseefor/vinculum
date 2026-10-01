@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { validateExpressionSafety } from "./expressionSafety";
 import { getParamScopeSignature } from "./paramScope";
 

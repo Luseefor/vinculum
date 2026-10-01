@@ -12,6 +12,7 @@
 
 "use client";
 
+import AutomaticFieldAnalysis from "./AutomaticFieldAnalysis";
 import DifferentialAnalysisSection from "./DifferentialAnalysisSection";
 import GeometryAnalysisSection from "./GeometryAnalysisSection";
 import LinearTransformInspector from "./LinearTransformInspector";
@@ -26,8 +27,8 @@ export default function AnalysisInspector() {
 
   if (!selectedObject) {
     return (
-      <div data-inspector-section className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">No selection</p>
+      <div data-inspector-section className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
+        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">No selection</p>
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to analyze it.</p>
       </div>
     );
@@ -52,6 +53,7 @@ export default function AnalysisInspector() {
   if (selectedObject.kind === "implicitSurface") {
     return (
       <section data-inspector-section className="flex flex-col gap-3">
+        <AutomaticFieldAnalysis key={`symbolic-${selectedObject.id}`} object={selectedObject} />
         <DifferentialAnalysisSection object={selectedObject} />
         <ScalarVisualizationSection object={selectedObject} />
       </section>
@@ -77,6 +79,7 @@ export default function AnalysisInspector() {
   if (selectedObject.kind === "vectorField") {
     return (
       <section data-inspector-section className="flex flex-col gap-3">
+        <AutomaticFieldAnalysis key={`symbolic-${selectedObject.id}`} object={selectedObject} />
         <VectorCalculusSection object={selectedObject} />
         <StreamlineSection object={selectedObject} />
       </section>
@@ -99,7 +102,8 @@ export default function AnalysisInspector() {
 
   return (
     <section data-inspector-section className="flex flex-col gap-3">
-      <DifferentialAnalysisSection object={selectedObject} />
+      <AutomaticFieldAnalysis key={`symbolic-${selectedObject.id}`} object={selectedObject} />
+        <DifferentialAnalysisSection object={selectedObject} />
       <ScalarVisualizationSection object={selectedObject} />
       <IntegralAnalysisSection key={selectedObject.id} object={selectedObject} />
     </section>

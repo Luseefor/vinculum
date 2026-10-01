@@ -28,9 +28,11 @@ export default function CanvasEmptyState({ workspaceId }: { workspaceId: Workspa
   return (
     // S30/S35: bottom-center, clear of the primary interaction zone and of
     // first-run tips (top). Scene chip stays bottom-left; zoom stays right.
-    <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center p-6 pb-8">
-      <div className="pointer-events-auto flex max-w-[300px] flex-col items-center gap-2.5 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-4 py-3.5 text-center shadow-sm">
-        <p className="text-[13px] font-medium text-[var(--text-primary)]">{hint}</p>
+    // Stacks above the 2D pane overlays (z-[24]) so the actions stay clickable
+    // in narrow split panes.
+    <div className="pointer-events-none absolute inset-0 z-[25] flex items-end justify-center p-6 pb-8">
+      <div className="pointer-events-auto flex max-w-[320px] flex-col items-center gap-3 rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-5 py-4 text-center shadow-[var(--shadow-floating)]">
+        <p className="text-[14px] font-medium text-[var(--text-primary)]">{hint}</p>
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {actions.map((entry) => (
             <button
@@ -38,7 +40,7 @@ export default function CanvasEmptyState({ workspaceId }: { workspaceId: Workspa
               type="button"
               aria-label={`Create ${entry.label}`}
               onClick={() => createObjectByKey(entry.key)}
-              className="h-7 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+              className="h-8 rounded-full border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-medium text-[var(--text-primary)] shadow-[var(--shadow-control)] outline-none transition-colors hover:border-[var(--accent)] hover:text-[var(--accent-ink)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               {entry.label}
             </button>

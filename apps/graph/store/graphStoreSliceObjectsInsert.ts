@@ -32,6 +32,7 @@ import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   GraphStoreState,
+  | "addDefinedObject"
   | "addSurfaceObject"
   | "addParametricCurve"
   | "addPlaneObject"
@@ -49,6 +50,11 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "setObjectKind"
 > {
   return {
+    addDefinedObject: (object) => {
+      // Internal insertion of a definition validated by the canonical parser.
+      const id = appendObject(set, () => object);
+      return id ? { id, error: null } : { id: null, error: "An object with this ID already exists." };
+    },
     addSurfaceObject: () => {
       return appendObject(set, (index) => createSurfaceGraph({ colorIndex: index }));
     },

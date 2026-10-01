@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/components/ui/styles";
+
 import type { Axis2DPair, Canvas2DTool, GraphProbePin } from "@/types/graphUi";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { Graph2DCanvasUiCursorCoordsBadge } from "./Graph2DCanvasUiCursorCoordsBadge";
@@ -61,8 +63,14 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
           axis2dPairQuadTop={axis2dPairQuadTop}
         />
       )}
-      <div className="flex min-w-0 flex-col gap-1 overflow-y-auto rounded-[5px] border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 p-2 shadow-sm backdrop-blur-sm">
-        <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">2D Graph • {axisPair.horizontalLabel}{axisPair.verticalLabel}</div>
+      {/* Readout card fades in while the pointer is over the canvas or when it
+          carries probe/measurement data; otherwise the graph stays unobstructed. */}
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-2 shadow-[var(--shadow-control)] transition-opacity duration-[var(--motion-fast)] motion-reduce:transition-none",
+          mousePos || showProbeBlock ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      >
         <div className="flex min-w-0 flex-col divide-y divide-[var(--border-subtle)]/55">
           {mousePos ? (
             <div className="min-w-0 py-1 first:pt-0">

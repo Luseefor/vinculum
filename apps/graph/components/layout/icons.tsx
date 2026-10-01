@@ -9,13 +9,10 @@ function SvgIcon(props: SVGProps<SVGSVGElement>) {
 export function VinculumMark(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 28 28" aria-hidden="true" {...props}>
-      <defs>
-        <linearGradient id="toolbar-v-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#4f46e5" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      <path d="M4.4 5.1 10.1 5 14 16.3 18.2 4.9h5.5l-7.5 18h-4.4L4.4 5.1Z" fill="url(#toolbar-v-mark)" />
+      <path d="M2.4 4.6h3.7l5.6 9.6H8.4Z" fill="currentColor" />
+      <path d="M25.6 4.6h-3.7l-5.6 9.6h3.3Z" fill="#f26b1d" />
+      <path d="M13.3 16.1H9.8a2.75 2.75 0 0 0 0 5.5h3.5" fill="none" stroke="currentColor" strokeWidth="1.9" />
+      <path d="M14.7 16.1h3.5a2.75 2.75 0 0 1 0 5.5h-3.5" fill="none" stroke="#f26b1d" strokeWidth="1.9" />
     </svg>
   );
 }
@@ -246,4 +243,92 @@ export function RailIcon({ id, className }: { id: string; className?: string }) 
     moon: <MoonIcon className={className} />
   };
   return map[id] ?? <CursorArrowIcon className={className} />;
+}
+
+export function PlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M8 3.5v9M3.5 8h9" />
+    </SvgIcon>
+  );
+}
+
+export function ShareIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M8 2.5v7.5M5.2 5.2 8 2.5l2.8 2.7" />
+      <path d="M4.5 8H3.8a.8.8 0 0 0-.8.8v4a.8.8 0 0 0 .8.8h8.4a.8.8 0 0 0 .8-.8v-4a.8.8 0 0 0-.8-.8h-.7" />
+    </SvgIcon>
+  );
+}
+
+export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M8 2.5v7.5M5.2 7.3 8 10l2.8-2.7" />
+      <path d="M3 11v1.7a.8.8 0 0 0 .8.8h8.4a.8.8 0 0 0 .8-.8V11" />
+    </SvgIcon>
+  );
+}
+
+export function GridIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <rect x="2.75" y="2.75" width="4" height="4" rx="1" />
+      <rect x="9.25" y="2.75" width="4" height="4" rx="1" />
+      <rect x="2.75" y="9.25" width="4" height="4" rx="1" />
+      <rect x="9.25" y="9.25" width="4" height="4" rx="1" />
+    </SvgIcon>
+  );
+}
+
+export function FocusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M2.75 5.5V3.6a.85.85 0 0 1 .85-.85H5.5M10.5 2.75h1.9a.85.85 0 0 1 .85.85V5.5M13.25 10.5v1.9a.85.85 0 0 1-.85.85H10.5M5.5 13.25H3.6a.85.85 0 0 1-.85-.85V10.5" />
+      <circle cx="8" cy="8" r="1.6" />
+    </SvgIcon>
+  );
+}
+
+export function ExpandIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M9.5 2.75h3.75V6.5M13.25 2.75 9.25 6.75M6.5 13.25H2.75V9.5M2.75 13.25l4-4" />
+    </SvgIcon>
+  );
+}
+
+export function PanelRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.75" />
+      <path d="M10 2.75v10.5" />
+    </SvgIcon>
+  );
+}
+
+export function PanelBottomIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <rect x="2.25" y="2.75" width="11.5" height="10.5" rx="1.75" />
+      <path d="M2.25 10h11.5" />
+    </SvgIcon>
+  );
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+    </SvgIcon>
+  );
+}
+
+export function ArrowRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <SvgIcon {...props}>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </SvgIcon>
+  );
 }

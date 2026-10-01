@@ -25,7 +25,7 @@ export function Graph2DCanvasUiSketchFitPreview({
   axis2dPairQuadTop
 }: Graph2DCanvasUiSketchFitPreviewProps) {
   return (
-    <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg">
+    <div className="rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-2 font-mono text-[10px] text-[var(--text-secondary)] shadow-[var(--shadow-floating)]">
       <p className="mb-1 text-[var(--text-primary)]">Sketch fit preview</p>
       <p>
         {axisPair.horizontalLabel}(t): {sketchFitPreview.horizontalExpr}

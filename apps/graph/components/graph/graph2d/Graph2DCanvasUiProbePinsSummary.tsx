@@ -33,7 +33,7 @@ export function Graph2DCanvasUiProbePinsSummary({
           : "max-w-[min(280px,calc(100%-1rem))] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)]"
       }
     >
-      <div className="mb-0.5 text-[var(--text-tertiary)] font-medium uppercase tracking-wide">Measurements</div>
+      <div className="mb-0.5 text-[var(--text-tertiary)] font-medium">Measurements</div>
       {measurementDraft ? (
         <div className="mt-0.5 text-[var(--text-tertiary)]">
           Draft {measurementDraft.kind === "distance" ? "distance" : "angle"} ({measurementDraft.points.length}/

@@ -139,14 +139,14 @@ export default function LinearTransformInspector({
   }, [resolved, selectedVector, paramScope]);
 
   return (
-    <div className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
-      <div className="mb-2 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5">        <div className="flex items-center gap-2">
+    <div className="py-1">
+      <div className="mb-2 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5">        <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: object.color }} />
           <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">
             Linear Transformation{selectedIndex >= 0 ? ` #${selectedIndex + 1}` : ""}
           </h3>
         </div>
-        <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <span className="rounded-[var(--radius-sm)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
           {object.dimension === "2d" ? "2D" : "3D"}
         </span>
       </div>
@@ -155,7 +155,7 @@ export default function LinearTransformInspector({
       <>
       <MatrixEntryEditor object={object} />
 
-      <div className="mt-2 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
+      <div className="mt-2 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-1.5">
         <label htmlFor={`linear-transform-dimension-${object.id}`} className="text-[12px] text-[var(--text-secondary)]">
           Dimension
         </label>
@@ -169,7 +169,7 @@ export default function LinearTransformInspector({
               setObjectKind(object.id, "linearTransform", dimension);
             }
           }}
-          className="h-8 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 text-[13px] text-[var(--text-primary)]"
+          className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 text-[13px] text-[var(--text-primary)]"
         >
           <option value="2d">2D</option>
           <option value="3d">3D</option>
@@ -181,7 +181,7 @@ export default function LinearTransformInspector({
       {section !== "definition" ? (
       <>
       <div className="mt-3 flex flex-col gap-1" role="status" aria-label="Transformation properties">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Properties</h4>
+        <h4 className="text-[11px] font-medium text-[var(--text-secondary)]">Properties</h4>
         {resolved.status !== "ok" || !properties ? (
           <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]">
             {resolved.status !== "ok" ? resolved.reason : "Properties unavailable."}
@@ -223,11 +223,11 @@ export default function LinearTransformInspector({
       </div>
 
       <div className="mt-3 flex flex-col gap-2">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <h4 className="text-[11px] font-medium text-[var(--text-secondary)]">
           Apply to Vector
         </h4>
         <label className="block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Vector
           </span>
           <select
@@ -237,7 +237,7 @@ export default function LinearTransformInspector({
               const vectorId = event.target.value;
               setLinearTransformAnalysis(object.id, { vectorId: vectorId === "" ? null : vectorId });
             }}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             <option value="">Select a vector…</option>
             {vectorOptions.map((candidate) => {
@@ -256,7 +256,7 @@ export default function LinearTransformInspector({
           <div className="flex flex-col gap-1" role="status" aria-label="Transformed vector">
             <FactRow label="v" value={formatTuple([appliedVector.components.x, appliedVector.components.y, appliedVector.components.z])} />
             <FactRow label="Av" value={formatTuple([appliedVector.product.x, appliedVector.product.y, appliedVector.product.z])} testId="linear-fact-av" />
-            <div className="mt-1 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
+            <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-1.5">
               <span className="text-[12px] text-[var(--text-secondary)]">Show transformed vector</span>
               <Switch
                 checked={analysis?.showVector ?? false}
@@ -274,7 +274,7 @@ export default function LinearTransformInspector({
       </div>
 
       <div className="mt-3 flex flex-col gap-1" role="status" aria-label="Eigen analysis">
-        <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <h4 className="text-[11px] font-medium text-[var(--text-secondary)]">
           Eigendirections
         </h4>
         {!eigen || eigen.unavailable ? (
@@ -312,7 +312,7 @@ export default function LinearTransformInspector({
             <p className="text-[11px] leading-relaxed text-[var(--text-tertiary)]">
               {eigen.realDirectionCount} independent real eigendirection{eigen.realDirectionCount === 1 ? "" : "s"}.
             </p>
-            <div className="mt-1 flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-1.5">
+            <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-1.5">
               <span className="text-[12px] text-[var(--text-secondary)]">Show eigendirections</span>
               <Switch
                 checked={analysis?.showEigen ?? false}

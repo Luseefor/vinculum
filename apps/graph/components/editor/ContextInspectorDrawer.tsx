@@ -35,7 +35,7 @@ export default function ContextInspectorDrawer({
       tabIndex={-1}
     >
       <div className="flex h-9 items-center justify-between border-b border-[var(--border-subtle)] px-2 text-[11px]">
-        <span className="font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Inspector</span>
+        <span className="font-semibold text-[var(--text-secondary)]">Inspector</span>
         <div className="flex items-center gap-1">
           <button
             type="button"

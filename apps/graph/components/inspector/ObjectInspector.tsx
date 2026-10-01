@@ -33,8 +33,8 @@ export default function ObjectInspector() {
 
   if (!selectedObject) {
     return (
-      <div data-inspector-section className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-[var(--text-secondary)]">No selection</p>
+      <div data-inspector-section className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
+        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">No selection</p>
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to edit its properties.</p>
       </div>
     );
@@ -135,7 +135,7 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
     }
   };
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
+    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
       <header className="pb-3">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
@@ -144,7 +144,7 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
         </p>
       </header>
       <label className="block">
-        <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+        <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
           Equation
         </span>
         <Input
@@ -167,7 +167,7 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
               event.currentTarget.blur();
             }
           }}
-          className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
         />
       </label>
     </section>

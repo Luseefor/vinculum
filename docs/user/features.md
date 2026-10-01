@@ -54,3 +54,23 @@ Math expression inputs are sandboxed and validated before evaluation. Invalid or
 
 An optional Performance HUD can be enabled from the editor’s theme/appearance menu. It is off by default.
 
+
+## Automatic field solutions
+
+In Math Lab, choose **Solve** and enter vector components, a scalar function,
+a polar curve, or a complex function. Answers update automatically; no analysis
+point is required for symbolic curl, divergence, gradients, or Laplacians.
+**Show solution** opens the formula, derivative steps, final answer, and domain
+conditions. Existing integral results also offer a numerical calculation overlay.
+
+Polar definitions use `r` and `theta` (radians). Vector components refer to the
+orthonormal radial and angular basis. **Add to scene** creates canonical
+Cartesian vector fields, explicit surfaces, or parametric curves/surfaces from
+these definitions. For complex functions, choose the associated `(u,v)` field,
+real part, imaginary part, magnitude, or phase before adding the plot.
+
+Selected fields and surfaces also have automatic solutions in **Analyze**.
+For a 2D field, choose **Complex function P + i Q** to check Cauchy–Riemann
+conditions. The solver can verify identities, reject constant contradictions,
+solve independent linear residual systems, and construct supported polynomial
+harmonic conjugates with an arbitrary additive real constant.

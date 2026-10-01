@@ -315,11 +315,13 @@ test.describe("S33 canvas interaction", () => {
     await inspector(page).getByLabel("Segment end x").fill("0");
     await inspector(page).getByLabel("Segment end y").fill("4");
     await inspector(page).getByLabel("Segment end z").fill("0");
-    // End marker is ~213px above center at default span; grab near it.
-    const { x, y } = await canvasCenter(page);
-    await page.mouse.move(x, y - 213);
+    // The default ortho span (12 units) covers the canvas's shorter side, so
+    // y=4 sits min(w,h)/3 px above center. Grab near the End marker.
+    const { x, y, box } = await canvasCenter(page);
+    const endOffset = Math.min(box.width, box.height) / 3;
+    await page.mouse.move(x, y - endOffset);
     await page.mouse.down();
-    await page.mouse.move(x, y - 173, { steps: 8 });
+    await page.mouse.move(x, y - endOffset + 40, { steps: 8 });
     await page.mouse.up();
     await expect(inspector(page).getByLabel("Segment end y")).not.toHaveValue("4", { timeout: 8000 });
     await expect(inspector(page).getByLabel("Segment start y")).toHaveValue("0");
@@ -387,10 +389,13 @@ test.describe("S33 canvas interaction", () => {
     await inspector(page).getByLabel("Vector component x").first().fill("0");
     await inspector(page).getByLabel("Vector component y").first().fill("0");
     await inspector(page).getByLabel("Vector component z").first().fill("0");
-    const { x, y } = await canvasCenter(page);
-    await page.mouse.move(x + 21, y);
+    // Tip handle is offset 0.4 world units; default ortho span is 12 units
+    // across the canvas's shorter side.
+    const { x, y, box } = await canvasCenter(page);
+    const tipOffset = (Math.min(box.width, box.height) / 12) * 0.4;
+    await page.mouse.move(x + tipOffset, y);
     await page.mouse.down();
-    await page.mouse.move(x + 61, y, { steps: 8 });
+    await page.mouse.move(x + tipOffset + 40, y, { steps: 8 });
     await page.mouse.up();
     await expect(inspector(page).getByLabel("Vector component x").first()).not.toHaveValue("0", { timeout: 8000 });
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");

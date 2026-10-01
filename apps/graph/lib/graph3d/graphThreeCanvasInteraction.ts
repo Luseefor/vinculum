@@ -1,3 +1,4 @@
+import type { GraphRenderer } from "./graphRenderer";
 // S33 canvas interaction: hover, cursor, direct-manipulation drags, and
 // camera framing for the Three.js viewports (UI-only, renderer-local).
 //
@@ -13,8 +14,8 @@
 // - Perspective: hover/select/frame supported; positional dragging disabled
 //   (underdetermined — PART 16 policy).
 
-import { Box3, Matrix4, Vector3, type Group, type Object3D, type PerspectiveCamera, type Raycaster, type Vector2, type WebGLRenderer } from "three";
-import type { OrbitControls } from "three-stdlib";
+import { Box3, Matrix4, Vector3, type Group, type Object3D, type PerspectiveCamera, type Raycaster, type Vector2 } from "three";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
@@ -59,7 +60,7 @@ import type { GraphObject } from "@vinculum/scene/types";
 import type { GeometryView } from "@/lib/types/ui";
 
 export interface CanvasInteractionDeps {
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   camera: PerspectiveCamera;
   controls: OrbitControls;
   raycaster: Raycaster;

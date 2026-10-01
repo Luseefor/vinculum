@@ -1,4 +1,5 @@
-import { compile, parse, type MathNode } from "mathjs";
+import { parse, type MathNode } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { getParamScopeSignature } from "./paramScope";
 import { validateExpressionSafety } from "./expressionSafety";
 

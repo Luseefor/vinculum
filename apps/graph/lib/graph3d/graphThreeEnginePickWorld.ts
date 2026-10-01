@@ -1,9 +1,9 @@
+import type { GraphRenderer } from "./graphRenderer";
 import { Mesh } from "three";
 import type { Group, OrthographicCamera, PerspectiveCamera, Plane, Raycaster, Vector2, Vector3 } from "three";
-import type { WebGLRenderer } from "three";
 
 export type PickWorldFromCanvasArgs = {
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   camera: PerspectiveCamera;
   raycaster: Raycaster;
   ndc: Vector2;

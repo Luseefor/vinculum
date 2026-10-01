@@ -62,13 +62,10 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
   return (
     <section
       data-testid="streamline-section"
-      className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3"
+      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Streamlines</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
-          Curves tangent to the vector field.
-        </p>
       </header>
       {field.error ? (
         <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
@@ -76,7 +73,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
         </p>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-2">
+          <div className="flex items-center justify-between py-1">
             <span className="text-[12px] text-[var(--text-secondary)]">Show streamlines</span>
             <Switch
               checked={config?.enabled ?? false}
@@ -88,7 +85,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
             <>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                     Seed density
                   </span>
                   <Input
@@ -106,11 +103,11 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                         });
                       }
                     }}
-                    className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+                    className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                     Trace length
                   </span>
                   <select
@@ -122,7 +119,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                         commit({ length });
                       }
                     }}
-                    className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+                    className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
                   >
                     <option value="short">Short</option>
                     <option value="medium">Medium</option>
@@ -131,7 +128,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                 </label>
               </div>
               <label className="block">
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
                   Quality
                 </span>
                 <select
@@ -143,7 +140,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                       commit({ quality });
                     }
                   }}
-                  className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+                  className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 interface EditorLayoutPremiumProps {
   header: ReactNode;
+  canvasToolbar?: ReactNode;
   sceneNavigator: ReactNode;
   sceneDivider?: ReactNode;
   workspace: ReactNode;
@@ -17,6 +18,7 @@ interface EditorLayoutPremiumProps {
 
 export default function EditorLayoutPremium({
   header,
+  canvasToolbar,
   sceneNavigator,
   sceneDivider,
   workspace,
@@ -33,10 +35,13 @@ export default function EditorLayoutPremium({
       <div className="flex min-h-0 flex-1 bg-[var(--editor-shell)]">
         {sceneNavigator}
         {sceneDivider}
-        <main className="relative flex min-w-0 flex-1 flex-col border-l border-[var(--border-subtle)] bg-[var(--editor-shell)] p-2.5">
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface-canvas)]">
-            {workspace}
-            {inspectorDrawer}
+        <main className="relative flex min-w-0 flex-1 flex-col bg-[var(--editor-shell)] p-3">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--surface-canvas)] shadow-[var(--shadow-card)]">
+            {canvasToolbar}
+            <div className="relative min-h-0 flex-1">
+              {workspace}
+              {inspectorDrawer}
+            </div>
           </div>
         </main>
         {inspectorDivider}

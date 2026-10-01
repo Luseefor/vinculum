@@ -1,4 +1,4 @@
-import { compilePartialDerivative } from "./compilePartialDerivative";
+import { compilePartialDerivative, compileRepeatedPartialDerivative } from "./compilePartialDerivative";
 import type { VectorFieldDimension } from "@vinculum/scene/types";
 
 // S22 pointwise vector calculus: Jacobian, divergence, and curl of
@@ -156,6 +156,31 @@ export function vectorCurlScalar2D(jacobian: EvaluatedJacobian): number | null {
   }
   const value = qx - py;
   return Number.isFinite(value) ? value : null;
+}
+
+export function compileVectorLaplacian(
+  dimension: VectorFieldDimension,
+  components: string[],
+  params: Record<string, number>
+): JacobianEntry[][] {
+  const variables = dimension === "2d" ? ["x", "y"] : ["x", "y", "z"];
+  return components.map((expression) => variables.map((variable) => {
+    const compiled = compileRepeatedPartialDerivative({ expression, variable, params, allowedSymbols: [...variables, ...Object.keys(params)] }, [variable, variable]);
+    return compiled.error ? { ok: false as const, error: compiled.error } : { ok: true as const, evaluate: compiled.evaluate };
+  }));
+}
+
+export function evaluateVectorLaplacian(entries: JacobianEntry[][], scope: Record<string, number>): (number | null)[] {
+  return entries.map((row) => {
+    let sum = 0;
+    for (const entry of row) {
+      if (!entry.ok) return null;
+      const value = entry.evaluate(scope);
+      if (!Number.isFinite(value)) return null;
+      sum += value;
+    }
+    return Number.isFinite(sum) ? sum : null;
+  });
 }
 
 // Zero-magnitude threshold for curl overlays (mirrors GRADIENT_ZERO_EPS

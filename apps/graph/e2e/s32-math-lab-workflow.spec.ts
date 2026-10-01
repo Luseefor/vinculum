@@ -168,7 +168,7 @@ test.describe("S32 Math Lab workflow", () => {
     await expect(
       inspector(page).getByLabel("Resolution", { exact: true }).filter({ visible: true })
     ).toHaveCount(0);
-    await expect(inspector(page).getByText(/adjust in the Styles tab/)).toBeVisible();
+    await expect(inspector(page).getByText(/adjust in the Styles tab/)).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });

@@ -1,5 +1,5 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { Group, PerspectiveCamera, Scene } from "three";
-import type { WebGLRenderer } from "three";
 import type { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { GeometryOrthoController, type OrthoView } from "./graphThreeOrthoViews";
 import { computePaneRects, routePointerToPaneIndex } from "./graphThreeGeometryViews";
@@ -439,7 +439,7 @@ export function multiViewWheel(
 }
 
 export interface MultiViewRenderDeps {
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   labelRenderer: CSS2DRenderer;
   scene: Scene;
   perspectiveCamera: PerspectiveCamera;

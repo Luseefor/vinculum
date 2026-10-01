@@ -1,6 +1,7 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
-import { Group, type DirectionalLight, type WebGLRenderer, type Object3D } from "three";
+import { Group, type DirectionalLight, type Object3D } from "three";
 import {
   applyObjectColorToNode,
   buildGraphObject,
@@ -28,7 +29,7 @@ export function syncThreeSceneObjects(
   objectSignatures: Map<string, string>,
   objectStructureSignatures: Map<string, string>,
   keyLight: DirectionalLight,
-  renderer: WebGLRenderer,
+  renderer: GraphRenderer,
   computeManager?: GeometryComputeManager,
   getComputeTheme?: () => ResolvedTheme
 ): void {

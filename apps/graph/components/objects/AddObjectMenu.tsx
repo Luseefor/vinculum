@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { PlusIcon } from "@/components/layout/icons";
 import { useEditorStore } from "@/lib/store/editorStore";
 import {
   createAndFocus,
@@ -149,32 +150,40 @@ export default function AddObjectMenu() {
     [createMenuKind]
   );
 
+  const iconButton =
+    "flex h-7 items-center justify-center text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]";
+
   return (
     <div className="relative">
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          className="justify-center"
-          onClick={() => {
-            // S30: empty-object creation focuses its definition like every
-            // other creation path (was a focus regression vs Quick Add).
-            createAndFocus(() => addEmptyObject());
-            addConsoleEvent("Added empty expression");
-          }}
-        >
-          + Add Object
-        </Button>
-        <Button type="button" variant="ghost" className="px-2" onClick={() => setOpen((v) => !v)} aria-label="Open object menu">
-          ▾
-        </Button>
-      </div>
+      <button
+        type="button"
+        className={`${iconButton} w-7 rounded-[var(--radius-sm)] ${open ? "bg-[var(--surface-muted)] text-[var(--text-primary)]" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Open object menu"
+        title="Add object"
+        aria-expanded={open}
+      >
+        <PlusIcon className="h-4 w-4" />
+      </button>
       {open ? (
-        <div className="overflow-menu-scroll absolute left-0 top-full z-30 mt-2 w-full min-w-[14rem] overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-bg)] p-2 shadow-[var(--shadow-floating)]">
+        <div className="overflow-menu-scroll animate-fade-in absolute right-0 top-full z-30 mt-2 w-60 overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-1.5 shadow-[var(--shadow-floating)]">
+          <button
+            type="button"
+            onClick={() => {
+              // S30: empty-object creation focuses its definition like every
+              // other creation path.
+              createAndFocus(() => addEmptyObject());
+              addConsoleEvent("Added empty expression");
+              setOpen(false);
+            }}
+            className="mb-1 w-full rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-[13px] font-medium text-[var(--text-primary)] outline-none hover:bg-[var(--surface-muted)] focus-visible:bg-[var(--surface-muted)]"
+          >
+            Empty expression
+          </button>
           {sections.map((section) => (
-            <div key={section.title} className="mb-2 last:mb-0">
-              <p className="mb-1 px-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{section.title}</p>
-              <div className="space-y-1">
+            <div key={section.title} className="mb-1.5 last:mb-0">
+              <p className="px-2 pb-1 pt-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">{section.title}</p>
+              <div>
                 {section.items.map((item) => (
                   <button
                     key={item.label}
@@ -186,10 +195,7 @@ export default function AddObjectMenu() {
                       item.onClick();
                       setOpen(false);
                     }}
-                    className={[
-                      "w-full rounded-md px-2 py-1.5 text-left text-[11px]",
-                      "text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
-                    ].join(" ")}
+                    className="w-full rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-[13px] text-[var(--text-primary)] outline-none hover:bg-[var(--surface-muted)] focus-visible:bg-[var(--surface-muted)]"
                   >
                     {item.label}
                   </button>
@@ -197,7 +203,7 @@ export default function AddObjectMenu() {
               </div>
             </div>
           ))}
-          <div className="mt-2 border-t border-[var(--border-subtle)] pt-2">
+          <div className="mt-1 border-t border-[var(--border-subtle)] pt-1">
             <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => setOpen(false)}>
               Close
             </Button>

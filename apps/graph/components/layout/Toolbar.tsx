@@ -360,7 +360,7 @@ export default function Toolbar({
             >
               <div className="p-4 flex flex-col gap-6">
                 <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-tertiary)] mb-3">Appearance</h3>
+                  <h3 className="text-[11px] font-medium text-[var(--text-tertiary)] mb-3">Appearance</h3>
                   <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--surface-raised)] border border-[var(--border-subtle)]/40">
                     <button 
                       onClick={() => setThemeMode("light")}
@@ -384,7 +384,7 @@ export default function Toolbar({
                 </div>
 
                 <div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-tertiary)] mb-3">Accent Color</h3>
+                  <h3 className="text-[11px] font-medium text-[var(--text-tertiary)] mb-3">Accent Color</h3>
                   <div className="grid grid-cols-5 gap-3 justify-items-center">
                     {toolbarAccentOptions.map((preset) => (
                       <button

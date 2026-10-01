@@ -242,7 +242,14 @@ test.describe("S26 geometry primitives", () => {
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
+    // The +x arrow's screen direction depends on the canvas aspect ratio, so
+    // sweep both the upper-right and lower-right fans from the origin.
     const sweep: Array<[number, number]> = [
+      [0.62, 0.57],
+      [0.66, 0.6],
+      [0.7, 0.62],
+      [0.74, 0.645],
+      [0.78, 0.67],
       [0.65, 0.2],
       [0.68, 0.3],
       [0.7, 0.4],

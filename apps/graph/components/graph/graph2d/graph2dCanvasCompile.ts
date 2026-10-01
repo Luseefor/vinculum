@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "@/lib/math/rustMath";
 import type { CompiledMathExpression } from "./graph2dCanvasTypes";
 import { validateExpressionSafety } from "@/lib/math/expressionSafety";
 

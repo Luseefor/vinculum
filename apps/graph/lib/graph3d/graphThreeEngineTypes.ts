@@ -1,6 +1,8 @@
 import type { GeometryView } from "@/lib/types/ui";
 
 export interface GraphThreeEngine {
+  /** GPU initialization completes before the first frame is submitted. */
+  ready: Promise<void>;
   dispose: () => void;
   /**
    * Geometry Studio multi-view. Null panes select the legacy

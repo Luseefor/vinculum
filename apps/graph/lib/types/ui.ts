@@ -10,4 +10,4 @@ export type GeometryView = "perspective" | "xy" | "xz" | "yz";
 /** Geometry Studio pane arrangement. Fixed compositions, no custom layouts. */
 export type GeometryLayout = "single" | "split" | "quad";
 
-export type BottomPanelTab = "parameters" | "console" | "diagnostics";
+export type BottomPanelTab = "parameters" | "console" | "diagnostics" | "measurements" | "performance";

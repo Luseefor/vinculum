@@ -28,7 +28,7 @@ describe("StreamlineSection (S24 PART 18/55)", () => {
     const id = addField3D();
     render(<StreamlineSection object={liveField(id)} />);
     expect(screen.getByText("Streamlines")).toBeDefined();
-    expect(screen.getByText("Curves tangent to the vector field.")).toBeDefined();
+    expect(screen.queryByText("Curves tangent to the vector field.")).toBeNull();
     expect(screen.getByLabelText("Show streamlines")).toBeDefined();
     expect(screen.queryByLabelText("Seed density")).toBeNull();
     expect(screen.queryByLabelText("Trace length")).toBeNull();

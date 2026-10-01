@@ -27,17 +27,17 @@
   --surface-raised: #ffffff;
   --surface-overlay: rgba(255, 255, 255, 0.98);
   --surface-inset: rgba(15, 23, 42, 0.04);
-  --surface-muted: rgba(15, 23, 42, 0.06);
-  --editor-shell: #e7edf5;
-  --editor-chrome: #edf2f8;
+  --surface-muted: rgba(15, 23, 42, 0.05);
+  --editor-shell: #f5f7fa;
+  --editor-chrome: #ffffff;
   --editor-control: rgba(255, 255, 255, 0.96);
   
   --panel-bg: rgba(255, 255, 255, 0.9);
   --panel-border: rgba(15, 23, 42, 0.08);
   
   /* Borders */
-  --border-subtle: rgba(15, 23, 42, 0.06);
-  --border-strong: rgba(15, 23, 42, 0.12);
+  --border-subtle: rgba(15, 23, 42, 0.07);
+  --border-strong: rgba(15, 23, 42, 0.11);
   
   /* Text — tertiary/muted hold ≥4.5:1 on chrome and raised surfaces. */
   --text-primary: #0f172a;
@@ -52,15 +52,20 @@
   --accent: var(--accent-primary);
   /* Text-safe accent for small text on light surfaces (vivid hues fail AA). */
   --accent-ink: color-mix(in srgb, var(--accent-primary) 55%, #0f172a);
+  /* Filled accent that keeps white labels ≥4.5:1 for every accent preset. */
+  --accent-solid: color-mix(in srgb, var(--accent-primary) 78%, #0b1220);
   
   /* Visual Effects — S35 radius / elevation / motion roles */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius: var(--radius-lg);
   --blur: 12px;
   --drop-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.04);
   --shadow-floating: 0 10px 28px -12px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px -6px rgba(15, 23, 42, 0.08);
+  --shadow-control: 0 1px 2px rgba(15, 23, 42, 0.06);
   --motion-fast: 120ms;
   --motion-normal: 200ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -100,21 +105,21 @@
   --bg-secondary: #0b1220;
   --bg-tertiary: #0f172a;
   
-  --surface-canvas: #020617;
-  --surface-bg: #0b1220;
-  --surface-raised: #0f172a;
-  --surface-overlay: rgba(15, 23, 42, 0.94);
+  --surface-canvas: #0b111c;
+  --surface-bg: #0d1420;
+  --surface-raised: #141c2b;
+  --surface-overlay: rgba(20, 28, 43, 0.94);
   --surface-inset: rgba(2, 6, 23, 0.4);
   --surface-muted: rgba(148, 163, 184, 0.1);
-  --editor-shell: #030915;
-  --editor-chrome: #07101f;
+  --editor-shell: #070b13;
+  --editor-chrome: #0e1420;
   --editor-control: rgba(15, 23, 42, 0.92);
   
   --panel-bg: rgba(11, 16, 32, 0.75);
   --panel-border: rgba(148, 163, 184, 0.12);
   
-  --border-subtle: rgba(148, 163, 184, 0.12);
-  --border-strong: rgba(148, 163, 184, 0.24);
+  --border-subtle: rgba(148, 163, 184, 0.1);
+  --border-strong: rgba(148, 163, 184, 0.18);
   
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
@@ -126,6 +131,8 @@
   --accent-ink: color-mix(in srgb, var(--accent-primary) 65%, #ffffff);
   --drop-shadow: 0 16px 40px -24px rgba(0, 0, 0, 0.8), 0 2px 8px rgba(0, 0, 0, 0.4);
   --shadow-floating: 0 18px 40px -20px rgba(0, 0, 0, 0.72), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
 
   --status-error-fg: #fda29b;
   --status-error-bg: rgba(253, 162, 155, 0.1);
@@ -158,6 +165,11 @@
   box-sizing: border-box;
 }
 
+/* Theme-specific imagery (e.g. landing product shots). */
+.theme-dark-only { display: none; }
+:root[data-theme="dark"] .theme-light-only { display: none; }
+:root[data-theme="dark"] .theme-dark-only { display: block; }
+
 body {
   margin: 0;
   background: var(--bg-primary);
@@ -173,12 +185,13 @@ body {
 *::-webkit-scrollbar-thumb { border-radius: 10px; background: var(--border-strong); }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* Component Primitives */
+/* Component Primitives (components layer so utilities can override) */
+@layer components {
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   transition: background-color var(--motion-normal) var(--ease-out),
     color var(--motion-normal) var(--ease-out),
@@ -223,6 +236,40 @@ body {
 .btn-ghost:hover {
   background: var(--surface-muted);
   color: var(--text-primary);
+}
+
+.input {
+  width: 100%;
+  min-height: 2rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  padding: 0 0.625rem;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
+}
+
+textarea.input {
+  padding: 0.5rem 0.625rem;
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.input:focus,
+.input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 }
 
 /* Animations — S35 restrained motion vocabulary */
@@ -305,33 +352,49 @@ body {
   color: var(--status-neutral-fg);
 }
 
+/* Resize handles: invisible hit area overlapping the panel edge; the
+ * accent line only appears on hover/drag. */
 .divider-x {
-  width: 8px;
+  position: relative;
+  width: 7px;
+  margin: 0 -3px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: var(--surface-bg);
-  border-left: 1px solid var(--border-subtle);
-  border-right: 1px solid var(--border-subtle);
-  transition: background-color 0.2s;
+  background: transparent;
   z-index: 10;
 }
 
-.divider-x:hover {
-  background: var(--surface-muted);
+.divider-x::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.divider-x:hover::after {
+  background: var(--accent);
 }
 
 .divider-y {
-  height: 4px;
+  position: relative;
+  height: 7px;
+  margin: -3px 0;
   cursor: row-resize;
-  background: var(--surface-bg);
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-  transition: background-color 0.2s;
+  background: transparent;
   z-index: 10;
 }
 
-.divider-y:hover {
-  background: var(--surface-muted);
+.divider-y::after {
+  content: "";
+  position: absolute;
+  inset: 3px 0;
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.divider-y:hover::after {
+  background: var(--accent);
 }
 
 .resolution-slider {

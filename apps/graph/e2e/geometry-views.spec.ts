@@ -48,7 +48,7 @@ test.describe("Geometry synchronized views", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
-  test("single Perspective/XY/XZ/YZ each render with active chip", async ({ page }) => {
+  test("single Perspective/XY/XZ/YZ each render with the view select as the only indicator", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
@@ -60,7 +60,8 @@ test.describe("Geometry synchronized views", () => {
       await setGeometryView(page, view);
       await page.waitForTimeout(600);
       await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
-      await expect(page.getByRole("button", { name: `${view} viewport` })).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByLabel("Geometry view")).toHaveValue(view.toLowerCase());
+      await expect(page.getByRole("button", { name: `${view} viewport` })).toHaveCount(0);
       await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     }
     expect(pageErrors).toEqual([]);

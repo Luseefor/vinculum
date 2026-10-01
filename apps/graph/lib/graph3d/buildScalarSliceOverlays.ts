@@ -246,7 +246,7 @@ function buildSliceMesh(
   return group;
 }
 
-function sliceDataTexture(
+export function sliceDataTexture(
   result: Extract<ScalarVizResultEntry["result"], { status: "ok" }>
 ): DataTexture | null {
   const range = resolveScalarRange(result.min, result.max, result.validCount);
@@ -341,7 +341,7 @@ function setSliceOverlayVisible(
   }
 }
 
-function removeCachedSliceOverlay(
+export function removeCachedSliceOverlay(
   frame: Pick<ScalarSliceOverlayFrame, "cache" | "overlayRoot">,
   cacheKey: string
 ): void {

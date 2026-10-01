@@ -73,7 +73,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
 
   if (objects.length === 0) {
     return (
-      <div className="mx-1 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-3 text-center">
+      <div className="mx-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-3 text-center">
         <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects in scene.</p>
         <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{WORKSPACE_CONTENT[workspace].emptyHint}</p>
       </div>
@@ -142,7 +142,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
           );
         })}
         {filtered.length === 0 ? (
-          <div className="mx-1 rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-center">
+          <div className="mx-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-center">
             <p className="text-[11px] text-[var(--text-tertiary)]">No matching objects.</p>
           </div>
         ) : null}

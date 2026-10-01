@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
+  GraphObject,
   GraphObjectKind,
   ImplicitSurfaceObject,
   LinearTransformDimension,
@@ -79,6 +80,7 @@ export interface GraphStoreState {
   scene: SceneDocument;
   ui: GraphUiState;
   cameraResetVersion: number;
+  addDefinedObject: (object: GraphObject) => { id: string | null; error: string | null };
   addSurfaceObject: () => string;
   addParametricCurve: () => string;
   addPlaneObject: () => string;

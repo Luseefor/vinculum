@@ -32,7 +32,7 @@ describe("S32 gaps: dimension-precise vector calculus wording", () => {
     }
     render(<VectorCalculusSection object={object} />);
     // Header distinguishes the 3D vector curl from the 2D scalar curl.
-    expect(screen.getByText(/Pointwise Jacobian, divergence, and curl at a field point/)).toBeDefined();
+    expect(screen.queryByText(/Pointwise Jacobian/)).toBeNull();
     expect(screen.queryByText(/scalar curl/)).toBeNull();
     // Empty state instructs with the same 3D wording, no Jacobian table.
     expect(screen.getByText(/Enter a point in the field domain/)).toBeDefined();

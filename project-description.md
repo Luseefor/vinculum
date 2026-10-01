@@ -166,3 +166,15 @@ Adding packages or apps under the monorepo.
 Changing CI jobs, Playwright projects, or primary scripts.
 Introducing major features (collaboration, auth, backend APIs) or persistence boundaries.
 Last aligned with repository layout and workflows at authoring time (see git history for precise commits).
+14. Automatic field analysis
+The Math Lab toolbar's Solve action opens a definition-first field solver for
+Cartesian/polar scalar and vector calculus, polar curves, complex-function
+component analysis, Cauchy–Riemann checks, independent linear residual systems,
+and verified polynomial harmonic conjugates. Symbolic results and solution-step
+overlays live in the canonical Analyze inspector; pointwise vector analysis
+also includes field value, magnitude, unit direction, angle, and vector Laplacian.
+Integral overlays describe the actual worker quadrature result and uncertainty.
+Math lives in lib/math; UI reuses the existing Dialog primitives. Plot insertion
+validates through the existing scene object parser and graphStore addDefinedObject
+before one atomic append. Polar/complex plots convert to existing scene kinds,
+so serialization/schema and store ownership remain unchanged. See docs/user/limits.md.

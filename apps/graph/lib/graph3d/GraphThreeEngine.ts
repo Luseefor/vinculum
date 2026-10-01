@@ -4,7 +4,6 @@ import {
   BufferGeometry,
   Color,
   DirectionalLight,
-  DoubleSide,
   Group,
   HemisphereLight,
   LineBasicMaterial,
@@ -18,15 +17,14 @@ import {
   Raycaster,
   PlaneGeometry,
   Scene,
-  ShaderMaterial,
   SphereGeometry,
   Vector2,
   Vector3,
-  WebGLRenderer,
   type Object3D
 } from "three";
+import { WebGPURenderer } from "three/webgpu";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { OrbitControls } from "three-stdlib";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createAdaptiveGridState } from "@/lib/graph/adaptiveGridState";
 import { dispatchGraphInteractionEvent } from "@/hooks/useAdaptiveResolution";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
@@ -48,7 +46,7 @@ import {
   shouldShowPerfBadge
 } from "./graphThreeEngineDom";
 import { readResolvedThemeFromDom } from "./graphThreeEngineTheme";
-import { GRID_FRAGMENT_SHADER, GRID_VERTEX_SHADER } from "./graphThreeGridShaders";
+import { createGraphGridMaterial } from "./graphThreeGridMaterial";
 import { disposeGraphThreeEngineThreeResources } from "./graphThreeEngineDisposeResources";
 import { createGraphThreeEngineInputHandlers } from "./graphThreeEngineInputHandlers";
 import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
@@ -84,16 +82,15 @@ import type { GeometryView } from "@/lib/types/ui";
 export type { GraphThreeEngine } from "./graphThreeEngineTypes";
 export { snapWorldPoint } from "./graphThreeSnapWorld";
 
-export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine {
+export function createGraphThreeEngine(container: HTMLElement, onError?: (message: string) => void): GraphThreeEngine {
   const scene = new Scene();
   const camera = new PerspectiveCamera(48, 1, 0.1, CAMERA_FAR_PLANE);
   camera.position.copy(DEFAULT_CAMERA_POSITION);
 
-  const renderer = new WebGLRenderer({
+  const renderer = new WebGPURenderer({
     antialias: true,
     alpha: false,
-    powerPreference: "high-performance",
-    preserveDrawingBuffer: true
+    powerPreference: "high-performance"
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = ACESFilmicToneMapping;
@@ -117,7 +114,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
 
   const perfBadge = document.createElement("div");
   perfBadge.className =
-    "pointer-events-none absolute right-3 top-14 z-[18] rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/75 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur";
+    "pointer-events-none absolute right-3 top-14 z-[18] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]";
   perfBadge.style.display = shouldShowPerfBadge() ? "block" : "none";
   perfBadge.textContent = "FPS -- · Frame --ms";
   perfBadge.setAttribute("data-graph3d-perf", "true");
@@ -127,7 +124,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   // S30: bottom-right like the 2D badge — clear of the Scene chip
   // (bottom-left) and probe badges.
   warningBadge.className =
-    "pointer-events-none absolute right-3 bottom-3 z-[18] max-w-[min(260px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
+    "pointer-events-none absolute right-3 bottom-3 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded-[var(--radius-md)] border border-[var(--status-warning-border)] bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug text-[var(--text-secondary)] shadow-[var(--shadow-control)] whitespace-pre-line";
   warningBadge.style.display = "none";
   warningBadge.setAttribute("data-graph3d-performance-warning", "true");
   warningBadge.setAttribute("role", "status");
@@ -180,26 +177,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   fillLight.position.set(-6, 4, -8);
   scene.add(fillLight);
 
-  const gridUniforms = {
-    uMinorStep: { value: 1 },
-    uMajorStep: { value: 1 },
-    uFadeDistance: { value: 100 },
-    uGridOffset: { value: new Vector2(0, 0) },
-    uCameraPosition: { value: new Vector3() },
-    uMinorColor: { value: new Color() },
-    uMajorColor: { value: new Color() },
-    uPlaneMode: { value: 0 }
-  };
-
-  const gridMaterial = new ShaderMaterial({
-    depthWrite: false,
-    side: DoubleSide,
-    transparent: true,
-    toneMapped: false,
-    uniforms: gridUniforms,
-    vertexShader: GRID_VERTEX_SHADER,
-    fragmentShader: GRID_FRAGMENT_SHADER
-  });
+  const { material: gridMaterial, uniforms: gridUniforms } = createGraphGridMaterial();
 
   const gridMesh = new Mesh(new PlaneGeometry(1, 1, 1, 1), gridMaterial);
   gridMesh.frustumCulled = false;
@@ -385,7 +363,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       gridMesh.rotation.set(-Math.PI / 2, 0, 0);
       gridMesh.position.set(0, -0.0035, 0);
     }
-    (gridMaterial.uniforms.uPlaneMode as any).value = tickRuntime.baselinePlaneMode;
+    gridUniforms.uPlaneMode.value = tickRuntime.baselinePlaneMode;
   };
 
   /** World axis letters only; base-plane context lives in the 3D viewport chrome. */
@@ -813,9 +791,24 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   syncObjects(tickRuntime.lastDomTheme);
   tickRuntime.objectsDirty = false;
 
-  animationHandle = window.requestAnimationFrame(tick);
+  let disposed = false;
+  let initialized = false;
+  renderer.onDeviceLost = (info) => {
+    if (disposed) return;
+    tickRuntime.isContextLost = true;
+    onError?.(`The ${info.api} rendering device was lost. Retry the viewport to reconnect.`);
+    reportWarning("Rendering device lost.", { featureArea: "3d-viewport", operation: "gpu-device-lost", details: { api: info.api, reason: info.reason } });
+  };
+  const ready = renderer.init().then(() => {
+    if (disposed) { renderer.dispose(); return; }
+    initialized = true;
+    renderer.domElement.dataset.renderBackend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? "webgpu" : "webgl2";
+    renderer.domElement.dataset.mathBackend = "rust-wasm";
+    if (!suspended) animationHandle = window.requestAnimationFrame(tick);
+  });
 
   return {
+    ready,
     setGeometryPanes: (panes) => {
       // S33 PART 76: a layout/view switch ends an active drag with restore
       // before the pane semantics change (no axis corruption).
@@ -864,10 +857,12 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         });
         resizeObserver.observe(container);
         resize();
-        animationHandle = window.requestAnimationFrame(tick);
+        if (initialized && !disposed) animationHandle = window.requestAnimationFrame(tick);
       }
     },
     dispose: () => {
+      if (disposed) return;
+      disposed = true;
       window.cancelAnimationFrame(animationHandle);
       interaction.dispose();
       releaseOrthoPointerCapture();

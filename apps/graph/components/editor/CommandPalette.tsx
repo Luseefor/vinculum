@@ -190,7 +190,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 }
                 return (
                   <div key={category} role="presentation">
-                    <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+                    <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-[var(--text-tertiary)]">
                       {category}
                     </p>
                     {group.map((command) => (

@@ -59,16 +59,13 @@ function firstError(messages: Array<string | null>): string | null {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+    <h4 className="mb-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
       {children}
     </h4>
   );
 }
 
 function DefinitionShell({
-  title,
-  badge,
-  blurb,
   children
 }: {
   title: string;
@@ -76,17 +73,10 @@ function DefinitionShell({
   blurb: string;
   children: React.ReactNode;
 }) {
+  // Title, kind badge, and prose live in the Inspector identity header; the
+  // definition section leads directly with the mathematics.
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent p-3">
-      <header className="pb-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">{title}</h3>
-          <span className="rounded-[6px] bg-[var(--surface-muted)] px-2 py-0.5 font-mono text-[10px] font-semibold text-[var(--text-secondary)]">
-            {badge}
-          </span>
-        </div>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">{blurb}</p>
-      </header>
+    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );
@@ -112,7 +102,7 @@ function ExpressionInput({
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useCommittedText(committed, focused);
   return (
-    <div className="flex items-center gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2 py-1.5 focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
+    <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
       <span aria-hidden="true" className="shrink-0 font-mono text-[12px] font-semibold text-[var(--text-secondary)]">
         {prefix}
       </span>
@@ -173,7 +163,7 @@ function DomainNumberInput({
   }, [value, focused]);
   return (
     <label className="block min-w-0">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
         {label}
       </span>
       <Input
@@ -203,7 +193,7 @@ function DomainNumberInput({
             onCommit(next);
           }
         }}
-        className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+        className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
       />
     </label>
   );
@@ -260,7 +250,7 @@ export function SurfaceDefinitionEditor({
           onCommit={(next) => updateSurfaceEquation(object.id, next)}
         />
         <label className="mt-2 block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Dependent variable
           </span>
           <select
@@ -272,7 +262,7 @@ export function SurfaceDefinitionEditor({
                 updateSurfaceOrientation(object.id, next);
               }
             }}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             {ORIENTATION_OPTIONS.map((entry) => (
               <option key={entry.value} value={entry.value}>
@@ -296,9 +286,6 @@ export function SurfaceDefinitionEditor({
           <DomainNumberInput label="y max" value={object.domain.yMax} onCommit={(v) => updateSurfaceDomain(object.id, { yMax: v })} />
         </CompactDomainGrid>
       </div>
-      <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
-        Resolution {object.resolution} — adjust in the Styles tab. Analysis lives in the Analyze tab.
-      </p>
     </DefinitionShell>
   );
 }
@@ -372,12 +359,12 @@ export function ParametricCurveDefinitionEditor({
           <DomainNumberInput label="t max" value={object.tMax} onCommit={(v) => updateParametricExpression(object.id, "tMax", v)} />
         </CompactDomainGrid>
       </div>
-      <details className="rounded-[6px] border border-[var(--border-subtle)] px-2 py-1.5">
-        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <details className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] px-2 py-1.5">
+        <summary className="cursor-pointer text-[11px] font-semibold text-[var(--text-secondary)]">
           Sampling · {object.samples} samples
         </summary>
         <label className="mt-2 block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Samples
           </span>
           <Input
@@ -391,7 +378,7 @@ export function ParametricCurveDefinitionEditor({
                 updateParametricExpression(object.id, "samples", v);
               }
             }}
-            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           />
         </label>
       </details>
@@ -470,9 +457,6 @@ export function ParametricSurfaceDefinitionEditor({
           <DomainNumberInput label="v max" value={object.domain.vMax} onCommit={(v) => updateParametricSurfaceExpression(object.id, "vMax", v)} />
         </CompactDomainGrid>
       </div>
-      <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
-        Resolution {object.resolution} — adjust in the Styles tab to recover from performance warnings.
-      </p>
     </DefinitionShell>
   );
 }
@@ -531,9 +515,6 @@ export function ImplicitSurfaceDefinitionEditor({
           <DomainNumberInput label="z max" value={object.domain.zMax} onCommit={(v) => updateImplicitSurfaceExpression(object.id, "zMax", v)} />
         </CompactDomainGrid>
       </div>
-      <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
-        Resolution {object.resolution} — adjust in the Styles tab. Extraction status appears locally while computing.
-      </p>
     </DefinitionShell>
   );
 }
@@ -606,7 +587,7 @@ export function VectorFieldDefinitionEditor({
         </div>
         {diagnostic ? <div className="mt-2"><DiagnosticNote message={diagnostic} /></div> : null}
         <label className="mt-2 block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Dimension
           </span>
           <select
@@ -618,7 +599,7 @@ export function VectorFieldDefinitionEditor({
                 setObjectKind(object.id, "vectorField", next);
               }
             }}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             <option value="2d">2D — F(x,y)</option>
             <option value="3d">3D — F(x,y,z)</option>
@@ -648,12 +629,12 @@ export function VectorFieldDefinitionEditor({
           ) : null}
         </CompactDomainGrid>
       </div>
-      <details className="rounded-[6px] border border-[var(--border-subtle)] px-2 py-1.5">
-        <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+      <details className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] px-2 py-1.5">
+        <summary className="cursor-pointer text-[11px] font-semibold text-[var(--text-secondary)]">
           Sampling · density {object.density}
         </summary>
         <label className="mt-2 block">
-          <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
             Density per axis
           </span>
           <Input
@@ -666,7 +647,7 @@ export function VectorFieldDefinitionEditor({
                 updateVectorFieldExpression(object.id, "density", v);
               }
             }}
-            className="h-8 rounded-[6px] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
           />
         </label>
         <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-tertiary)]">
