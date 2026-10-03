@@ -15,6 +15,9 @@
     "test": "bun run --filter @vinculum/graph test",
     "test:e2e": "bun run --filter @vinculum/graph test:e2e",
     "test:e2e:all-browsers": "bun run --filter @vinculum/graph test:e2e:all-browsers",
-    "prepare:math": "bun scripts/prepare-math-assets.ts"
+    "prepare:math": "bun scripts/prepare-math-assets.ts",
+    "video:dev": "bun run --filter @vinculum/video dev",
+    "video:build": "bun run --filter @vinculum/video build",
+    "video:build:vertical": "bun run --filter @vinculum/video build:vertical"
   }
 }

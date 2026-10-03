@@ -32,3 +32,43 @@ for (const width of [320, 768, 1440]) {
     await expect(page.getByRole("link", { name: "Read the guide" })).toHaveAttribute("href", "/documentations");
   });
 }
+
+for (const width of [320, 768, 1440]) {
+  test(`${width}px public footer has aligned, accessible links and stays outside the editor`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of ["/", "/documentations", "/missing-public-page"]) {
+      await page.goto(route);
+      const footer = page.getByRole("contentinfo");
+      await footer.scrollIntoViewIfNeeded();
+      await expect(footer).toBeVisible();
+      await expect(footer.getByText("A workspace for mathematics", { exact: true })).toBeVisible();
+      const nav = footer.getByRole("navigation", { name: "Footer", exact: true });
+      for (const [name, href] of [["Editor", "/editor"], ["Examples", "/examples"], ["Guide", "/documentations"]]) {
+        const link = nav.getByRole("link", { name, exact: true });
+        await expect(link).toHaveAttribute("href", href);
+        const box = (await link.boundingBox())!;
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x+box.width).toBeLessThanOrEqual(width);
+        await link.focus();
+        await expect(link).toBeFocused();
+      }
+      expect(await footer.evaluate(element => {
+        const { left, right } = element.getBoundingClientRect();
+        return left >= 0 && right <= window.innerWidth && document.documentElement.scrollWidth <= window.innerWidth;
+      })).toBe(true);
+      if (route === "/missing-public-page") {
+        expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(901);
+        const bounds = (await footer.boundingBox())!;
+        expect(bounds.y+bounds.height).toBeCloseTo(900, 0);
+      }
+      const violations = (await new AxeBuilder({ page }).include(".public-footer").analyze()).violations;
+      expect(violations).toEqual([]);
+    }
+    await page.getByRole("contentinfo").getByRole("link", { name: "Guide", exact: true }).click();
+    await expect(page).toHaveURL(/documentations$/);
+    await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guide", exact: true })).toHaveAttribute("aria-current", "page");
+    await page.goto("/editor");
+    await expect(page.getByRole("contentinfo")).toHaveCount(0);
+  });
+}

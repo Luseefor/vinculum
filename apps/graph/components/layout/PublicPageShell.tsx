@@ -35,6 +35,18 @@ export default function PublicPageShell({ children }: { children: ReactNode }) {
       </div>
     </header>
     <main id="page-content" tabIndex={-1}>{children}</main>
-    <footer className="public-footer"><span>Vinculum · A workspace for mathematics</span><nav aria-label="Footer"><Link href="/editor">Editor</Link><Link href="/examples">Examples</Link><Link href="/documentations">Guide</Link></nav></footer>
+    <footer className="public-footer">
+      <div className="public-footer-inner">
+        <div className="public-footer-brand">
+          <Link href="/" className="public-brand" aria-label="Vinculum home"><VinculumMark className="h-5 w-5" />Vinculum</Link>
+          <p>A workspace for mathematics</p>
+        </div>
+        <nav aria-label="Footer">
+          <Link href="/editor">Editor</Link>
+          <Link href="/examples">Examples</Link>
+          <Link href="/documentations" aria-current={path === "/documentations" ? "page" : undefined}>Guide</Link>
+        </nav>
+      </div>
+    </footer>
   </div>;
 }
