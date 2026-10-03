@@ -1,10 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { useEditorStore } from "@/lib/store/editorStore";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import GraphTypeSelector from "@/components/expressions/GraphTypeSelector";
 import ExpressionRow from "@/components/expressions/ExpressionRow";
 import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 import { getVectorFieldComponentDiagnostics } from "@/lib/math/expressionDiagnostics";
 import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
+
+beforeEach(() => useEditorStore.setState({ parameters: [] }));
 
 const rowProps = {
   isSelected: true,

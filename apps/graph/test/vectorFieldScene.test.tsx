@@ -273,7 +273,7 @@ describe("vectorField scene model (S20 Slice 1)", () => {
     const long = getObjectRowDisplayMeta(
       makeField3D({ pExpr: "sin(y) + cos(z)", qExpr: "sin(z) + cos(x)", rExpr: "sin(x) + cos(y)" })
     );
-    expect(long.type.length).toBeLessThanOrEqual(30);
+    expect(long.type).toBe("F(x,y,z)=<sin(y) + cos(z), sin(z) + cos(x), sin(x) + cos(y)>");
     expect(
       getObjectRowDisplayMeta(makeField2D({ pExpr: "", qExpr: "", rExpr: "" })).type
     ).toBe("Choose type in menu");

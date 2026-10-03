@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, expectInputFocused } from "./helpers/mathInput";
 import { expect, test, type Page } from "@playwright/test";
 
 // S15 workspace workflows: shared scene continuity, cross-workspace edit,
@@ -5,14 +7,13 @@ import { expect, test, type Page } from "@playwright/test";
 const SURFACE_INPUT = 'input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]';
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -22,7 +23,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -46,14 +47,14 @@ async function setEquation(page: Page, index: number, equation: string) {
     .poll(async () => page.locator(SURFACE_INPUT).count(), { timeout: 10000 })
     .toBeGreaterThanOrEqual(index + 1);
   const input = page.locator(SURFACE_INPUT).nth(index);
-  if (!(await input.isVisible())) {
+  if (!(await input.locator("..").isVisible())) {
     await page.getByRole("button", { name: "Expand definition" }).first().click();
   }
+  await fillInput(input, equation);
   await expect(input).toBeVisible();
-  await input.fill(equation);
   await input.blur();
   await page.waitForTimeout(500);
-  await expect(input).toHaveValue(equation);
+  await expectInputValue(input, equation);
 }
 
 test.describe("S15 workspace workflows", () => {
@@ -69,13 +70,13 @@ test.describe("S15 workspace workflows", () => {
 
     // Create one of each kind in Math Lab (default).
     await expect(page.getByRole("button", { name: "Math Lab" })).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await setEquation(page, 0, "z = x^2 + y^2");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await setEquation(page, 1, "x^2 + y^2 = 1");
+    await addObject(page, "Plane");
+    await addObject(page, "Parametric Curve");
+    await addObject(page, "Surface");
+    await setEquation(page, 1, "z = sin(x) + cos(y)");
     await expect(page.getByTestId("scene-object-count")).toHaveText("4");
     const idsBefore = await page.evaluate(() => {
       const items = [...document.querySelectorAll("[data-object-row-select]")];
@@ -89,7 +90,7 @@ test.describe("S15 workspace workflows", () => {
     // Workflow 2: edit the same surface in Geometry.
     await setEquation(page, 0, "z = x^2 - y^2");
     await page.getByRole("button", { name: "Math Lab" }).click();
-    await expect(page.locator(SURFACE_INPUT).first()).toHaveValue("z = x^2 - y^2");
+    await expectInputValue(page.locator(SURFACE_INPUT).first(), "z = x^2 - y^2");
     const idsAfter = await page.evaluate(() => {
       const items = [...document.querySelectorAll("[data-object-row-select]")];
       return items.map((el) => el.getAttribute("data-object-row-select"));
@@ -111,8 +112,8 @@ test.describe("S15 workspace workflows", () => {
     await startClean(page);
     // Workflow 3: creation focus in Geometry workspace.
     await page.getByRole("button", { name: "Geometry Studio" }).click();
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
-    await expect(page.locator('input[placeholder="ax + by + cz + d = 0"]').first()).toBeFocused({ timeout: 8000 });
+    await addObject(page, "Plane");
+    await expectInputFocused(page.locator('input[placeholder="ax + by + cz + d = 0"]').first(), { timeout: 8000 });
 
     // Workflow 5: view/layout switching inside Geometry Studio, no stale
     // canvas. S30: the 2D/3D "View type" group is Math-Lab-only by design
@@ -130,7 +131,7 @@ test.describe("S15 workspace workflows", () => {
     // Workflow 6: save/reload keeps scene; workspace preference coherent.
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s15-ws");
+    await fillInput(page.locator("#project-name-input"), "s15-ws");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -138,7 +139,7 @@ test.describe("S15 workspace workflows", () => {
 
     // Workflow 8: S9/S10/S11 through the editor.
     await page.getByRole("button", { name: "Math Lab" }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await setEquation(page, 0, "1/(x^2+y^2)");
     // S30: scoped to the definition diagnostic (see workspace-shell.spec.ts);
     // Integral Analysis may report domain non-finiteness contextually.
@@ -161,7 +162,7 @@ test.describe("S15 workspace workflows", () => {
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Objects" })).toBeVisible();
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Plane");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "Objects" })).not.toBeVisible();

@@ -4,7 +4,7 @@ import InspectorPanel from "@/components/layout/InspectorPanel";
 import { useGraphStore } from "@/store/graphStore";
 
 interface InspectorShellProps {
-  width: number;
+  width?: number;
   onOpenExamples?: () => void;
   onClose?: () => void;
 }

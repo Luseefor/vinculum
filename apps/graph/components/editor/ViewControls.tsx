@@ -25,14 +25,14 @@ export interface ViewControlsProps {
 }
 
 const GROUP =
-  "flex h-8 shrink-0 items-center gap-0.5 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-0.5 shadow-[var(--shadow-control)]";
+  "flex h-8 shrink-0 items-center gap-0.5 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-0.5";
 
 function segmentClass(active: boolean, emphasis: "primary" | "secondary" = "primary"): string {
   return cn(
     "h-7 rounded-[var(--radius-sm)] px-2.5 text-[12px] font-medium outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
     active
       ? emphasis === "primary"
-        ? "bg-[var(--accent-solid)] text-white shadow-[var(--shadow-control)]"
+        ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
         : "bg-[var(--surface-muted)] text-[var(--text-primary)]"
       : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
   );
@@ -44,7 +44,7 @@ function PillSelect({
   ...props
 }: { label: string; children: ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] pl-2.5 pr-1 text-[12px] text-[var(--text-tertiary)] shadow-[var(--shadow-control)] transition-colors focus-within:border-[var(--accent)] hover:border-[var(--border-strong)]">
+    <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] pl-2.5 pr-1 text-[12px] text-[var(--text-tertiary)] transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] hover:bg-[var(--surface-inset)]">
       {label}
       <select
         {...props}
@@ -82,7 +82,7 @@ export default function ViewControls({
   const setGeometrySplitView = useEditorStore((state) => state.setGeometrySplitView);
 
   return (
-    <div className="flex w-max items-center gap-1.5">
+    <div data-view-controls="true" className="flex w-max items-center gap-1.5">
       {workspace === "geometry" ? (
         <>
           <PillSelect
@@ -228,7 +228,7 @@ function ViewOptions({ children }: { children: ReactNode }) {
           </button>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-2">
+      <PopoverContent ariaLabel="View options" align="start" className="w-56 p-2">
         <div className="flex flex-col gap-2 [&>label]:w-full [&>label]:justify-between">{children}</div>
       </PopoverContent>
     </Popover>

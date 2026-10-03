@@ -1,3 +1,7 @@
+import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { createEquationGraph } from "@/lib/graph/createEquationGraph";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { useEditorStore } from "@/lib/store/editorStore";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import type { SceneCommand } from "@/lib/scene/commands";
 import { findObjectById } from "./graphStoreSelection";
@@ -43,10 +47,18 @@ function dropReferencingIntegralResults(ui: GraphUiState, fieldId: string): Grap
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updateLinearTransformEntry" | "updatePlaneEquation"
+  "setCurveExtension3D" | "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updateLinearTransformEntry" | "updatePlaneEquation"
 > {
   return {
+    setCurveExtension3D: (id, enabled) => set((state) => {
+      const object = findObjectById(state.scene.objects, id);
+      if (!object || object.kind !== "implicitCurve" || Boolean(object.extendTo3D) === enabled) return state;
+      return { scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: { ...object, extendTo3D: enabled } } }) };
+    }),
     updateSurfaceEquation: (id, equation) => {
+      const inferred = equation.includes("=") ? inferGraphEquation(equation, getEditorParameterScope()) : null;
+      const conversion = inferred?.ok && inferred.kind !== "surface" && !/^\s*[xyz]\s*=/.test(equation) ? inferred : null;
+      let converted = false;
       // S23: equation commits change the scalar mathematics (config pruned
       // here; fresh results recompute on next sync). Updater stays pure.
       // S25: integral results drop (config kept for auto-recompute).
@@ -61,22 +73,25 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
         const command: SceneCommand = {
           type: "UPDATE_OBJECT",
           payload: {
-            object: {
+            object: conversion ? createEquationGraph(equation, conversion, state.scene.objects.indexOf(object), object) : {
               ...object,
               equation
             }
           }
         };
 
+        const scene = applySceneCommand(state.scene, command);
+        converted = Boolean(conversion);
         return {
-          scene: applySceneCommand(state.scene, command),
+          scene,
           // S21: any object-math commit invalidates attached analysis for
           // that source (no-ops via same-ref when nothing is attached).
           // S23: scalar-viz config likewise (independent variables move).
           // S25: integral results drop (config kept for auto-recompute).
-          ui: pruneScalarVizForSourceId(pruneAnalysisForSourceId(state.ui, id), id)
+          ui: { ...pruneScalarVizForSourceId(pruneAnalysisForSourceId(state.ui, id), id), ...(conversion ? { graphMode: conversion.dimension } : {}) }
         };
       });
+      if (converted && conversion) useEditorStore.getState().setViewportMode(conversion.dimension);
     },
 
     updateSurfaceOrientation: (id, orientation) => {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { OBJECT_DESCRIPTORS } from "@/lib/objects/objectDescriptors";
 
 interface ContextMenuProps {
   open: boolean;
@@ -13,126 +13,63 @@ interface ContextMenuProps {
   hasSelection: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  snapEnabled: boolean;
-  currentMode: "2d" | "3d" | "split" | "quad";
 }
 
-type ContextItem = { id: string; label: string; disabled?: boolean };
-
-function buildItems({
-  hasSelection,
-  canUndo,
-  canRedo,
-  snapEnabled,
-  currentMode
-}: Pick<ContextMenuProps, "hasSelection" | "canUndo" | "canRedo" | "snapEnabled" | "currentMode">): ContextItem[] {
-  // S30: all 14 creation entries from the central descriptors (previously
-  // only 7 kinds; point/vector/line/ray/segment/transforms were missing).
-  const creationItems: ContextItem[] = OBJECT_DESCRIPTORS.map((entry) => ({
-    id: entry.commandId,
-    label: entry.commandLabel
-  }));
-  return [
-    ...creationItems,
-    { id: "separator-1", label: "", disabled: true },
-    { id: "toggle-2d", label: currentMode === "2d" ? "2D Active" : "Switch to 2D", disabled: currentMode === "2d" },
-    { id: "toggle-3d", label: currentMode === "3d" ? "3D Active" : "Switch to 3D", disabled: currentMode === "3d" },
-    {
-      id: "switch-split",
-      label: currentMode === "split" ? "Split Active" : "Switch to Split View",
-      disabled: currentMode === "split"
-    },
-    {
-      id: "switch-quad",
-      label: currentMode === "quad" ? "Quad Active" : "Switch to Quad View",
-      disabled: currentMode === "quad"
-    },
-    { id: "separator-2", label: "", disabled: true },
-    { id: "undo", label: "Undo", disabled: !canUndo },
-    { id: "redo", label: "Redo", disabled: !canRedo },
-    { id: "toggle-snap", label: `Snap: ${snapEnabled ? "On" : "Off"}` },
-    { id: "reset-view", label: "Reset View" },
-    // S33 PART 10/12: camera-only framing next to Reset View (kept
-    // distinct: Frame fits the selection, Fit fits visible content,
-    // Reset restores default cameras).
-    { id: "frame-selected", label: "Frame Selected", disabled: !hasSelection },
-    { id: "fit-scene", label: "Fit Scene" },
-    { id: "delete-selected", label: hasSelection ? "Delete Selected" : "Delete Selected (None)", disabled: !hasSelection }
-  ];
-}
-
-export default function ContextMenu({
-  open,
-  x,
-  y,
-  onClose,
-  onRunCommand,
-  hasSelection,
-  canUndo,
-  canRedo,
-  snapEnabled,
-  currentMode
-}: ContextMenuProps) {
+export default function ContextMenu({ open, x, y, onClose, onRunCommand, hasSelection, canUndo, canRedo }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
   const [position, setPosition] = useState({ x, y });
-
+  const items = [
+    { id: "add-expression", label: "Add equation" },
+    { id: "separator-view", label: "" },
+    { id: "reset-view", label: "Reset view" },
+    { id: "fit-scene", label: "Fit scene" },
+    ...(hasSelection ? [{ id: "frame-selected", label: "Frame selected" }] : []),
+    ...(canUndo || canRedo ? [{ id: "separator-history", label: "" }] : []),
+    ...(canUndo ? [{ id: "undo", label: "Undo" }] : []),
+    ...(canRedo ? [{ id: "redo", label: "Redo" }] : []),
+    ...(hasSelection ? [{ id: "separator-selection", label: "" }, { id: "delete-selected", label: "Remove selected" }] : [])
+  ];
   useLayoutEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const PADDING = 8;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const rect = menuRef.current?.getBoundingClientRect();
-    const menuWidth = rect?.width ?? 240;
-    // S30: measure the real menu height (14 creation entries grew it well
-    // past the old 340px assumption) and cap it to the viewport with scroll.
-    const menuHeight = Math.min(rect?.height ?? 340, viewportHeight - PADDING * 2);
-
-    const clampedX = Math.min(Math.max(x, PADDING), Math.max(PADDING, viewportWidth - menuWidth - PADDING));
-    const clampedY = Math.min(Math.max(y, PADDING), Math.max(PADDING, viewportHeight - menuHeight - PADDING));
-
-    setPosition({ x: clampedX, y: clampedY });
-  }, [open, x, y, hasSelection, canUndo, canRedo, snapEnabled, currentMode]);
-
-  if (!open) {
-    return null;
-  }
-  const items = buildItems({ hasSelection, canUndo, canRedo, snapEnabled, currentMode });
-
-  return (
-    <div className="fixed inset-0 z-[65]" onClick={onClose}>
-      <div
-        ref={menuRef}
-        role="menu"
-        aria-label="Scene context menu"
-        className="absolute z-[100] min-w-[12rem] max-w-60 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-md border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up"
-        style={{ left: position.x, top: position.y }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        {items.map((item) => {
-          if (item.id.startsWith("separator")) {
-            return <div key={item.id} role="separator" className="my-1 h-px bg-[var(--border-subtle)]" />;
+    if (!open) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const place = () => {
+      const rect = menuRef.current?.getBoundingClientRect();
+      const width = rect?.width ?? 224;
+      const height = rect?.height ?? 240;
+      setPosition({ x: Math.max(8, Math.min(x, window.innerWidth - width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - height - 8)) });
+    };
+    place();
+    menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open, x, y, hasSelection, canUndo, canRedo]);
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100]" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); onClose(); }}>
+      <div ref={menuRef} role="menu" aria-label="Scene context menu"
+        className="absolute w-56 max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1.5 shadow-lg animate-fade-in"
+        style={{ left: position.x, top: position.y }} onPointerDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" || event.key === "Tab") {
+            if (event.key === "Escape") event.preventDefault();
+            event.stopPropagation(); onClose(); previousFocus.current?.focus(); return;
           }
-          return (
-            <Button
-              key={item.id}
-              type="button"
-              role="menuitem"
-              variant="ghost"
-              className="w-full justify-start rounded px-2 py-1.5 text-left text-[11px] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]"
-              onClick={() => {
-                onRunCommand(item.id);
-                onClose();
-              }}
-              disabled={item.disabled}
-            >
-              {item.label}
-            </Button>
-          );
-        })}
+          const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+          const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+          const direction = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+          if (direction || event.key === "Home" || event.key === "End") {
+            event.preventDefault(); event.stopPropagation();
+            buttons[event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + direction + buttons.length) % buttons.length]?.focus();
+          }
+        }}>
+        {items.map((item) => item.id.startsWith("separator")
+          ? <div key={item.id} role="separator" className="my-1.5 h-px bg-[var(--border-subtle)]" />
+          : <Button key={item.id} type="button" role="menuitem" variant="ghost"
+            className={`min-h-11 sm:min-h-9 w-full justify-start rounded-[var(--radius-md)] px-3 text-left text-[13px] ${item.id === "delete-selected" ? "text-[var(--status-error-fg)]" : "text-[var(--text-primary)]"}`}
+            onClick={() => { onClose(); previousFocus.current?.focus(); onRunCommand(item.id); }}>{item.label}</Button>)}
       </div>
-    </div>
+    </div>, document.body
   );
 }

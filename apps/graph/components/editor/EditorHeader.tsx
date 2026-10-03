@@ -10,6 +10,8 @@ interface EditorHeaderProps {
   onRedo: () => void;
   onOpenWelcome: () => void;
   openExamplesSignal?: number;
+  openSolverSignal?: number;
+  onOpenGuide?: () => void;
   activeViewType: "2d" | "3d" | "both";
   onViewTypeChange: (view: "2d" | "3d" | "both") => void;
   activeLayout: "split" | "quad";

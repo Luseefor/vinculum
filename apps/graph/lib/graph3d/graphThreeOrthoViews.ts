@@ -81,7 +81,8 @@ export class GeometryOrthoController {
   }
 
   /** Grab-pan: content follows the pointer. Positive dx moves content right. */
-  panByPixels(view: OrthoView, dxPixels: number, dyPixels: number, rect: PaneRect): void {    const camera = this.getCamera(view);
+  panByPixels(view: OrthoView, dxPixels: number, dyPixels: number, rect: PaneRect): void {
+    const camera = this.getCamera(view);
     const state = this.getState(view);
     camera.updateMatrixWorld();
     const worldPerPixel = state.span / Math.max(1, Math.min(rect.width, rect.height));

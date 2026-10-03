@@ -12,15 +12,11 @@
 
 import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import {
-  BufferAttribute,
   BufferGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
-  DynamicDrawUsage,
   Group,
-  Line,
-  LineBasicMaterial,
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -40,6 +36,9 @@ import {
   resolveVectorGeometry
 } from "@/lib/math/geometryResolve";
 import { clipLineToAabb, clipRayToAabb, type Line3, type Ray3 } from "@/lib/math/geometryPrimitives";
+
+import { createWideStroke, updateWideStrokePositions } from "./graphWideStroke";
+import type { LineSegments2 } from "three/addons/lines/webgpu/LineSegments2.js";
 
 export const PRIMITIVE_PROXY_RADIUS = 0.15;
 export const PRIMITIVE_ZERO_MARKER_RADIUS = 0.12;
@@ -100,11 +99,9 @@ export function placeProxyBetween(proxy: Mesh, fromWorld: Vector3, toWorld: Vect
   orientUnitY(proxy, fromWorld, scratchDirection, length, PRIMITIVE_PROXY_RADIUS);
 }
 
-function makePrimitiveLine(id: string, color: string): { line: Line; positions: Float32Array } {
-  const positions = new Float32Array(6);
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new BufferAttribute(positions, 3).setUsage(DynamicDrawUsage));
-  const line = new Line(geometry, new LineBasicMaterial({ color: new Color(color) }));
+function makePrimitiveLine(id: string, color: string): { line: LineSegments2; positions: Float32Array } {
+  const line = createWideStroke(new Float32Array(6), color);
+  const positions = line.geometry.userData.strokePositions as Float32Array;
   line.userData.vinculumId = id;
   line.frustumCulled = false;
   return { line, positions };
@@ -122,8 +119,7 @@ export function writePrimitiveLineEndpoints(
   positions[3] = toWorld.x;
   positions[4] = toWorld.y;
   positions[5] = toWorld.z;
-  geometry.attributes.position.needsUpdate = true;
-  geometry.computeBoundingSphere();
+  updateWideStrokePositions(geometry, positions);
 }
 
 // Renderer-owned initial display box (PART 14): conservative math AABB
@@ -313,10 +309,10 @@ export function removeLineDisplayChildren(group: Object3D): void {
   }
 }
 
-function findDisplayLine(group: Object3D): Line | null {
+function findDisplayLine(group: Object3D): LineSegments2 | null {
   for (const child of group.children) {
-    if (child instanceof Line) {
-      return child;
+    if (child.userData.wideStroke) {
+      return child as LineSegments2;
     }
   }
   return null;
@@ -333,7 +329,7 @@ function findDisplayProxy(group: Object3D): Mesh | null {
 
 function findDisplayHead(group: Object3D): Mesh | null {
   for (const child of group.children) {
-    if ((child as Mesh).isMesh && (child.userData as { pickProxy?: unknown }).pickProxy !== true) {
+    if ((child as Mesh).isMesh && (child.userData as { pickProxy?: unknown }).pickProxy !== true && !child.userData.wideStroke) {
       return child as Mesh;
     }
   }
@@ -371,7 +367,7 @@ export function refreshLineDisplayNode(group: Object3D, halfExtent: number): voi
     group.userData.displayHalfExtent = halfExtent;
     return;
   }
-  const positions = (line.geometry.getAttribute("position") as BufferAttribute).array as Float32Array;
+  const positions = line.geometry.userData.strokePositions as Float32Array;
   writePrimitiveLineEndpoints(positions, entryWorld, exitWorld, line.geometry);
   const proxy = findDisplayProxy(group);
   if (proxy) {

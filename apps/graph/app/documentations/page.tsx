@@ -3,7 +3,7 @@ import DocumentationClientPage from "@/components/documentation/DocumentationCli
 
 export const metadata: Metadata = {
   title: "Vinculum Documentation",
-  description: "System-level documentation for Vinculum architecture, data flow, and reliability model."
+  description: "Learn to graph expressions, analyze fields, follow worked solutions, and save or share scenes in Vinculum."
 };
 
 export default function DocumentationsPage() {

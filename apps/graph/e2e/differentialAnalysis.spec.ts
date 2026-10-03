@@ -1,9 +1,11 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
+import { screenshotPixels } from "./helpers/canvasPixels";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-// Analysis timing bounds are load-sensitive (worker sampling plus
-// dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S21 differential analysis: pick-to-point workflow on explicit and
 // implicit surfaces, Inspector gradient/normal/plane values, derived
@@ -12,24 +14,27 @@ test.describe.configure({ mode: "serial" });
 // deletion, workspace coherence, narrow sheets, and error consistency.
 // Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
     await page.waitForTimeout(200);
   }
+  // The new renderer initializes asynchronously; wait for hydration and a
+  // ready viewport before switching workspaces or sending pick events.
+  await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first())
+    .toHaveAttribute("data-render-backend", /^(webgpu|webgl2)$/);
 }
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -53,7 +58,7 @@ async function openAnalyze(page: Page) {
 async function openObject(page: Page) {
   // S30 companion to openAnalyze: definition/domain editors live under the
   // Object tab. Guarded like openAnalyze.
-  const tab = page.getByRole("tab", { name: "Object" });
+  const tab = page.getByRole("tab", { name: "Edit" });
   if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
     await tab.first().click();
   }
@@ -61,7 +66,7 @@ async function openObject(page: Page) {
 
 async function openStyles(page: Page) {
   // S32: resolution lives in the Styles tab (Tessellation section).
-  const tab = page.getByRole("tab", { name: "Styles" });
+  const tab = page.getByRole("tab", { name: "Settings" });
   if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
     await tab.first().click();
   }
@@ -104,15 +109,6 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
   }
 }
 
-async function screenshotPixels(page: Page, canvas: Locator): Promise<string | null> {
-  return canvas.evaluate((element) => {
-    try {
-      return (element as HTMLCanvasElement).toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  });
-}
 
 // Theme-agnostic overlay signal: counts pixels that changed between two
 // canvas captures (the translucent patch + normal arrow always repaint
@@ -153,7 +149,10 @@ async function countChangedPixels(page: Page, canvas: Locator, beforeUrl: string
               Math.abs((pixelsA[i] as number) - (pixelsB[i] as number)) +
               Math.abs((pixelsA[i + 1] as number) - (pixelsB[i + 1] as number)) +
               Math.abs((pixelsA[i + 2] as number) - (pixelsB[i + 2] as number));
-            if (delta > 36) {
+            // A translucent patch can change each channel by only 6–10.
+            // Ignore small raster noise, retain its visible tint; the >200
+            // changed-pixel gate still rejects a point marker alone.
+            if (delta > 18) {
               changed += 1;
             }
           }
@@ -173,12 +172,14 @@ async function openAnalysisSection(page: Page) {
 }
 
 async function pickCenter(page: Page, canvas: Locator) {
+  await expect(canvas).toHaveAttribute("data-render-backend", /^(webgpu|webgl2)$/);
   await openAnalyze(page);
   await page.getByRole("button", { name: "Pick analysis point on surface" }).click();
   await canvas.click();
 }
 
 async function pickAt(page: Page, canvas: Locator, fx: number, fy: number) {
+  await expect(canvas).toHaveAttribute("data-render-backend", /^(webgpu|webgl2)$/);
   await openAnalyze(page);
   await page.getByRole("button", { name: "Pick analysis point on surface" }).click();
   const box = await canvas.boundingBox();
@@ -197,9 +198,9 @@ test.describe("S21 differential analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + 2*y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + 2*y^2");
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
@@ -207,9 +208,9 @@ test.describe("S21 differential analysis", () => {
     // grid. Click upper-middle to land on the surface.
     await pickAt(page, canvas, 0.5, 0.28);
     // Point, function gradient, and tangent equation appear.
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     // S32: explicit surfaces label the function gradient precisely.
-    await expect(page.getByText(/Function gradient = </)).toBeVisible();
+    await expect(page.getByText(/Surface normal =/)).toBeVisible();
     await expect(page.getByText(/Tangent:/)).toBeVisible();
     // The patch + normal arrow repaint the viewport.
     await expect
@@ -229,11 +230,14 @@ test.describe("S21 differential analysis", () => {
     await settleCompute(page);
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    // Frame the unit sphere so its translucent overlay has a useful visual
+    // scale, keeping the same pixel gate on every browser and pane size.
+    await page.getByRole("button", { name: "Zoom to fit all objects" }).click();
     const before = await screenshotPixels(page, canvas);
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     // S32: implicit surfaces label the level-set normal precisely.
-    await expect(page.getByText(/Level-set normal = </)).toBeVisible();
+    await expect(page.getByText("Level-set normal =", { exact: false }).filter({ has: page.getByRole("math") })).toBeVisible();
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 15000 })
       .toBeGreaterThan(200);
@@ -251,14 +255,15 @@ test.describe("S21 differential analysis", () => {
     await settleCompute(page);
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    await page.getByRole("button", { name: "Zoom to fit all objects" }).click();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     // Record coherence across every synchronized view (same analysis
     // state drives all panes; the scene is shared, never per-pane).
     for (const view of ["xy", "xz", "yz", "perspective"] as const) {
       await page.getByLabel("Geometry view").selectOption(view);
-      await expect(page.getByText(/^P = \(/)).toBeVisible();
-      await expect(page.getByText(/Level-set normal = </)).toBeVisible();
+      await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible();
+      await expect(page.getByText("Level-set normal =", { exact: false }).filter({ has: page.getByRole("math") })).toBeVisible();
     }
     // Overlay presence in perspective (patch faces the camera here)...
     await page.getByLabel("Geometry view").selectOption("perspective");
@@ -270,6 +275,21 @@ test.describe("S21 differential analysis", () => {
     await page.getByLabel("Show tangent plane").click();
     // ...and in quad (one shared overlayRoot, four panes, zero duplication).
     await page.getByLabel("Geometry layout").selectOption("quad");
+    // Each ortho camera has its own scale; framing only Perspective leaves
+    // the unit-sphere patch tiny in the other three panes.
+    for (const view of ["xy", "xz", "yz", "perspective"]) {
+      await page.getByLabel("Geometry view").selectOption(view);
+      await page.getByRole("button", { name: "Zoom to fit all objects" }).click();
+    }
+    // At quarter-pane size the translucent patch needs a closer camera for
+    // the same changed-pixel gate used in Single. Zoom every pane through
+    // its public wheel input, keeping the shared analysis unchanged.
+    const quadBox = await canvas.boundingBox();
+    if (!quadBox) throw new Error("Quad canvas has no box");
+    for (const [fx, fy] of [[.25, .25], [.75, .25], [.25, .75], [.75, .75]]) {
+      await page.mouse.move(quadBox.x + quadBox.width * fx!, quadBox.y + quadBox.height * fy!);
+      await page.mouse.wheel(0, -600);
+    }
     const quadShown = await screenshotPixels(page, canvas);
     await page.getByLabel("Hide tangent plane").click();
     await expect
@@ -290,8 +310,9 @@ test.describe("S21 differential analysis", () => {
     await settleCompute(page);
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    await page.getByRole("button", { name: "Zoom to fit all objects" }).click();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     const withOverlays = await screenshotPixels(page, canvas);
     await expectNoComputePending(page, async () => {
       await page.getByLabel("Hide tangent plane").click();
@@ -320,11 +341,11 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     // Structural edit: values vanish, empty pick state returns.
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2 + y^2 + z^2 = 4");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2 + y^2 + z^2 = 4");
     await expect(page.getByText("Pick a point on the surface.")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/^P = \(/)).not.toBeVisible();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).not.toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -332,19 +353,43 @@ test.describe("S21 differential analysis", () => {
 
   test("F: pending worker blocks analysis of the new structure", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
+    // Hold real worker responses until the pending-state assertion finishes.
+    // Rust execution can complete before the user switches inspector tabs;
+    // this tests the guard without depending on machine speed.
+    await page.addInitScript(() => {
+      const control = window as Window & { holdGeometryResults?: boolean; releaseGeometryResults?: () => void };
+      const pending: (() => void)[] = [];
+      const NativeWorker = window.Worker;
+      window.Worker = class extends NativeWorker {
+        constructor(...args: ConstructorParameters<typeof NativeWorker>) {
+          super(...args);
+          this.addEventListener("message", (event) => {
+            if (!control.holdGeometryResults) return;
+            event.stopImmediatePropagation();
+            pending.push(() => this.dispatchEvent(new MessageEvent("message", { data: event.data })));
+          });
+        }
+      };
+      control.releaseGeometryResults = () => {
+        control.holdGeometryResults = false;
+        pending.splice(0).forEach((deliver) => deliver());
+      };
+    });
     await startClean(page);
     await toGeometry(page);
     await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalysisSection(page);
-    // Heavy edit at max resolution: the worker stays busy for seconds.
-    await page.getByLabel("Equation", { exact: true }).first().fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    await page.evaluate(() => { (window as Window & { holdGeometryResults?: boolean }).holdGeometryResults = true; });
+    // Keep the real edited result pending at max resolution.
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
         await openStyles(page);
-        await page.getByLabel("Resolution", { exact: true }).first().fill("48");
+        await fillInput(page.getByLabel("Resolution", { exact: true }).first(), "48");
     // While pending, Pick stays disabled with an updating hint.
     await openAnalyze(page);
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeDisabled({ timeout: 15000 });
+    await page.evaluate(() => { (window as Window & { releaseGeometryResults?: () => void }).releaseGeometryResults?.(); });
     await settleCompute(page);
     // Settled: picking works again.
     await openAnalyze(page);
@@ -359,9 +404,9 @@ test.describe("S21 differential analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2-z^2=0");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2-z^2=0");
     await settleCompute(page);
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
@@ -369,7 +414,7 @@ test.describe("S21 differential analysis", () => {
     // Either a finite near-apex analysis or the zero-gradient diagnostic:
     // both are safe, NaN-free outcomes (mesh tolerance decides which).
     await expect(
-      page.getByText(/^P = \(/).or(page.getByText(/gradient is zero/))
+      page.getByRole("math", { name: /^P = \(/ }).or(page.getByText(/gradient is zero/))
     ).toBeVisible({ timeout: 10000 });
     const bodyText = await page.locator("body").textContent();
     expect(bodyText).not.toMatch(/NaN/);
@@ -388,7 +433,7 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     const shown = await screenshotPixels(page, canvas);
     // Hide via the row visibility toggle.
     await page.getByRole("button", { name: "Hide object" }).first().click();
@@ -396,11 +441,19 @@ test.describe("S21 differential analysis", () => {
       .poll(async () => countChangedPixels(page, canvas, shown ?? ""), { timeout: 15000 })
       .toBeGreaterThan(2000);
     // Values stay (record retained); unhide restores without re-pick.
-    await expect(page.getByText(/^P = \(/)).toBeVisible();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible();
     await page.getByRole("button", { name: "Show object" }).first().click();
-    await expect
-      .poll(async () => countChangedPixels(page, canvas, shown ?? ""), { timeout: 15000 })
-      .toBeLessThan(200);
+    try {
+      await expect
+        .poll(async () => countChangedPixels(page, canvas, shown ?? ""), { timeout: 15000 })
+        .toBeLessThan(200);
+    } catch (error) {
+      const restored = await screenshotPixels(page, canvas);
+      for (const [name, url] of [["analysis-before-hide", shown], ["analysis-restored", restored]] as const) {
+        if (url) await test.info().attach(name, { body: Buffer.from(url.split(",")[1]!, "base64"), contentType: "image/png" });
+      }
+      throw error;
+    }
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -416,12 +469,12 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
-    await page.locator('[aria-label^="Selected "]').first().click();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
+    await page.locator('[aria-label^="Selected "]').first().focus();
     await page.keyboard.press("Backspace");
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     await expect(page.getByText("Differential Analysis")).not.toBeVisible();
-    await expect(page.getByText(/^P = \(/)).not.toBeVisible();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).not.toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -437,12 +490,12 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     await toMathLab(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await expect(page.getByText(/^P = \(/)).toBeVisible();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible();
     await toGeometry(page);
-    await expect(page.getByText(/^P = \(/)).toBeVisible();
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -472,9 +525,9 @@ test.describe("S21 differential analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("sin(factorial(x)) + y + z = 0");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "sin(factorial(x)) + y + z = 0");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await openAnalysisSection(page);
     await openAnalyze(page);
@@ -494,7 +547,7 @@ test.describe("S21 differential analysis", () => {
     await openAnalysisSection(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await pickCenter(page, canvas);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();

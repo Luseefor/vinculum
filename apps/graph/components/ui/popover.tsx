@@ -87,99 +87,83 @@ export function PopoverTrigger({
   );
 }
 
-export function PopoverContent({
-  children,
-  className,
-  sideOffset = 8,
-  align = "end"
-}: {
+interface PopoverContentProps {
   children: ReactNode;
   className?: string;
   sideOffset?: number;
   align?: "start" | "end";
-}) {
-  const { open, setOpen, triggerRef, popoverId } = usePopoverContext();
+  ariaLabel?: string;
+}
+
+export function PopoverContent(props: PopoverContentProps) {
+  const { open } = usePopoverContext();
+  return open ? <Portal><PopoverSurface {...props} /></Portal> : null;
+}
+
+function PopoverSurface({ children, className, sideOffset = 8, align = "end", ariaLabel = "Options" }: PopoverContentProps) {
+  const { setOpen, triggerRef, popoverId } = usePopoverContext();
   const contentRef = useRef<HTMLDivElement>(null);
-  const [style, setStyle] = useState<CSSProperties>({});
+  const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
     const updatePosition = () => {
       const trigger = triggerRef.current;
       const content = contentRef.current;
-      if (!trigger || !content) {
-        return;
-      }
-      const triggerRect = trigger.getBoundingClientRect();
-      const contentRect = content.getBoundingClientRect();
-      const top = triggerRect.bottom + sideOffset;
-      const left =
-        align === "start"
-          ? Math.max(8, triggerRect.left)
-          : Math.max(8, triggerRect.right - contentRect.width);
-      setStyle({ top, left });
+      if (!trigger || !content) return;
+      const bounds = trigger.getBoundingClientRect();
+      const width = Math.min(content.offsetWidth, window.innerWidth - 16);
+      const height = Math.min(content.offsetHeight, window.innerHeight - 16);
+      const below = bounds.bottom + sideOffset;
+      const above = bounds.top - sideOffset - height;
+      const top = below + height > window.innerHeight - 8 && above >= 8 ? above : below;
+      setStyle({
+        visibility: "visible", top: Math.max(8, Math.min(top, window.innerHeight - height - 8)),
+        left: Math.max(8, Math.min(align === "start" ? bounds.left : bounds.right - width, window.innerWidth - width - 8)),
+        minWidth: Math.min(256, window.innerWidth - 16), maxWidth: window.innerWidth - 16,
+        maxHeight: window.innerHeight - 16, overflowY: "auto"
+      });
     };
     updatePosition();
     const raf = window.requestAnimationFrame(updatePosition);
-    const timer = window.setTimeout(updatePosition, 0);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
     return () => {
       window.cancelAnimationFrame(raf);
-      window.clearTimeout(timer);
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [align, open, sideOffset, triggerRef]);
+  }, [align, sideOffset, triggerRef]);
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
+    if (style.visibility !== "visible") return;
+    const content = contentRef.current;
+    const first = content?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), [href], [tabindex="0"]');
+    (first ?? content)?.focus({ preventScroll: true });
+  }, [style.visibility]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        event.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
       }
     };
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (contentRef.current?.contains(target)) {
-        return;
-      }
-      if (triggerRef.current?.contains(target)) {
-        return;
-      }
-      setOpen(false);
+      if (!contentRef.current?.contains(target) && !triggerRef.current?.contains(target)) setOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("pointerdown", onPointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [open, setOpen, triggerRef]);
+  }, [setOpen, triggerRef]);
 
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <Portal>
-      <div
-        id={popoverId}
-        ref={contentRef}
-        role="dialog"
-        className={cn(
-          "fixed z-[100] min-w-[16rem] rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl backdrop-blur-xl animate-slide-up",
-          className
-        )}
-        style={style}
-      >
-        {children}
-      </div>
-    </Portal>
-  );
+  return <div id={popoverId} ref={contentRef} role="dialog" aria-label={ariaLabel} tabIndex={-1}
+    className={cn("ui-popover fixed z-[100] min-w-[16rem] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] shadow-xl", className)}
+    style={style} onBlur={(event) => {
+      if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && !triggerRef.current?.contains(event.relatedTarget)) setOpen(false);
+    }}>{children}</div>;
 }

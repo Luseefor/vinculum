@@ -6,7 +6,7 @@ describe("addEmptyObject", () => {
     useGraphStore.getState().resetScene();
   });
 
-  it("returns an id, selects the object, and stores an empty surface equation", () => {
+  it("returns an id, selects the object, and stores an empty automatic equation", () => {
     const id = useGraphStore.getState().addEmptyObject();
     const state = useGraphStore.getState();
 
@@ -14,13 +14,13 @@ describe("addEmptyObject", () => {
     expect(state.ui.selectedObjectId).toBe(id);
 
     const created = state.scene.objects.find((object) => object.id === id);
-    expect(created?.kind).toBe("surface");
-    if (created?.kind === "surface") {
+    expect(created?.kind).toBe("implicitCurve");
+    if (created?.kind === "implicitCurve") {
       expect(created.equation).toBe("");
     }
   });
 
-  it("setObjectKind from empty surface keeps expressions empty when converting to plane", () => {
+  it("setObjectKind from empty equation keeps expressions empty when converting to plane", () => {
     const id = useGraphStore.getState().addEmptyObject();
     useGraphStore.getState().setObjectKind(id, "plane");
 

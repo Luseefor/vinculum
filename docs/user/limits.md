@@ -27,7 +27,7 @@ Vinculum enforces:
 - Maximum implicit-surface resolution: `48` (default `32`); the sampling grid is `(resolution + 1)^3` (up to `49^3 = 117,649` samples)
 - Vector-field density: `2–32` per axis in 2D (up to `32 × 32 = 1024` arrows), `2–12` per axis in 3D (up to `12^3 = 1728` arrows); arrow scale is bounded to `0.1–3`
 
-Parametric and implicit surfaces render in 3D views only; 2D plotting and 2D SVG export skip them (SVG export reports a warning per skipped object).
+Implicit surfaces show coordinate-plane cross-sections in 2D and SVG export: XY fixes z=0, XZ fixes y=0, and YZ fixes x=0. These are intersections, not projections; a surface that does not cross the plane has an empty slice. Parametric surfaces remain 3D only; SVG export warns when skipping them.
 
 ## Heavy geometry computation
 
@@ -39,6 +39,10 @@ a small dot next to the object name marks computation in progress.
 Resolution limits are unchanged: implicit surfaces cap at `48`, parametric
 and explicit surfaces at `128`. Very dense meshes can still slow down frame
 rates on low-power GPUs (rasterization cost, not computation).
+
+Dense 2D contour scenes can also pause during zoom and view changes. See the
+[graph stress report](../graph-stress-report.md) for measured workloads,
+efficiency changes, and remaining performance limits.
 
 ## Vector fields
 
@@ -63,11 +67,11 @@ Share links encode the scene into a URL query parameter (`?scene=...`).
 
 There is a maximum URL length (default `6000` characters). If the encoded payload exceeds the limit, share link creation is blocked and you should use JSON export instead.
 
-## WebGL / 3D constraints
+## GPU / 3D constraints
 
-3D export and the 3D performance features rely on the WebGL-rendered viewport.
+3D export and the 3D performance features rely on the GPU-rendered viewport. The renderer uses WebGPU when available and falls back to WebGL2.
 
-If WebGL is unavailable or the renderer is not ready, 3D PNG capture may fail and the UI will instruct you to try again after the viewport finishes rendering.
+If both GPU backends are unavailable or the renderer is not ready, 3D PNG capture may fail. The viewport provides retry and scene JSON export when initialization fails or the GPU device is lost.
 
 ## SVG export limitations
 

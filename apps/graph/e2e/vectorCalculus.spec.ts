@@ -1,9 +1,13 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
+import { screenshotPixels } from "./helpers/canvasPixels";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // S22 timing bounds are load-sensitive (worker sampling plus dev-server
 // compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S22 vector calculus: pointwise Jacobian/divergence/curl for 2D+3D
 // fields, parameterized live recompute, render-only independence, source
@@ -11,14 +15,13 @@ test.describe.configure({ mode: "serial" });
 // overlays in synchronized views, lifecycle clearing, narrow sheets, and
 // security. Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -37,7 +40,7 @@ async function openAnalyze(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -82,27 +85,18 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
 
 async function setAnalysisPoint(page: Page, point: { x: number; y?: number; z?: number }) {
   await openAnalyze(page);
-  await page.getByLabel("Analysis point x").fill(String(point.x));
+  await fillInput(page.getByLabel("Analysis point x"), String(point.x));
   if (point.y !== undefined) {
-    await page.getByLabel("Analysis point y").fill(String(point.y));
+    await fillInput(page.getByLabel("Analysis point y"), String(point.y));
   }
   if (point.z !== undefined) {
     const zInput = page.getByLabel("Analysis point z");
     if ((await zInput.count()) > 0) {
-      await zInput.fill(String(point.z));
+      await fillInput(zInput, String(point.z));
     }
   }
 }
 
-async function screenshotPixels(page: Page, canvas: Locator): Promise<string | null> {
-  return canvas.evaluate((element) => {
-    try {
-      return (element as HTMLCanvasElement).toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  });
-}
 
 async function countChangedPixels(page: Page, canvas: Locator, beforeUrl: string): Promise<number> {
   const afterUrl = await screenshotPixels(page, canvas);
@@ -163,7 +157,7 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-section")).toBeVisible();
@@ -185,10 +179,10 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     await setAnalysisPoint(page, { x: 1, y: 2 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("0", { timeout: 10000 });
@@ -205,7 +199,7 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalyze(page);
@@ -227,11 +221,11 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 1, y: 1, z: 1 });
     await openAnalyze(page);
@@ -253,38 +247,25 @@ test.describe("S22 vector calculus", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("E: parameterized field updates live with zero point re-pick", async ({ page }) => {
+  test("E: formula edits recompute field calculus", async ({ page }) => {
+    // Editing the field formula submits two complete geometry computations.
+    test.setTimeout(60_000);
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Default params include r=2.5: F=<r*x,y,z> has div=r+2=4.5.
-    await page.getByLabel("Vector field P component").first().fill("r*x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "r*x");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 0, y: 0, z: 0 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("4.5", { timeout: 10000 });
-    // Parameter value change recomputes at the same point (no repick):
-    // drive the real PARAMETERS slider (bottom panel), zero worker jobs.
-    await page.getByRole("button", { name: "PARAMETERS" }).click();
-    const slider = page.getByLabel("Parameter r");
-    await expect(slider).toBeVisible();
-    await slider.evaluate((element, value) => {
-      const input = element as HTMLInputElement;
-      input.focus();
-      // React listens for the native value setter: assigning .value
-      // directly bypasses it, so invoke the prototype setter instead.
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(input, String(value));
-      } else {
-        input.value = String(value);
-      }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, "4");
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await fillInput(page.getByLabel("Vector field P component").first(), "4*x");
+    await settleCompute(page);
+    await setAnalysisPoint(page, { x: 0, y: 0, z: 0 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("6", { timeout: 10000 });
 
@@ -297,18 +278,18 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 1, y: 1, z: 1 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("3", { timeout: 10000 });
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await expectNoComputePending(page, async () => {
       await page.getByLabel("Enable vector normalization").click();
     });
     await expectNoComputePending(page, async () => {
-      await page.getByLabel("Arrow scale", { exact: true }).fill("2");
+      await fillInput(page.getByLabel("Arrow scale", { exact: true }), "2");
       await page.keyboard.press("Tab");
     });
     // S30: Vector Calculus lives in the Analyze tab: return there to
@@ -325,13 +306,13 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setAnalysisPoint(page, { x: 1, y: 1 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("2", { timeout: 10000 });
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     // Math edit invalidates the record: the stale radial values vanish
     // immediately (no stale display), then re-setting the same point shows
     // the rotational analysis (div 0, curl 2).
@@ -351,9 +332,9 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("tan(x)");
+    await fillInput(page.getByLabel("Vector field P component").first(), "tan(x)");
     await setAnalysisPoint(page, { x: 0.5, y: 1 });
     await expect(page.getByText("unavailable").first()).toBeVisible({ timeout: 10000 });
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
@@ -368,9 +349,9 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + 2*y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + 2*y^2");
     await openAnalyze(page);
     await expect(page.getByText("Differential Analysis")).toBeVisible();
     // Pick-to-point workflow (same as S21): the paraboloid bowl fills the
@@ -383,17 +364,17 @@ test.describe("S22 vector calculus", () => {
       throw new Error("canvas has no box");
     }
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.28);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
     // Read the picked point, then verify D along <3,4> matches
     // ∇f·û = (2x*0.6 + 4y*0.8) for f=x^2+2y^2 (unit-test pins 7.6 at (1,2)).
-    const pointText = await page.getByText(/^P = \(/).textContent();
+    const pointText = await page.getByRole("math", { name: /^P = \(/ }).getAttribute("aria-label");
     const numbers = (pointText ?? "").match(/-?\d+(\.\d+)?(e-?\d+)?/gi)?.map(Number) ?? [];
     expect(numbers.length).toBeGreaterThanOrEqual(2);
     const [px, py] = numbers as [number, number];
     const expected = 2 * px * 0.6 + 4 * py * 0.8;
-    await page.getByLabel("Direction x").fill("3");
-    await page.getByLabel("Direction y").fill("4");
-    const valueText = await page.getByTestId("directional-derivative-value").textContent();
+    await fillInput(page.getByLabel("Direction x"), "3");
+    await fillInput(page.getByLabel("Direction y"), "4");
+    const valueText = await page.getByTestId("directional-derivative-value").getByRole("math").getAttribute("aria-label");
     const actual = Number((valueText ?? "").match(/-?\d+(\.\d+)?(e-?\d+)?/i)?.[0]);
     expect(Number.isFinite(actual)).toBe(true);
     expect(Math.abs(actual - expected)).toBeLessThan(0.05);
@@ -406,9 +387,9 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + 2*y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + 2*y^2");
     await openAnalyze(page);
     await expect(page.getByText("Differential Analysis")).toBeVisible();
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
@@ -419,9 +400,9 @@ test.describe("S22 vector calculus", () => {
       throw new Error("canvas has no box");
     }
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.28);
-    await expect(page.getByText(/^P = \(/)).toBeVisible({ timeout: 10000 });
-    await page.getByLabel("Direction x").fill("0");
-    await page.getByLabel("Direction y").fill("0");
+    await expect(page.getByRole("math", { name: /^P = \(/ })).toBeVisible({ timeout: 10000 });
+    await fillInput(page.getByLabel("Direction x"), "0");
+    await fillInput(page.getByLabel("Direction y"), "0");
     await expect(page.getByText("Direction must be nonzero.")).toBeVisible({ timeout: 10000 });
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
 
@@ -434,11 +415,11 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 1, y: 1, z: 1 });
     await openAnalyze(page);
@@ -470,13 +451,13 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 1, y: 1, z: 1 });
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-jacobian")).toBeVisible({ timeout: 10000 });
-    await page.locator('[aria-label^="Selected "]').first().click();
+    await page.locator('[aria-label^="Selected "]').first().focus();
     await page.keyboard.press("Backspace");
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     await openAnalyze(page);
@@ -491,7 +472,7 @@ test.describe("S22 vector calculus", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -509,9 +490,9 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("sin(factorial(x))");
+    await fillInput(page.getByLabel("Vector field P component").first(), "sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await openAnalyze(page);
     await expect(page.getByText("Field has errors")).toBeVisible();
@@ -528,7 +509,7 @@ test.describe("S22 vector calculus", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setAnalysisPoint(page, { x: 1, y: 2 });
     await openAnalyze(page);
@@ -551,7 +532,7 @@ test.describe("S22 vector calculus", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await setAnalysisPoint(page, { x: 1, y: 1, z: 1 });

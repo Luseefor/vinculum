@@ -29,7 +29,7 @@ export default function WorkspaceSwitcher({ compact = false }: { compact?: boole
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center gap-0.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-0.5",
+        "flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--surface-muted)] p-0.5",
         compact ? "h-8" : "h-9"
       )}
       role="group"
@@ -49,7 +49,7 @@ export default function WorkspaceSwitcher({ compact = false }: { compact?: boole
             // Activation is instant (no fade through low-contrast mid-states);
             // only the inactive hover color animates.
             workspace === entry.id
-              ? "bg-[var(--accent-solid)] text-white shadow-[var(--shadow-control)]"
+              ? "bg-[var(--surface-raised)] text-[var(--text-primary)] shadow-[var(--shadow-control)]"
               : "text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)] motion-reduce:transition-none"
           )}
         >

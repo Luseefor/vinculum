@@ -9,6 +9,8 @@
 
 "use client";
 
+import { MathInput } from "@/components/math/MathInput";
+
 import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
 import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
@@ -240,7 +242,7 @@ export default function GeometryCoordinateFields({
                 <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0">
                   {def.coord}
                 </span>
-                <input
+                <MathInput
                   ref={group.name === groups[0]?.name && index === 0 ? firstInputRef : undefined}
                   type="text"
                   value={drafts[def.field] ?? ""}
@@ -261,7 +263,7 @@ export default function GeometryCoordinateFields({
                   onKeyDown={onEnterKey}
                   spellCheck={false}
                   autoComplete="off"
-                  className="w-full min-w-0 bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                  className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
                 />
               </div>
             ))}

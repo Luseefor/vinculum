@@ -8,6 +8,7 @@ import ObjectRow from "@/components/objects/ObjectRow";
 interface ObjectTreeProps {
   filterQuery?: string;
   visibleOnly?: boolean;
+  excludeId?: string | null;
 }
 
 function isTextEditingTarget(target: EventTarget | null): boolean {
@@ -23,7 +24,7 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
   );
 }
 
-export default function ObjectTree({ filterQuery = "", visibleOnly = false }: ObjectTreeProps) {
+export default function ObjectTree({ filterQuery = "", visibleOnly = false, excludeId = null }: ObjectTreeProps) {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectObject = useGraphStore((state) => state.selectObject);
@@ -33,16 +34,17 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
   const filtered = useMemo(() => {
     const q = filterQuery.trim().toLowerCase();
     if (!q) {
-      return objects;
+      return objects.filter((object) => object.id !== excludeId && (!visibleOnly || object.visible));
     }
     return objects.filter((object, index) => {
+      if (object.id === excludeId) return false;
       if (visibleOnly && !object.visible) {
         return false;
       }
       const label = `${object.kind} #${index + 1}`.toLowerCase();
       return label.includes(q) || object.id.toLowerCase().includes(q);
     });
-  }, [filterQuery, objects, visibleOnly]);
+  }, [filterQuery, objects, visibleOnly, excludeId]);
   const objectIndexById = useMemo(() => {
     const map = new Map<string, number>();
     objects.forEach((object, index) => {
@@ -54,7 +56,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
   // S31 row-follow policy (Part 2): a canvas selection highlights the row
   // and scrolls it into view only when offscreen (block:nearest never
   // yanks an already-visible list). Selection never forces expansion —
-  // expansion stays user-driven / create-driven in ObjectRow.
+  // expansion stays row-click-driven / create-driven in ObjectRow.
   useEffect(() => {
     if (!selectedObjectId) {
       return;
@@ -73,7 +75,7 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
 
   if (objects.length === 0) {
     return (
-      <div className="mx-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-3 text-center">
+      <div className="mx-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3 text-center">
         <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects in scene.</p>
         <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{WORKSPACE_CONTENT[workspace].emptyHint}</p>
       </div>
@@ -141,8 +143,8 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false }: Ob
             />
           );
         })}
-        {filtered.length === 0 ? (
-          <div className="mx-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-primary)] px-3 py-2 text-center">
+        {filtered.length === 0 && !excludeId ? (
+          <div className="mx-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2 text-center">
             <p className="text-[11px] text-[var(--text-tertiary)]">No matching objects.</p>
           </div>
         ) : null}

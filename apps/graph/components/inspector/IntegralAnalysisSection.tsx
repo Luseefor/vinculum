@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ParametricCurveObject,
@@ -7,7 +9,7 @@ import type {
   SurfaceGraphObject,
   VectorFieldObject
 } from "@vinculum/scene/types";
-import { Input } from "@/components/ui/input";
+import { MathInput } from "@/components/math/MathInput";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
@@ -263,7 +265,7 @@ function IntegrandInput({ committed, onCommit }: { committed: string; onCommit: 
       <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
         Scalar integrand g(x,y,z)
       </span>
-      <Input
+      <MathInput
         type="text"
         value={draft ?? committed}
         aria-label="Scalar integrand g(x,y,z)"
@@ -301,6 +303,7 @@ function FieldSelector({
   selectedId: string | null;
   onSelect: (fieldId: string | null) => void;
 }) {
+  const selectedField = fields.find((field) => field.id === selectedId);
   return (
     <label className="block">
       <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
@@ -320,11 +323,12 @@ function FieldSelector({
           const number = numberFor(field.id);
           return (
             <option key={field.id} value={field.id}>
-              3D Vector Field #{number + 1} — &lt;{field.pExpr}, {field.qExpr}, {field.rExpr}&gt;
+              3D Vector Field #{number + 1}
             </option>
           );
         })}
       </select>
+      {selectedField ? <span className="mt-1 block min-w-0 text-[12px] text-[var(--text-secondary)]"><MathExpression expression={`<${selectedField.pExpr}, ${selectedField.qExpr}, ${selectedField.rExpr}>`} /></span> : null}
     </label>
   );
 }
@@ -385,11 +389,11 @@ function ResultBody({
       return (
         <div className="flex flex-col gap-1" role="status" aria-label="Integral result">
           <p data-testid="integral-result-value" className="font-mono text-[13px] text-[var(--text-primary)]">
-            Value: {formatNumber(liveResult.value ?? Number.NaN)}
+            Value: <MathExpression expression={formatNumber(liveResult.value ?? Number.NaN)} />
           </p>
           <p data-testid="integral-result-error" className="font-mono text-[12px] text-[var(--text-secondary)]">
             Estimated numerical error:{" "}
-            {Number.isFinite(liveResult.estimatedError) ? `~${formatNumber(liveResult.estimatedError as number)}` : "unavailable"}
+            {Number.isFinite(liveResult.estimatedError) ? <MathExpression expression={`~${formatNumber(liveResult.estimatedError as number)}`} /> : "unavailable"}
           </p>
           {liveResult.convergenceWarning === true && (
             <StatusCallout tone="warning" className="mt-1">

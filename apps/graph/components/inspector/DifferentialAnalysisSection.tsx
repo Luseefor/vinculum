@@ -1,5 +1,8 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+import { expressionToLatex } from "@/lib/math/mathNotation";
+
 import { useEffect, useMemo, useState } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import { Input } from "@/components/ui/input";
@@ -91,18 +94,17 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
       )}
       {model.body === "values" && (
         <div className="flex flex-col gap-2.5" role="status" aria-label="Differential analysis results">
-          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
-            P = ({formatNumber(model.point.x)}, {formatNumber(model.point.y)}, {formatNumber(model.point.z)})
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            <MathExpression expression={`P = (${formatNumber(model.point.x)}, ${formatNumber(model.point.y)}, ${formatNumber(model.point.z)})`}
+              latex={`P = \\left(${[model.point.x, model.point.y, model.point.z].map(value => expressionToLatex(formatNumber(value))).join(", ")}\\right)`} />
           </p>
-          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
-            {/* S32: preserve the S21/S22 mathematical distinction — explicit
-                surfaces show the function gradient, implicit surfaces the
-                level-set normal. Never merge both under one "Gradient" label. */}
-            {object.kind === "surface" ? "Function gradient = " : "Level-set normal = "}&lt;{formatNumber(model.gradient.x)}, {formatNumber(model.gradient.y)},{" "}
-            {formatNumber(model.gradient.z)}&gt;
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            {/* The tangent-plane gradient is a surface normal. The scalar
+                function gradient in the independent variables is shown separately. */}
+            {object.kind === "surface" ? "Surface normal = " : "Level-set normal = "}<MathExpression expression={`<${formatNumber(model.gradient.x)}, ${formatNumber(model.gradient.y)}, ${formatNumber(model.gradient.z)}>`} />
           </p>
-          <p className="break-words font-mono text-[12px] text-[var(--text-secondary)]">
-            Tangent: {formatPlaneEquation(model.gradient, model.point)}
+          <p className="break-words text-[12px] text-[var(--text-secondary)]">
+            Tangent: <MathExpression expression={formatPlaneEquation(model.gradient, model.point)} />
           </p>
           {object.kind === "surface" && (
             <DirectionalDerivativeBlock key={object.id} object={object} point={model.point} />
@@ -256,15 +258,14 @@ function DirectionalDerivativeBlock({
       )}
       {outcome !== null && outcome.status === "ok" && (
         <div className="flex flex-col gap-1" role="status" aria-label="Directional derivative result">
-          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
-            Function gradient (direction of maximum increase) = &lt;{formatNumber(outcome.gradient.g1)},{" "}
-            {formatNumber(outcome.gradient.g2)}&gt;
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            Function gradient (direction of maximum increase) = <MathExpression expression={`<${formatNumber(outcome.gradient.g1)}, ${formatNumber(outcome.gradient.g2)}>`} />
           </p>
-          <p className="font-mono text-[12px] text-[var(--text-secondary)]">
-            Unit direction = &lt;{formatNumber(outcome.unitDirection.u)}, {formatNumber(outcome.unitDirection.v)}&gt;
+          <p className="text-[12px] text-[var(--text-secondary)]">
+            Unit direction = <MathExpression expression={`<${formatNumber(outcome.unitDirection.u)}, ${formatNumber(outcome.unitDirection.v)}>`} />
           </p>
-          <p data-testid="directional-derivative-value" className="font-mono text-[12px] text-[var(--text-secondary)]">
-            D = {formatNumber(outcome.value)}
+          <p data-testid="directional-derivative-value" className="text-[12px] text-[var(--text-secondary)]">
+            <MathExpression expression={`D = ${formatNumber(outcome.value)}`} />
           </p>
         </div>
       )}

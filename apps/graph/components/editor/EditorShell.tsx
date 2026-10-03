@@ -1,7 +1,6 @@
 "use client";
 
 import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBoundary";
-import BottomDockPremium from "@/components/editor/BottomDockPremium";
 import CommandPalette from "@/components/editor/CommandPalette";
 import ContextInspectorDrawer from "@/components/editor/ContextInspectorDrawer";
 import ContextMenu from "@/components/editor/ContextMenu";
@@ -11,7 +10,6 @@ import InspectorPremium from "@/components/editor/InspectorPremium";
 import InspectorShell from "@/components/editor/InspectorShell";
 import SceneNavigatorPremium from "@/components/editor/SceneNavigatorPremium";
 import SelectedObjectChip from "@/components/editor/SelectedObjectChip";
-import StatusBar from "@/components/editor/StatusBar";
 import FirstRunHint from "@/components/onboarding/FirstRunHint";
 import RecoveryDialog from "@/components/projects/RecoveryDialog";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
@@ -51,6 +49,7 @@ import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDeriv
 import { captureEvent } from "@/lib/analytics/posthog";
 import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
+import EditorGuide from "@/components/onboarding/EditorGuide";
 import CanvasToolbar from "@/components/editor/CanvasToolbar";
 import { OBJECT_SEARCH_OPEN_EVENT } from "@/components/layout/ObjectBrowserPanel";
 import type { ViewTool } from "@/components/editor/ViewControls";
@@ -103,6 +102,8 @@ export default function EditorShell() {
   const [sharedSceneDialogOpen, setSharedSceneDialogOpen] = useState(false);
   const [sharedSceneError, setSharedSceneError] = useState<string | null>(null);
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [solverOpenSignal, setSolverOpenSignal] = useState(0);
   const [welcomeDialogError, setWelcomeDialogError] = useState<string | null>(null);
   const [touchHints, setTouchHints] = useState(false);
   const [examplesOpenSignal, setExamplesOpenSignal] = useState(0);
@@ -121,13 +122,8 @@ export default function EditorShell() {
   const setRightPanelWidth = useEditorStore((state) => state.setRightPanelWidth);
   const setLeftPanelCollapsed = useEditorStore((state) => state.setLeftPanelCollapsed);
   const setRightPanelCollapsed = useEditorStore((state) => state.setRightPanelCollapsed);
-  const setBottomPanelCollapsed = useEditorStore((state) => state.setBottomPanelCollapsed);
-  const setBottomPanelHeight = useEditorStore((state) => state.setBottomPanelHeight);
-  const bottomPanelHeight = useEditorStore((state) => state.bottomPanelHeight);
-  const bottomPanelCollapsed = useEditorStore((state) => state.bottomPanelCollapsed);
   const leftCollapseSnapOffset = useEditorStore((state) => state.leftCollapseSnapOffset);
   const rightCollapseSnapOffset = useEditorStore((state) => state.rightCollapseSnapOffset);
-  const bottomCollapseSnapOffset = useEditorStore((state) => state.bottomCollapseSnapOffset);
   const beginResize = useEditorStore((state) => state.beginResize);
   const endResize = useEditorStore((state) => state.endResize);
   const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
@@ -189,8 +185,8 @@ export default function EditorShell() {
         activeTool === "measureAngle" ||
         activeTool === "addPin"));
 
-  // Closing the Inspector dismisses it for the current selection only; picking
-  // a different object brings it back (there is no separate header toggle).
+  // Closing the Inspector dismisses it for the current selection; the header
+  // toggle can reopen it without changing the selection.
   useEffect(() => {
     if (selectedObjectId || selectedMeasurementId) {
       setUserClosedInspector(false);
@@ -851,6 +847,14 @@ export default function EditorShell() {
     if (commandId === "undo") { runUndo(); return; }
     if (commandId === "redo") { runRedo(); return; }
     if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
+    if (commandId === "add-expression") {
+      if (narrowRailMode) { setInspectorOpen(false); setNarrowObjectsOpen(true); }
+      else setLeftPanelCollapsed(false);
+      const store = useGraphStore.getState();
+      const id = store.addEmptyObject();
+      store.requestEquationFocus(id);
+      return;
+    }
     if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
     if (commandId === "switch-split") { setViewportMode("split"); return; }
     if (commandId === "switch-quad") { setViewportMode("quad"); return; }
@@ -1019,7 +1023,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [narrowRailMode, setLeftPanelCollapsed, runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
@@ -1061,26 +1065,6 @@ export default function EditorShell() {
     window.addEventListener("pointerup", onUp);
   }, [beginResize, endResize, leftCollapseSnapOffset, rightCollapseSnapOffset, setLeftPanelCollapsed, setLeftPanelWidth, setRightPanelCollapsed, setRightPanelWidth]);
 
-  const startBottomResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    beginResize("bottom", event.pointerId);
-    const bounds = shell.getBoundingClientRect();
-    const onMove = (moveEvent: PointerEvent) => {
-      const nextHeight = bounds.bottom - moveEvent.clientY - 24;
-      if (nextHeight <= bottomCollapseSnapOffset) { setBottomPanelCollapsed(true); return; }
-      setBottomPanelCollapsed(false);
-      setBottomPanelHeight(nextHeight);
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      endResize();
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
-
   const viewControlProps = {
     activeViewType,
     onViewTypeChange: (view: "2d" | "3d" | "both") => {
@@ -1119,7 +1103,13 @@ export default function EditorShell() {
       ref={shellRef}
       data-composition={composition}
       className="app-shell flex h-screen flex-col bg-[var(--bg-primary)] font-sans"
-      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
+      onContextMenu={(e) => { if (!(e.target instanceof HTMLCanvasElement)) return; e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
+      onKeyDown={(e) => {
+        if (!(e.target instanceof HTMLCanvasElement) || !(e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))) return;
+        e.preventDefault(); e.stopPropagation();
+        const rect = e.target.getBoundingClientRect();
+        setContextMenu({ open: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      }}
     >
       <ThemeSync />
       <EditorLayoutPremium
@@ -1139,21 +1129,21 @@ export default function EditorShell() {
               setWelcomeDialogOpen(true);
             }}
             openExamplesSignal={examplesOpenSignal}
+            openSolverSignal={solverOpenSignal}
+            onOpenGuide={() => setGuideOpen(true)}
             {...viewControlProps}
-            inspectorOpen={contextInspectorOpen}
+            inspectorOpen={narrowRailMode ? inspectorOpen : !rightCollapsed && contextInspectorOpen}
             onToggleInspector={() => {
               // S34 PART 6: one primary sheet on compact — opening Inspector
               // closes Objects and vice versa (no stacked full-screen sheets).
               if (narrowRailMode) {
                 setNarrowObjectsOpen(false);
               }
-              setInspectorOpen((open) => {
-                const next = !open;
-                if (next) {
-                  setUserClosedInspector(false);
-                }
-                return next;
-              });
+              const next = narrowRailMode ? !inspectorOpen : rightCollapsed || !contextInspectorOpen;
+              setInspectorOpen(next);
+              setUserClosedInspector(!next);
+              if (next) setRightPanelCollapsed(false);
+              if (!next) setInspectorPinned(false);
             }}
             objectsOpen={narrowRailMode ? narrowObjectsOpen : !leftCollapsed}
             onToggleObjects={() => {
@@ -1164,7 +1154,7 @@ export default function EditorShell() {
               }
               toggleLeftPanel();
             }}
-            showObjectsToggle={narrowRailMode}
+            showObjectsToggle
           />
         }
         canvasToolbar={
@@ -1189,17 +1179,19 @@ export default function EditorShell() {
               <div className="relative h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
                 {(workspace === "geometry" || visitedWorkspaces.geometry) && (
                   <div className={workspace === "geometry" ? "h-full w-full" : "hidden"}>
-                    <GeometryViewport suspended={workspace !== "geometry"} />
+                    <GeometryViewport suspended={workspace !== "geometry"} onOpenGuide={() => setGuideOpen(true)} onOpenExamples={() => setExamplesOpenSignal(value => value + 1)} />
                   </div>
                 )}
                 {(workspace === "math" || visitedWorkspaces.math) && (
                   <div className={workspace === "math" ? "h-full w-full" : "hidden"}>
                     <ViewportHost
                       mode={effectiveViewportMode}
-                      viewport2d={<Viewport2D key="graph-2d" />}
-                      viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
+                      viewport2d={<Viewport2D key="graph-2d" suspended={workspace !== "math"} />}
+                      viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" suspended={workspace !== "math"} />}
                       viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
                       workspaceId="math"
+                      onOpenGuide={() => setGuideOpen(true)}
+                      onOpenExamples={() => setExamplesOpenSignal(value => value + 1)}
                     />
                   </div>
                 )}
@@ -1218,6 +1210,7 @@ export default function EditorShell() {
                     }
                     onDismiss={handleCloseWelcome}
                     onOpenExamples={handleWelcomeOpenExamples}
+                    onOpenGuide={() => { setWelcomeDialogOpen(false); setGuideOpen(true); }}
                   />
                 </div>
               </div>
@@ -1272,9 +1265,29 @@ export default function EditorShell() {
             </div>
           ) : null
         }
-        bottomDivider={bottomPanelCollapsed ? null : <div className="divider-y" onPointerDown={startBottomResize} />}
-        bottomDock={<BottomDockPremium height={bottomPanelCollapsed ? 0 : bottomPanelHeight} />}
-        statusBar={<StatusBar />}
+      />
+      <EditorGuide open={guideOpen} onOpenChange={setGuideOpen}
+        onShowObjects={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          if (narrowRailMode) { setInspectorOpen(false); setNarrowObjectsOpen(true); }
+          else setLeftPanelCollapsed(false);
+        }}
+        onShowInspector={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          setNarrowObjectsOpen(false);
+          setRightPanelCollapsed(false);
+          setUserClosedInspector(false);
+          setInspectorOpen(true);
+        }}
+        onOpenSolver={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          setWorkspace("math");
+          setSolverOpenSignal(value => value + 1);
+        }}
+        onOpenExamples={() => { setGuideOpen(false); setWelcomeDialogOpen(false); setExamplesOpenSignal(value => value + 1); }}
       />
       <SceneImportExportDialog />
       <RecoveryDialog
@@ -1291,12 +1304,12 @@ export default function EditorShell() {
         onCancel={handleCancelSharedScene}
       />
       <Sheet open={narrowRailMode && inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
-        <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
+        <InspectorPremium onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
       </Sheet>
       <Sheet open={narrowRailMode && narrowObjectsOpen} onOpenChange={setNarrowObjectsOpen} title="Objects">
-        <SceneNavigatorPremium width={Math.min(leftWidth, 320)} />
+        <SceneNavigatorPremium />
       </Sheet>
-      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
       
       <input

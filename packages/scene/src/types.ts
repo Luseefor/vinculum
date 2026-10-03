@@ -1,5 +1,6 @@
 export type GraphObjectKind =
   | "surface"
+  | "implicitCurve"
   | "parametricCurve"
   | "plane"
   | "parametricSurface"
@@ -17,6 +18,15 @@ export interface GraphObjectBase {
   kind: GraphObjectKind;
   color: string;
   visible: boolean;
+  /** Equation-first authoring: edits infer the graph kind automatically. */
+  autoExpression?: boolean;
+}
+
+export interface ImplicitCurveObject extends GraphObjectBase {
+  kind: "implicitCurve";
+  equation: string;
+  /** Opt-in extrusion along z; the equation remains a 2D curve. */
+  extendTo3D?: boolean;
 }
 
 export interface SurfaceDomain {
@@ -39,6 +49,8 @@ export interface SurfaceGraphObject extends GraphObjectBase {
   resolution: number;
   appearance: SurfaceAppearance;
   orientation?: SurfaceOrientation;
+  /** Render a camera-sized region instead of the saved custom range. */
+  autoDomain?: boolean;
 }
 
 export interface ParametricCurveObject extends GraphObjectBase {
@@ -249,6 +261,7 @@ export type LinearTransformObject = LinearTransformObject2D | LinearTransformObj
 
 export type GraphObject =
   | SurfaceGraphObject
+  | ImplicitCurveObject
   | ParametricCurveObject
   | PlaneGraphObject
   | ParametricSurfaceObject

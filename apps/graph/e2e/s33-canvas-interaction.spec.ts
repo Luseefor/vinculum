@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, readInputValue, expectInputVisible, pressInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -5,17 +7,17 @@ import { expect, test, type Page } from "@playwright/test";
 // Frame Selected / Fit Scene, literal-backed orthographic drags with
 // one-undo transactions, locks, lifecycle safety, and camera/math
 // invariance. Frozen engine behavior stays covered by S16–S32.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -60,10 +62,10 @@ async function canvasCenter(page: Page) {
 }
 
 async function createPointAt(page: Page, x: string, y: string, z: string) {
-  await page.getByRole("button", { name: "Point", exact: true }).click();
-  await inspector(page).getByLabel("Point x").fill(x);
-  await inspector(page).getByLabel("Point y").fill(y);
-  await inspector(page).getByLabel("Point z").fill(z);
+  await addObject(page, "Point");
+  await fillInput(inspector(page).getByLabel("Point x"), x);
+  await fillInput(inspector(page).getByLabel("Point y"), y);
+  await fillInput(inspector(page).getByLabel("Point z"), z);
 }
 
 async function openAnalyze(page: Page) {
@@ -74,7 +76,7 @@ async function openAnalyze(page: Page) {
 }
 
 async function showMoreAdd(page: Page) {
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -97,7 +99,7 @@ test.describe("S33 canvas interaction", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await createPointAt(page, "0", "0", "0");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     // Select #2 so #1 (at the center) is unselected: hovering its body
     // shows pointer (no handle affordance on unselected objects).
@@ -125,7 +127,7 @@ test.describe("S33 canvas interaction", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     // Point#1 at the origin (canvas center); Point#2 keeps defaults (off-center).
     await createPointAt(page, "0", "0", "0");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     // Settle creation selection first (engine sync under load).
     await expect(page.getByRole("button", { name: "Selected Point #2" })).toBeVisible();
@@ -162,7 +164,7 @@ test.describe("S33 canvas interaction", () => {
     await page.waitForTimeout(400);
     await expect.poll(async () => canvas.evaluate((el) => (el as HTMLElement).style.cursor), { timeout: 8000 }).toBe("");
     // Defocus the equation input onto the object row so F reaches the canvas.
-    await page.getByRole("button", { name: "Selected Point #1" }).click();
+    await page.getByRole("button", { name: "Selected Point #1" }).focus();
     await page.keyboard.press("f");
     // After framing, the point's handle sits at the center (move cursor).
     await page.mouse.move(x + 2, y + 2);
@@ -172,7 +174,7 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 40, y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("30", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "30", { ...{ timeout: 8000 }, not: true });
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -182,12 +184,12 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await inspector(page).getByLabel("Line point x").fill("100");
-    await inspector(page).getByLabel("Line point y").fill("0");
-    await inspector(page).getByLabel("Line point z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(inspector(page).getByLabel("Line point x"), "100");
+    await fillInput(inspector(page).getByLabel("Line point y"), "0");
+    await fillInput(inspector(page).getByLabel("Line point z"), "0");
     // Defocus the equation input onto the object row so F reaches the canvas.
-    await page.getByRole("button", { name: "Selected Infinite Line #1" }).click();
+    await page.getByRole("button", { name: "Selected Infinite Line #1" }).focus();
     await page.keyboard.press("f");
     // A 60px drag moves x by ~1.5 world units (local span ≈ 15.6), proving
     // the camera fit the defining point instead of the giant clipped line.
@@ -196,10 +198,10 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 60, y, { steps: 8 });
     await page.mouse.up();
-    const value = await inspector(page).getByLabel("Line point x").inputValue({ timeout: 8000 });
+    const value = await readInputValue(inspector(page).getByLabel("Line point x"), { timeout: 8000 });
     expect(Number(value)).toBeGreaterThan(95);
     expect(Number(value)).toBeLessThan(105);
-    await expect(inspector(page).getByLabel("Line direction x")).toHaveValue("3");
+    await expectInputValue(inspector(page).getByLabel("Line direction x"), "3");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -208,10 +210,10 @@ test.describe("S33 canvas interaction", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await page.keyboard.press("ControlOrMeta+k");
     await expect(page.getByLabel("Command search")).toBeVisible({ timeout: 8000 });
-    await page.getByLabel("Command search").fill("Frame Selected");
+    await fillInput(page.getByLabel("Command search"), "Frame Selected");
     await page.getByRole("option", { name: "Frame Selected" }).click();
     await expect(graph3dCanvas(page)).toBeVisible();
     await expect(page.getByRole("button", { name: "Selected Surface #1" })).toBeVisible();
@@ -230,14 +232,14 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 60, y, { steps: 10 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("0");
-    await expect(inspector(page).getByLabel("Point z")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0");
+    await expectInputValue(inspector(page).getByLabel("Point z"), "0");
     // Many pointermoves collapse into ONE undo entry.
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0");
     await page.getByRole("button", { name: "Redo" }).click();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { not: true });
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -253,8 +255,8 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 60, y, { steps: 10 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -270,8 +272,8 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x, y - 60, { steps: 10 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point z")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point z"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -281,24 +283,24 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
-    await inspector(page).getByLabel("Segment start x").fill("0");
-    await inspector(page).getByLabel("Segment start y").fill("0");
-    await inspector(page).getByLabel("Segment start z").fill("0");
-    await inspector(page).getByLabel("Segment end x").fill("0");
-    await inspector(page).getByLabel("Segment end y").fill("4");
-    await inspector(page).getByLabel("Segment end z").fill("0");
+    await addObject(page, "Segment");
+    await fillInput(inspector(page).getByLabel("Segment start x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start y"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start z"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end y"), "4");
+    await fillInput(inspector(page).getByLabel("Segment end z"), "0");
     const { x, y } = await canvasCenter(page);
     // Start marker sits at the center; drag it down (math −y).
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x, y + 40, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Segment start y")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Segment end y")).toHaveValue("4");
-    await expect(inspector(page).getByLabel("Segment end x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Segment start y"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Segment end y"), "4");
+    await expectInputValue(inspector(page).getByLabel("Segment end x"), "0");
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(inspector(page).getByLabel("Segment start y")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Segment start y"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -308,13 +310,13 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
-    await inspector(page).getByLabel("Segment start x").fill("0");
-    await inspector(page).getByLabel("Segment start y").fill("0");
-    await inspector(page).getByLabel("Segment start z").fill("0");
-    await inspector(page).getByLabel("Segment end x").fill("0");
-    await inspector(page).getByLabel("Segment end y").fill("4");
-    await inspector(page).getByLabel("Segment end z").fill("0");
+    await addObject(page, "Segment");
+    await fillInput(inspector(page).getByLabel("Segment start x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start y"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start z"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end y"), "4");
+    await fillInput(inspector(page).getByLabel("Segment end z"), "0");
     // The default ortho span (12 units) covers the canvas's shorter side, so
     // y=4 sits min(w,h)/3 px above center. Grab near the End marker.
     const { x, y, box } = await canvasCenter(page);
@@ -323,9 +325,9 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x, y - endOffset + 40, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Segment end y")).not.toHaveValue("4", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Segment start y")).toHaveValue("0");
-    await expect(inspector(page).getByLabel("Segment start x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Segment end y"), "4", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Segment start y"), "0");
+    await expectInputValue(inspector(page).getByLabel("Segment start x"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -335,19 +337,19 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await inspector(page).getByLabel("Vector origin x").fill("0");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("2");
+    await addObject(page, "Vector");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "2");
     const { x, y } = await canvasCenter(page);
     // Origin marker sits at the center (origin 0,0,0).
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x + 50, y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Vector origin x")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Vector component x").first()).toHaveValue("2");
+    await expectInputValue(inspector(page).getByLabel("Vector origin x"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "2");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -357,21 +359,25 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await inspector(page).getByLabel("Vector origin x").fill("0");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("2");
-    await inspector(page).getByLabel("Vector component y").first().fill("0");
-    await inspector(page).getByLabel("Vector component z").first().fill("0");
-    // Tip at (2,0,0) ≈ 107px right of center at default span.
-    const { x, y } = await canvasCenter(page);
-    await page.mouse.move(x + 107, y);
+    await addObject(page, "Vector");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "2");
+    await fillInput(inspector(page).getByLabel("Vector component y").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z").first(), "0");
+    // Derive the tip position from the actual pane size and default span.
+    const { x, y, box } = await canvasCenter(page);
+    const tipOffset = Math.min(box.width, box.height) * 2 / 12;
+    await expect.poll(async () => {
+      await page.mouse.move(x + tipOffset, y);
+      return graph3dCanvas(page).evaluate(element => (element as HTMLElement).style.cursor);
+    }, { timeout: 8000 }).toBe("move");
     await page.mouse.down();
-    await page.mouse.move(x + 147, y, { steps: 8 });
+    await page.mouse.move(x + tipOffset + 40, y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Vector component x").first()).not.toHaveValue("2", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Vector origin x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "2", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Vector origin x"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -381,14 +387,14 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     // Zero the vector: tip coincides with origin; offset tip handle grabs.
-    await inspector(page).getByLabel("Vector origin x").fill("0");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("0");
-    await inspector(page).getByLabel("Vector component y").first().fill("0");
-    await inspector(page).getByLabel("Vector component z").first().fill("0");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component y").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z").first(), "0");
     // Tip handle is offset 0.4 world units; default ortho span is 12 units
     // across the canvas's shorter side.
     const { x, y, box } = await canvasCenter(page);
@@ -397,7 +403,7 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + tipOffset + 40, y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Vector component x").first()).not.toHaveValue("0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "0", { ...{ timeout: 8000 }, not: true });
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -408,17 +414,17 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await inspector(page).getByLabel("Line point x").fill("0");
-    await inspector(page).getByLabel("Line point y").fill("0");
-    await inspector(page).getByLabel("Line point z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(inspector(page).getByLabel("Line point x"), "0");
+    await fillInput(inspector(page).getByLabel("Line point y"), "0");
+    await fillInput(inspector(page).getByLabel("Line point z"), "0");
     const { x, y } = await canvasCenter(page);
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x + 50, y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Line point x")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Line direction x")).toHaveValue("3");
+    await expectInputValue(inspector(page).getByLabel("Line point x"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Line direction x"), "3");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -429,17 +435,17 @@ test.describe("S33 canvas interaction", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
-    await inspector(page).getByLabel("Ray origin x").fill("0");
-    await inspector(page).getByLabel("Ray origin y").fill("0");
-    await inspector(page).getByLabel("Ray origin z").fill("0");
+    await addObject(page, "Ray");
+    await fillInput(inspector(page).getByLabel("Ray origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Ray origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Ray origin z"), "0");
     const { x, y } = await canvasCenter(page);
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x, y + 50, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Ray origin y")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Ray direction x")).toHaveValue("-1");
+    await expectInputValue(inspector(page).getByLabel("Ray origin y"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Ray direction x"), "-1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -449,12 +455,12 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     // Parameter-backed coordinate: renders at the origin for the default
     // r=2.5 but must never be rewritten by a drag.
-    await inspector(page).getByLabel("Point x").fill("r-2.5");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
+    await fillInput(inspector(page).getByLabel("Point x"), "r-2.5");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
     const { x, y } = await canvasCenter(page);
     await page.mouse.move(x, y);
     await page.mouse.down();
@@ -462,7 +468,7 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.up();
     await page.waitForTimeout(500);
     // No rewrite: raw expression intact, no history, no jobs.
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("r-2.5");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "r-2.5");
     await expect(page.locator('[data-testid="compute-status-pending"]')).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -473,11 +479,11 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     // Foldable-but-not-literal x: renders at x=3 yet locks XY dragging.
-    await inspector(page).getByLabel("Point x").fill("1+2");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
+    await fillInput(inspector(page).getByLabel("Point x"), "1+2");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
     const { x, y } = await canvasCenter(page);
     // XY requires x → locked: grab the point itself (x=3 ≈ +160px) and
     // drag; the gesture becomes a camera pan, math untouched.
@@ -486,8 +492,8 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.move(x + 220, y, { steps: 8 });
     await page.mouse.up();
     await page.waitForTimeout(500);
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("1+2");
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "1+2");
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0");
     // YZ needs only y/z → draggable.
     await page.getByLabel("Geometry view").selectOption("yz");
     const center = await canvasCenter(page);
@@ -495,8 +501,8 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(center.x + 60, center.y, { steps: 8 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point y")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("1+2");
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "1+2");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -508,20 +514,19 @@ test.describe("S33 canvas interaction", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     // No Inspector fills here: creation is the ONLY history entry, so one
     // Undo after cancel must remove the point itself.
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    // Defocus onto the row, frame the default point to the center, drag it.
-    await page.getByRole("button", { name: "Selected Point #1" }).click();
-    await page.keyboard.press("f");
+    // Frame through the visible control without racing the creation editor.
+    await page.getByRole("button", { name: "Zoom to fit all objects" }).click();
     const { x, y } = await canvasCenter(page);
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x + 60, y, { steps: 8 });
     await page.keyboard.press("Escape");
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("1", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("2");
-    await expect(inspector(page).getByLabel("Point z")).toHaveValue("3");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "1", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point y"), "2");
+    await expectInputValue(inspector(page).getByLabel("Point z"), "3");
     // Cancel pushed nothing: one Undo removes the created point itself.
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
@@ -543,7 +548,7 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.up();
     await page.waitForTimeout(500);
     // Committed (capture holds the gesture): the point moved with the pointer.
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
     // No stuck move cursor after release outside the canvas.
     await page.mouse.move(x, y);
     await page.waitForTimeout(400);
@@ -560,11 +565,11 @@ test.describe("S33 canvas interaction", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("0");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "0");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     const select = page.getByLabel("Second object for geometry analysis");
@@ -588,11 +593,11 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("0");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "0");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     const select = page.getByLabel("Second object for geometry analysis");
@@ -619,15 +624,15 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await inspector(page).getByLabel("Vector origin x").fill("0");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("1");
-    await inspector(page).getByLabel("Vector component y").first().fill("0");
-    await inspector(page).getByLabel("Vector component z").first().fill("0");
+    await addObject(page, "Vector");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "1");
+    await fillInput(inspector(page).getByLabel("Vector component y").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z").first(), "0");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     // The transform stays selected: its Analyze tab hosts Apply to Vector.
     await openAnalyze(page);
     const select = page.getByLabel("Vector for transformation analysis");
@@ -657,11 +662,11 @@ test.describe("S33 canvas interaction", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("0");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "0");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     const select = page.getByLabel("Second object for geometry analysis");
@@ -689,10 +694,10 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry layout").selectOption("quad");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("20");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "20");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
     // Activate the XY pane, then frame: selection stays global and clean.
     await page.getByRole("button", { name: "XY viewport" }).click();
     await page.keyboard.press("f");
@@ -716,8 +721,8 @@ test.describe("S33 canvas interaction", () => {
     // Switch planes mid-drag without touching the pointer.
     await page.getByLabel("Geometry view").selectOption("xz");
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -736,7 +741,7 @@ test.describe("S33 canvas interaction", () => {
     // Object survives the guarded delete; release commits the drag.
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -746,12 +751,12 @@ test.describe("S33 canvas interaction", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     const input = inspector(page).getByLabel("Point x");
-    await input.fill("5");
-    await input.press("End");
+    await fillInput(input, "5");
+    await pressInput(input, "End");
     await page.keyboard.type(" f");
-    await expect(input).toHaveValue("5 f");
+    await expectInputValue(input, "5 f");
     await page.keyboard.press("Delete");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
@@ -794,12 +799,12 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 40, y, { steps: 6 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
     await page.getByRole("button", { name: "Object actions" }).first().click();
     await page.getByRole("menuitem", { name: "Remove" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     // Fresh scene, fresh point: drag works again (no orphan handles).
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     const center = await canvasCenter(page);
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
@@ -822,10 +827,10 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(x + 90, y + 30, { steps: 30 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("0");
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0");
+    await expectInputValue(inspector(page).getByLabel("Point y"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -837,15 +842,15 @@ test.describe("S33 canvas interaction", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await createPointAt(page, "1", "2", "3");
     const before = {
-      x: await inspector(page).getByLabel("Point x").inputValue(),
-      y: await inspector(page).getByLabel("Point y").inputValue(),
-      z: await inspector(page).getByLabel("Point z").inputValue()
+      x: await readInputValue(inspector(page).getByLabel("Point x")),
+      y: await readInputValue(inspector(page).getByLabel("Point y")),
+      z: await readInputValue(inspector(page).getByLabel("Point z"))
     };
     const { x, y } = await canvasCenter(page);
     await page.mouse.move(x, y);
     await page.waitForTimeout(400);
     // Defocus the equation input onto the object row so F reaches the canvas.
-    await page.getByRole("button", { name: "Selected Point #1" }).click();
+    await page.getByRole("button", { name: "Selected Point #1" }).focus();
     await page.keyboard.press("f");
     await page.waitForTimeout(400);
     // Camera orbit after framing.
@@ -855,9 +860,9 @@ test.describe("S33 canvas interaction", () => {
     await page.mouse.down();
     await page.mouse.move(center.x + 100, center.y + 40, { steps: 10 });
     await page.mouse.up();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue(before.x);
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue(before.y);
-    await expect(inspector(page).getByLabel("Point z")).toHaveValue(before.z);
+    await expectInputValue(inspector(page).getByLabel("Point x"), before.x);
+    await expectInputValue(inspector(page).getByLabel("Point y"), before.y);
+    await expectInputValue(inspector(page).getByLabel("Point z"), before.z);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -869,11 +874,11 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Point x"));
     await page.keyboard.press("Escape");
     await expect(graph3dCanvas(page)).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -898,27 +903,31 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     // Origin resolves through the parameter (renders at 0,0,0) while its
     // raw text stays non-literal; tip components are plain literals.
-    await inspector(page).getByLabel("Vector origin x").fill("r-2.5");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("2");
-    await inspector(page).getByLabel("Vector component y").first().fill("0");
-    await inspector(page).getByLabel("Vector component z").first().fill("0");
-    // Tip at (2,0,0) ≈ 107px right of center at default span.
-    const { x, y } = await canvasCenter(page);
-    await page.mouse.move(x + 107, y);
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "r-2.5");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "2");
+    await fillInput(inspector(page).getByLabel("Vector component y").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z").first(), "0");
+    // Ortho span is measured on the shorter side of the actual viewport.
+    const { x, y, box } = await canvasCenter(page);
+    const tipOffset = Math.min(box.width, box.height) * 2 / 12;
+    await expect.poll(async () => {
+      await page.mouse.move(x + tipOffset, y);
+      return graph3dCanvas(page).evaluate(el => getComputedStyle(el).cursor);
+    }, { timeout: 8000 }).toBe("move");
     await page.mouse.down();
-    await page.mouse.move(x + 147, y, { steps: 8 });
+    await page.mouse.move(x + tipOffset + 40, y, { steps: 8 });
     await page.mouse.up();
     // Components follow the pointer; the parameter-backed origin text is
     // preserved exactly (S33-R6: no NaN swallow, no rewrite).
-    await expect(inspector(page).getByLabel("Vector component x").first()).not.toHaveValue("2", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Vector origin x")).toHaveValue("r-2.5");
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "2", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Vector origin x"), "r-2.5");
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect(inspector(page).getByLabel("Vector component x").first()).toHaveValue("2");
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "2");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });

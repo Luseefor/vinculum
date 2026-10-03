@@ -2,9 +2,9 @@
 
 ## Interactive 3D mathematical visualization
 
-Vinculum renders scenes in 3D using the implicit object types supported by the editor:
+Vinculum renders mathematical scenes in 3D using the object types supported by the editor:
 
-- Surfaces (implicit equations)
+- Surfaces (explicit functions)
 - Planes
 - Parametric curves
 - Parametric surfaces (x(u,v), y(u,v), z(u,v) with u/v ranges)
@@ -22,7 +22,7 @@ In 2D mode you can edit and preview mathematical objects, and you can export the
 
 Objects are built from mathematical definitions:
 
-- **Surfaces**: implicit equations (with a bounded domain and render resolution)
+- **Surfaces**: explicit functions (with a bounded domain and render resolution)
 - **Planes**: plane equations with size/appearance
 - **Parametric curves**: x(t), y(t), z(t) with a sampling cap
 - **Parametric surfaces**: x(u,v), y(u,v), z(u,v) with u/v ranges and grid resolution (3D views only)

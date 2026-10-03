@@ -11,9 +11,6 @@ interface EditorLayoutPremiumProps {
   inspectorDrawer: ReactNode;
   inspectorPanel?: ReactNode;
   inspectorDivider?: ReactNode;
-  bottomDivider?: ReactNode;
-  bottomDock: ReactNode;
-  statusBar: ReactNode;
 }
 
 export default function EditorLayoutPremium({
@@ -24,10 +21,7 @@ export default function EditorLayoutPremium({
   workspace,
   inspectorDrawer,
   inspectorPanel,
-  inspectorDivider,
-  bottomDivider,
-  bottomDock,
-  statusBar
+  inspectorDivider
 }: EditorLayoutPremiumProps) {
   return (
     <>
@@ -35,8 +29,8 @@ export default function EditorLayoutPremium({
       <div className="flex min-h-0 flex-1 bg-[var(--editor-shell)]">
         {sceneNavigator}
         {sceneDivider}
-        <main className="relative flex min-w-0 flex-1 flex-col bg-[var(--editor-shell)] p-3">
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[var(--surface-canvas)] shadow-[var(--shadow-card)]">
+        <main className="relative flex min-w-0 flex-1 flex-col bg-[var(--surface-canvas)]">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--surface-canvas)]">
             {canvasToolbar}
             <div className="relative min-h-0 flex-1">
               {workspace}
@@ -47,9 +41,6 @@ export default function EditorLayoutPremium({
         {inspectorDivider}
         {inspectorPanel}
       </div>
-      {bottomDivider}
-      {bottomDock}
-      {statusBar}
     </>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { MathInput } from "@/components/math/MathInput";
+
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
 import { cx } from "@/components/ui/styles";
@@ -653,7 +655,7 @@ export default function ExpressionRow({
       </div>
 
       {object.kind === "surface" && (
-        <input
+        <MathInput
           id={`${inputIdBase}-equation`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -688,7 +690,7 @@ export default function ExpressionRow({
           <label htmlFor={`${inputIdBase}-xExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
             {object.kind === "parametricSurface" ? "x(u,v)" : "x(t)"}
           </label>
-          <input
+          <MathInput
             id={`${inputIdBase}-xExpr`}
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -766,7 +768,7 @@ export default function ExpressionRow({
           <label htmlFor={`${inputIdBase}-pExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
             {object.dimension === "3d" ? "P(x,y,z)" : "P(x,y)"}
           </label>
-          <input
+          <MathInput
             id={`${inputIdBase}-pExpr`}
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -858,7 +860,7 @@ export default function ExpressionRow({
       )}
 
       {object.kind === "plane" && (
-        <input
+        <MathInput
           id={`${inputIdBase}-plane`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -889,7 +891,7 @@ export default function ExpressionRow({
       )}
 
       {object.kind === "implicitSurface" && (
-        <input
+        <MathInput
           id={`${inputIdBase}-implicit`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -964,7 +966,7 @@ function ParametricInput({
       <label htmlFor={id} className="text-[11px] font-medium text-[var(--text-tertiary)]">
         {label}
       </label>
-      <input
+      <MathInput
         id={id}
         type="text"
         value={value}

@@ -79,8 +79,9 @@ export default function TopToolbar({
   canRedo,
   onUndo,
   onRedo,
-  onOpenWelcome,
   openExamplesSignal = 0,
+  openSolverSignal = 0,
+  onOpenGuide,
   activeViewType = "3d",
   onViewTypeChange = () => {},
   activeLayout = "split",
@@ -103,6 +104,8 @@ export default function TopToolbar({
   onRedo: () => void;
   onOpenWelcome?: () => void;
   openExamplesSignal?: number;
+  openSolverSignal?: number;
+  onOpenGuide?: () => void;
   activeViewType?: "2d" | "3d" | "both";
   onViewTypeChange?: (view: "2d" | "3d" | "both") => void;
   activeLayout?: "split" | "quad";
@@ -131,6 +134,16 @@ export default function TopToolbar({
   const [pendingExampleId, setPendingExampleId] = useState<string | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [copyPending, setCopyPending] = useState<"scene" | "current" | null>(null);
+  const copyInFlight = useRef(false);
+  const [manualCopy, setManualCopy] = useState<{ label: string; url: string } | null>(null);
+  const manualCopyRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!shareDialogOpen) setManualCopy(null);
+  }, [shareDialogOpen]);
+  useEffect(() => {
+    if (manualCopy) { manualCopyRef.current?.focus(); manualCopyRef.current?.select(); }
+  }, [manualCopy]);
   const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null);
   const [projects, setProjects] = useState(() => {
     try {
@@ -145,6 +158,13 @@ export default function TopToolbar({
   // local matchMedia interpretation. Compact chrome below wide (1100px).
   const compactBar = composition !== "wide";
   const lastOpenExamplesSignalRef = useRef(openExamplesSignal);
+  const lastOpenSolverSignalRef = useRef(openSolverSignal);
+  useEffect(() => {
+    if (lastOpenSolverSignalRef.current === openSolverSignal) return;
+    lastOpenSolverSignalRef.current = openSolverSignal;
+    setFieldSolverRequested(true);
+    setFieldSolverOpen(true);
+  }, [openSolverSignal]);
 
    const [is3dCanvasAvailable, setIs3dCanvasAvailable] = useState(false);
 
@@ -189,8 +209,9 @@ export default function TopToolbar({
   }, [projectsVersion]);
 
   useEffect(() => {
-    setIs3dCanvasAvailable(Boolean(document.querySelector('[data-graph3d-canvas="true"]')));
-  }, [graphMode]);
+    setIs3dCanvasAvailable(Array.from(document.querySelectorAll<HTMLCanvasElement>('[data-graph3d-canvas="true"]'))
+      .some((canvas) => canvas.getClientRects().length > 0 && canvas.clientWidth > 0 && canvas.clientHeight > 0));
+  }, [graphMode, workspace, fileMenuOpen, shareDialogOpen, activeViewType, activeLayout, composition]);
 
   const refreshProjects = () => {
     setProjectsVersion((version) => version + 1);
@@ -320,35 +341,41 @@ export default function TopToolbar({
     }
   };
 
+  const copyUrl = async (url: string, kind: "scene" | "current") => {
+    if (copyInFlight.current) return;
+    copyInFlight.current = true;
+    setCopyPending(kind);
+    setActionFeedback(null);
+    setManualCopy(null);
+    try {
+      await navigator.clipboard.writeText(url);
+      setActionFeedback(kind === "scene" ? "Share link copied." : "Current URL copied.");
+      if (kind === "scene") captureEvent("share_link_copied", { object_count: scene.objects.length });
+    } catch {
+      setManualCopy({ label: kind === "scene" ? "Share link" : "Current URL", url });
+      setShareDialogOpen(true);
+      setActionFeedback("Clipboard access is unavailable. Copy the selected link below.");
+      if (kind === "scene") captureEvent("share_link_copy_failed", { error_type: "clipboard" });
+    } finally {
+      copyInFlight.current = false;
+      setCopyPending(null);
+    }
+  };
+
   const handleCopyShareLink = async () => {
-    const shareResult = buildShareSceneUrl({
-      scene,
-      baseUrl: window.location.href
-    });
+    if (copyInFlight.current) return;
+    const shareResult = buildShareSceneUrl({ scene, baseUrl: window.location.href });
     if (!shareResult.ok || !shareResult.url) {
+      setManualCopy(null);
+      setShareDialogOpen(true);
       setActionFeedback(shareResult.error ?? "Share link failed. Use JSON export instead.");
       captureEvent("share_link_copy_failed", { error_type: "build_failed" });
       return;
     }
-
-    try {
-      await navigator.clipboard.writeText(shareResult.url);
-      setActionFeedback("Share link copied.");
-      captureEvent("share_link_copied", { object_count: scene.objects.length });
-    } catch {
-      setActionFeedback("Share link copy failed. Copy the URL from the browser bar.");
-      captureEvent("share_link_copy_failed", { error_type: "clipboard" });
-    }
+    await copyUrl(shareResult.url, "scene");
   };
 
-  const handleCopyCurrentUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setActionFeedback("Current URL copied.");
-    } catch {
-      setActionFeedback("Current URL copy failed.");
-    }
-  };
+  const handleCopyCurrentUrl = () => copyUrl(window.location.href, "current");
 
   const applyExampleById = (exampleId: string) => {
     const example = getSceneExampleById(exampleId);
@@ -365,6 +392,17 @@ export default function TopToolbar({
       applySceneExampleToEditor({
         scene: validated.scene,
         recommendedMode: example.recommendedMode,
+        prepareView: (mode) => {
+          const graph = useGraphStore.getState();
+          graph.setWorkspace("math");
+          graph.setActive2dViewport("primary");
+          graph.setAxis2DPair("xy");
+          graph.resetViewport2D();
+          graph.setCanvas2dTool("pan");
+          graph.setCanvas3dTool("pan");
+          graph.requestCameraReset();
+          useEditorStore.getState().setViewportMode(mode);
+        },
         clearHistory,
         replaceSceneDocument,
         setGraphMode,
@@ -394,6 +432,7 @@ export default function TopToolbar({
 
     if (hasObjects || hasNamedProject || hasUnsavedAutosave || hasRecoverySnapshot) {
       setPendingExampleId(exampleId);
+      setExamplesDialogOpen(false);
       setNewSceneOpen(true);
       return;
     }
@@ -492,7 +531,8 @@ export default function TopToolbar({
 
   const handleExport3dPng = async () => {
     captureEvent("export_3d_png_clicked", { object_count: scene.objects.length });
-    const canvas = document.querySelector<HTMLCanvasElement>(`[data-graph3d-canvas="true"]`);
+    const canvas = Array.from(document.querySelectorAll<HTMLCanvasElement>(`[data-graph3d-canvas="true"]`))
+      .find((candidate) => candidate.getClientRects().length > 0 && candidate.clientWidth > 0 && candidate.clientHeight > 0) ?? null;
     if (!canvas) {
       setActionFeedback("3D canvas is not available. Switch to 3D mode and try again.");
       setFileMenuOpen(false);
@@ -532,12 +572,12 @@ export default function TopToolbar({
   }, [openExamplesSignal]);
 
   useEffect(() => {
-    if (!actionFeedback) {
+    if (!actionFeedback || shareDialogOpen) {
       return;
     }
-    const timeout = window.setTimeout(() => setActionFeedback(null), 2600);
+    const timeout = window.setTimeout(() => setActionFeedback(null), 6500);
     return () => window.clearTimeout(timeout);
-  }, [actionFeedback]);
+  }, [actionFeedback, shareDialogOpen]);
 
   return (
     <>
@@ -546,9 +586,11 @@ export default function TopToolbar({
       </Suspense> : null}
       <NewSceneDialog
         open={newSceneOpen}
+        exampleTitle={pendingExampleId ? getSceneExampleById(pendingExampleId)?.title : undefined}
         onConfirm={handleConfirmNewScene}
         onCancel={() => {
           setNewSceneOpen(false);
+          if (pendingExampleId) setExamplesDialogOpen(true);
           setPendingExampleId(null);
         }}
       />
@@ -580,11 +622,13 @@ export default function TopToolbar({
         className={cn(
           "relative z-50 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] font-sans",
           compactBar
-            ? "flex h-11 items-center gap-1 px-2"
+            ? composition === "compact"
+              ? "flex flex-wrap items-center gap-1 px-2 py-1"
+              : "flex h-12 items-center gap-1 px-2"
             : "grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 px-4"
         )}
       >
-      <div className={cn("flex min-w-0 items-center", compactBar ? "gap-1" : "gap-1.5")}>
+      <div className={cn("flex min-w-0 items-center", compactBar ? composition === "compact" ? "w-full gap-1" : "gap-1" : "gap-1.5")}>
         {compactBar ? null : (
           <div className="mr-1.5 flex shrink-0 items-center gap-2">
             <VinculumMark className="h-7 w-7 text-[var(--text-primary)]" />
@@ -592,7 +636,7 @@ export default function TopToolbar({
           </div>
         )}
         {compactBar ? <WorkspaceSwitcher compact /> : null}
-        {workspace === "math" ? <Button size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); setFieldSolverRequested(true); setFieldSolverOpen(true); }} aria-label="Open field solver">Solve</Button> : null}
+        {workspace === "math" ? <Button size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); setFieldSolverRequested(true); setFieldSolverOpen(true); }} aria-label="Open field solver" title="Solve a scalar, vector, polar, or complex field">Solve</Button> : null}
         {compactBar ? null : (
           <>
             <div className="compact-hide-divider mx-1.5 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
@@ -620,7 +664,7 @@ export default function TopToolbar({
                 )}
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-[260px] p-0">
-                <ScrollArea className="max-h-[420px] p-1.5">
+                <ScrollArea className="max-h-[calc(100dvh-100px)] p-1.5">
                   <DropdownMenuGroup>
                     <DropdownMenuLabel>Scene</DropdownMenuLabel>
                     <DropdownMenuItem onSelect={handleNewSceneMenuClick}>
@@ -635,7 +679,6 @@ export default function TopToolbar({
                     >
                       Open example...
                     </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => onOpenWelcome?.()}>Show tips again</DropdownMenuItem>
                   </DropdownMenuGroup>
 
                   <DropdownMenuSeparator />
@@ -664,27 +707,12 @@ export default function TopToolbar({
                   <DropdownMenuSeparator />
 
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel>Import / Export</DropdownMenuLabel>
+                    <DropdownMenuLabel>Transfer</DropdownMenuLabel>
                     <DropdownMenuItem onSelect={() => openSceneDialog("import")}>Import...</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleExportJson}>Export JSON</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleExport2dPng} disabled={graphMode !== "2d"}>
-                      Export 2D PNG
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleExport2dSvg} disabled={graphMode !== "2d"}>
-                      Export 2D SVG
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={handleExport3dPng} disabled={!is3dCanvasAvailable}>
-                      Export 3D PNG
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Share</DropdownMenuLabel>
                     <DropdownMenuItem onSelect={handleCopyShareLink}>Copy share link</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}>Open share/export dialog</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { setShareDialogOpen(true); captureEvent("share_dialog_opened"); }}>Share &amp; export...</DropdownMenuItem>
                   </DropdownMenuGroup>
+
                 </ScrollArea>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -706,7 +734,7 @@ export default function TopToolbar({
 
       {compactBar ? (
         <>
-          <div className="min-w-0 flex-1" />
+          <div className={composition === "compact" ? "hidden" : "min-w-0 flex-1"} />
           <CompactChromeRightCluster
             objectsOpen={objectsOpen}
             onToggleObjects={onToggleObjects}
@@ -727,9 +755,11 @@ export default function TopToolbar({
               setExamplesDialogError(null);
               setExamplesDialogOpen(true);
             }}
-            onOpenWelcome={() => onOpenWelcome?.()}
+            onOpenGuide={onOpenGuide}
             onImport={() => openSceneDialog("import")}
-            onExportJson={handleExportJson}
+            onSaveProject={handleSaveProject}
+            onSaveAs={() => { setProjectDialogError(null); setProjectDialogMode("saveAs"); }}
+            onOpenProject={() => { setProjectDialogError(null); setProjectDialogMode("open"); }}
             onCopyShareLink={handleCopyShareLink}
             onFrameSelected={() => {
               if (!isDragTransactionActive()) {
@@ -759,14 +789,23 @@ export default function TopToolbar({
         {showObjectsToggle ? (
           <Button
             type="button"
-            onClick={onToggleObjects}
+            onClick={(event) => { event.currentTarget.focus(); onToggleObjects(); }}
             aria-pressed={objectsOpen}
-            variant={objectsOpen ? "primary" : "secondary"}
+            variant="ghost"
+          className={objectsOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
             size="sm"
           >
             Objects
           </Button>
         ) : null}
+
+        <Button type="button" size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); onToggleInspector(); }}
+          aria-pressed={inspectorOpen}
+          className={inspectorOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}>
+          Inspector
+        </Button>
+
+        {onOpenGuide ? <Button type="button" size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); onOpenGuide(); }} aria-label="Open editor guide" title="Help — find tools and learn how to use the editor">Help</Button> : null}
 
         <Popover open={themeMenuOpen} onOpenChange={setThemeMenuOpen}>
           <PopoverTrigger>
@@ -791,7 +830,7 @@ export default function TopToolbar({
               </button>
             )}
           </PopoverTrigger>
-          <PopoverContent className="w-72">
+          <PopoverContent ariaLabel="Appearance" className="w-72">
             <ThemeAccentPopover showPerformance={true} context="editor" />
           </PopoverContent>
         </Popover>
@@ -802,17 +841,17 @@ export default function TopToolbar({
         <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Share and export</DialogTitle>
-          <DialogDescription>Copy a share URL or trigger existing export actions.</DialogDescription>
+          <DialogDescription>Share a snapshot of your scene or download a backup or image.</DialogDescription>
         </DialogHeader>
         <div className="space-y-5 px-5 py-4">
           <section className="space-y-2">
             <p className="text-[12px] font-semibold text-[var(--text-primary)]">Share</p>
             <div className="grid grid-cols-1 gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={handleCopyShareLink}>
-                Copy share link
+              <Button type="button" variant="secondary" size="sm" disabled={copyPending !== null} aria-busy={copyPending === "scene"} onClick={handleCopyShareLink}>
+                {copyPending === "scene" ? "Copying…" : "Copy share link"}
               </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={handleCopyCurrentUrl}>
-                Copy current URL
+              <Button type="button" variant="secondary" size="sm" disabled={copyPending !== null} aria-busy={copyPending === "current"} onClick={handleCopyCurrentUrl}>
+                {copyPending === "current" ? "Copying…" : "Copy current URL"}
               </Button>
             </div>
           </section>
@@ -823,22 +862,25 @@ export default function TopToolbar({
               <Button type="button" variant="secondary" size="sm" onClick={handleExportJson}>
                 JSON
               </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={handleExport2dSvg}>
+              <Button type="button" variant="secondary" size="sm" disabled={graphMode !== "2d"} title={graphMode !== "2d" ? "Switch to 2D to export SVG" : undefined} onClick={handleExport2dSvg}>
                 2D SVG
               </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={handleExport2dPng}>
+              <Button type="button" variant="secondary" size="sm" disabled={graphMode !== "2d"} title={graphMode !== "2d" ? "Switch to 2D to export PNG" : undefined} onClick={handleExport2dPng}>
                 2D PNG
               </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={handleExport3dPng}>
+              <Button type="button" variant="secondary" size="sm" disabled={!is3dCanvasAvailable} title={!is3dCanvasAvailable ? "Open a 3D view to export PNG" : undefined} onClick={handleExport3dPng}>
                 3D PNG
               </Button>
             </div>
           </section>
           {actionFeedback ? (
-            <div className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-muted)] px-3 py-2 text-[12px] text-[var(--text-secondary)]">
+            <div role="status" aria-atomic="true" className="action-feedback rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2 text-[12px] text-[var(--text-secondary)]">
               {actionFeedback}
             </div>
           ) : null}
+          {manualCopy ? <label className="block space-y-2 text-[12px] text-[var(--text-secondary)]">{manualCopy.label}
+            <input ref={manualCopyRef} className="input" readOnly value={manualCopy.url} onFocus={(event) => event.currentTarget.select()} aria-label={`Copy ${manualCopy.label.toLowerCase()} manually`} />
+          </label> : null}
         </div>
         <DialogFooter>
           <Button type="button" variant="secondary" size="sm" data-autofocus="true" onClick={() => setShareDialogOpen(false)}>
@@ -848,6 +890,10 @@ export default function TopToolbar({
         </DialogContent>
       </Dialog>
     </header>
+      {!shareDialogOpen && (actionFeedback || copyPending) ? <div role="status" aria-atomic="true" className="action-toast action-feedback">
+        <span>{copyPending ? "Copying link…" : actionFeedback}</span>
+        {!copyPending ? <button type="button" aria-label="Dismiss action feedback" onClick={() => setActionFeedback(null)}>×</button> : null}
+      </div> : null}
       {compactBar ? (
         <div className="flex shrink-0 items-center overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1.5">
           <ViewControls
@@ -888,9 +934,11 @@ function CompactChromeRightCluster({
   onCycleTheme,
   onNewScene,
   onOpenExample,
-  onOpenWelcome,
+  onOpenGuide,
   onImport,
-  onExportJson,
+  onSaveProject,
+  onSaveAs,
+  onOpenProject,
   onCopyShareLink,
   onOpenShare,
   onFrameSelected,
@@ -910,9 +958,11 @@ function CompactChromeRightCluster({
   onCycleTheme: () => void;
   onNewScene: () => void;
   onOpenExample: () => void;
-  onOpenWelcome: () => void;
+  onOpenGuide?: () => void;
   onImport: () => void;
-  onExportJson: () => void;
+  onSaveProject: () => void;
+  onSaveAs: () => void;
+  onOpenProject: () => void;
   onCopyShareLink: () => void;
   onOpenShare: () => void;
   onFrameSelected: () => void;
@@ -920,13 +970,14 @@ function CompactChromeRightCluster({
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   return (
-    <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 px-1 py-0.5">
+    <div className="chrome-panel-actions flex min-w-0 shrink-0 items-center justify-end gap-1 py-0.5">
       {showObjectsToggle ? (
         <Button
           type="button"
-          onClick={onToggleObjects}
+          onClick={(event) => { event.currentTarget.focus(); onToggleObjects(); }}
           aria-pressed={objectsOpen}
-          variant={objectsOpen ? "primary" : "secondary"}
+          variant="ghost"
+          className={objectsOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
           size="sm"
         >
           Objects
@@ -941,12 +992,15 @@ function CompactChromeRightCluster({
       ) : null}
       <Button
         type="button"
-        onClick={onToggleInspector}
-        variant={inspectorOpen ? "primary" : "secondary"}
+        onClick={(event) => { event.currentTarget.focus(); onToggleInspector(); }}
+        variant="ghost"
+        aria-pressed={inspectorOpen}
+        className={inspectorOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
         size="sm"
       >
         Inspector
       </Button>
+      {onOpenGuide ? <Button type="button" size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); onOpenGuide(); }} aria-label="Open editor guide">Help</Button> : null}
       <DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
         <DropdownMenuTrigger>
           {(props) => (
@@ -976,21 +1030,26 @@ function CompactChromeRightCluster({
             </button>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[240px] p-0">
+        <DropdownMenuContent align="end" className="w-[240px] p-0">
           <ScrollArea className="overflow-menu-scroll p-1.5">
             <DropdownMenuGroup>
               <DropdownMenuLabel>Scene</DropdownMenuLabel>
               <DropdownMenuItem onSelect={onNewScene}>New scene</DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenExample}>Open example...</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenWelcome}>Show tips again</DropdownMenuItem>
               <DropdownMenuItem onSelect={onImport}>Import...</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onExportJson}>Export JSON</DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Projects</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={onSaveProject}>Save project</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onSaveAs}>Save as...</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenProject}>Open project...</DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Share</DropdownMenuLabel>
               <DropdownMenuItem onSelect={onCopyShareLink}>Copy share link</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onOpenShare}>Open share/export dialog</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onOpenShare}>Share &amp; export...</DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -1006,10 +1065,10 @@ function CompactChromeRightCluster({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Status</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => {}} disabled>
-                Autosave: {autosaveStatus}
+              <p role="status" className="px-2.5 py-1.5 text-xs text-[var(--text-tertiary)]">
+                {AUTOSAVE_LABEL[autosaveStatus] ?? "Not saved yet"}
                 {autosaveError ? ` — ${autosaveError}` : ""}
-              </DropdownMenuItem>
+              </p>
               <DropdownMenuItem onSelect={onCycleTheme}>Theme: {themeMode}</DropdownMenuItem>
             </DropdownMenuGroup>
           </ScrollArea>

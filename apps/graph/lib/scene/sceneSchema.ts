@@ -92,6 +92,7 @@ export function cloneSceneDocument(scene: SceneDocument): SceneDocument {
 }
 
 export function cloneGraphObject(object: GraphObject): GraphObject {
+  if (object.kind === "implicitCurve") return { ...object };
   if (object.kind === "surface") {
     return {
       ...object,

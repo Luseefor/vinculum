@@ -326,11 +326,13 @@ describe("buildParametricSurface", () => {
     ).toBeNull();
   });
 
-  it("omits the edge overlay in wireframe mode", () => {
+  it("renders smooth filled surfaces and only shows wireframe when requested", () => {
     const tokens = getGraphThemeTokens("dark");
     const solid = buildParametricSurface(makeSurface(), "dark", tokens);
     const wire = buildParametricSurface(makeSurface({ appearance: { wireframe: true } }), "dark", tokens);
-    expect(solid!.children.length).toBe(2);
+    expect(solid!.children.length).toBe(1);
+    expect((solid!.children[0] as Mesh).material).toMatchObject({ wireframe: false });
+    expect((wire!.children[0] as Mesh).material).toMatchObject({ wireframe: true });
     expect(wire!.children.length).toBe(1);
   });
 
@@ -413,7 +415,7 @@ describe("parametric surface store semantics", () => {
     expect(getObjectRowDisplayMeta(makeSurface())).toEqual({
       label: "Parametric Surface",
       // S32: collapsed rows prioritize the mathematical definition.
-      type: "r(u,v) = <sin(u) * cos(v), si…"
+      type: `r(u,v) = <${makeSurface().xExpr}, ${makeSurface().yExpr}, ${makeSurface().zExpr}>`
     });
   });
 

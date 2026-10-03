@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { fitParametricSketch, formatPolynomialExpression } from "@/lib/math/fitParametricSketch";
+import { fitParametricSketch } from "@/lib/math/fitParametricSketch";
 import type { Axis2DPair } from "@/types/graphUi";
 import { SKETCH_MIN_POINTS_TO_FIT } from "./graph2dCanvasConstants";
 import type { SketchFitPreview } from "./graph2dCanvasTypes";
@@ -35,8 +35,8 @@ export function finalizeGraph2dSketchStroke(args: FinalizeGraph2dSketchStrokeArg
     setSketchFitPreview({
       stroke,
       fit,
-      horizontalExpr: formatPolynomialExpression(fit.horizontalCoeffs, "t"),
-      verticalExpr: formatPolynomialExpression(fit.verticalCoeffs, "t")
+      horizontalExpr: fit.horizontalExpr,
+      verticalExpr: fit.verticalExpr
     });
   }
 }

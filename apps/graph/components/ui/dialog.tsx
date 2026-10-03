@@ -100,7 +100,7 @@ export function DialogContent({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className={cn(
-          "w-full overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl",
+          "w-full max-h-[calc(100dvh-3rem)] overflow-y-auto animate-fade-in rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl",
           className
         )}
         onClick={(event) => event.stopPropagation()}

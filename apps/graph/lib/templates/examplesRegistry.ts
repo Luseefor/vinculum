@@ -8,7 +8,7 @@ import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { createSceneDocument, type SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 
-export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Implicit surfaces" | "Vector fields" | "Sketch examples";
+export type ExampleCategory = "Surfaces" | "Planes" | "Parametric curves" | "Parametric surfaces" | "Implicit surfaces" | "Vector fields";
 export type ExampleRecommendedMode = "2d" | "3d";
 
 export interface SceneExampleDefinition {
@@ -24,43 +24,43 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "surface-sphere",
     title: "Sphere Surface",
-    description: "Implicit sphere centered at the origin.",
-    category: "Surfaces",
+    description: "Sphere of radius 3 centered at the origin.",
+    category: "Implicit surfaces",
     recommendedMode: "3d",
     createScene: () =>
       createSceneDocument({
         metadata: { name: "Sphere Surface" },
-        objects: [createSurfaceGraph({ equation: "x^2 + y^2 + z^2 - 9" })]
+        objects: [createImplicitSurfaceGraph({ equation: "x^2 + y^2 + z^2 = 9", domain: { xMin: -3.5, xMax: 3.5, yMin: -3.5, yMax: 3.5, zMin: -3.5, zMax: 3.5 }, resolution: 40 })]
       })
   },
   {
     id: "surface-saddle",
     title: "Saddle Surface",
-    description: "Hyperbolic paraboloid for curvature exploration.",
+    description: "Saddle that curves upward along X and downward along Y.",
     category: "Surfaces",
     recommendedMode: "3d",
     createScene: () =>
       createSceneDocument({
         metadata: { name: "Saddle Surface" },
-        objects: [createSurfaceGraph({ equation: "z - (x^2 - y^2)/2" })]
+        objects: [createSurfaceGraph({ equation: "z = (x^2 - y^2)/2" })]
       })
   },
   {
     id: "plane-tilted",
     title: "Tilted Plane",
-    description: "Single plane with a non-axis-aligned normal.",
+    description: "Tilted plane crossing X and Z at 3, and Y at 1.5.",
     category: "Planes",
     recommendedMode: "3d",
     createScene: () =>
       createSceneDocument({
         metadata: { name: "Tilted Plane" },
-        objects: [createPlaneGraph({ equation: "x + 2y + z - 3" })]
+        objects: [createPlaneGraph({ equation: "x + 2*y + z = 3" })]
       })
   },
   {
     id: "curve-helix",
     title: "Helix Curve",
-    description: "Classic 3D helix parameterized by t.",
+    description: "Three turns around the Z axis, rising steadily as you follow the curve.",
     category: "Parametric curves",
     recommendedMode: "3d",
     createScene: () =>
@@ -81,7 +81,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "curve-lissajous",
     title: "Lissajous Curve",
-    description: "Oscillating parametric curve with mixed frequencies.",
+    description: "Closed 3D curve combining three oscillations at different frequencies.",
     category: "Parametric curves",
     recommendedMode: "3d",
     createScene: () =>
@@ -102,7 +102,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "parametric-sphere",
     title: "Parametric Sphere",
-    description: "Unit sphere parameterized by u (polar) and v (azimuth).",
+    description: "Unit sphere traced by polar and azimuthal angles.",
     category: "Parametric surfaces",
     recommendedMode: "3d",
     createScene: () =>
@@ -113,7 +113,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
             xExpr: "sin(u) * cos(v)",
             yExpr: "sin(u) * sin(v)",
             zExpr: "cos(u)",
-            domain: { uMin: 0, uMax: 3.1415926536, vMin: 0, vMax: 6.2831853072 },
+            domain: { uMin: 0, uMax: Math.PI, vMin: 0, vMax: 2 * Math.PI },
             resolution: 48
           })
         ]
@@ -133,7 +133,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
             xExpr: "(2 + 0.5 * cos(v)) * cos(u)",
             yExpr: "(2 + 0.5 * cos(v)) * sin(u)",
             zExpr: "0.5 * sin(v)",
-            domain: { uMin: 0, uMax: 6.2831853072, vMin: 0, vMax: 6.2831853072 },
+            domain: { uMin: 0, uMax: 2 * Math.PI, vMin: 0, vMax: 2 * Math.PI },
             resolution: 48
           })
         ]
@@ -142,7 +142,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "parametric-saddle",
     title: "Parametric Saddle",
-    description: "Saddle patch x = u, y = v, z = u * v over an asymmetric domain.",
+    description: "Saddle-shaped patch with unequal X and Y ranges.",
     category: "Parametric surfaces",
     recommendedMode: "3d",
     createScene: () =>
@@ -159,10 +159,10 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
         ]
       })
   },
-    {
+  {
     id: "implicit-sphere",
     title: "Implicit Sphere",
-    description: "Unit sphere as a true 3D level set F(x,y,z) = 0.",
+    description: "Unit sphere defined by an implicit equation. Compare it with Parametric Sphere.",
     category: "Implicit surfaces",
     recommendedMode: "3d",
     createScene: () =>
@@ -180,7 +180,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "implicit-ellipsoid",
     title: "Implicit Ellipsoid",
-    description: "Offset asymmetric ellipsoid proving axis mapping.",
+    description: "Ellipsoid centered at (1, −2, 0.5), with semi-axes 2, 1, and 3.",
     category: "Implicit surfaces",
     recommendedMode: "3d",
     createScene: () =>
@@ -216,7 +216,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "implicit-gyroid",
     title: "Implicit Gyroid",
-    description: "Triply-periodic gyroid level set over a bounded box.",
+    description: "Repeating curved surface shown inside a finite box.",
     category: "Implicit surfaces",
     recommendedMode: "3d",
     createScene: () =>
@@ -232,13 +232,14 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
       })
   },
   {
-    id: "sketch-style-wave",    title: "Sketch-style Wave",
-    description: "2D-style fitted polynomial curve sample.",
-    category: "Sketch examples",
+    id: "sketch-style-wave",
+    title: "Cubic Curve",
+    description: "S-shaped cubic curve in the XY plane.",
+    category: "Parametric curves",
     recommendedMode: "2d",
     createScene: () =>
       createSceneDocument({
-        metadata: { name: "Sketch-style Wave" },
+        metadata: { name: "Cubic Curve" },
         objects: [
           createParametricCurve({
             xExpr: "t",
@@ -254,7 +255,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-2d-radial",
     title: "2D Radial Field",
-    description: "Source field F(x,y) = <x, y> over a square domain.",
+    description: "Arrows point away from the origin and grow with distance.",
     category: "Vector fields",
     recommendedMode: "2d",
     createScene: () =>
@@ -266,7 +267,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-2d-rotation",
     title: "2D Rotation Field",
-    description: "Counterclockwise rotation F(x,y) = <-y, x>.",
+    description: "Arrows circulate counterclockwise around the origin.",
     category: "Vector fields",
     recommendedMode: "2d",
     createScene: () =>
@@ -278,7 +279,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-2d-saddle",
     title: "2D Saddle Field",
-    description: "Saddle field F(x,y) = <x, -y>.",
+    description: "Arrows point outward along X and inward along Y.",
     category: "Vector fields",
     recommendedMode: "2d",
     createScene: () =>
@@ -290,7 +291,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-3d-radial",
     title: "3D Radial Field",
-    description: "Source field F(x,y,z) = <x, y, z> as instanced arrows.",
+    description: "Arrows radiate from the origin in all three dimensions.",
     category: "Vector fields",
     recommendedMode: "3d",
     createScene: () =>
@@ -302,7 +303,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-3d-rotation",
     title: "3D Rotation Field",
-    description: "Rotation about the z axis F(x,y,z) = <-y, x, 0>.",
+    description: "Arrows circulate around the Z axis without a vertical component.",
     category: "Vector fields",
     recommendedMode: "3d",
     createScene: () =>
@@ -314,7 +315,7 @@ export const SCENE_EXAMPLES: SceneExampleDefinition[] = [
   {
     id: "vector-field-3d-nonlinear",
     title: "3D Nonlinear Field",
-    description: "Coupled sinusoidal field F(x,y,z) = <sin(y), sin(z), sin(x)>.",
+    description: "Each arrow component varies sinusoidally with a different coordinate.",
     category: "Vector fields",
     recommendedMode: "3d",
     createScene: () =>

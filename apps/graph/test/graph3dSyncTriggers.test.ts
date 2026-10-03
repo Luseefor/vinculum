@@ -74,6 +74,17 @@ function meshColorHex(node: Object3D): string | null {
 }
 
 describe("3d sync rebuild triggers", () => {
+  it("keeps shadow resources active through hiding and removing the last surface", () => {
+    const harness = createHarness();
+    harness.sync([makeSurface()]);
+    expect(harness.renderer.shadowMap.enabled).toBe(true);
+    harness.sync([makeSurface({ visible: false })]);
+    harness.sync([]);
+    expect(harness.renderer.shadowMap.enabled).toBe(true);
+    expect(harness.keyLight.castShadow).toBe(true);
+    harness.sync([makeSurface()]);
+    expect(harness.nodes.get("surface-1")).toBeDefined();
+  });
   it("does not rebuild or replace nodes when nothing changed", () => {
     const harness = createHarness();
     const objects = [makeSurface()];

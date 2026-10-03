@@ -5,6 +5,7 @@ interface ApplySceneExampleInput {
   recommendedMode: "2d" | "3d";
   clearHistory: () => void;
   replaceSceneDocument: (scene: SceneDocument) => void;
+  prepareView: (mode: "2d" | "3d") => void;
   setGraphMode: (mode: "2d" | "3d") => void;
   setCurrentProjectSession: (project: { id: string; name: string } | null) => void;
   setProjectAutosaveStatus: (
@@ -17,6 +18,7 @@ export function applySceneExampleToEditor(input: ApplySceneExampleInput): void {
   input.clearHistory();
   input.replaceSceneDocument(input.scene);
   input.setGraphMode(input.recommendedMode);
+  input.prepareView(input.recommendedMode);
   input.setCurrentProjectSession(null);
   input.setProjectAutosaveStatus("idle");
 }

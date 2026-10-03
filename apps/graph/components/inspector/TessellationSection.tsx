@@ -56,19 +56,19 @@ export default function TessellationSection({ object }: TessellationSectionProps
 
   return (
     <section>
-      <p className="mb-2 text-[11px] font-medium text-[var(--text-tertiary)]">Tessellation</p>
-      <div className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent p-3">
+      <h3 className="mb-2 text-[13px] font-semibold text-[var(--text-primary)]">Mesh quality</h3>
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold text-[var(--text-secondary)]">{rangeLabel}</p>
           <span className="font-mono text-[11px] font-semibold text-[var(--accent-ink)]">{object.resolution}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex flex-1 items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
+          <div className="flex min-w-0 flex-1 items-center rounded-[var(--radius-sm)] bg-[var(--editor-control)] focus-within:ring-2 focus-within:ring-[var(--accent)]">
             <button
               type="button"
               onClick={() => stepResolution(-1)}
               aria-label="Decrease resolution"
-              className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-9 shrink-0 px-3 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <ChevronLeftIcon />
             </button>
@@ -78,13 +78,13 @@ export default function TessellationSection({ object }: TessellationSectionProps
               aria-label="Resolution"
               onChange={(e) => setResolutionDraft(e.target.value)}
               onBlur={() => commitResolution(Number(resolutionDraft))}
-              className="h-8 flex-1 bg-transparent text-center font-mono text-[13px] font-semibold outline-none"
+              className="h-9 w-full min-w-0 flex-1 bg-transparent text-center font-mono text-[13px] font-semibold outline-none"
             />
             <button
               type="button"
               onClick={() => stepResolution(1)}
               aria-label="Increase resolution"
-              className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-9 shrink-0 px-3 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             >
               <ChevronRightIcon />
             </button>

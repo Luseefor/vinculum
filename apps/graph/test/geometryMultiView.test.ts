@@ -334,6 +334,7 @@ describe("multiViewPickContext", () => {
 describe("renderGeometryMultiViewPanes shared-scene loop", () => {
   function mockDeps(container: HTMLElement) {
     const renderer = {
+      getSize: vi.fn((target) => target.set(container.clientWidth, container.clientHeight)),
       setViewport: vi.fn(),
       setScissor: vi.fn(),
       setScissorTest: vi.fn(),
@@ -359,7 +360,7 @@ describe("renderGeometryMultiViewPanes shared-scene loop", () => {
     };
   }
 
-  it("renders every pane from the SAME scene with per-pane aspect and flipped scissors", () => {
+  it("renders every pane from the SAME scene with per-pane aspect and matching scissors", () => {
     const state = createGeometryMultiViewState();
     setGeometryMultiViewPanes(state, ["perspective", "xy"]);
     const deps = mockDeps(fakeContainer(1440, 900));
@@ -376,7 +377,7 @@ describe("renderGeometryMultiViewPanes shared-scene loop", () => {
     // S16-R1: half-width pane gets its own aspect, not the container's.
     expect(deps.perspectiveCamera.aspect).toBeCloseTo(720 / 900, 12);
 
-    // Scissor/viewport Y-flip: container height 900, both panes full height.
+    // Both split panes span the full container height.
     expect(deps.renderer.setViewport.mock.calls).toEqual([
       [0, 0, 720, 900],
       [720, 0, 720, 900]
@@ -395,6 +396,31 @@ describe("renderGeometryMultiViewPanes shared-scene loop", () => {
     expect(deps.labelRenderer.setSize).toHaveBeenCalledWith(720, 900);
     expect(deps.labelRenderer.render).toHaveBeenCalledTimes(1);
     expect(deps.labelRenderer.render.mock.calls[0][0]).toBe(deps.scene);
+  });
+
+  it("bounds Quad scissors to the renderer while layout and buffer resize are out of sync", () => {
+    const state = createGeometryMultiViewState();
+    setGeometryMultiViewPanes(state, ["perspective", "xy", "xz", "yz"]);
+    const deps = mockDeps(fakeContainer(1440, 900));
+    deps.renderer.getSize.mockImplementation(target => target.set(390, 658));
+    renderGeometryMultiViewPanes(state, deps);
+    expect(deps.renderer.setScissor.mock.calls).toEqual([
+      [0, 0, 195, 329], [195, 0, 195, 329], [0, 329, 195, 329], [195, 329, 195, 329]
+    ]);
+  });
+
+  it("keeps quad cameras in the same top-left rectangles as labels and pointer routing", () => {
+    const state = createGeometryMultiViewState();
+    setGeometryMultiViewPanes(state, ["perspective", "xy", "xz", "yz"]);
+    const deps = mockDeps(fakeContainer(1441, 901));
+    renderGeometryMultiViewPanes(state, deps);
+    const expected = [[0, 0, 720, 450], [720, 0, 721, 450], [0, 450, 720, 451], [720, 450, 721, 451]];
+    expect(deps.renderer.setViewport.mock.calls).toEqual(expected);
+    expect(deps.renderer.setScissor.mock.calls).toEqual(expected);
+    expect(deps.renderer.render.mock.calls.map(call => call[1])).toEqual([
+      deps.perspectiveCamera, state.ortho.getCamera("xy"), state.ortho.getCamera("xz"), state.ortho.getCamera("yz")
+    ]);
+    expect(deps.labelRenderer.domElement.style.top).toBe("0px");
   });
 
   it("offsets the label layer for a non-leading perspective pane and hides it without one", () => {

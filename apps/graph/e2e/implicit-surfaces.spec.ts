@@ -1,17 +1,18 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue } from "./helpers/mathInput";
 import { expect, test, type Page } from "@playwright/test";
 
 // S18 true implicit 3D surfaces F(x,y,z) = 0: creation, synchronized views,
 // equation edits, empty recovery, singular stability, style, persistence,
 // workspaces, narrow editing, security diagnostics.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -21,7 +22,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -104,7 +105,7 @@ test.describe("S18 implicit surfaces", () => {
   test("Quick Add creates an implicit surface with equation focused; Enter creates next", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Implicit Surface #1" })).toBeVisible();
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
@@ -144,18 +145,19 @@ test.describe("S18 implicit surfaces", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Asymmetric ellipsoid: center (1,-2,0.5), semi-axes (2,1,3).
-    await page.getByLabel("Equation", { exact: true }).fill("(x - 1)^2 / 4 + (y + 2)^2 + (z - 0.5)^2 / 9 = 1");
+    await fillInput(page.getByLabel("Equation", { exact: true }), "(x - 1)^2 / 4 + (y + 2)^2 + (z - 0.5)^2 / 9 = 1");
     await page.waitForTimeout(1200);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     for (const view of ["Perspective", "XY", "XZ", "YZ"] as const) {
       await setGeometryView(page, view);
       await page.waitForTimeout(600);
       await expect(canvas).toBeVisible();
-      await expect(page.getByLabel("Geometry view")).toHaveValue(view.toLowerCase());
+      await expectInputValue(page.getByLabel("Geometry view"), view.toLowerCase());
     }
+    await setGeometryView(page, "XY");
     await setGeometryLayout(page, "Split");
     await page.waitForTimeout(600);
     await expect(page.getByRole("button", { name: "Perspective viewport" })).toBeVisible();
@@ -191,7 +193,7 @@ test.describe("S18 implicit surfaces", () => {
     await toGeometry(page);
     await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).fill("x^2 / 4 + y^2 + z^2 / 9 = 1");
+    await fillInput(page.getByLabel("Equation", { exact: true }), "x^2 / 4 + y^2 + z^2 / 9 = 1");
     await page.waitForTimeout(1200);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
@@ -210,12 +212,12 @@ test.describe("S18 implicit surfaces", () => {
     await toGeometry(page);
     await addPreset(page, "Implicit Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).fill("1");
+    await fillInput(page.getByLabel("Equation", { exact: true }), "1");
     await page.waitForTimeout(1000);
     // Valid empty state: object editable, scene stable, no crash.
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
-    await page.getByLabel("Equation", { exact: true }).fill("x^2 + y^2 + z^2 = 1");
+    await fillInput(page.getByLabel("Equation", { exact: true }), "x^2 + y^2 + z^2 = 1");
     await page.waitForTimeout(1200);
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
     await settleCompute(page);
@@ -231,9 +233,9 @@ test.describe("S18 implicit surfaces", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).fill("1 / x");
+    await fillInput(page.getByLabel("Equation", { exact: true }), "1 / x");
     await page.waitForTimeout(1000);
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
@@ -255,7 +257,7 @@ test.describe("S18 implicit surfaces", () => {
     await page.getByRole("button", { name: "Show object" }).first().click();
     await page.waitForTimeout(500);
     await expect(canvas).toBeVisible();
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await page.getByRole("switch", { name: /wireframe/i }).click();
     await page.waitForTimeout(500);
     await expect(canvas).toBeVisible();
@@ -275,7 +277,7 @@ test.describe("S18 implicit surfaces", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s18-isphere");
+    await fillInput(page.locator("#project-name-input"), "s18-isphere");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -289,7 +291,7 @@ test.describe("S18 implicit surfaces", () => {
   test("Math Lab creates the same canonical object visible in Geometry Studio", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Implicit Surface #1" })).toBeVisible();
     await toGeometry(page);
@@ -307,7 +309,7 @@ test.describe("S18 implicit surfaces", () => {
     await startClean(page);
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-    await page.getByLabel("Command search").fill("implicit surface");
+    await fillInput(page.getByLabel("Command search"), "implicit surface");
     await page.getByRole("option", { name: "Add Implicit Surface" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
@@ -318,10 +320,10 @@ test.describe("S18 implicit surfaces", () => {
   test("Nested unsafe equation is rejected visibly", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
-    await eqInput.fill("sin(factorial(x)) + y + z = 0");
+    await fillInput(eqInput, "sin(factorial(x)) + y + z = 0");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
 
     expect(pageErrors).toEqual([]);
@@ -333,9 +335,9 @@ test.describe("S18 implicit surfaces", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2 + y^2 + z^2 = 1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2 + y^2 + z^2 = 1");
     await page.waitForTimeout(1200);
     await page.keyboard.press("Escape");
     await toGeometry(page);

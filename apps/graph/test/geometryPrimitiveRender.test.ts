@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Group, Line, Mesh } from "three";
+import { Line2NodeMaterial } from "three/webgpu";
+import { applyHoverEmphasisToNode, applySelectionEmphasisToNode } from "@/lib/graph3d/buildGraphObjectDisposal";
 import type { LineObject, RayObject, SegmentObject, VectorObject } from "@vinculum/scene/types";
 import {
   buildLinePrimitive,
@@ -135,10 +137,25 @@ describe("primitive builders (S26 PART 11-19)", () => {
     const group = node as Group;
     expect(group.children).toHaveLength(2);
     const lineChild = group.children[0] as Line;
-    const positions = (lineChild.geometry.getAttribute("position") as { array: Float32Array }).array;
+    const positions = lineChild.geometry.userData.strokePositions as Float32Array;
     // A=(1,2,3)->world(1,3,2); B=(4,5,6)->world(4,6,5).
     expect([positions[0], positions[1], positions[2]]).toEqual([1, 3, 2]);
     expect([positions[3], positions[4], positions[5]]).toEqual([4, 6, 5]);
+  });
+
+  it("uses screen-width strokes and reversibly emphasizes selection and hover", () => {
+    const group = buildLinePrimitive(line()) as Group;
+    const material = (group.children[0] as Mesh).material as Line2NodeMaterial;
+    expect(material.worldUnits).toBe(false);
+    expect(material.linewidth).toBe(3);
+    applyHoverEmphasisToNode(group, true);
+    expect(material.linewidth).toBe(4);
+    applyHoverEmphasisToNode(group, false);
+    expect(material.linewidth).toBe(3);
+    applySelectionEmphasisToNode(group, true);
+    expect(material.linewidth).toBe(4.5);
+    applySelectionEmphasisToNode(group, false);
+    expect(material.linewidth).toBe(3);
   });
 
   it("renders coincident segments as point markers", () => {
@@ -150,7 +167,7 @@ describe("primitive builders (S26 PART 11-19)", () => {
 
   it("builds clipped lines with no arrowhead and rays with one", () => {
     const lineNode = buildLinePrimitive(line()) as Group;
-    expect(lineNode.children.some((child) => (child as Mesh).isMesh && !(child.userData as { pickProxy?: boolean }).pickProxy)).toBe(
+    expect(lineNode.children.some((child) => (child as Mesh).isMesh && !(child.userData as { pickProxy?: boolean }).pickProxy && !child.userData.wideStroke)).toBe(
       false
     );
     const rayNode = buildRayPrimitive(ray()) as Group;
@@ -232,7 +249,7 @@ describe("camera-driven display extents (S26 PART 14/41)", () => {
       ray({ oxExpr: "0", oyExpr: "0", ozExpr: "0", dxExpr: "7", dyExpr: "8", dzExpr: "9" })
     ) as Group;
     const head = group.children.find(
-      (child) => (child as Mesh).isMesh && !(child.userData as { pickProxy?: boolean }).pickProxy
+      (child) => (child as Mesh).isMesh && !(child.userData as { pickProxy?: boolean }).pickProxy && !child.userData.wideStroke
     ) as Mesh;
     // Head sits near the forward exit along world <7,9,8>: x and z
     // positive with z > x (9 > 7), y smaller.
@@ -256,9 +273,9 @@ describe("camera-driven display extents (S26 PART 14/41)", () => {
     const nodes = new Map<string, Group>();
     const group = buildLinePrimitive(line()) as Group;
     nodes.set("line-1", group);
-    const before = (group.children[0] as Line).geometry.getAttribute("position");
+    const before = (group.children[0] as Line).geometry.getAttribute("instanceStart");
     updateGeometryPrimitiveDisplay(nodes, 120.5);
-    expect((group.children[0] as Line).geometry.getAttribute("position")).toBe(before);
+    expect((group.children[0] as Line).geometry.getAttribute("instanceStart")).toBe(before);
     updateGeometryPrimitiveDisplay(nodes, 240);
     expect(group.userData.displayHalfExtent).toBe(240);
   });

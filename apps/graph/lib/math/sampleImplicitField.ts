@@ -61,6 +61,7 @@ export function sampleImplicitScalarField(
   const stepY = (yMax - yMin) / resolution;
   const stepZ = (zMax - zMin) / resolution;
 
+  const batched = evaluate.sampleGrid?.({ xMin, xMax, yMin, yMax, zMin, zMax }, resolution);
   const values = new Float32Array(sampleCount);
   const valid = new Uint8Array(sampleCount);
 
@@ -71,7 +72,7 @@ export function sampleImplicitScalarField(
       const y = yMin + stepY * iy;
       for (let ix = 0; ix <= resolution; ix += 1) {
         const x = xMin + stepX * ix;
-        const value = evaluate(x, y, z);
+        const value = batched ? batched[offset] : evaluate(x, y, z);
         if (Number.isFinite(value)) {
           values[offset] = value;
           valid[offset] = 1;

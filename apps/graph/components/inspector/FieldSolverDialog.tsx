@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MathInput } from "@/components/math/MathInput";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
@@ -89,7 +89,7 @@ export default function FieldSolverDialog({ open, onOpenChange }: { open: boolea
             : <label className="text-[12px] text-[var(--text-secondary)]">Coordinates<select className={selectClass} aria-label="Field coordinates" value={coordinates} onChange={(event) => setCoordinates(event.target.value as "cartesian" | "polar")}><option value="cartesian">Cartesian</option><option value="polar">Polar (r, θ)</option></select></label>}
           {!complex && problem !== "curve" && coordinates === "cartesian" ? <label className="text-[12px] text-[var(--text-secondary)]">Dimension<select className={selectClass} aria-label="Field dimension" value={dimension} onChange={(event) => setDimension(event.target.value as "2" | "3")}><option value="2">2D</option><option value="3">3D</option></select></label> : null}
         </div>
-        <div className="my-4 space-y-3">{labels.map((label, index) => <label key={`${profile}-${index}`} className="block text-[12px] text-[var(--text-secondary)]">{label}<Input aria-label={label} value={components[index] ?? ""} onChange={(event) => setDrafts((previous) => ({ ...previous, [profile]: components.map((component, i) => i === index ? event.target.value : component) }))} className="mt-1 h-9 font-mono" /></label>)}</div>
+        <div className="my-4 space-y-3">{labels.map((label, index) => <label key={`${profile}-${index}`} className="block text-[12px] text-[var(--text-secondary)]">{label}<MathInput aria-label={label} value={components[index] ?? ""} onChange={(event) => setDrafts((previous) => ({ ...previous, [profile]: components.map((component, i) => i === index ? event.target.value : component) }))} className="mt-1 h-9 font-mono" /></label>)}</div>
         {(coordinates === "polar" || problem === "curve") && !complex ? <p className="mb-3 text-[12px] text-[var(--text-tertiary)]">Use r and theta. Angles are in radians; the polar basis requires r &gt; 0.</p> : null}
         {complex ? <label className="mb-3 block text-[12px] text-[var(--text-secondary)]">Plot<select className={selectClass} aria-label="Complex plot" value={plotComponent} onChange={(event) => setPlotComponent(event.target.value as typeof plotComponent)}><option value="vector">Associated vector field (u,v)</option><option value="real">Real part</option><option value="imaginary">Imaginary part</option><option value="magnitude">Magnitude</option><option value="phase">Phase</option></select></label> : null}
         {plotError ? <p role="alert" className="mb-3 text-[12px] text-[var(--text-secondary)]">{plotError}</p> : null}

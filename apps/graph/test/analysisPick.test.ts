@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   Group,
   Mesh,
@@ -14,7 +14,7 @@ import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceDat
 import { buildIndexedSurfaceMeshGroup } from "@/lib/graph3d/buildIndexedSurfaceMesh";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { pickAnalysisSourcePoint } from "@/lib/graph3d/graphThreeAnalysisPick";
-import { attemptAnalysisPick } from "@/lib/graph3d/graphThreeEngineInputPointer";
+import { attemptAnalysisPick, createGraphThreePointerInputHandlers, getAnalysisPickPreview } from "@/lib/graph3d/graphThreeEngineInputPointer";
 import type { PickWorldFromCanvasArgs } from "@/lib/graph3d/graphThreeEnginePickWorld";
 import type { GraphThreeEngineInputHandlersDeps } from "@/lib/graph3d/graphThreeEngineInputTypes";
 import { useGraphStore } from "@/store/graphStore";
@@ -83,6 +83,23 @@ describe("pickAnalysisSourcePoint (S21 pick robustness)", () => {
     expect(radius).toBeCloseTo(1, 2);
   });
 
+  it("does not let visible wide strokes occlude an analysis surface", () => {
+    const root = makeSphereRoot();
+    const stroke = new Mesh(new SphereGeometry(2));
+    stroke.userData.wideStroke = true;
+    stroke.userData.vinculumId = "line-1";
+    root.add(stroke);
+    const camera = new PerspectiveCamera(48, 1, 0.05, 30000);
+    camera.position.set(6, 6, 6);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    root.updateMatrixWorld(true);
+    const point = pickAnalysisSourcePoint({ clientX: 50, clientY: 50 }, makeArgs(root, camera), "sphere-1");
+    expect(point).not.toBeNull();
+    expect(Math.hypot(point!.x, point!.y, point!.z)).toBeCloseTo(1, 2);
+    stroke.geometry.dispose();
+  });
+
   it("ignores clicks on other objects and empty space", () => {
     const root = makeSphereRoot();
     const camera = new PerspectiveCamera(48, 1.4265625, 0.05, 30000);
@@ -133,6 +150,50 @@ function makeAttemptDeps(objectsRoot: Group): GraphThreeEngineInputHandlersDeps 
 }
 
 describe("attemptAnalysisPick gates (S21 PART 35)", () => {
+  it("previews the same surface point as the click, in math coordinates, without committing history", () => {
+    useGraphStore.getState().resetScene();
+    useGeometryComputeStore.getState().clearAll();
+    const store = useGraphStore.getState();
+    const id = store.addImplicitSurface();
+    store.updateImplicitSurfaceExpression(id, "equation", "x^2+y^2+z^2=1");
+    store.armDifferentialAnalysisPick(id);
+    const root = makeSphereRoot();
+    root.children[0]!.userData.vinculumId = id;
+    const deps = makeAttemptDeps(root);
+    deps.mutable = { hoverProbePoint: null, analysisPickDown: null, primitivePickDown: null, isSketching: false, sketchPoints: [] };
+    deps.setHoverProbeBadge = vi.fn();
+    deps.formatProbe = point => JSON.stringify(point);
+    const point = getAnalysisPickPreview(deps, id, { clientX: 50, clientY: 50 });
+    expect(point).not.toBeNull();
+    const handlers = createGraphThreePointerInputHandlers(deps);
+    handlers.handlePointerMove({ clientX: 50, clientY: 50 } as PointerEvent);
+    expect(deps.setHoverProbeBadge).toHaveBeenLastCalledWith(`Pick ${JSON.stringify(point)}`, 50, 50);
+    expect(deps.mutable.hoverProbePoint).toEqual({ x: point!.x, y: point!.z, z: point!.y });
+    expect(useGraphStore.getState().ui.differentialAnalysisBySourceId[id]).toBeUndefined();
+    expect(useGraphStore.getState().ui.differentialAnalysisPickArmedId).toBe(id);
+    attemptAnalysisPick(deps, id, { clientX: 50, clientY: 50 });
+    expect(useGraphStore.getState().ui.differentialAnalysisBySourceId[id]?.point).toEqual(point);
+    expect(deps.setHoverProbeBadge).toHaveBeenLastCalledWith(null, 0, 0);
+    expect(deps.mutable.hoverProbePoint).toBeNull();
+  });
+
+  it("does not preview pending, hidden, occluded or missed sources", () => {
+    useGraphStore.getState().resetScene();
+    useGeometryComputeStore.getState().clearAll();
+    const id = useGraphStore.getState().addImplicitSurface();
+    const root = makeSphereRoot();
+    root.children[0]!.userData.vinculumId = id;
+    const deps = makeAttemptDeps(root);
+    useGeometryComputeStore.getState().setStatus(id, "pending");
+    expect(getAnalysisPickPreview(deps, id, { clientX: 50, clientY: 50 })).toBeNull();
+    useGeometryComputeStore.getState().clearAll();
+    useGraphStore.getState().toggleObjectVisibility(id);
+    expect(getAnalysisPickPreview(deps, id, { clientX: 50, clientY: 50 })).toBeNull();
+    useGraphStore.getState().toggleObjectVisibility(id);
+    expect(getAnalysisPickPreview(deps, id, { clientX: 99, clientY: 1 })).toBeNull();
+    expect(getAnalysisPickPreview(deps, "other", { clientX: 50, clientY: 50 })).toBeNull();
+  });
+
   it("refuses picks while the source has pending compute and stays armed", () => {
     useGraphStore.getState().resetScene();
     useGeometryComputeStore.getState().clearAll();

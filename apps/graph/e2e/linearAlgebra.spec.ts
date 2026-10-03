@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -7,17 +9,17 @@ import { expect, test, type Page } from "@playwright/test";
 // overlay, synchronized views, camera independence, persistence,
 // undo/redo, workspace coherence, narrow sheets, security/a11y.
 // Zero unexpected console/page errors.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -27,7 +29,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -73,7 +75,7 @@ function inspector(page: Page) {
 async function openObject(page: Page) {
   // S30 companion to openAnalyze: definition/domain editors live under the
   // Object tab. Guarded like openAnalyze.
-  const tab = page.getByRole("tab", { name: "Object" });
+  const tab = page.getByRole("tab", { name: "Edit" });
   if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
     await tab.first().click();
   }
@@ -81,7 +83,7 @@ async function openObject(page: Page) {
 
 async function setCell(page: Page, row: number, col: number, value: string) {
   await openObject(page);
-  await inspector(page).getByLabel(`Row ${row} column ${col}`).fill(value);
+  await fillInput(inspector(page).getByLabel(`Row ${row} column ${col}`), value);
 }
 
 async function settleScene(page: Page) {
@@ -97,7 +99,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
@@ -118,7 +120,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
@@ -139,11 +141,11 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "-1");
     await openAnalyze(page);
-    await expect(page.getByTestId("linear-fact-determinant")).toHaveText("-1", { timeout: 10000 });
+    await expect(page.getByTestId("linear-fact-determinant")).toHaveText("−1", { timeout: 10000 });
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Reversed");
     await openAnalyze(page);
@@ -157,7 +159,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 2, "1");
     await openAnalyze(page);
@@ -175,7 +177,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "0");
     await setCell(page, 1, 2, "-1");
@@ -196,7 +198,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 2, "2");
     await setCell(page, 2, 1, "2");
@@ -219,7 +221,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "0");
     await setCell(page, 2, 2, "0");
@@ -266,7 +268,7 @@ test.describe("S28 linear algebra", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 3, 3, "-1");
     await openAnalyze(page);
-    await expect(page.getByTestId("linear-fact-determinant")).toHaveText("-1", { timeout: 10000 });
+    await expect(page.getByTestId("linear-fact-determinant")).toHaveText("−1", { timeout: 10000 });
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-orientation")).toHaveText("Reversed");
     await openAnalyze(page);
@@ -283,12 +285,12 @@ test.describe("S28 linear algebra", () => {
     await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     // e1 as a canonical vector: Ae1 must read back the first column.
-    await inspector(page).getByLabel("Vector component x").fill("1");
-    await inspector(page).getByLabel("Vector component y").fill("0");
-    await inspector(page).getByLabel("Vector component z").fill("0");
+    await fillInput(inspector(page).getByLabel("Vector component x"), "1");
+    await fillInput(inspector(page).getByLabel("Vector component y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z"), "0");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
     await setCell(page, 1, 2, "2");
     await setCell(page, 1, 3, "3");
@@ -310,31 +312,16 @@ test.describe("S28 linear algebra", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("K: entry parameter `r` updates det live via slider", async ({ page }) => {
+  test("K: formula edits update determinant live", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "r");
-    // Default r=2.5: det reads 2.5; driving the slider to 4 updates live.
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("2.5", { timeout: 10000 });
-    await page.getByRole("button", { name: "PARAMETERS" }).click();
-    const slider = page.getByLabel("Parameter r");
-    await expect(slider).toBeVisible();
-    await slider.evaluate((element, value) => {
-      const input = element as HTMLInputElement;
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(input, String(value));
-      } else {
-        input.value = String(value);
-      }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, "4");
+    await setCell(page, 1, 1, "4");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("4", { timeout: 10000 });
 
@@ -351,14 +338,14 @@ test.describe("S28 linear algebra", () => {
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
     await setCell(page, 3, 3, "4");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await inspector(page).getByLabel("Vector origin x").fill("10");
-    await inspector(page).getByLabel("Vector origin y").fill("20");
-    await inspector(page).getByLabel("Vector origin z").fill("30");
-    await inspector(page).getByLabel("Vector component x").fill("1");
-    await inspector(page).getByLabel("Vector component y").fill("2");
-    await inspector(page).getByLabel("Vector component z").fill("3");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "10");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "20");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "30");
+    await fillInput(inspector(page).getByLabel("Vector component x"), "1");
+    await fillInput(inspector(page).getByLabel("Vector component y"), "2");
+    await fillInput(inspector(page).getByLabel("Vector component z"), "3");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
     await openAnalyze(page);
     await page.getByLabel("Vector for transformation analysis").selectOption({ index: 1 });
@@ -384,7 +371,7 @@ test.describe("S28 linear algebra", () => {
     await toGeometry(page);
     await showMoreAdd(page);
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
     await openAnalyze(page);
@@ -392,11 +379,11 @@ test.describe("S28 linear algebra", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-av")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: /Vector #2/ }).click();
-    await page.keyboard.press("Delete");
+    await page.getByRole("button", { name: /Vector #2/ }).press("Delete");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: /Linear Transformation #1/ }).click();
     await openAnalyze(page);
-    await expect(page.getByLabel("Vector for transformation analysis")).toHaveValue("");
+    await expectInputValue(page.getByLabel("Vector for transformation analysis"), "");
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -407,7 +394,7 @@ test.describe("S28 linear algebra", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2");
     await setCell(page, 2, 2, "3");
@@ -478,12 +465,12 @@ test.describe("S28 linear algebra", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "2*pi");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s28-transform");
+    await fillInput(page.locator("#project-name-input"), "s28-transform");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -499,7 +486,7 @@ test.describe("S28 linear algebra", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "5");
     await openAnalyze(page);
@@ -519,7 +506,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible({ timeout: 10000 });
@@ -541,11 +528,11 @@ test.describe("S28 linear algebra", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(page.getByLabel("Row 1 column 1")).toBeVisible();
+    await expectInputVisible(page.getByLabel("Row 1 column 1"));
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -558,7 +545,7 @@ test.describe("S28 linear algebra", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await setCell(page, 1, 1, "sin(factorial(a))");
     await expect(page.getByRole("alert").first()).toBeVisible({ timeout: 10000 });

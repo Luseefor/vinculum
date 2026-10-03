@@ -1,5 +1,7 @@
 import type { GraphRenderer } from "./graphRenderer";
-import type { Group, PerspectiveCamera, Scene } from "three";
+import { Vector2, type Group, type PerspectiveCamera, type Scene } from "three";
+
+const drawingSize = new Vector2();
 import type { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { GeometryOrthoController, type OrthoView } from "./graphThreeOrthoViews";
 import { computePaneRects, routePointerToPaneIndex } from "./graphThreeGeometryViews";
@@ -460,8 +462,11 @@ export function renderGeometryMultiViewPanes(state: GeometryMultiViewState, deps
     return;
   }
   const { renderer, labelRenderer, scene, perspectiveCamera, container, labelGroup } = deps;
-  const containerWidth = container.clientWidth;
-  const containerHeight = container.clientHeight;
+  // Layout and the GPU target can differ for a frame during resize. Scissor
+  // coordinates must belong to the current target, never the newer layout.
+  renderer.getSize(drawingSize);
+  const containerWidth = drawingSize.x;
+  const containerHeight = drawingSize.y;
   if (containerWidth <= 0 || containerHeight <= 0) {
     return;
   }
@@ -477,12 +482,10 @@ export function renderGeometryMultiViewPanes(state: GeometryMultiViewState, deps
     if (!pane || !rect || rect.width <= 0 || rect.height <= 0) {
       continue;
     }
-    // three.js viewports/scissors use a bottom-left origin; pane rects use
-    // top-left. The Y flip is purely a coordinate conversion, not a mirror:
-    // NDC handedness is unchanged.
-    const viewportY = containerHeight - (rect.top + rect.height);
-    renderer.setViewport(rect.left, viewportY, rect.width, rect.height);
-    renderer.setScissor(rect.left, viewportY, rect.width, rect.height);
+    // Three's shared WebGPU renderer API uses top-left coordinates on both
+    // WebGPU and its WebGL fallback (the fallback performs its own Y flip).
+    renderer.setViewport(rect.left, rect.top, rect.width, rect.height);
+    renderer.setScissor(rect.left, rect.top, rect.width, rect.height);
     if (pane === "perspective") {
       // S16-R1: per-pane aspect — a half-width pane must not inherit the
       // full-container projection (which would squeeze the image ~2x).

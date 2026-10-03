@@ -15,7 +15,7 @@ export default function CanvasToolbar({
   onFitScene: () => void;
 }) {
   return (
-    <div className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--border-subtle)] px-3">
+    <div className="flex min-h-12 shrink-0 items-center gap-3 bg-[var(--surface-canvas)] px-4 py-2">
       <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
         <ViewControls {...viewControls} />
       </div>

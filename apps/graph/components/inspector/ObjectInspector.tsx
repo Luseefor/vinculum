@@ -5,7 +5,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { AutomaticEquationInput } from "@/components/expressions/AutomaticEquationInput";
+import { MathInput } from "@/components/math/MathInput";
 import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import LinearTransformInspector from "./LinearTransformInspector";
 import {
@@ -38,6 +39,16 @@ export default function ObjectInspector() {
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to edit its properties.</p>
       </div>
     );
+  }
+
+  if (selectedObject.kind === "implicitCurve" || (selectedObject.autoExpression && "equation" in selectedObject)) {
+    return <section data-inspector-section className="space-y-3">
+      <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Equation</h3>
+      <AutomaticEquationInput key={selectedObject.id} objectId={selectedObject.id} value={selectedObject.equation} />
+      <p className="text-[12px] text-[var(--text-secondary)]">{selectedObject.kind === "implicitCurve" ? "2D curve" : "3D surface"} · Type z to include the third dimension.</p>
+      {selectedObject.kind === "surface" ? <SurfaceDefinitionEditor object={selectedObject} index={objects.findIndex((object) => object.id === selectedObject.id)} hideEquation /> : null}
+      {selectedObject.kind === "implicitSurface" ? <ImplicitSurfaceDefinitionEditor object={selectedObject} index={objects.findIndex((object) => object.id === selectedObject.id)} hideEquation /> : null}
+    </section>;
   }
 
   if (selectedObject.kind === "parametricCurve") {
@@ -140,14 +151,14 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
         <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>
         <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
           2D view shows the intersection with the axis plane you chose in the
-          toolbar. Color and wireframe live under the Styles tab.
+          toolbar. Color and wireframe live under the Settings tab.
         </p>
       </header>
       <label className="block">
         <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
           Equation
         </span>
-        <Input
+        <MathInput
           value={focused ? draft : object.equation}
           aria-label="Plane equation"
           onChange={(event) => {

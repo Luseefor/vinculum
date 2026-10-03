@@ -5,13 +5,14 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 interface SplitViewportProps {
   primary: ReactNode;
   secondary: ReactNode;
+  mode?: "2d" | "3d" | "split";
 }
 
 // S30: single responsive tree. The previous dual-tree (desktop + mobile
 // copies) mounted every viewport twice in split mode — two WebGL contexts,
 // two engines, duplicate worker jobs — and remounted everything when
 // resizing across the lg breakpoint. One tree, CSS-driven stacking.
-export default function SplitViewport({ primary, secondary }: SplitViewportProps) {
+export default function SplitViewport({ primary, secondary, mode = "split" }: SplitViewportProps) {
   const [ratio, setRatio] = useState(0.5);
   const style = useMemo(
     () =>
@@ -23,11 +24,11 @@ export default function SplitViewport({ primary, secondary }: SplitViewportProps
 
   return (
     <div
-      className="relative grid h-full w-full grid-cols-1 grid-rows-2 lg:grid-cols-[var(--split-ratio)_10px_minmax(0,1fr)] lg:grid-rows-1"
+      className={mode === "split" ? "relative grid h-full w-full grid-cols-1 grid-rows-2 lg:grid-cols-[var(--split-ratio)_10px_minmax(0,1fr)] lg:grid-rows-1" : "relative h-full w-full"}
       style={style}
     >
-      <div className="min-h-0 border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-r lg:border-[var(--border-strong)]">{primary}</div>
-      <div
+      <div hidden={mode === "3d"} className={mode === "split" ? "min-h-0 border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-r lg:border-[var(--border-strong)]" : "h-full min-h-0"}>{primary}</div>
+      {mode === "split" ? <div
         className="relative hidden cursor-col-resize bg-[var(--surface-bg)] lg:block"
         onPointerDown={(event) => {
             const element = event.currentTarget.parentElement;
@@ -58,8 +59,8 @@ export default function SplitViewport({ primary, secondary }: SplitViewportProps
               <span className="h-1 w-1 rounded-full bg-[var(--text-secondary)]" />
             </span>
           </div>
-        </div>
-        <div className="min-h-0">{secondary}</div>
+        </div> : null}
+        <div hidden={mode === "2d"} className={mode === "split" ? "min-h-0" : "h-full min-h-0"}>{secondary}</div>
     </div>
   );
 }

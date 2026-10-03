@@ -34,6 +34,10 @@ export default function AnalysisInspector() {
     );
   }
 
+  if (selectedObject.kind === "implicitCurve") {
+    return <section data-inspector-section><p className="text-[13px] text-[var(--text-secondary)]">This equation plots a curve in the xy plane. Choose Probe to inspect its coordinates.</p></section>;
+  }
+
   if (selectedObject.kind === "parametricCurve") {
     return (
       <section data-inspector-section className="flex flex-col gap-3">

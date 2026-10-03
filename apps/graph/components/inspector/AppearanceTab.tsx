@@ -23,7 +23,7 @@ export default function AppearanceTab() {
     return (
       <section className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent p-3">
         <header>
-          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Styles</h3>
+          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Appearance</h3>
           <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to edit style controls.</p>
         </header>
       </section>
@@ -37,8 +37,8 @@ export default function AppearanceTab() {
   ) {
     return (
       <div className="flex flex-col gap-6">
-        <TessellationSection object={selectedObject} />
         <AppearanceSection object={selectedObject} />
+        <TessellationSection object={selectedObject} />
       </div>
     );
   }
@@ -55,7 +55,7 @@ export default function AppearanceTab() {
   return (
     <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
       <header>
-        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Styles</h3>
+        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Appearance</h3>
       </header>
       <div className="space-y-3 pt-3">
         <label className="block space-y-1">

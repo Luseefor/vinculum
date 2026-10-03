@@ -12,7 +12,6 @@ import {
   Mesh,
   MeshBasicMaterial,
   Plane,
-  PCFSoftShadowMap,
   PerspectiveCamera,
   Raycaster,
   PlaneGeometry,
@@ -23,6 +22,7 @@ import {
   type Object3D
 } from "three";
 import { WebGPURenderer } from "three/webgpu";
+import { registerGraphCanvasCapture } from "./graphCanvasCapture";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createAdaptiveGridState } from "@/lib/graph/adaptiveGridState";
@@ -53,6 +53,8 @@ import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
 import { createCanvasInteraction } from "./graphThreeCanvasInteraction";
+import { surfaceDisplayDomain } from "./surfaceDisplayDomain";
+import { activeOrthoSpansForDisplay } from "./graphThreePrimitiveDisplay";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
 import { applyGeometryComputeResult } from "@/lib/compute/geometryComputeSync";
 import {
@@ -96,7 +98,6 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = false;
-  renderer.shadowMap.type = PCFSoftShadowMap;
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.style.position = "absolute";
@@ -111,6 +112,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
   renderer.domElement.setAttribute("data-graph3d-canvas", "true");
+  renderer.domElement.tabIndex = 0;
 
   const perfBadge = document.createElement("div");
   perfBadge.className =
@@ -264,8 +266,11 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   };
 
   let animationHandle = 0;
+  let resizeHandle = 0;
   let resizeObserver: ResizeObserver | null = null;
   let suspended = false;
+  let disposed = false;
+  let initialized = false;
   const raycaster = new Raycaster();
   const ndc = new Vector2();
   const baselinePlane = new Plane(new Vector3(0, 1, 0), 0);
@@ -326,12 +331,12 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
       hoverProbeBadge.style.display = "none";
       return;
     }
-    const maxX = Math.max(0, container.clientWidth - 220);
-    const maxY = Math.max(0, container.clientHeight - 36);
     hoverProbeBadge.textContent = text;
-    hoverProbeBadge.style.left = `${Math.min(screenX + 12, maxX)}px`;
-    hoverProbeBadge.style.top = `${Math.min(screenY + 12, maxY)}px`;
     hoverProbeBadge.style.display = "block";
+    const maxX = Math.max(0, container.clientWidth - hoverProbeBadge.offsetWidth);
+    const maxY = Math.max(0, container.clientHeight - hoverProbeBadge.offsetHeight);
+    hoverProbeBadge.style.left = `${Math.max(0, Math.min(screenX + 12, maxX))}px`;
+    hoverProbeBadge.style.top = `${Math.max(0, Math.min(screenY + 12, maxY))}px`;
   };
 
   const formatProbe = (p: { x: number; y: number; z: number }) =>
@@ -443,10 +448,27 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     rebuildAxesGeometry(theme);
   };
 
+  let lastSurfaceDisplayKey = "";
+  let lastSurfaceDisplayCheck = 0;
+  const displayObjects = () => {
+    const view = { distance: camera.position.distanceTo(controls.target), fov: camera.fov, aspect: camera.aspect,
+      target: controls.target, orthoSpans: activeOrthoSpansForDisplay(multiView) };
+    return useGraphStore.getState().scene.objects.map((object) => object.kind === "surface"
+      ? { ...object, domain: surfaceDisplayDomain(object, view) } : object);
+  };
+  const displayKey = (objects: ReturnType<typeof displayObjects>) => JSON.stringify(objects.flatMap((object) => object.kind === "surface" && object.visible ? [[object.id, object.domain]] : []));
+  const refreshSurfaceDisplay = () => {
+    const now = performance.now();
+    if (now - lastSurfaceDisplayCheck < 250) return;
+    lastSurfaceDisplayCheck = now;
+    if (displayKey(displayObjects()) !== lastSurfaceDisplayKey) tickRuntime.objectsDirty = true;
+  };
   const syncObjects = (theme: ResolvedTheme) => {
+    const objects = displayObjects();
+    lastSurfaceDisplayKey = displayKey(objects);
     syncThreeSceneObjects(
       theme,
-      useGraphStore.getState().scene.objects,
+      objects,
       objectsRoot,
       objectNodes,
       objectSignatures,
@@ -470,7 +492,13 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
 
   let prevSceneRef = useGraphStore.getState().scene;
   let prevSelectedId = useGraphStore.getState().ui.selectedObjectId;
+  let prevAnalysisPickId = useGraphStore.getState().ui.differentialAnalysisPickArmedId;
   const unsub = useGraphStore.subscribe((state) => {
+    if (state.ui.differentialAnalysisPickArmedId !== prevAnalysisPickId) {
+      prevAnalysisPickId = state.ui.differentialAnalysisPickArmedId;
+      inputMutable.hoverProbePoint = null;
+      setHoverProbeBadge(null, 0, 0);
+    }
     if (state.scene !== prevSceneRef) {
       prevSceneRef = state.scene;
       tickRuntime.objectsDirty = true;
@@ -513,7 +541,15 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   });
 
   const requestNextFrame = (callback: () => void) => {
-    animationHandle = window.requestAnimationFrame(callback);
+    animationHandle = window.requestAnimationFrame(() => {
+      if (disposed) return;
+      try { callback(); }
+      catch (error) {
+        tickRuntime.isContextLost = true;
+        reportWarning("GPU frame failed.", { featureArea: "3d-viewport", operation: "gpu-frame", details: { error: error instanceof Error ? error.message : String(error) } });
+        onError?.("The 3D renderer could not draw this scene. Retry the viewport or export the scene before reloading.");
+      }
+    });
   };
 
   // Geometry multi-view state. Null panes select the legacy
@@ -726,6 +762,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     applyThemeToScene,
     resetCamera,
     syncObjects,
+    refreshSurfaceDisplay,
     requestNextFrame,
     container,
     multiView,
@@ -733,6 +770,8 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     onFrameEnd: () => interaction.tick()
   });
 
+  let previousWidth = 0;
+  let previousHeight = 0;
   const resize = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -741,8 +780,22 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     }
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
+    if (width !== previousWidth || height !== previousHeight) {
+      previousWidth = width;
+      previousHeight = height;
+      renderer.setSize(width, height, false);
+    }
     labelRenderer.setSize(width, height);
+  };
+
+  // GPU canvas and label dimensions are layout writes. Run them outside
+  // ResizeObserver delivery to avoid feedback loops when sheets or panes move.
+  const scheduleResize = () => {
+    if (disposed || suspended || resizeHandle) return;
+    resizeHandle = window.requestAnimationFrame(() => {
+      resizeHandle = 0;
+      if (!disposed && !suspended) resize();
+    });
   };
 
   const handleContextLost = (event: Event) => {
@@ -780,9 +833,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   window.addEventListener("keyup", handleKeyUp);
   renderer.domElement.addEventListener("contextmenu", handleContextMenu);
 
-  resizeObserver = new ResizeObserver(() => {
-    resize();
-  });
+  resizeObserver = new ResizeObserver(scheduleResize);
   resizeObserver.observe(container);
   resize();
 
@@ -791,8 +842,6 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   syncObjects(tickRuntime.lastDomTheme);
   tickRuntime.objectsDirty = false;
 
-  let disposed = false;
-  let initialized = false;
   renderer.onDeviceLost = (info) => {
     if (disposed) return;
     tickRuntime.isContextLost = true;
@@ -804,7 +853,18 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     initialized = true;
     renderer.domElement.dataset.renderBackend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? "webgpu" : "webgl2";
     renderer.domElement.dataset.mathBackend = "rust-wasm";
-    if (!suspended) animationHandle = window.requestAnimationFrame(tick);
+    if (!suspended) requestNextFrame(tick);
+  });
+
+  const unregisterCapture = registerGraphCanvasCapture(renderer.domElement, async () => {
+    await ready;
+    if (disposed || tickRuntime.isContextLost) return null;
+    if (multiView.panes) {
+      renderGeometryMultiViewPanes(multiView, { renderer, labelRenderer, scene, perspectiveCamera: camera, container, labelGroup });
+    } else {
+      renderer.render(scene, camera);
+    }
+    return new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, "image/png"));
   });
 
   return {
@@ -849,21 +909,23 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
         cancelGeometryMultiViewDrag(multiView);
         window.cancelAnimationFrame(animationHandle);
         animationHandle = 0;
+        window.cancelAnimationFrame(resizeHandle);
+        resizeHandle = 0;
         resizeObserver?.disconnect();
         resizeObserver = null;
       } else {
-        resizeObserver = new ResizeObserver(() => {
-          resize();
-        });
+        resizeObserver = new ResizeObserver(scheduleResize);
         resizeObserver.observe(container);
         resize();
-        if (initialized && !disposed) animationHandle = window.requestAnimationFrame(tick);
+        if (initialized && !disposed) requestNextFrame(tick);
       }
     },
     dispose: () => {
       if (disposed) return;
       disposed = true;
+      unregisterCapture();
       window.cancelAnimationFrame(animationHandle);
+      window.cancelAnimationFrame(resizeHandle);
       interaction.dispose();
       releaseOrthoPointerCapture();
       computeManager.dispose();

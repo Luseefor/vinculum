@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { useMemo, useState } from "react";
 import type { VectorFieldObject } from "@vinculum/scene/types";
 import { Input } from "@/components/ui/input";
@@ -219,14 +221,14 @@ function ValuesBody({
 
   return (
     <div className="mt-2 flex flex-col gap-2.5" role="status" aria-label="Vector calculus results">
-      <div className="space-y-1 font-mono text-[12px] text-[var(--text-secondary)]">
-        <p>Field value = {finiteField ? `<${finiteField.map(formatNumber).join(", ")}>` : "unavailable"}</p>
-        <p>Magnitude = {magnitude === null ? "unavailable" : formatNumber(magnitude)}</p>
-        <p data-testid="field-point-direction">Unit direction = {direction ? `<${direction.map(formatNumber).join(", ")}>` : magnitude === 0 ? "undefined (zero field)" : "unavailable"}</p>
-        {is2D && direction ? <p>Angle = {formatNumber(Math.atan2(direction[1]!, direction[0]!))} rad</p> : null}
-        <p data-testid="field-point-laplacian">Vector Laplacian = &lt;{laplacian.map((value) => value === null ? "unavailable" : formatNumber(value)).join(", ")}&gt;</p>
+      <div className="space-y-1 text-[12px] text-[var(--text-secondary)]">
+        <p>Field value = {finiteField ? <MathExpression expression={`<${finiteField.map(formatNumber).join(", ")}>`} /> : "unavailable"}</p>
+        <p>Magnitude = {magnitude === null ? "unavailable" : <MathExpression expression={formatNumber(magnitude)} />}</p>
+        <p data-testid="field-point-direction">Unit direction = {direction ? <MathExpression expression={`<${direction.map(formatNumber).join(", ")}>`} /> : magnitude === 0 ? "undefined (zero field)" : "unavailable"}</p>
+        {is2D && direction ? <p>Angle = <MathExpression expression={formatNumber(Math.atan2(direction[1]!, direction[0]!))} /> rad</p> : null}
+        <p data-testid="field-point-laplacian">Vector Laplacian = <MathExpression expression={`<${laplacian.map((value) => value === null ? "unavailable" : formatNumber(value)).join(", ")}>`} /></p>
       </div>
-      <table data-testid="vector-calculus-jacobian" className="w-full border-collapse font-mono text-[12px]">
+      <table data-testid="vector-calculus-jacobian" className="w-full border-collapse text-[12px]">
         <caption className="pb-1 text-left text-[11px] font-medium text-[var(--text-tertiary)]">
           Jacobian
         </caption>
@@ -237,7 +239,7 @@ function ValuesBody({
             </th>
             {colLabels.map((label) => (
               <th key={label} scope="col" className="px-1 py-0.5 text-center font-semibold text-[var(--text-tertiary)]">
-                ∂/∂{label}
+                <MathExpression expression={`∂/∂${label}`} latex={`\\frac{\\partial}{\\partial ${label}}`} />
               </th>
             ))}
           </tr>
@@ -246,13 +248,13 @@ function ValuesBody({
           {rowLabels.map((row, i) => (
             <tr key={row}>
               <th scope="row" className="px-1 py-0.5 text-left font-semibold text-[var(--text-tertiary)]">
-                {row}
+                <MathExpression expression={row} />
               </th>
               {colLabels.map((_, j) => {
                 const value = jacobian.values[i]?.[j];
                 return (
                   <td key={j} className="px-1 py-0.5 text-right text-[var(--text-secondary)]">
-                    {typeof value === "number" ? formatNumber(value) : <span className="italic">unavailable</span>}
+                    {typeof value === "number" ? <MathExpression expression={formatNumber(value)} /> : <span className="italic">unavailable</span>}
                   </td>
                 );
               })}
@@ -260,8 +262,8 @@ function ValuesBody({
           ))}
         </tbody>
       </table>
-      <p data-testid="vector-calculus-divergence" className="font-mono text-[12px] text-[var(--text-secondary)]">
-        Divergence = {divergence === null ? <span className="italic">unavailable</span> : formatNumber(divergence)}
+      <p data-testid="vector-calculus-divergence" className="text-[12px] text-[var(--text-secondary)]">
+        Divergence = {divergence === null ? <span className="italic">unavailable</span> : <MathExpression expression={formatNumber(divergence)} />}
         {divergence === null && missingDiagonal.length > 0 && (
           <span className="ml-1 font-sans text-[11px] text-[var(--text-tertiary)]">
             (needs {missingDiagonal.join(", ")})
@@ -269,16 +271,16 @@ function ValuesBody({
         )}
       </p>
       {is2D ? (
-        <p data-testid="vector-calculus-curl" className="font-mono text-[12px] text-[var(--text-secondary)]">
-          Scalar curl = {curlScalar === null ? <span className="italic">unavailable</span> : formatNumber(curlScalar)}
+        <p data-testid="vector-calculus-curl" className="text-[12px] text-[var(--text-secondary)]">
+          Scalar curl = {curlScalar === null ? <span className="italic">unavailable</span> : <MathExpression expression={formatNumber(curlScalar)} />}
         </p>
       ) : (
-        <p data-testid="vector-calculus-curl" className="font-mono text-[12px] text-[var(--text-secondary)]">
+        <p data-testid="vector-calculus-curl" className="text-[12px] text-[var(--text-secondary)]">
           Curl ={" "}
           {curl3D === null || curl3D.x === null || curl3D.y === null || curl3D.z === null ? (
             <span className="italic">unavailable</span>
           ) : (
-            `<${formatNumber(curl3D.x)}, ${formatNumber(curl3D.y)}, ${formatNumber(curl3D.z)}>`
+            <MathExpression expression={`<${formatNumber(curl3D.x)}, ${formatNumber(curl3D.y)}, ${formatNumber(curl3D.z)}>`} />
           )}
         </p>
       )}

@@ -25,3 +25,6 @@ coverage/
 .idea/
 .env.local
 .claude/
+
+# Generated from the installed math editor dependency
+apps/graph/public/mathlive/

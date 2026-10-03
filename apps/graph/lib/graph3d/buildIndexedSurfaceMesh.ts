@@ -2,13 +2,12 @@ import {
   BufferGeometry,
   DoubleSide,
   Group,
-  LineBasicMaterial,
-  LineSegments,
   Mesh,
   MeshStandardMaterial,
   Sphere,
   Vector3
 } from "three";
+import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
 import { computeIndexedBoundingSphereData } from "@/lib/math/indexedBounds";
 import { repairZeroVertexNormals } from "@/lib/math/sampleParametricSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
@@ -29,12 +28,14 @@ interface IndexedSurfaceMeshInput {
    * never need this; parametric surfaces do.
    */
   repairZeroNormals?: boolean;
+  /** Implicit extraction repeats vertices at cell boundaries; weld before shading. */
+  smoothNormals?: boolean;
 }
 
 /**
  * Shared indexed-surface mesh construction for explicit and parametric
  * surfaces: BufferGeometry + normals + INDEXED bounds + standard material +
- * edge overlay + disposal-safe group. Returns null when there is nothing
+ * smooth shading + disposal-safe group. Returns null when there is nothing
  * renderable (empty index, missing bounds, or zero-radius degenerate sheet).
  */
 export function buildIndexedSurfaceMeshGroup(input: IndexedSurfaceMeshInput): Group | null {
@@ -42,14 +43,19 @@ export function buildIndexedSurfaceMeshGroup(input: IndexedSurfaceMeshInput): Gr
     return null;
   }
 
-  const geometry = new BufferGeometry();
+  let geometry = new BufferGeometry();
   updateFloat32Attribute(geometry, "position", input.positions, 3);
   updateIndexAttribute(geometry, input.indices);
+  if (input.smoothNormals) {
+    const original = geometry;
+    geometry = mergeVertices(original, 1e-5);
+    original.dispose();
+  }
   geometry.computeVertexNormals();
   if (input.repairZeroNormals) {
     const normalAttribute = geometry.getAttribute("normal");
     if (normalAttribute) {
-      repairZeroVertexNormals(normalAttribute.array as Float32Array, input.indices);
+      repairZeroVertexNormals(normalAttribute.array as Float32Array, geometry.getIndex()!.array as Uint16Array | Uint32Array);
       normalAttribute.needsUpdate = true;
     }
   }
@@ -86,17 +92,6 @@ export function buildIndexedSurfaceMeshGroup(input: IndexedSurfaceMeshInput): Gr
   mesh.receiveShadow = true;
   group.add(mesh);
 
-  if (!input.wireframe) {
-    const edgeMaterial = new LineBasicMaterial({
-      color: input.theme === "dark" ? "#f8fafc" : "#0f172a",
-      transparent: true,
-      opacity: input.theme === "dark" ? 0.1 : 0.12,
-      depthWrite: false
-    });
-    const edges = new LineSegments(geometry, edgeMaterial);
-    edges.renderOrder = 5;
-    group.add(edges);
-  }
 
   return group;
 }

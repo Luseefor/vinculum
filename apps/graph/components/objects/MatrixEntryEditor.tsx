@@ -7,6 +7,8 @@
 
 "use client";
 
+import { MathInput } from "@/components/math/MathInput";
+
 import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type Ref } from "react";
 import type { LinearTransformObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
@@ -89,7 +91,7 @@ export default function MatrixEntryEditor({
             key={field}
             className="flex min-w-0 items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
           >
-          <input
+          <MathInput
             ref={index === 0 ? firstCellRef : undefined}
             type="text"
             value={drafts[field] ?? ""}
@@ -111,7 +113,7 @@ export default function MatrixEntryEditor({
             spellCheck={false}
             autoComplete="off"
             inputMode="text"
-            className="w-full min-w-0 bg-transparent font-mono text-[12px] text-[var(--accent-ink)] outline-none"
+            className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[12px] text-[var(--accent-ink)] outline-none"
           />
         </div>
       ))}

@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -6,17 +8,17 @@ import { expect, test, type Page } from "@playwright/test";
 // views, split/quad, camera extent, visibility/color, persistence,
 // undo/redo, workspace coherence, narrow sheets, security/a11y.
 // Zero unexpected console/page errors.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -26,7 +28,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -77,15 +79,15 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Vector #1" })).toBeVisible();
-    await page.getByLabel("Vector origin x").first().fill("1");
-    await page.getByLabel("Vector origin y").first().fill("2");
-    await page.getByLabel("Vector origin z").first().fill("3");
-    await page.getByLabel("Vector component x").first().fill("4");
-    await page.getByLabel("Vector component y").first().fill("5");
-    await page.getByLabel("Vector component z").first().fill("6");
+    await fillInput(page.getByLabel("Vector origin x").first(), "1");
+    await fillInput(page.getByLabel("Vector origin y").first(), "2");
+    await fillInput(page.getByLabel("Vector origin z").first(), "3");
+    await fillInput(page.getByLabel("Vector component x").first(), "4");
+    await fillInput(page.getByLabel("Vector component y").first(), "5");
+    await fillInput(page.getByLabel("Vector component z").first(), "6");
     await expect(graph3dCanvas(page)).toBeVisible();
     await expect(page.getByText(/Magnitude/).first()).toBeVisible();
 
@@ -97,11 +99,11 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector component x").first().fill("0");
-    await page.getByLabel("Vector component y").first().fill("0");
-    await page.getByLabel("Vector component z").first().fill("0");
+    await fillInput(page.getByLabel("Vector component x").first(), "0");
+    await fillInput(page.getByLabel("Vector component y").first(), "0");
+    await fillInput(page.getByLabel("Vector component z").first(), "0");
     await expect(page.getByText("Zero vector.").first()).toBeVisible();
     await expect(graph3dCanvas(page)).toBeVisible();
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
@@ -114,11 +116,11 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Infinite Line");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Infinite Line #1" })).toBeVisible();
-    await page.getByLabel("Line point x").first().fill("-1");
-    await page.getByLabel("Line direction x").first().fill("3");
+    await fillInput(page.getByLabel("Line point x").first(), "-1");
+    await fillInput(page.getByLabel("Line direction x").first(), "3");
     await expect(graph3dCanvas(page)).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -130,7 +132,7 @@ test.describe("S26 geometry primitives", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
+    await addObject(page, "Ray");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Ray #1" })).toBeVisible();
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -143,7 +145,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Segment #1" })).toBeVisible();
     await expect(page.getByText(/Length/).first()).toBeVisible();
@@ -156,11 +158,11 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Segment end x").first().fill("-2");
-    await page.getByLabel("Segment end y").first().fill("-1");
-    await page.getByLabel("Segment end z").first().fill("0");
+    await fillInput(page.getByLabel("Segment end x").first(), "-2");
+    await fillInput(page.getByLabel("Segment end y").first(), "-1");
+    await fillInput(page.getByLabel("Segment end z").first(), "0");
     await expect(page.getByText(/Coincident endpoints/).first()).toBeVisible();
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
 
@@ -172,48 +174,32 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Infinite Line");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Line direction x").first().fill("0");
-    await page.getByLabel("Line direction y").first().fill("0");
-    await page.getByLabel("Line direction z").first().fill("0");
+    await fillInput(page.getByLabel("Line direction x").first(), "0");
+    await fillInput(page.getByLabel("Line direction y").first(), "0");
+    await fillInput(page.getByLabel("Line direction z").first(), "0");
     await expect(page.getByText("Line direction must be nonzero.").first()).toBeVisible();
     await expect(graph3dCanvas(page)).toBeVisible();
-    await page.getByLabel("Line direction x").first().fill("1");
+    await fillInput(page.getByLabel("Line direction x").first(), "1");
     await expect(page.getByText("Line direction must be nonzero.")).toHaveCount(0);
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
 
-  test("H: parameter-backed vector updates live", async ({ page }) => {
+  test("H: formula edits update vector magnitude live", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector component x").first().fill("r");
-    await page.getByLabel("Vector component y").first().fill("0");
-    await page.getByLabel("Vector component z").first().fill("0");
-    // Default r=2.5: magnitude reads 2.5; driving the real PARAMETERS
-    // slider to 4 updates the readout live (no rebuild ceremony).
+    await fillInput(page.getByLabel("Vector component x").first(), "r");
+    await fillInput(page.getByLabel("Vector component y").first(), "0");
+    await fillInput(page.getByLabel("Vector component z").first(), "0");
     await expect(page.getByText("Magnitude 2.5.").first()).toBeVisible({ timeout: 10000 });
-    await page.getByRole("button", { name: "PARAMETERS" }).click();
-    const slider = page.getByLabel("Parameter r");
-    await expect(slider).toBeVisible();
-    await slider.evaluate((element, value) => {
-      const input = element as HTMLInputElement;
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(input, String(value));
-      } else {
-        input.value = String(value);
-      }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, "4");
+    await fillInput(page.getByLabel("Vector component x").first(), "4");
     await expect(page.getByText("Magnitude 4.").first()).toBeVisible({ timeout: 10000 });
 
     expect(pageErrors).toEqual([]);
@@ -224,19 +210,19 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector origin x").first().fill("0");
-    await page.getByLabel("Vector origin y").first().fill("0");
-    await page.getByLabel("Vector origin z").first().fill("0");
-    await page.getByLabel("Vector component x").first().fill("5");
-    await page.getByLabel("Vector component y").first().fill("0");
-    await page.getByLabel("Vector component z").first().fill("0");
+    await fillInput(page.getByLabel("Vector origin x").first(), "0");
+    await fillInput(page.getByLabel("Vector origin y").first(), "0");
+    await fillInput(page.getByLabel("Vector origin z").first(), "0");
+    await fillInput(page.getByLabel("Vector component x").first(), "5");
+    await fillInput(page.getByLabel("Vector component y").first(), "0");
+    await fillInput(page.getByLabel("Vector component z").first(), "0");
     // Select a different target first (add a curve), then sweep
     // clean clicks along the arrow's screen span: the first click on the
     // fat invisible proxy selects the vector (misses change nothing).
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await expect(page.getByRole("button", { name: "Selected Parametric Curve #2" })).toBeVisible();
     const canvas = graph3dCanvas(page);
@@ -273,9 +259,9 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Vector");
+    await addObject(page, "Infinite Line");
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("3");
     for (const view of ["XY", "XZ", "YZ"] as const) {
       await setGeometryView(page, view);
@@ -292,9 +278,9 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
+    await addObject(page, "Ray");
     await setGeometryLayout(page, "Split");
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -312,7 +298,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Infinite Line");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -332,14 +318,14 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Hide object" }).first().click();
     await settleScene(page);
     await expect(graph3dCanvas(page)).toBeVisible();
     await page.getByRole("button", { name: "Show object" }).first().click();
-    await page.getByRole("tab", { name: "Styles" }).click();
-    await page.locator('input[type="color"]').first().fill("#ff0000");
+    await page.getByRole("tab", { name: "Settings" }).click();
+    await fillInput(page.locator('input[type="color"]').first(), "#ff0000");
     await settleScene(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
@@ -351,12 +337,12 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector component x").first().fill("2*pi");
+    await fillInput(page.getByLabel("Vector component x").first(), "2*pi");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s26-primitives");
+    await fillInput(page.locator("#project-name-input"), "s26-primitives");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -371,7 +357,7 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
@@ -388,7 +374,7 @@ test.describe("S26 geometry primitives", () => {
     await startClean(page);
     await toMathLab(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
+    await addObject(page, "Ray");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await toGeometry(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
@@ -406,7 +392,7 @@ test.describe("S26 geometry primitives", () => {
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -421,9 +407,9 @@ test.describe("S26 geometry primitives", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector component x").first().fill("sin(factorial(a))");
+    await fillInput(page.getByLabel("Vector component x").first(), "sin(factorial(a))");
     await expect(page.getByRole("alert").first()).toBeVisible({ timeout: 10000 });
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

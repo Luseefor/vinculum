@@ -8,6 +8,7 @@ import { pickGeometryPrimitiveAtPointer, pickHitsAnyVisibleObject } from "./grap
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStroke";
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
+import { mathToWorld3D } from "@/lib/math/coordinates";
 
 function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: number; clientY: number }) {
   const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;
@@ -19,7 +20,8 @@ function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: nu
     objectsRoot: deps.objectsRoot,
     baselinePlane: deps.baselinePlane,
     tempGround: deps.tempGround,
-    pickOverride
+    pickOverride,
+    baselineOnly: useGraphStore.getState().ui.canvas3dTool === "draw"
   });
 }
 
@@ -35,7 +37,17 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
   };
 
   const handlePointerMove = (event: PointerEvent) => {
-    const tool = useGraphStore.getState().ui.canvas3dTool;
+    const state = useGraphStore.getState();
+    const armedId = state.ui.differentialAnalysisPickArmedId;
+    if (armedId) {
+      const point = getAnalysisPickPreview(deps, armedId, event);
+      mutable.hoverProbePoint = point ? mathToWorld3D(point) : null;
+      const rect = renderer.domElement.getBoundingClientRect();
+      deps.setHoverProbeBadge(point ? `Pick ${deps.formatProbe(point)}` : "Move onto the selected surface",
+        event.clientX - rect.left, event.clientY - rect.top);
+      return;
+    }
+    const tool = state.ui.canvas3dTool;
     if (tool === "probe" || tool === "addPin" || tool === "measureDistance" || tool === "measureAngle") {
       const point = pickWorld(deps, event);
       const snappedPoint = point ? deps.maybeSnapPoint(point) : null;
@@ -58,7 +70,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
       if (!point) {
         return;
       }
-      const snapped = deps.maybeSnapPoint(point);
+      const snapped = { ...point };
       constrainSketchPointToBaselinePlane(snapped, tickRuntime.baselinePlaneMode);
       appendSketchPoint(snapped);
     }
@@ -92,7 +104,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
       const point = pickWorld(deps, event);
       clearSketch();
       if (point) {
-        const snapped = deps.maybeSnapPoint(point);
+        const snapped = { ...point };
         constrainSketchPointToBaselinePlane(snapped, tickRuntime.baselinePlaneMode);
         appendSketchPoint(snapped);
       }
@@ -213,8 +225,21 @@ export function attemptAnalysisPick(
   if (getComputeStatusForObject(sourceId) !== "idle") {
     return;
   }
+  const point = getAnalysisPickPreview(deps, sourceId, event);
+  if (!point) {
+    return;
+  }
+  state.setDifferentialAnalysisPoint(sourceId, point, structure);
+  deps.mutable && (deps.mutable.hoverProbePoint = null);
+  deps.setHoverProbeBadge?.(null, 0, 0);
+}
+
+export function getAnalysisPickPreview(deps: GraphThreeEngineInputHandlersDeps, sourceId: string,
+  event: { clientX: number; clientY: number }): { x: number; y: number; z: number } | null {
+  const source = useGraphStore.getState().scene.objects.find(object => object.id === sourceId);
+  if (!source || analysisSourceIdentity(source) === null || !source.visible || getComputeStatusForObject(sourceId) !== "idle") return null;
   const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;
-  const point = pickAnalysisSourcePoint(
+  return pickAnalysisSourcePoint(
     event,
     {
       renderer: deps.renderer,
@@ -228,8 +253,4 @@ export function attemptAnalysisPick(
     },
     sourceId
   );
-  if (!point) {
-    return;
-  }
-  state.setDifferentialAnalysisPoint(sourceId, point, structure);
 }

@@ -49,7 +49,7 @@ export function pickAnalysisSourcePoint(
   args.objectsRoot.traverse((child) => {
     // S26: invisible primitive pick proxies are selection helpers, never
     // analysis sources or occluders.
-    if (child instanceof Mesh && (child.userData as { pickProxy?: unknown }).pickProxy !== true) {
+    if (child instanceof Mesh && (child.userData as { pickProxy?: unknown }).pickProxy !== true && !child.userData.wideStroke) {
       meshes.push(child);
     }
   });

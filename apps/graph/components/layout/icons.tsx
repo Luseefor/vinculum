@@ -34,32 +34,6 @@ export function SunIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function SplitViewIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <SvgIcon {...props}>
-      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
-      <path d="M8 3v10" />
-    </SvgIcon>
-  );
-}
-
-export function SingleViewIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <SvgIcon {...props}>
-      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
-    </SvgIcon>
-  );
-}
-
-export function QuadViewIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <SvgIcon {...props}>
-      <rect x="2.5" y="2.5" width="11" height="11" rx="1.5" />
-      <path d="M8 2.5v11M2.5 8h11" />
-    </SvgIcon>
-  );
-}
-
 export function MoreHorizontalIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" {...props}>

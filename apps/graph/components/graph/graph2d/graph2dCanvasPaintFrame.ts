@@ -68,12 +68,16 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     return;
   }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const rect = container.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
+  const pixelWidth = Math.floor(rect.width * dpr);
+  const pixelHeight = Math.floor(rect.height * dpr);
+  // Resizing clears the backing buffer and resets context state. Hover and
+  // viewport redraws should reuse it unless its actual dimensions changed.
+  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+  if (canvas.style.width !== `${rect.width}px`) canvas.style.width = `${rect.width}px`;
+  if (canvas.style.height !== `${rect.height}px`) canvas.style.height = `${rect.height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const dc: DrawContext = {
@@ -96,18 +100,6 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     axis: palette.axis,
     axisLabel: palette.axisLabel
   });
-  const vignette = ctx.createRadialGradient(
-    dc.width / 2,
-    dc.height / 2,
-    Math.min(dc.width, dc.height) * 0.25,
-    dc.width / 2,
-    dc.height / 2,
-    Math.max(dc.width, dc.height) * 0.72
-  );
-  vignette.addColorStop(0, "rgba(2, 6, 23, 0)");
-  vignette.addColorStop(1, "rgba(2, 6, 23, 0.3)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, dc.width, dc.height);
 
   for (const graph of renderableGraphs) {
     drawRenderableGraph2d(graph, dc, graph2dMathToScreen);

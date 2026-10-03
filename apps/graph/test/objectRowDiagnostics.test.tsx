@@ -33,6 +33,8 @@ describe("ObjectRow workspace behavior", () => {
     expect(selectButton).toHaveFocus();
     fireEvent.click(selectButton);
     expect(onSelect).toHaveBeenCalledWith(object.id);
+    expect(screen.getByRole("textbox", { name: "Equation" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Equation" })).toHaveFocus();
   });
 
   it("shows the equation snippet with full text available", () => {
@@ -41,7 +43,8 @@ describe("ObjectRow workspace behavior", () => {
       <ObjectRow object={object} index={0} selected={true} onSelect={vi.fn()} onToggleVisibility={vi.fn()} />
     );
     expect(screen.getByRole("button", { name: "Selected Surface #1" })).toBeInTheDocument();
-    expect(screen.getByText("z = x^2 + y^2")).toHaveAttribute("title", "z = x^2 + y^2");
+    expect(screen.getByRole("math", { name: "z = x^2 + y^2" })).toBeInTheDocument();
+    expect(screen.getByRole("math", { name: "z = x^2 + y^2" }).parentElement).toHaveAttribute("title", "z = x^2 + y^2");
   });
 
   it("displays inline diagnostics for invalid equations and clears them when fixed", () => {
@@ -111,4 +114,29 @@ describe("ObjectRow drag-transaction safety (S33-R7)", () => {
       useGraphStore.getState().scene.objects.find((candidate) => candidate.id === object.id)
     ).toBeUndefined();
   });
+});
+
+it("keeps populated object actions focused on removal instead of resetting its definition", () => {
+  const object = addSurface("sin(x)*cos(y)");
+  render(<ObjectRow object={object} index={0} selected onSelect={vi.fn()} onToggleVisibility={vi.fn()} />);
+  const trigger = screen.getByRole("button", { name: "Object actions" });
+  fireEvent.click(trigger);
+  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Remove"]);
+  expect(screen.getByRole("menuitem", { name: "Remove" })).toHaveFocus();
+  fireEvent.keyDown(screen.getByRole("menuitem", { name: "Remove" }), { key: "Escape" });
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(trigger).toHaveFocus();
+  expect(useGraphStore.getState().scene.objects[0]).toMatchObject({ equation: "sin(x)*cos(y)" });
+});
+
+it("retains the transformation dimension action because it preserves entries", () => {
+  const state = useGraphStore.getState();
+  state.resetScene();
+  const id = state.addLinearTransformObject("2d");
+  const object = useGraphStore.getState().scene.objects.find((entry) => entry.id === id)!;
+  render(<ObjectRow object={object} index={0} selected onSelect={vi.fn()} onToggleVisibility={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Object actions" }));
+  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["3D Linear Transformation", "Remove"]);
+  fireEvent.click(screen.getByRole("menuitem", { name: "3D Linear Transformation" }));
+  expect(useGraphStore.getState().scene.objects[0]).toMatchObject({ kind: "linearTransform", dimension: "3d" });
 });

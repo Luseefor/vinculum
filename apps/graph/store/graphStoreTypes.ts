@@ -94,6 +94,7 @@ export interface GraphStoreState {
   addRayObject: () => string;
   addSegmentObject: () => string;
   addEmptyObject: () => string;
+  commitAutoEquation: (equation: string, id?: string) => { id: string | null; error: string | null; parameterId?: string; dimension?: "2d" | "3d" };
   insertObjectAfter: (
     id: string,
     kind: GraphObjectKind,
@@ -104,6 +105,7 @@ export interface GraphStoreState {
     kind: GraphObjectKind,
     dimension?: VectorFieldDimension | LinearTransformDimension
   ) => void;
+  setCurveExtension3D: (id: string, enabled: boolean) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
   updateSurfaceOrientation: (id: string, orientation: SurfaceOrientation) => void;
   updateParametricExpression: (
@@ -174,6 +176,7 @@ export interface GraphStoreState {
   setLinearTransformAnalysis: (transformId: string, patch: Partial<LinearTransformAnalysisConfig>) => void;
   clearLinearTransformAnalysis: (transformId?: string) => void;
   updateObjectColor: (id: string, color: string) => void;
+  setSurfaceAutoDomain: (id: string, enabled: boolean) => void;
   updateSurfaceDomain: (id: string, partialDomain: Partial<SurfaceDomain>) => void;
   updateSurfaceResolution: (id: string, resolution: number) => void;
   toggleSurfaceWireframe: (id: string) => void;

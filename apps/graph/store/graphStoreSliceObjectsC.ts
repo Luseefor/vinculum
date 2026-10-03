@@ -11,7 +11,7 @@ import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildObjectsSliceC(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "updateObjectColor" | "updateSurfaceDomain" | "updateSurfaceResolution" | "toggleSurfaceWireframe"
+  "setSurfaceAutoDomain" | "updateObjectColor" | "updateSurfaceDomain" | "updateSurfaceResolution" | "toggleSurfaceWireframe"
 > {
   return {
     updateObjectColor: (id, color) => {
@@ -45,8 +45,16 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
       });
     },
 
+    setSurfaceAutoDomain: (id, enabled) => {
+      set((state) => {
+        const object = findObjectById(state.scene.objects, id);
+        if (!object || object.kind !== "surface" || object.autoDomain === enabled) return state;
+        return { scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: { ...object, autoDomain: enabled } } }) };
+      });
+    },
     updateSurfaceDomain: (id, partialDomain) => {
       const sanitizedDomain = sanitizePartialDomain(partialDomain);
+      if (!Object.keys(sanitizedDomain).length) return;
       // S23: domain commits move the scalar grid (config pruned here).
       // S25: integral results drop (config kept for auto-recompute; this
       // is canonical domain, not tessellation, so PART 39 keeps it live).
@@ -63,6 +71,7 @@ export function buildObjectsSliceC(set: GraphStoreSet): Pick<
           payload: {
             object: {
               ...object,
+              autoDomain: false,
               domain: {
                 ...object.domain,
                 ...sanitizedDomain

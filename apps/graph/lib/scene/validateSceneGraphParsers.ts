@@ -1,3 +1,4 @@
+import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
 import type { GraphObject, ImplicitSurfaceObject, LinearTransformObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
@@ -34,9 +35,26 @@ import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
 import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
-import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getEquationParameterNames, getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
+  const parsed = parseGraphObjectDefinition(rawObject, objectIndex, errors);
+  if (!parsed || !isRecord(rawObject) || rawObject.autoExpression === undefined) return parsed;
+  if (typeof rawObject.autoExpression !== "boolean" || !("equation" in parsed) || parsed.kind === "plane") {
+    errors.push(`objects[${objectIndex}].autoExpression must be a boolean on an equation graph.`);
+    return null;
+  }
+  if (rawObject.autoExpression && parsed.equation.trim()) {
+    const inferred = inferGraphEquation(parsed.equation, getEditorParameterScope());
+    if (!inferred.ok || inferred.kind !== parsed.kind || (parsed.kind === "surface" && inferred.orientation !== (parsed.orientation ?? "z"))) {
+      errors.push(`objects[${objectIndex}] does not match its automatically detected equation type.`);
+      return null;
+    }
+  }
+  return { ...parsed, autoExpression: rawObject.autoExpression };
+}
+
+function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
   if (!isRecord(rawObject)) {
     errors.push(`objects[${objectIndex}] must be an object.`);
     return null;
@@ -49,6 +67,23 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
 
   if (!id || !kind || !color || visible === null) {
     return null;
+  }
+
+  if (kind === "implicitCurve") {
+    const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
+    if (equation === null) return null;
+    if (equation.trim()) {
+      const inferred = inferGraphEquation(equation, getEditorParameterScope());
+      if (!inferred.ok || inferred.dimension !== "2d") {
+        errors.push(`objects[${objectIndex}].equation: ${inferred.ok ? "Use a 2D equation in x and y." : inferred.error}`);
+        return null;
+      }
+    }
+    if (rawObject.extendTo3D !== undefined && typeof rawObject.extendTo3D !== "boolean") {
+      errors.push(`objects[${objectIndex}].extendTo3D must be a boolean.`);
+      return null;
+    }
+    return { id, kind, color, visible, equation, ...(rawObject.extendTo3D !== undefined ? { extendTo3D: rawObject.extendTo3D as boolean } : {}) };
   }
 
   if (kind === "surface") {
@@ -94,6 +129,8 @@ function parseSurfaceGraphObject(
   visible: boolean,
   errors: string[]
 ): SurfaceGraphObject | null {
+  const autoDomain = rawObject.autoDomain === undefined ? undefined : parseBoolean(rawObject.autoDomain, `objects[${objectIndex}].autoDomain`, errors);
+  if (autoDomain === null) return null;
   const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
   const orientation = parseSurfaceOrientation(rawObject.orientation, `objects[${objectIndex}].orientation`, errors);
 
@@ -178,6 +215,7 @@ function parseSurfaceGraphObject(
   return {
     id,
     kind: "surface",
+    ...(autoDomain === undefined ? {} : { autoDomain }),
     equation,
     visible,
     color,
@@ -415,7 +453,8 @@ function parseImplicitSurfaceObject(
     return null;
   }
   if (equation.trim()) {
-    const fieldCompiled = compileImplicitSurfaceExpression(equation, getEditorParameterScope());
+    const params = rawObject.autoExpression === true ? { ...Object.fromEntries(getEquationParameterNames(equation).map(name => [name, 1])), ...getEditorParameterScope() } : getEditorParameterScope();
+    const fieldCompiled = compileImplicitSurfaceExpression(equation, params);
     if (fieldCompiled.error) {
       errors.push(`objects[${objectIndex}].equation: ${fieldCompiled.error}`);
       return null;

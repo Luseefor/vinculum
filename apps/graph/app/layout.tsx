@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { type ReactNode, Suspense } from "react";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import PostHogPageView from "@/components/analytics/PostHogPageView";
 

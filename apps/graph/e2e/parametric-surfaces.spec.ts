@@ -1,16 +1,16 @@
+import { expectInputValue, fillInput } from "./helpers/mathInput";
 import { expect, test, type Page } from "@playwright/test";
 
 // S17 parametric surfaces x(u,v), y(u,v), z(u,v): creation, synchronized
 // views, probes, singular domains, recovery, style, persistence, workspaces.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -26,7 +26,7 @@ async function addPreset(page: Page, name: string) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -142,9 +142,10 @@ test.describe("S17 parametric surfaces", () => {
       await setGeometryView(page, view);
       await page.waitForTimeout(600);
       await expect(canvas).toBeVisible();
-      await expect(page.getByLabel("Geometry view")).toHaveValue(view.toLowerCase());
+      await expectInputValue(page.getByLabel("Geometry view"), view.toLowerCase());
       await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     }
+    await setGeometryView(page, "XY");
     await setGeometryLayout(page, "Split");
     await page.waitForTimeout(600);
     await expect(page.getByRole("button", { name: "Perspective viewport" })).toBeVisible();
@@ -170,8 +171,8 @@ test.describe("S17 parametric surfaces", () => {
     // Asymmetric map x = u, y = 2v, z = 3u + v over the default ±5 domain.
     // Geometry Studio auto-expands the new row; its definition inputs carry
     // the Parametric * labels (the expression list is a Math Lab surface).
-    await page.getByLabel("Parametric y(u,v) =", { exact: true }).fill("2 * v");
-    await page.getByLabel("Parametric z(u,v) =", { exact: true }).fill("3 * u + v");
+    await fillInput(page.getByLabel("Parametric y(u,v) =", { exact: true }), "2 * v");
+    await fillInput(page.getByLabel("Parametric z(u,v) =", { exact: true }), "3 * u + v");
     await page.waitForTimeout(1000);
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
@@ -252,7 +253,7 @@ test.describe("S17 parametric surfaces", () => {
     await showMoreAdd(page);
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Parametric x(u,v) =", { exact: true }).fill("1 / u");
+    await fillInput(page.getByLabel("Parametric x(u,v) =", { exact: true }), "1 / u");
     await page.waitForTimeout(1000);
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
@@ -263,11 +264,11 @@ test.describe("S17 parametric surfaces", () => {
     expect(validSide).not.toBeNull();
 
     // All-invalid: no mesh, object stays editable, no crash.
-    await page.getByLabel("Parametric x(u,v) =", { exact: true }).fill("1 / 0");
+    await fillInput(page.getByLabel("Parametric x(u,v) =", { exact: true }), "1 / 0");
     await page.waitForTimeout(1000);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Recovery: valid expression restores the probeable mesh.
-    await page.getByLabel("Parametric x(u,v) =", { exact: true }).fill("u");
+    await fillInput(page.getByLabel("Parametric x(u,v) =", { exact: true }), "u");
     await page.waitForTimeout(1000);
     await settleCompute(page);
     const recovered = await probeWorld(page, canvas, 0.5, 0.5);
@@ -290,7 +291,7 @@ test.describe("S17 parametric surfaces", () => {
     await page.waitForTimeout(500);
     await expect(canvas).toBeVisible();
     // Wireframe via the Styles tab.
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await page.getByRole("switch", { name: /wireframe/i }).click();
     await page.waitForTimeout(500);
     await expect(canvas).toBeVisible();
@@ -309,7 +310,7 @@ test.describe("S17 parametric surfaces", () => {
     await addParametricSphere(page);
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s17-psphere");
+    await fillInput(page.locator("#project-name-input"), "s17-psphere");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -342,7 +343,7 @@ test.describe("S17 parametric surfaces", () => {
     await startClean(page);
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-    await page.getByLabel("Command search").fill("parametric surface");
+    await fillInput(page.getByLabel("Command search"), "parametric surface");
     await page.getByRole("option", { name: "Add Parametric Surface" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
@@ -360,7 +361,7 @@ test.describe("S17 parametric surfaces", () => {
     await page.getByRole("button", { name: "Parametric Surface", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // The new row auto-expands; the ObjectRow input commits immediately.
-    await page.getByLabel("Parametric z(u,v) =", { exact: true }).first().fill("u * v");
+    await fillInput(page.getByLabel("Parametric z(u,v) =", { exact: true }).first(), "u * v");
     await page.waitForTimeout(800);
     // Geometry Studio is 3D-first at any width (the Math Lab view-type
     // group collapses at 430px). Close the objects drawer first: at this

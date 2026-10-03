@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import type { Axis2DPair, GraphProbePin } from "@/types/graphUi";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
@@ -42,7 +44,7 @@ export function Graph2DCanvasUiProbePinsSummary({
       ) : null}
       {nonPinMeasurements.slice(-3).reverse().map((measurement) => (
         <div key={measurement.id} className="mt-0.5 whitespace-nowrap">
-          {measurement.kind === "distance" ? "Distance" : "Angle"}: {formatMeasurementValue(measurement)}
+          {measurement.kind === "distance" ? "Distance" : "Angle"}: <MathExpression expression={formatMeasurementValue(measurement)} />
         </div>
       ))}
       {probePins.slice(-3).reverse().map((p) => {
@@ -51,8 +53,8 @@ export function Graph2DCanvasUiProbePinsSummary({
           <div key={p.id} className="mt-0.5 first:mt-0 truncate">
             <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: p.color }} />
             <span className="truncate">
-              Pin {axisPair.horizontalLabel}: {formatProbeCoord(math.horizontal)} · {axisPair.verticalLabel}:{" "}
-              {formatProbeCoord(math.vertical)}
+              Pin {axisPair.horizontalLabel}: <MathExpression expression={formatProbeCoord(math.horizontal)} /> · {axisPair.verticalLabel}:{" "}
+              <MathExpression expression={formatProbeCoord(math.vertical)} />
             </span>
           </div>
         );

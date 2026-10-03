@@ -1,15 +1,14 @@
 import type { GraphObject, VectorFieldObject } from "@vinculum/scene/types";
 
-// S20 PART 30: collapsed rows show `F(x,y)=<x, y>` truncated to 30 chars;
-// the full definition belongs in a tooltip/expanded editor.
+// Keep source expressions intact for typesetting; the row layout handles visual clipping.
 function formatPrimitiveSnippet(snippet: string): string {
   const compact = snippet.replace(/\s+/g, "");
-  return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+  return compact;
 }
 
 function formatMathSnippet(snippet: string): string {
   const compact = snippet.replace(/\s+/g, " ").trim();
-  return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+  return compact;
 }
 
 function formatVectorFieldSnippet(object: VectorFieldObject): string {
@@ -17,11 +16,11 @@ function formatVectorFieldSnippet(object: VectorFieldObject): string {
   const components =
     object.dimension === "2d" ? [object.pExpr, object.qExpr] : [object.pExpr, object.qExpr, object.rExpr];
   const snippet = `F(${coords})=<${components.map((component) => component.trim()).join(", ")}>`;
-  return snippet.length > 30 ? `${snippet.slice(0, 29)}…` : snippet;
+  return snippet;
 }
 
 export function isExpressionRowEmpty(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
+  if (object.kind === "implicitCurve" || object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
     return !object.equation.trim();
   }
   if (object.kind === "vectorField") {
@@ -81,6 +80,7 @@ export function isExpressionRowEmpty(object: GraphObject): boolean {
 }
 
 export function getObjectRowDisplayMeta(object: GraphObject): { label: string; type: string } {
+  if (object.kind === "implicitCurve") return { label: object.equation.trim() ? "2D Curve" : "Expression", type: object.equation.trim() ? object.equation : "Type any equation" };
   if (object.kind === "plane") {
     if (!object.equation.trim()) {
       return { label: "Expression", type: "Choose type in menu" };

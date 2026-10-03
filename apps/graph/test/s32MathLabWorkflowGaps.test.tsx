@@ -141,7 +141,7 @@ describe("S32 gaps: surface domain ordering and tuple draft preservation", () =>
       (useGraphStore.getState().scene.objects.find((o) => o.id === id) as { xExpr: string }).xExpr
     ).toBe("cos(t) + ");
     fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Object" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     expect((screen.getByLabelText("Parametric x(t)") as HTMLInputElement).value).toBe("cos(t) + ");
   });
 });

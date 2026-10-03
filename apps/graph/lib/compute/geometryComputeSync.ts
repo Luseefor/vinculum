@@ -1,3 +1,4 @@
+import { getGraphObjectFor3D } from "@/lib/graph3d/graphObject3dGuards";
 import { Group, type Object3D } from "three";
 import type { GraphObject, ImplicitSurfaceObject, ParametricSurfaceObject, VectorFieldObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
@@ -202,7 +203,8 @@ export function applyGeometryComputeResult(
   response: GeometryComputeResponse,
   ctx: GeometryComputeSyncContext
 ): void {
-  const live = useGraphStore.getState().scene.objects.find((candidate) => candidate.id === response.objectId);
+  const source = useGraphStore.getState().scene.objects.find((candidate) => candidate.id === response.objectId);
+  const live = source ? getGraphObjectFor3D(source) : undefined;
   if (
     !live ||
     (live.kind !== "implicitSurface" && live.kind !== "parametricSurface" && live.kind !== "vectorField")
@@ -270,7 +272,8 @@ export function applyGeometryComputeResult(
     indices: response.result.indices,
     theme,
     tokens: getGraphThemeTokens(theme),
-    repairZeroNormals: true
+    repairZeroNormals: true,
+    smoothNormals: live.kind === "implicitSurface"
   });
   if (node) {
     ctx.objectsRoot.remove(node);

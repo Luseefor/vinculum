@@ -80,6 +80,7 @@ export type GraphThreeEngineTickDeps = {
   applyThemeToScene: (theme: ResolvedTheme) => void;
   resetCamera: () => void;
   syncObjects: (theme: ResolvedTheme) => void;
+  refreshSurfaceDisplay?: () => void;
   requestNextFrame: (callback: () => void) => void;
   container: HTMLElement;
   multiView: GeometryMultiViewState;
@@ -282,6 +283,7 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     // S24-R1: pressure also refreshes when streamline configs change
     // (ui-only commits never set objectsDirty, but they change render
     // load). Ref comparison is exact: every config commit replaces the map.
+    deps.refreshSurfaceDisplay?.();
     const streamlineConfigs = useGraphStore.getState().ui.streamlineVizBySourceId;
     const configsChanged = streamlineConfigs !== runtime.lastStreamlineConfigs;
     if (runtime.objectsDirty || configsChanged) {

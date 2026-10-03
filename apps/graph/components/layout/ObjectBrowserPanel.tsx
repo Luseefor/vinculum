@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AutomaticEquationInput } from "@/components/expressions/AutomaticEquationInput";
+import ParameterSliders from "@/components/expressions/ParameterSliders";
 import ObjectTree from "@/components/objects/ObjectTree";
 import AddObjectMenu from "@/components/objects/AddObjectMenu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useEditorStore } from "@/lib/store/editorStore";
-import { createObjectByKey } from "@/lib/objects/objectCreation";
-import { moreAddDescriptors, quickAddDescriptors } from "@/lib/objects/objectDescriptors";
 import { useGraphStore } from "@/store/graphStore";
 import { SearchIcon } from "@/components/layout/icons";
 import { formatMeasurementValue } from "@/lib/measurements/measurementMath";
@@ -15,10 +15,11 @@ export const OBJECT_SEARCH_OPEN_EVENT = "vinculum:open-object-search";
 const FINDER_MIN_OBJECTS = 6;
 
 interface ObjectBrowserPanelProps {
-  width: number;
+  width?: number;
 }
 
 export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
+  const [pendingEquationId, setPendingEquationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "objects" | "measurements" | "visible">("all");
   const objectCount = useGraphStore((state) => state.scene.objects.length);
@@ -28,7 +29,6 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   const selectMeasurement = useGraphStore((state) => state.selectMeasurement);
   const workspace = useGraphStore((state) => state.ui.workspace);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
-  const [showMoreAdd, setShowMoreAdd] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingSearchFocus = useRef(false);
@@ -54,21 +54,15 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
     }
   }, [showFinder]);
 
-  const quickDescriptors = quickAddDescriptors(workspace);
-  const moreDescriptors = moreAddDescriptors(workspace);
-
-  const chipClass =
-    "h-7 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] active:scale-[0.98]";
-
   return (
     <aside
       aria-label="Scene Navigator"
-      className="flex h-full shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
-      style={{ width }}
+      className="flex h-full min-w-0 max-w-full shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
+      style={{ width: width ?? "100%" }}
     >
       <div className="flex flex-col gap-3 px-3 pb-3 pt-4">
         <div className="flex items-center gap-2 px-1">
-          <p className="text-[14px] font-semibold tracking-tight text-[var(--text-primary)]">Objects</p>
+          <p className="text-[14px] font-semibold tracking-tight text-[var(--text-primary)]">{workspace === "math" ? "Expressions" : "Objects"}</p>
           <span
             data-testid="scene-object-count"
             className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium tabular-nums text-[var(--text-tertiary)]"
@@ -135,7 +129,14 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
 
       <ScrollArea className="min-h-0 flex-1 px-2 pb-2">
         {(filter === "all" || filter === "objects" || filter === "visible") && (
-          <ObjectTree filterQuery={searchQuery} visibleOnly={filter === "visible"} />
+          <>
+          <ObjectTree filterQuery={searchQuery} visibleOnly={filter === "visible"} excludeId={pendingEquationId} />
+          {!searchQuery && filter !== "visible" ? <div className="mt-2 px-1 py-2">
+            <AutomaticEquationInput label="New equation" onPendingObjectChange={setPendingEquationId} />
+            {objectCount === 0 ? <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Equations in x and y plot in 2D. Include z for 3D.</p> : null}
+          </div> : null}
+          <ParameterSliders />
+          </>
         )}
         {filter === "measurements" || (filter === "all" && measurements.length > 0) ? (
           <section className={filter === "all" ? "mt-4 space-y-1" : "space-y-1"} aria-label="Measurements">
@@ -184,32 +185,6 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
         ) : null}
       </ScrollArea>
 
-      <div className="border-t border-[var(--border-subtle)] px-3 pb-3 pt-2.5">
-        <p className="mb-2 px-1 text-[12px] font-medium text-[var(--text-tertiary)]">Quick add</p>
-        <div className="flex flex-wrap gap-1.5">
-          {quickDescriptors.map((item) => (
-            <button key={item.key} type="button" onClick={() => createObjectByKey(item.key)} className={chipClass}>
-              {item.label}
-            </button>
-          ))}
-          {showMoreAdd
-            ? moreDescriptors.map((item) => (
-                <button key={item.key} type="button" onClick={() => createObjectByKey(item.key)} className={chipClass}>
-                  {item.label}
-                </button>
-              ))
-            : null}
-          <button
-            type="button"
-            onClick={() => setShowMoreAdd((value) => !value)}
-            aria-label={showMoreAdd ? "Show fewer object types" : "Show more object types"}
-            aria-expanded={showMoreAdd}
-            className="h-7 rounded-full px-2.5 text-[12px] font-medium text-[var(--accent-ink)] outline-none transition-colors hover:bg-[var(--accent-soft)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-          >
-            {showMoreAdd ? "Less" : "More…"}
-          </button>
-        </div>
-      </div>
     </aside>
   );
 }

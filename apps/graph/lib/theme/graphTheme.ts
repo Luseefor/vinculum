@@ -30,7 +30,7 @@ export interface GraphThemeTokens {
 }
 
 const DARK_THEME_TOKENS: GraphThemeTokens = {
-  surfaceCanvas: "#131316",
+  surfaceCanvas: "#20252d",
   gridMinor: "#1b2438",
   gridMajor: "#2c3c5f",
   axisLine: "#526691",
@@ -59,7 +59,7 @@ const DARK_THEME_TOKENS: GraphThemeTokens = {
 };
 
 const LIGHT_THEME_TOKENS: GraphThemeTokens = {
-  surfaceCanvas: "#f5f7fb",
+  surfaceCanvas: "#ffffff",
   gridMinor: "#dce2ee",
   gridMajor: "#bcc7dc",
   axisLine: "#62738e",

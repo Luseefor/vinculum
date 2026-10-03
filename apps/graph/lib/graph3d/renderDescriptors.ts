@@ -16,6 +16,7 @@ export interface GraphObjectRenderDescriptor {
 }
 
 export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectRenderDescriptor {
+  if (object.kind === "implicitCurve") return { id: object.id, kind: object.kind, color: object.color, visible: object.visible, payload: { equation: object.equation } };
   if (object.kind === "surface") {
     const { effectiveOrientation } = getEffectiveSurfaceOrientation(
       object.equation,
@@ -28,6 +29,7 @@ export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectR
       color: object.color,
       payload: {
         equation: object.equation,
+        autoDomain: object.autoDomain ?? Boolean(object.autoExpression),
         orientation: effectiveOrientation,
         domain: object.domain,
         resolution: object.resolution,

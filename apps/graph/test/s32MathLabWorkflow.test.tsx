@@ -169,7 +169,7 @@ describe("S32 draft preservation and error-tolerant typing", () => {
     expect((screen.getByLabelText("Surface expression z = f(x,y)") as HTMLInputElement).value).toBe("sin(");
 
     fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Object" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     // Valid draft preserved across tab switches.
     expect((screen.getByLabelText("Surface expression z = f(x,y)") as HTMLInputElement).value).toBe("sin(");
   });
@@ -195,7 +195,7 @@ describe("S32 draft preservation and error-tolerant typing", () => {
     fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "scalarLine" } });
     const integrand = screen.getByLabelText("Scalar integrand g(x,y,z)") as HTMLInputElement;
     fireEvent.change(integrand, { target: { value: "x + y" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Object" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
     expect((screen.getByLabelText("Scalar integrand g(x,y,z)") as HTMLInputElement).value).toBe("x + y");
   });
@@ -218,7 +218,7 @@ describe("S32 Analyze refinement", () => {
     }
     useGraphStore.getState().setDifferentialAnalysisPoint(id, { x: 1, y: 1, z: 2 }, identity);
     const { unmount } = render(<DifferentialAnalysisSection object={liveObject(id) as typeof object} />);
-    expect(screen.getByText(/Function gradient =/)).toBeDefined();
+    expect(screen.getByText(/Surface normal =/)).toBeDefined();
     unmount();
 
     const store = useGraphStore.getState();
@@ -250,7 +250,7 @@ describe("S32 Analyze refinement", () => {
     expect(screen.queryByTestId("vector-calculus-jacobian")).toBeNull();
   });
 
-  it("integral field selector shows canonical label with vector snippet", () => {
+  it("integral field selector shows canonical labels and typesets the selected field", () => {
     const state = useGraphStore.getState();
     const curveId = state.addParametricCurve();
     const fieldId = state.addVectorFieldObject("3d");
@@ -267,7 +267,9 @@ describe("S32 Analyze refinement", () => {
     const select = screen.getByLabelText("Vector field") as HTMLSelectElement;
     const labels = Array.from(select.options).map((option) => option.label);
     expect(labels.some((label) => label.includes("3D Vector Field #"))).toBe(true);
-    expect(labels.some((label) => label.includes("<x, y, z>"))).toBe(true);
+    expect(labels.some((label) => label.includes("<"))).toBe(false);
+    fireEvent.change(select, { target: { value: fieldId } });
+    expect(screen.getByRole("math", { name: "<x, y, z>" })).toBeDefined();
     expect(labels.some((label) => /[0-9a-f-]{8,}/.test(label) && !label.includes("#"))).toBe(false);
   });
 
@@ -285,7 +287,7 @@ describe("S32 Analyze refinement", () => {
     expect(labels.some((label) => label.includes("−z"))).toBe(true);
   });
 
-  it("linear Apply-to-Vector selector shows Vector #n with components, not raw IDs", () => {
+  it("linear Apply-to-Vector selector shows canonical labels and typesets the selected vector", () => {
     const state = useGraphStore.getState();
     const transformId = state.addLinearTransformObject("2d");
     const vectorId = state.addVectorObject();
@@ -298,8 +300,11 @@ describe("S32 Analyze refinement", () => {
     const select = screen.getByLabelText("Vector for transformation analysis") as HTMLSelectElement;
     const labels = Array.from(select.options).map((option) => option.label);
     expect(labels.some((label) => label.startsWith("Vector #"))).toBe(true);
-    expect(labels.some((label) => label.includes("<"))).toBe(true);
-    void vectorId;
+    expect(labels.some((label) => label.includes("<"))).toBe(false);
+    fireEvent.change(select, { target: { value: vectorId } });
+    const vector = liveObject(vectorId);
+    if (vector.kind !== "vector") throw new Error("expected vector");
+    expect(within(select.closest("label")!).getByRole("math", { name: `<${vector.vxExpr}, ${vector.vyExpr}, ${vector.vzExpr}>` })).toBeDefined();
   });
 
   it("Analyze shows contextual sections per kind and hides irrelevant ones", () => {
@@ -365,5 +370,27 @@ describe("S32 navigator math snippets", () => {
     );
     useGraphStore.getState().clearStreamline(fieldId);
     expect(JSON.stringify(useGraphStore.getState().scene)).toBe(before);
+  });
+});
+
+describe("surface plot range follows the output axis", () => {
+  beforeEach(resetScene);
+
+  it.each([
+    ["x", "y", "z"],
+    ["y", "x", "z"],
+    ["z", "x", "y"]
+  ] as const)("labels the independent axes for %s = f(%s,%s) and preserves domain ownership", (output, first, second) => {
+    const id = addSurface("1");
+    useGraphStore.getState().updateSurfaceOrientation(id, output);
+    render(<ObjectInspector />);
+    expect(screen.getByLabelText(`${first} min`)).toBeVisible();
+    expect(screen.getByLabelText(`${second} max`)).toBeVisible();
+    expect(screen.queryByLabelText(`${output} min`)).toBeNull();
+    fireEvent.change(screen.getByLabelText(`${first} min`), { target: { value: "-3" } });
+    expect(liveObject(id)).toMatchObject({ domain: { xMin: -3 } });
+    fireEvent.change(screen.getByLabelText(`${second} max`), { target: { value: "7" } });
+    expect(liveObject(id)).toMatchObject({ domain: { yMax: 7 } });
+    expect(screen.getByText("How to type math")).toBeVisible();
   });
 });

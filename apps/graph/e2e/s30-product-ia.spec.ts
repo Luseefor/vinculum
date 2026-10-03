@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, expectInputFocused, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -7,14 +9,13 @@ import { expect, test, type Page } from "@playwright/test";
 // the information architecture around the frozen engine.
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -23,7 +24,7 @@ async function startClean(page: Page) {
 }
 
 async function showMoreAdd(page: Page) {
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -31,7 +32,7 @@ async function showMoreAdd(page: Page) {
 
 async function addPreset(page: Page, name: string) {
   await page.getByRole("button", { name: "Open object menu" }).click();
-  await page.getByRole("button", { name, exact: true }).click();
+  await addObject(page, name);
 }
 
 async function openAnalyze(page: Page) {
@@ -71,7 +72,7 @@ test.describe("S30 product information architecture", () => {
     await startClean(page);
     await toGeometry(page);
     await expect(page.getByText("Add a point, line, or surface to begin.").first()).toBeVisible();
-    for (const name of ["Create Point", "Create Vector", "Create Infinite Line"]) {
+    for (const name of ["Create Point", "Create Infinite Line", "Create Surface"]) {
       await expect(page.getByRole("button", { name })).toBeVisible();
     }
     await page.getByRole("button", { name: "Create Point" }).click();
@@ -84,8 +85,8 @@ test.describe("S30 product information architecture", () => {
   test("B: Math empty state invites expression entry with usable Quick Add", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await expect(page.getByText("Add an expression or field to begin.").first()).toBeVisible();
-    for (const name of ["Create Surface", "Create Parametric Curve", "Create Implicit Surface"]) {
+    await expect(page.getByText("Type an equation in Objects to begin.").first()).toBeVisible();
+    for (const name of ["Create Surface", "Create Parametric Curve", "Create 2D Vector Field"]) {
       await expect(page.getByRole("button", { name })).toBeVisible();
     }
     await page.getByRole("button", { name: "Create Surface" }).click();
@@ -98,9 +99,9 @@ test.describe("S30 product information architecture", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await page.getByRole("button", { name: "Open object menu" }).click();
-    await expect(page.getByText("Graphs")).toBeVisible();
-    await expect(page.getByText("Primitives")).toBeVisible();
-    await expect(page.getByText("Analysis")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Graphs", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Geometry", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Analysis", exact: true })).toBeVisible();
     for (const name of [
       "Parametric Curve",
       "Surface",
@@ -129,11 +130,11 @@ test.describe("S30 product information architecture", () => {
   test("D: Quick Add, Add Object, and palette create equivalent objects", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await addPreset(page, "Implicit Sphere");
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-    await page.getByLabel("Command search").fill("Add Ray");
+    await fillInput(page.getByLabel("Command search"), "Add Ray");
     await page.getByRole("option", { name: "Add Ray" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("3");
     // Equivalence, not just count: each surface created its canonical kind.
@@ -146,7 +147,7 @@ test.describe("S30 product information architecture", () => {
   test("E: workspace switch preserves scene and selection", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByRole("button", { name: "Selected Surface #1" })).toBeVisible();
     await toGeometry(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
@@ -161,11 +162,11 @@ test.describe("S30 product information architecture", () => {
   test("F: Inspector Object shows definition without analysis sections", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await expect(page.getByRole("tab", { name: "Object" })).toHaveAttribute("aria-selected", "true");
+    await addObject(page, "Surface");
+    await expect(page.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
     // S32: expression-first definition with compact domain (replaces the
     // legacy #domain-x-range-min DomainSection ids).
-    await expect(page.locator("#graph-inspector").getByLabel("Surface expression z = f(x,y)")).toBeVisible();
+    await expectInputVisible(page.locator('#graph-inspector math-field[aria-label="Surface expression z = f(x,y)"]'));
     await expect(page.locator("#graph-inspector").getByLabel("x min")).toBeVisible();
     await expect(page.getByTestId("integral-analysis-section")).toHaveCount(0);
     expect(pageErrors).toEqual([]);
@@ -175,7 +176,7 @@ test.describe("S30 product information architecture", () => {
   test("G: Inspector Analyze discovers Surface capabilities", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await openAnalyze(page);
     await expect(page.getByText("Differential Analysis")).toBeVisible();
     await expect(page.getByTestId("scalar-visualization-section")).toBeVisible();
@@ -187,7 +188,7 @@ test.describe("S30 product information architecture", () => {
   test("H: Vector Field Analyze discovers calculus plus streamlines", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-section")).toBeVisible();
     await expect(page.getByTestId("streamline-section")).toBeVisible();
@@ -199,7 +200,7 @@ test.describe("S30 product information architecture", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-analysis-section")).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -210,7 +211,7 @@ test.describe("S30 product information architecture", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible();
     await expect(page.getByTestId("linear-fact-rank")).toBeVisible();
@@ -223,7 +224,7 @@ test.describe("S30 product information architecture", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-analysis-section")).toBeVisible();
     await expect(page.getByTestId("vector-calculus-section")).not.toBeVisible();
@@ -235,10 +236,10 @@ test.describe("S30 product information architecture", () => {
   test("L: tab, menu, and palette navigation dispatch zero compute jobs", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("tab", { name: "Analyze" }).click();
-    await page.getByRole("tab", { name: "Object" }).click();
+    await page.getByRole("tab", { name: "Edit" }).click();
     await page.getByRole("button", { name: "Open object menu" }).click();
     await page.keyboard.press("Escape");
     await page.keyboard.press("Meta+k");
@@ -271,9 +272,9 @@ test.describe("S30 product information architecture", () => {
     for (const category of ["Create", "View", "Workspace", "Object", "Scene"]) {
       await expect(page.getByText(category, { exact: true }).first()).toBeVisible();
     }
-    await page.getByLabel("Command search").fill("matrix");
+    await fillInput(page.getByLabel("Command search"), "matrix");
     await expect(page.getByRole("option", { name: "Add 2D Linear Transformation" })).toBeVisible();
-    await page.getByLabel("Command search").fill("curl");
+    await fillInput(page.getByLabel("Command search"), "curl");
     await expect(page.getByText("No matching commands.")).toBeVisible();
     await page.keyboard.press("Escape");
     expect(pageErrors).toEqual([]);
@@ -283,8 +284,8 @@ test.describe("S30 product information architecture", () => {
   test("O: creation focuses the definition field; Escape closes palette", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await expect(page.locator('input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]').first()).toBeFocused({
+    await addObject(page, "Surface");
+    await expectInputFocused(page.locator('input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]').first(), {
       timeout: 8000
     });
     await page.keyboard.press("Meta+k");
@@ -298,15 +299,13 @@ test.describe("S30 product information architecture", () => {
   test("P: expression draft survives Inspector tab switches", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     const input = page.locator('input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]').first();
-    await expect(input).toBeFocused({ timeout: 8000 });
-    await input.fill("z = x^2 - y^2");
+    await expectInputFocused(input, { timeout: 8000 });
+    await fillInput(input, "z = x^2 - y^2");
     await page.getByRole("tab", { name: "Analyze" }).click();
-    await page.getByRole("tab", { name: "Object" }).click();
-    await expect(page.locator('input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]').first()).toHaveValue(
-      "z = x^2 - y^2"
-    );
+    await page.getByRole("tab", { name: "Edit" }).click();
+    await expectInputValue(page.locator('input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]').first(), "z = x^2 - y^2");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -316,7 +315,7 @@ test.describe("S30 product information architecture", () => {
     await startClean(page);
     await toGeometry(page);
     for (const name of ["Point", "Vector", "Infinite Line", "Segment", "Plane", "Surface"]) {
-      await page.getByRole("button", { name, exact: true }).click();
+      await addObject(page, name);
     }
     await expect(page.getByTestId("scene-object-count")).toHaveText("6");
     await expect(page.getByRole("button", { name: /^(Select|Selected) Point #1$/ })).toBeVisible();
@@ -332,15 +331,15 @@ test.describe("S30 product information architecture", () => {
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Objects" })).toBeVisible();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Behind-Quick kinds stay reachable in the narrow sheet via More.
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
+    await addObject(page, "Ray");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(page.getByRole("tab", { name: "Object" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Edit" })).toBeVisible();
     await page.keyboard.press("Escape");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -351,7 +350,7 @@ test.describe("S30 product information architecture", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -361,7 +360,7 @@ test.describe("S30 product information architecture", () => {
     // Palette creation works at narrow width too.
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-    await page.getByLabel("Command search").fill("Add Ray");
+    await fillInput(page.getByLabel("Command search"), "Add Ray");
     await page.getByRole("option", { name: "Add Ray" }).click();
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
@@ -372,7 +371,7 @@ test.describe("S30 product information architecture", () => {
 
   test("T: product IA has no axe violations", async ({ page }) => {
     await startClean(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await openAnalyze(page);
     await page.waitForTimeout(800);
     const results = await new AxeBuilder({ page })
@@ -386,7 +385,7 @@ test.describe("S30 product information architecture", () => {
     await startClean(page);
     await page.keyboard.press("Meta+k");
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-    await page.getByLabel("Command search").fill("parametric curve");
+    await fillInput(page.getByLabel("Command search"), "parametric curve");
     await page.getByRole("option", { name: "Add Parametric Curve" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: /^(Select|Selected) Parametric Curve #1$/ })).toBeVisible();
@@ -394,27 +393,32 @@ test.describe("S30 product information architecture", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("V: scene context menu offers all 14 creation entries", async ({ page }) => {
+  test("V: scene context menu keeps common actions compact and actionable", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.locator("header").first().click({ button: "right" });
-    await expect(page.getByRole("menuitem", { name: "Add Parametric Curve" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Add 3D Linear Transformation" })).toBeVisible();
-    await page.getByRole("menuitem", { name: "Add Ray" }).click();
+    await page.locator('canvas[data-graph2d-canvas="true"]:visible, canvas[data-graph3d-canvas="true"]:visible').first().click({ button: "right", position: { x: 40, y: 100 } });
+    const menu = page.getByRole("menu", { name: "Scene context menu" });
+    for (const name of ["Add equation", "Reset view", "Fit scene"]) {
+      await expect(menu.getByRole("menuitem", { name, exact: true })).toBeVisible();
+    }
+    await expect(menu.getByRole("menuitem")).toHaveCount(3);
+    await menu.getByRole("menuitem", { name: "Add equation" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await expectInputFocused(page.getByLabel("Equation", { exact: true }));
+    await page.keyboard.type("x=y^2");
+    await expect(page.getByRole("math", { name: /^x.*y/ }).first()).toBeVisible();
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
 
-  test("W: More reveals behind-Quick entries per workspace and collapses", async ({ page }) => {
+  test("W: catalog reveals secondary types per workspace and closes with Escape", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
     await expect(page.getByRole("button", { name: "Ray", exact: true })).not.toBeVisible();
     await showMoreAdd(page);
     await expect(page.getByRole("button", { name: "Ray", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show fewer object types" })).toBeVisible();
-    await page.getByRole("button", { name: "Show fewer object types" }).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("button", { name: "Ray", exact: true })).not.toBeVisible();
     await toMathLab(page);
     await showMoreAdd(page);
@@ -428,7 +432,7 @@ test.describe("S30 product information architecture", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
+    await addObject(page, "Ray");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // The new row's first coordinate input receives focus.
     await expect(page.getByLabel("Ray origin x").first()).toBeFocused({ timeout: 8000 });

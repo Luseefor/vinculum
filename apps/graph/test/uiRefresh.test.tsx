@@ -2,11 +2,55 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ViewControls from "@/components/editor/ViewControls";
 import CanvasToolbar from "@/components/editor/CanvasToolbar";
-import BottomPanel from "@/components/editor/BottomPanel";
-import StatusBar from "@/components/layout/StatusBar";
+import EditorLayoutPremium from "@/components/editor/EditorLayoutPremium";
 import WorkspaceSwitcher from "@/components/editor/WorkspaceSwitcher";
+import ObjectBrowserPanel from "@/components/layout/ObjectBrowserPanel";
 import { migrateEditorLayout, useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
+
+describe("object catalog without a permanent quick-add block", () => {
+  beforeEach(() => useGraphStore.getState().resetScene());
+  it("keeps every kind in Add and returns keyboard focus on Escape", () => {
+    render(<ObjectBrowserPanel />);
+    expect(screen.queryByText("Quick add")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Surface" })).toBeNull();
+    const trigger = screen.getByRole("button", { name: "Open object menu" });
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Surface" })).toBeVisible();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Surface" }), { key: "Escape" });
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "Surface" }));
+    expect(useGraphStore.getState().scene.objects).toHaveLength(1);
+    expect(useGraphStore.getState().scene.objects[0]?.kind).toBe("surface");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("searchable object picker", () => {
+  beforeEach(() => useGraphStore.getState().resetScene());
+  it("filters examples, clears empty results, and creates the chosen real object", () => {
+    render(<ObjectBrowserPanel />);
+    const trigger = screen.getByRole("button", { name: "Open object menu" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Add to graph" })).toBeVisible();
+    const search = screen.getByRole("searchbox", { name: "Search objects" });
+    expect(search).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Geometry" }));
+    expect(screen.getByRole("button", { name: "Point" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Implicit Torus" })).toBeNull();
+    fireEvent.change(search, { target: { value: "torus" } });
+    expect(screen.getByText(/No objects match/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Examples" }));
+    fireEvent.change(search, { target: { value: "torus" } });
+    fireEvent.click(screen.getByRole("button", { name: "Implicit Torus" }));
+    expect(useGraphStore.getState().scene.objects[0]?.kind).toBe("implicitSurface");
+    expect(screen.queryByRole("dialog", { name: "Add to graph" })).toBeNull();
+  });
+});
 
 describe("UI refresh: canvas view controls", () => {
   beforeEach(() => {
@@ -42,44 +86,14 @@ describe("UI refresh: canvas view controls", () => {
   });
 });
 
-describe("UI refresh: bottom dock lives behind status bar tabs", () => {
-  beforeEach(() => {
-    useEditorStore.getState().setBottomPanelCollapsed(true);
-    useEditorStore.getState().setBottomPanelTab("parameters");
-  });
-
-  it("renders nothing while collapsed", () => {
-    const { container } = render(<BottomPanel />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("opens the chosen tab from the status bar and collapses on a second click", () => {
-    render(
-      <>
-        <BottomPanel />
-        <StatusBar />
-      </>
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Parameters" }));
-    expect(useEditorStore.getState().bottomPanelCollapsed).toBe(false);
-    expect(screen.getByRole("region", { name: "Parameters panel" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Parameter r")).toBeInTheDocument();
-
-    expect(screen.queryByRole("button", { name: "Console" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "More panels" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Console" }));
-    expect(useEditorStore.getState().bottomPanelTab).toBe("console");
-    expect(screen.getByRole("button", { name: "Console" })).toHaveAttribute("aria-pressed", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Console" }));
-    expect(useEditorStore.getState().bottomPanelCollapsed).toBe(true);
-  });
-
-  it("closes from the panel header", () => {
+describe("canvas layout without a bottom dock", () => {
+  it("does not restore obsolete panels from an open saved dock", () => {
     useEditorStore.getState().setBottomPanelCollapsed(false);
-    render(<BottomPanel />);
-    fireEvent.click(screen.getByRole("button", { name: "Close panel" }));
-    expect(useEditorStore.getState().bottomPanelCollapsed).toBe(true);
+    useEditorStore.getState().setBottomPanelTab("parameters");
+    const { container } = render(<EditorLayoutPremium header={<header>Header</header>} sceneNavigator={<aside>Objects</aside>} workspace={<div>Graph</div>} inspectorDrawer={null} />);
+    expect(screen.getByRole("main")).toHaveTextContent("Graph");
+    expect(container.querySelector("footer, .bottom-dock, .divider-y")).toBeNull();
+    expect(screen.queryByRole("button", { name: "More panels" })).toBeNull();
   });
 });
 

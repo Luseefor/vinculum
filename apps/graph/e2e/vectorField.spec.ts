@@ -1,23 +1,26 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputVisible } from "./helpers/mathInput";
+import { screenshotPixels } from "./helpers/canvasPixels";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // Vector-field timing bounds are load-sensitive (worker sampling plus
 // dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S20 vector fields: 2D Canvas2D arrows, 3D instanced arrows through the
 // S19 worker, synchronized views, render-only scale/normalize (zero jobs),
 // singular/zero safety, races, persistence, workspace sharing, narrow
 // sheets, and error consistency. Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -27,7 +30,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -82,16 +85,9 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
 }
 
 // Counts canvas pixels near a hex color (per-channel tolerance absorbs
-// antialiasing). Both the Canvas2D plot and the WebGL viewport (which sets
-// preserveDrawingBuffer) support toDataURL readback.
+// antialiasing). Capture the presented Canvas2D/WebGPU/WebGL2 viewport.
 async function countFieldPixels(page: Page, canvas: Locator, hex: string): Promise<number> {
-  const dataUrl = await canvas.evaluate((element) => {
-    try {
-      return (element as HTMLCanvasElement).toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  });
+  const dataUrl = await screenshotPixels(page, canvas);
   if (!dataUrl) {
     return 0;
   }
@@ -147,7 +143,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -162,13 +158,13 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await countFieldPixels(page, canvas, FIELD_BLUE);
     expect(before).toBeGreaterThan(150);
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     await expect
       .poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 15000 })
       .not.toBe(before);
@@ -183,7 +179,7 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -199,7 +195,7 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
@@ -225,18 +221,18 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(100);
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await expectNoComputePending(page, async () => {
       await page.getByLabel("Enable vector normalization").click();
     });
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(100);
     // Contrast: a component edit DOES enqueue (proves the pin is live).
-    await page.getByLabel("Vector field P component").first().fill("2*x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "2*x");
     await settleCompute(page);
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(100);
 
@@ -249,15 +245,15 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await countFieldPixels(page, canvas, FIELD_BLUE);
     expect(before).toBeGreaterThan(100);
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await expectNoComputePending(page, async () => {
-      await page.getByLabel("Arrow scale", { exact: true }).fill("2");
+      await fillInput(page.getByLabel("Arrow scale", { exact: true }), "2");
       // Scale commits on blur (draft pattern shared with resolution).
       await page.keyboard.press("Tab");
     });
@@ -274,9 +270,9 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("1/x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "1/x");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(50);
@@ -290,11 +286,11 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("0");
-    await page.getByLabel("Vector field Q component").first().fill("0");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "0");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "0");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
@@ -308,15 +304,15 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Radial -> rotation -> nonlinear with no settle waits.
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
-    await page.getByLabel("Vector field P component").first().fill("sin(y)");
-    await page.getByLabel("Vector field Q component").first().fill("sin(z)");
-    await page.getByLabel("Vector field R component").first().fill("sin(x)");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "sin(y)");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "sin(z)");
+    await fillInput(page.getByLabel("Vector field R component").first(), "sin(x)");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await expect.poll(async () => countFieldPixels(page, canvas, FIELD_BLUE), { timeout: 25000 }).toBeGreaterThan(50);
@@ -331,11 +327,11 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s20-vfield");
+    await fillInput(page.locator("#project-name-input"), "s20-vfield");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -354,7 +350,7 @@ test.describe("S20 vector fields", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas2d = page.locator('canvas[data-graph2d-canvas="true"]').first();
     await expect.poll(async () => countFieldPixels(page, canvas2d, FIELD_BLUE), { timeout: 15000 }).toBeGreaterThan(150);
@@ -381,12 +377,12 @@ test.describe("S20 vector fields", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     // S32: definition first (P component visible), sampling disclosed.
-    await expect(page.locator("#graph-inspector").getByLabel("Vector field P component")).toBeVisible();
+    await expectInputVisible(page.locator("#graph-inspector").getByLabel("Vector field P component"));
     await page.locator("#graph-inspector").getByText(/Sampling · density/).click();
     await expect(page.getByLabel("Field density per axis")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -401,9 +397,9 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("sin(factorial(x))");
+    await fillInput(page.getByLabel("Vector field P component").first(), "sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
 
     expect(pageErrors).toEqual([]);
@@ -415,13 +411,13 @@ test.describe("S20 vector fields", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     // Styles tab holds the new scale/normalize controls; the P/Q/R
     // component inputs and Props domain/density inputs are visible in the
     // same scan.
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await page.waitForTimeout(500);
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

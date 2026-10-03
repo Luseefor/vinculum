@@ -1,20 +1,22 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, readInputValue, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 // S34 responsive/tablet/narrow/touch redesign: one responsive mathematical
 // application across compact/medium/wide with touch-first canvas gestures.
 // Frozen engine behavior stays covered by S16–S33.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -103,12 +105,12 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("2");
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("2");
+    await fillInput(inspector(page).getByLabel("Point x"), "2");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "2");
     await page.keyboard.press("Escape");
     await expect(graph3dCanvas(page)).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -163,7 +165,7 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("wide");
     // Wide opens the Inspector from selection, not a toolbar toggle.
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.locator("#graph-inspector")).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
@@ -198,7 +200,7 @@ test.describe("S34 responsive composition", () => {
     const box = await graph3dCanvas(page).boundingBox();
     expect(box!.width).toBeGreaterThan(400);
     expect(box!.height).toBeGreaterThan(300);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -210,10 +212,10 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("wide");
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     // Persistent left rail + persistent inspector panel (no sheets).
     await expect(page.getByTestId("scene-object-count")).toBeVisible();
-    await expect(inspector(page).getByLabel("Point x")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Point x"));
     await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -224,8 +226,8 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("7");
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "7");
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("compact");
     await expect(page.getByTestId("compact-object-count")).toHaveText("1");
@@ -233,13 +235,13 @@ test.describe("S34 responsive composition", () => {
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("7");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "7");
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("wide");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("7");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "7");
     await expect(page.locator('[data-testid="compute-status-pending"]')).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -251,7 +253,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.setViewportSize({ width: 844, height: 390 });
     await expect.poll(async () => composition(page), { timeout: 8000 }).toBe("compact");
@@ -269,7 +271,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expect(inspector(page)).toBeVisible();
@@ -287,7 +289,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     // Visible object-count badges: at most one (no header/sheet duplication).
     const visibleBadges = page.locator('[data-testid="scene-object-count"]').filter({ visible: true });
@@ -302,10 +304,10 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     // Creation focuses the first coordinate field inside the open sheet.
     await expect(page.getByLabel("Point x").first()).toBeFocused({ timeout: 8000 });
-    await page.getByLabel("Point x").first().fill("4");
+    await fillInput(page.getByLabel("Point x").first(), "4");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -317,14 +319,14 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Surface expression z = f(x,y)").fill("x^2 + y^2");
+    await fillInput(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2");
     await page.getByRole("tab", { name: "Analyze" }).click();
     await expect(page.getByTestId("scalar-visualization-section")).toBeVisible();
-    await page.getByRole("tab", { name: "Object" }).click();
+    await page.getByRole("tab", { name: "Edit" }).click();
     await page.keyboard.press("Escape");
     await expect(graph3dCanvas(page)).toBeVisible();
     // Selection survives sheet close, surfaced by the compact chip.
@@ -339,10 +341,10 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Vector field P component")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Vector field P component"));
     await page.getByRole("tab", { name: "Analyze" }).click();
     await expect(page.getByTestId("streamline-section")).toBeVisible();
     await page.getByRole("switch", { name: "Show streamlines" }).click();
@@ -357,7 +359,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Show more object types" }).click();
+    await page.getByRole("button", { name: "Open object menu" }).click();
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -366,7 +368,7 @@ test.describe("S34 responsive composition", () => {
     const groupBox = await group.boundingBox();
     const sheetBox = await page.getByRole("dialog", { name: "Inspector" }).boundingBox();
     expect(groupBox!.width).toBeLessThanOrEqual(sheetBox!.width);
-    await inspector(page).getByLabel("Row 1 column 1").fill("2");
+    await fillInput(inspector(page).getByLabel("Row 1 column 1"), "2");
     await page.getByRole("tab", { name: "Analyze" }).click();
     await expect(page.getByTestId("linear-fact-determinant")).toBeVisible({ timeout: 10000 });
     expect(pageErrors).toEqual([]);
@@ -379,8 +381,8 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Point");
+    await addObject(page, "Infinite Line");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await page.getByRole("button", { name: /Point #1/ }).click();
@@ -404,7 +406,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -438,7 +440,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -459,8 +461,8 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await settleCompute(page);
     // Storm: resize across breakpoints and orientations, open/close sheets.
     await page.setViewportSize({ width: 390, height: 844 });
@@ -482,7 +484,7 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     // Undo is available from creation only.
     await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
     await page.setViewportSize({ width: 390, height: 844 });
@@ -504,14 +506,14 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("1");
-    await inspector(page).getByLabel("Point y").fill("2");
-    await inspector(page).getByLabel("Point z").fill("3");
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "1");
+    await fillInput(inspector(page).getByLabel("Point y"), "2");
+    await fillInput(inspector(page).getByLabel("Point z"), "3");
     const before = {
-      x: await inspector(page).getByLabel("Point x").inputValue(),
-      y: await inspector(page).getByLabel("Point y").inputValue(),
-      z: await inspector(page).getByLabel("Point z").inputValue()
+      x: await readInputValue(inspector(page).getByLabel("Point x")),
+      y: await readInputValue(inspector(page).getByLabel("Point y")),
+      z: await readInputValue(inspector(page).getByLabel("Point z"))
     };
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Objects", exact: true }).click();
@@ -520,9 +522,9 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("button", { name: /^(Select|Selected) Point #1$/ }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue(before.x);
-    await expect(inspector(page).getByLabel("Point y")).toHaveValue(before.y);
-    await expect(inspector(page).getByLabel("Point z")).toHaveValue(before.z);
+    await expectInputValue(inspector(page).getByLabel("Point x"), before.x);
+    await expectInputValue(inspector(page).getByLabel("Point y"), before.y);
+    await expectInputValue(inspector(page).getByLabel("Point z"), before.z);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -554,10 +556,10 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByLabel("Geometry layout").selectOption("quad");
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("0");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(inspector(page).getByLabel("Point x"), "0");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(400);
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -607,10 +609,10 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Point x"));
     // Sheets dismiss before workspace switch (backdrop/Escape); Inspector
     // state (selection/analysis/drafts) survives the roundtrip.
     await page.keyboard.press("Escape");
@@ -620,7 +622,7 @@ test.describe("S34 responsive composition", () => {
     // Selection survived the roundtrip (compact chip is the proof surface).
     await expect(page.getByRole("button", { name: "Inspect Point 1" })).toBeVisible();
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Point x"));
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -630,7 +632,7 @@ test.describe("S34 responsive composition", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -645,7 +647,7 @@ test.describe("S34 responsive composition", () => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.waitForTimeout(800);
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -655,6 +657,7 @@ test.describe("S34 responsive composition", () => {
 });
 
 test.describe("S34 touch workflows", () => {
+  test.skip(({ browserName }) => browserName === "firefox", "Playwright Firefox does not support isMobile emulation; Chromium and WebKit cover touch workflows.");
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
   test("S: touch one-finger orbit keeps selection (Perspective)", async ({ page }) => {
@@ -662,10 +665,11 @@ test.describe("S34 touch workflows", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     // One-finger drag on empty corner: camera gesture, selection preserved.
     await cdp.send("Input.dispatchTouchEvent", {
@@ -695,10 +699,11 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
@@ -738,6 +743,7 @@ test.describe("S34 touch workflows", () => {
     const badge = page.getByTestId("graph2d-viewport-range-badge");
     const before = await badge.textContent();
     const box = await canvas.boundingBox();
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
@@ -785,17 +791,18 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cx, y: cy, id: 1 }] });
     for (let i = 1; i <= 8; i++) {
@@ -808,14 +815,14 @@ test.describe("S34 touch workflows", () => {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Point z")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Point z"), "0");
     // One touch drag collapses into one undo entry (sheet closed first:
     // the header Undo sits beneath the open sheet).
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Undo" }).click();
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -826,20 +833,21 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Segment start x").fill("0");
-    await inspector(page).getByLabel("Segment start y").fill("0");
-    await inspector(page).getByLabel("Segment start z").fill("0");
-    await inspector(page).getByLabel("Segment end x").fill("0");
-    await inspector(page).getByLabel("Segment end y").fill("4");
-    await inspector(page).getByLabel("Segment end z").fill("0");
+    await fillInput(inspector(page).getByLabel("Segment start x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start y"), "0");
+    await fillInput(inspector(page).getByLabel("Segment start z"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end x"), "0");
+    await fillInput(inspector(page).getByLabel("Segment end y"), "4");
+    await fillInput(inspector(page).getByLabel("Segment end z"), "0");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cx, y: cy, id: 1 }] });
     for (let i = 1; i <= 8; i++) {
@@ -853,8 +861,8 @@ test.describe("S34 touch workflows", () => {
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     // Start moved (not camera-panned); End fixed.
-    await expect(inspector(page).getByLabel("Segment start y")).not.toHaveValue("0", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Segment end y")).toHaveValue("4");
+    await expectInputValue(inspector(page).getByLabel("Segment start y"), "0", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Segment end y"), "4");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -865,15 +873,15 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Vector origin x").fill("0");
-    await inspector(page).getByLabel("Vector origin y").fill("0");
-    await inspector(page).getByLabel("Vector origin z").fill("0");
-    await inspector(page).getByLabel("Vector component x").first().fill("2");
-    await inspector(page).getByLabel("Vector component y").first().fill("0");
-    await inspector(page).getByLabel("Vector component z").first().fill("0");
+    await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
+    await fillInput(inspector(page).getByLabel("Vector origin z"), "0");
+    await fillInput(inspector(page).getByLabel("Vector component x").first(), "2");
+    await fillInput(inspector(page).getByLabel("Vector component y").first(), "0");
+    await fillInput(inspector(page).getByLabel("Vector component z").first(), "0");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
@@ -881,6 +889,7 @@ test.describe("S34 touch workflows", () => {
     const wpp = 12 / Math.min(box!.width, box!.height);
     const tx = box!.x + box!.width / 2 + 2 / wpp;
     const ty = box!.y + box!.height / 2;
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: tx, y: ty, id: 1 }] });
     for (let i = 1; i <= 6; i++) {
@@ -893,8 +902,8 @@ test.describe("S34 touch workflows", () => {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Vector component x").first()).not.toHaveValue("2", { timeout: 8000 });
-    await expect(inspector(page).getByLabel("Vector origin x")).toHaveValue("0");
+    await expectInputValue(inspector(page).getByLabel("Vector component x").first(), "2", { ...{ timeout: 8000 }, not: true });
+    await expectInputValue(inspector(page).getByLabel("Vector origin x"), "0");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -905,17 +914,18 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Point x").fill("r-2.5");
-    await inspector(page).getByLabel("Point y").fill("0");
-    await inspector(page).getByLabel("Point z").fill("0");
+    await fillInput(inspector(page).getByLabel("Point x"), "r-2.5");
+    await fillInput(inspector(page).getByLabel("Point y"), "0");
+    await fillInput(inspector(page).getByLabel("Point z"), "0");
     await page.keyboard.press("Escape");
     const canvas = graph3dCanvas(page);
     const box = await canvas.boundingBox();
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
+    test.skip(test.info().project.name !== "chromium", "Trusted multi-touch injection uses the Chromium CDP API; other browsers retain tap and responsive coverage.");
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: cx, y: cy, id: 1 }] });
     for (let i = 1; i <= 6; i++) {
@@ -928,7 +938,7 @@ test.describe("S34 touch workflows", () => {
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     await page.waitForTimeout(500);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toHaveValue("r-2.5");
+    await expectInputValue(inspector(page).getByLabel("Point x"), "r-2.5");
     await expect(page.locator('[data-testid="compute-status-pending"]')).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -966,11 +976,11 @@ test.describe("S34 touch workflows", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await expect(inspector(page).getByLabel("Point x")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Point x"));
     await page.getByRole("tab", { name: "Analyze" }).click();
     await expect(page.getByText("Geometry Analysis")).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -983,12 +993,12 @@ test.describe("S34 touch workflows", () => {
     await toGeometry(page);
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("30");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("40");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("50");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "30");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "40");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "50");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Frame selected" }).click();
@@ -1011,7 +1021,7 @@ test.describe("S34 touch workflows", () => {
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "More actions" }).click();
     await page.getByRole("menuitem", { name: "Fit scene" }).click();
@@ -1026,11 +1036,12 @@ test.describe("S34 touch workflows", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Show more object types" }).click();
+    await page.getByRole("button", { name: "Open object menu" }).click();
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    const cell = inspector(page).getByLabel("Row 3 column 3");
+    const cell = inspector(page).locator('math-field[aria-label="Row 3 column 3"]');
+    await expect(cell).toBeVisible();
     await cell.focus();
     // Simulate virtual-keyboard height loss.
     await page.setViewportSize({ width: 390, height: 500 });

@@ -1,52 +1,31 @@
-# Getting Started
+# Getting started
 
-Vinculum is a browser-based editor for authoring mathematical scenes and exploring them in 2D and 3D.
+Vinculum is a browser workspace for graphing and exploring mathematics in 2D and 3D. Open the editor from the home page, or run it locally with `bun install` followed by `bun run dev`.
 
-## 1. Launch Vinculum
+## Add your first graph
 
-Run the app locally:
+1. Choose **Math Lab** for functions and fields, or **Geometry Studio** for geometric objects.
+2. Open **Objects**, then **+ Add**. Search for a type or choose a category.
+3. Choose **Surface** and enter `sin(x)*cos(y)` in its definition to graph `z = sin(x)*cos(y)`. Use **Implicit Surface** for an equation of the form `F(x,y,z) = 0`.
+4. Switch between **2D** and **3D** with the view controls.
+5. Select the object and open **Inspector** to edit its definition, style, and analysis.
 
-```bash
-bun install
-bun run dev
-```
+On phones, Objects and Inspector open as sheets. Close the sheet to return to the graph. Formula inputs support typeset editing and a math keyboard.
 
-## 2. Choose 2D or 3D
+**Examples** opens the existing scene gallery. Loading an example into a nonempty scene asks before replacing it.
 
-Use the viewport mode controls to switch between:
+## Explore or solve
 
-- **3D**: orbit-style navigation with surfaces/planes/parametric objects
-- **2D**: plotting and sketch authoring
+Use **Analyze** on a selected object for supported derivatives, gradients, vector calculus, and geometric relations. A point picker previews coordinates before you click.
 
-## 3. Add a scene object
+Use **Solve** in Math Lab for scalar, vector, polar, and complex field problems. Supported answers calculate automatically. **Show solution** opens the worked steps. **Add to scene**, where available, creates a plot; solver drafts themselves are not project objects.
 
-From the **object browser** (left rail), add:
+Use **Distance**, **Angle**, and **Pin** from the canvas toolbar for measurements. Results appear on the graph and in Objects.
 
-- **Surface** (implicit equation)
-- **Plane**
-- **Curve** (parametric curve)
-- **Parametric Surface** (`x(u,v)`, `y(u,v)`, `z(u,v)` with `u`/`v` ranges; 3D views only)
+## Save and share
 
-You can also open **Examples** to load a ready-made scene.
+Use the scene menu to save a named local project or reopen one. Browser storage is local to that browser; export JSON for a portable backup.
 
-## 4. Edit equations and parameters
+The scene menu also provides share links, JSON export/import, 2D PNG/SVG export, and 3D PNG export. A share link contains a snapshot of the scene; later edits do not change it. Use JSON when a scene exceeds the share-link limit.
 
-When an object is selected, edit its expressions/parameters in the inspector (right rail). Inputs provide inline diagnostics (and will not silently overwrite a valid expression with an invalid one).
-
-## 5. Save and reopen your work
-
-Use the **Scene** menu to save your current work as a **named project** and reopen it later.
-
-Vinculum also supports local **autosave/recovery** for in-progress work.
-
-## 6. Share or export
-
-In the **Scene** menu you can:
-
-- **Copy share link** (URL-encoded scene payload with a size guard)
-- **Export Scene JSON**
-- **Export 2D PNG** / **Export 2D SVG**
-- **Export 3D PNG**
-
-For larger scenes that don’t fit the share-link size limit, export JSON instead.
-
+The public [guide](/documentations) includes topic navigation, expression examples, and troubleshooting.

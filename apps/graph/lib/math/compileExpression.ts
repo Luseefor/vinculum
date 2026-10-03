@@ -55,12 +55,13 @@ function setCachedSurfaceCompile(key: string, value: CompiledSurfaceExpression):
 
 export function compileSurfaceExpression(
   expression: string,
-  orientation: "x" | "y" | "z" = "z"
+  orientation: "x" | "y" | "z" = "z",
+  params?: Record<string, number>
 ): CompiledSurfaceExpression {
   // S29-R5: snapshot the live scope once per call so safety, cache key, and
   // smoke-evaluation agree (previously safety read live scope but the key
   // omitted it).
-  const scopeSnapshot = getEditorParameterScope();
+  const scopeSnapshot = params ?? getEditorParameterScope();
   const cacheKey = makeSurfaceCompileCacheKey(expression, orientation, scopeSnapshot);
   const cached = getCachedSurfaceCompile(cacheKey);
   if (cached) {
@@ -128,7 +129,7 @@ export function compileSurfaceExpression(
       t: 0,
       pi: Math.PI,
       e: Math.E,
-      ...getEditorParameterScope()
+      ...(params ?? getEditorParameterScope())
     };
 
     if (effectiveOrientation === "x") {

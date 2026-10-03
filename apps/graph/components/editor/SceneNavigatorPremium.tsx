@@ -3,7 +3,7 @@
 import SceneNavigator from "@/components/editor/SceneNavigator";
 
 interface SceneNavigatorPremiumProps {
-  width: number;
+  width?: number;
 }
 
 export default function SceneNavigatorPremium({ width }: SceneNavigatorPremiumProps) {

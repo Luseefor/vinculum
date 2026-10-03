@@ -14,11 +14,10 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h4 className="text-[11px] font-medium text-[var(--text-tertiary)]">Appearance</h4>
+      <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Appearance</h3>
       
-      <div className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent p-3">
+      <div className="flex flex-col gap-3">
         <div>
-          <p className="mb-2 text-[11px] font-medium text-[var(--text-tertiary)]">Material</p>
           
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 py-1">
@@ -38,7 +37,7 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
             <div className="flex items-center justify-between py-1">
               <div>
                 <p className="text-[12px] font-semibold text-[var(--text-primary)]">Wireframe</p>
-                <p className="text-[11px] text-[var(--text-tertiary)]">Render with edge-only topology</p>
+                <p className="text-[11px] text-[var(--text-tertiary)]">Show only the surface edges</p>
               </div>
               <Switch
                 checked={object.appearance.wireframe}

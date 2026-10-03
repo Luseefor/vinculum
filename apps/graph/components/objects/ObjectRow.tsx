@@ -1,10 +1,15 @@
 "use client";
 
+import { AutomaticEquationInput } from "@/components/expressions/AutomaticEquationInput";
+import { MathExpression } from "@/components/math/MathExpression";
+import { MathInput } from "@/components/math/MathInput";
+
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { StatusCallout } from "@/components/ui/StatusCallout";
 import { cn } from "@/components/ui/styles";
+import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import {
   getImplicitSurfaceEquationDiagnostics,
@@ -37,6 +42,8 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const menuRef = useRef<HTMLDivElement>(null);
   const ellipsisRef = useRef<HTMLButtonElement>(null);
 
+  const setCurveExtension3D = useGraphStore((state) => state.setCurveExtension3D);
+  const viewportMode = useEditorStore((state) => state.viewportMode);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
   const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
@@ -69,7 +76,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const [localR, setLocalR] = useState("");
 
   useEffect(() => {
-    if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
+    if (object.kind === "implicitCurve" || object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
       setLocalEq(object.equation);
     }
     if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
@@ -87,6 +94,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
     setMenuPos(null);
+    ellipsisRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -120,14 +128,14 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const title = `${meta.label} #${index + 1}`;
   const emptyCue = isExpressionRowEmpty(object);
   const equationSnippet = useMemo(() => {
-    if (object.kind !== "surface" && object.kind !== "plane" && object.kind !== "implicitSurface") {
+    if (object.kind !== "implicitCurve" && object.kind !== "surface" && object.kind !== "plane" && object.kind !== "implicitSurface") {
       return null;
     }
     const compact = object.equation.replace(/\s+/g, " ").trim();
     if (!compact) {
       return null;
     }
-    return compact.length > 30 ? `${compact.slice(0, 29)}…` : compact;
+    return compact;
   }, [object]);
   const subLabel = emptyCue
     ? meta.type
@@ -139,6 +147,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   // Inline definition diagnostics (display only; commits stay immediate).
   // Errors appear only for non-empty drafts so fresh rows stay quiet.
   const definitionDiagnostic: ExpressionDiagnostic | null = useMemo(() => {
+    if (object.autoExpression || object.kind === "implicitCurve") return null;
     if (object.kind === "surface") {
       if (!localEq.trim()) {
         return null;
@@ -317,7 +326,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[var(--radius-md)] px-2.5 py-2 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
+          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2.5 py-3 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
           selected
             ? "bg-[var(--accent-soft)]"
             : "hover:bg-[var(--surface-muted)]"
@@ -354,11 +363,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           />
         </button>
 
-        {emptyCue ? (
+        {emptyCue && !object.autoExpression && object.kind !== "implicitCurve" ? (
           <div className="min-w-0 flex-1 overflow-hidden">
             <button
               type="button"
-              onClick={() => onSelect(object.id)}
+              onClick={() => { onSelect(object.id); requestEquationFocus(object.id); }}
               aria-label={selected ? `Selected ${title}` : `Select ${title}`}
               aria-pressed={selected}
               data-object-row-select={object.id}
@@ -411,16 +420,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         ) : (
           <button
             type="button"
-            onClick={() => onSelect(object.id)}
+            onClick={() => { onSelect(object.id); requestEquationFocus(object.id); }}
             aria-label={selected ? `Selected ${title}` : `Select ${title}`}
             aria-pressed={selected}
             data-object-row-select={object.id}
             className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
           >
             <div className="min-w-0 flex-1 overflow-hidden">
-              <span className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-medium text-[var(--text-primary)]">
+              <span className={cn("flex min-w-0 items-center gap-1.5 truncate text-[var(--text-primary)]", formulaLine ? "expression-text" : "text-[14px] font-medium")}>
                 <span className="min-w-0 truncate" title={formulaLine ?? undefined}>
-                  {formulaLine ?? title}
+                  {formulaLine ? <MathExpression expression={formulaLine} /> : title}
                 </span>
                 {computeStatus !== "idle" && (
                   <span
@@ -498,7 +507,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             }}
             className={cn(
               "flex h-7 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
-              selected || menuOpen ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+              "opacity-100"
             )}
           >
             <MoreHorizontalIcon className="h-3.5 w-3.5" />
@@ -511,12 +520,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         menuOpen={menuOpen}
         menuPos={menuPos}
         menuRef={menuRef}
+        onToggleCurveExtension={object.kind === "implicitCurve" && viewportMode !== "2d" && object.equation.trim()
+          ? () => { setCurveExtension3D(object.id, !object.extendTo3D); closeMenu(); }
+          : undefined}
         onConvertKind={convertKind}
         onRemove={handleRemove}
+        onClose={closeMenu}
       />
 
       {(isExpanded || emptyCue) && (
-        <div className="mx-1 mb-2 mt-0.5 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-2.5 animate-slide-up">
+        <div className="mb-3 ml-7 mr-2 mt-0.5 rounded-[var(--radius-md)] px-1 py-1 animate-slide-up">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
               Definition
@@ -524,9 +537,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           </div>
 
           <div className="flex flex-col gap-2">
-            {(object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
-              <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
-                <input
+            {(object.autoExpression || object.kind === "implicitCurve") && "equation" in object ? (
+              <AutomaticEquationInput ref={eqInputRef} objectId={object.id} value={object.equation} onEnter={handleCreateNext} />
+            ) : null}
+            {!object.autoExpression && (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
+              <div className="expression-field">
+                <MathInput
                   ref={eqInputRef}
                   type="text"
                   value={localEq}
@@ -553,7 +569,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                   placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : object.kind === "implicitSurface" ? "x^2 + y^2 + z^2 = 1" : "ax + by + cz + d = 0"}
                   spellCheck={false}
                   autoComplete="off"
-                  className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                  className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
                 />
               </div>
             )}
@@ -567,12 +583,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ].map((item) => (
                   <div
                     key={item.field}
-                    className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                    className="expression-field"
                   >
-                    <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-10">
+                    <span className="text-[12px] font-mono font-normal text-[var(--text-tertiary)] shrink-0 w-10">
                       {item.label}
                     </span>
-                    <input
+                    <MathInput
                       ref={item.field === "xExpr" ? xExprInputRef : undefined}
                       type="text"
                       value={item.val}
@@ -615,7 +631,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       }
                       spellCheck={false}
                       autoComplete="off"
-                      className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
                     />
                   </div>
                 ))}
@@ -655,12 +671,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 ].map((item) => (
                   <div
                     key={item.field}
-                    className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                    className="expression-field"
                   >
-                    <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0 w-14">
+                    <span className="text-[12px] font-mono font-normal text-[var(--text-tertiary)] shrink-0 w-14">
                       {item.label}
                     </span>
-                    <input
+                    <MathInput
                       ref={item.field === "pExpr" ? pExprInputRef : undefined}
                       type="text"
                       value={item.val}
@@ -683,7 +699,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       placeholder={item.placeholder}
                       spellCheck={false}
                       autoComplete="off"
-                      className="w-full bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
                     />
                   </div>
                 ))}

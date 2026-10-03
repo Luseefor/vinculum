@@ -12,6 +12,9 @@
 
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+import { MathInput } from "@/components/math/MathInput";
+
 import { useEffect, useMemo, useState } from "react";
 import type {
   ImplicitSurfaceObject,
@@ -59,25 +62,30 @@ function firstError(messages: Array<string | null>): string | null {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <h4 className="mb-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+    <h3 className="mb-2 text-[13px] font-semibold text-[var(--text-primary)]">
       {children}
-    </h4>
+    </h3>
   );
 }
 
 function DefinitionShell({
-  children
+  title, children
 }: {
   title: string;
-  badge: string;
-  blurb: string;
   children: React.ReactNode;
 }) {
-  // Title, kind badge, and prose live in the Inspector identity header; the
-  // definition section leads directly with the mathematics.
+  // Object identity lives in the Inspector header; the equation stays first.
   return (
-    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
-      <div className="flex flex-col gap-3">{children}</div>
+    <section aria-label={`${title} definition`} className="math-definition">
+      <div className="flex flex-col gap-5">{children}</div>
+      <details className="inspector-disclosure mt-4">
+        <summary>How to type math</summary>
+        <div className="space-y-2 pt-3 text-[13px] leading-relaxed text-[var(--text-secondary)]">
+          <p>Use ^ for powers and / for fractions. Press the right arrow to leave a power or fraction.</p>
+          <p><code className="text-[12px]">6*cos^2(x^2)</code> becomes <MathExpression expression="6*cos^2(x^2)" />.</p>
+          <p>Choose Text to edit or paste a plain-text expression.</p>
+        </div>
+      </details>
     </section>
   );
 }
@@ -102,11 +110,11 @@ function ExpressionInput({
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useCommittedText(committed, focused);
   return (
-    <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5 focus-within:border-[var(--accent)] focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors">
+    <div className="expression-field">
       <span aria-hidden="true" className="shrink-0 font-mono text-[12px] font-semibold text-[var(--text-secondary)]">
         {prefix}
       </span>
-      <input
+      <MathInput
         type="text"
         value={draft}
         aria-label={ariaLabel}
@@ -135,7 +143,7 @@ function ExpressionInput({
             event.currentTarget.blur();
           }
         }}
-        className="w-full bg-transparent font-mono text-[13px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+        className="min-w-0 w-full bg-transparent expression-text text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
       />
     </div>
   );
@@ -163,7 +171,7 @@ function DomainNumberInput({
   }, [value, focused]);
   return (
     <label className="block min-w-0">
-      <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+      <span className="mb-1 block text-[12px] font-medium text-[var(--text-secondary)]">
         {label}
       </span>
       <Input
@@ -193,7 +201,7 @@ function DomainNumberInput({
             onCommit(next);
           }
         }}
-        className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+        className="h-8 rounded-[var(--radius-sm)] border-transparent bg-[var(--editor-control)] px-2.5 text-[13px]"
       />
     </label>
   );
@@ -209,15 +217,20 @@ const ORIENTATION_OPTIONS: Array<{ value: SurfaceOrientation; label: string; pre
 
 export function SurfaceDefinitionEditor({
   object,
-  index
+  index,
+  hideEquation = false
 }: {
   object: SurfaceGraphObject;
   index: number;
+  hideEquation?: boolean;
 }) {
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateSurfaceOrientation = useGraphStore((state) => state.updateSurfaceOrientation);
   const updateSurfaceDomain = useGraphStore((state) => state.updateSurfaceDomain);
+  const setSurfaceAutoDomain = useGraphStore((state) => state.setSurfaceAutoDomain);
+  const followView = object.autoDomain ?? Boolean(object.autoExpression);
   const orientation = object.orientation ?? "z";
+  const inputAxes = orientation === "x" ? ["y", "z"] : orientation === "y" ? ["x", "z"] : ["x", "y"];
   const active = useMemo(
     () => ORIENTATION_OPTIONS.find((entry) => entry.value === orientation) ?? ORIENTATION_OPTIONS[0]!,
     [orientation]
@@ -235,11 +248,9 @@ export function SurfaceDefinitionEditor({
   return (
     <DefinitionShell
       title={`Surface${index >= 0 ? ` #${index + 1}` : ""}`}
-      badge={active.label}
-      blurb="Type the explicit function. Domain and sampling stay subordinate to the equation."
     >
-      <div>
-        <SectionLabel>Definition</SectionLabel>
+      {!hideEquation ? <div>
+        <SectionLabel>Expression</SectionLabel>
         <ExpressionInput
           prefix={active.prefix}
           committed={object.equation}
@@ -250,7 +261,7 @@ export function SurfaceDefinitionEditor({
           onCommit={(next) => updateSurfaceEquation(object.id, next)}
         />
         <label className="mt-2 block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--text-secondary)]">
             Dependent variable
           </span>
           <select
@@ -262,7 +273,7 @@ export function SurfaceDefinitionEditor({
                 updateSurfaceOrientation(object.id, next);
               }
             }}
-            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-transparent bg-[var(--editor-control)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             {ORIENTATION_OPTIONS.map((entry) => (
               <option key={entry.value} value={entry.value}>
@@ -276,15 +287,20 @@ export function SurfaceDefinitionEditor({
             <DiagnosticNote message={diagnostic} />
           </div>
         ) : null}
-      </div>
+      </div> : null}
       <div>
-        <SectionLabel>Domain</SectionLabel>
-        <CompactDomainGrid>
-          <DomainNumberInput label="x min" value={object.domain.xMin} onCommit={(v) => updateSurfaceDomain(object.id, { xMin: v })} />
-          <DomainNumberInput label="x max" value={object.domain.xMax} onCommit={(v) => updateSurfaceDomain(object.id, { xMax: v })} />
-          <DomainNumberInput label="y min" value={object.domain.yMin} onCommit={(v) => updateSurfaceDomain(object.id, { yMin: v })} />
-          <DomainNumberInput label="y max" value={object.domain.yMax} onCommit={(v) => updateSurfaceDomain(object.id, { yMax: v })} />
-        </CompactDomainGrid>
+        <SectionLabel>Plot range</SectionLabel>
+        <label className="mb-2 flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-md)] bg-[var(--editor-control)] px-3 text-[13px] text-[var(--text-primary)]">
+          <input type="checkbox" className="h-4 w-4 accent-[var(--accent)]" checked={followView} onChange={(event) => setSurfaceAutoDomain(object.id, event.target.checked)} />
+          Follow view
+        </label>
+        <p className="inspector-section-help mb-3">{followView ? "The surface continues as you zoom or pan. Only the visible region is sampled." : "Custom range: the surface is drawn only between these bounds."}</p>
+        {!followView ? <CompactDomainGrid>
+          <DomainNumberInput label={`${inputAxes[0]} min`} value={object.domain.xMin} onCommit={(v) => updateSurfaceDomain(object.id, { xMin: v })} />
+          <DomainNumberInput label={`${inputAxes[0]} max`} value={object.domain.xMax} onCommit={(v) => updateSurfaceDomain(object.id, { xMax: v })} />
+          <DomainNumberInput label={`${inputAxes[1]} min`} value={object.domain.yMin} onCommit={(v) => updateSurfaceDomain(object.id, { yMin: v })} />
+          <DomainNumberInput label={`${inputAxes[1]} max`} value={object.domain.yMax} onCommit={(v) => updateSurfaceDomain(object.id, { yMax: v })} />
+        </CompactDomainGrid> : null}
       </div>
     </DefinitionShell>
   );
@@ -332,11 +348,9 @@ export function ParametricCurveDefinitionEditor({
   return (
     <DefinitionShell
       title={`Parametric Curve${index >= 0 ? ` #${index + 1}` : ""}`}
-      badge="r(t) = <x, y, z>"
-      blurb="The three components belong together. Tab order is x(t) → y(t) → z(t) → t min → t max."
     >
       <div>
-        <SectionLabel>Definition</SectionLabel>
+        <SectionLabel>Expression</SectionLabel>
         <div className="flex flex-col gap-1.5" role="group" aria-label="Parametric curve components r(t)">
           {tuple.map((entry) => (
             <ExpressionInput
@@ -353,7 +367,7 @@ export function ParametricCurveDefinitionEditor({
         {diagnostic ? <div className="mt-2"><DiagnosticNote message={diagnostic} /></div> : null}
       </div>
       <div>
-        <SectionLabel>t domain</SectionLabel>
+        <SectionLabel>Parameter range</SectionLabel>
         <CompactDomainGrid>
           <DomainNumberInput label="t min" value={object.tMin} onCommit={(v) => updateParametricExpression(object.id, "tMin", v)} />
           <DomainNumberInput label="t max" value={object.tMax} onCommit={(v) => updateParametricExpression(object.id, "tMax", v)} />
@@ -364,7 +378,7 @@ export function ParametricCurveDefinitionEditor({
           Sampling · {object.samples} samples
         </summary>
         <label className="mt-2 block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--text-secondary)]">
             Samples
           </span>
           <Input
@@ -378,7 +392,7 @@ export function ParametricCurveDefinitionEditor({
                 updateParametricExpression(object.id, "samples", v);
               }
             }}
-            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] border-transparent bg-[var(--editor-control)] px-2.5 text-[13px]"
           />
         </label>
       </details>
@@ -428,11 +442,9 @@ export function ParametricSurfaceDefinitionEditor({
   return (
     <DefinitionShell
       title={`Parametric Surface${index >= 0 ? ` #${index + 1}` : ""}`}
-      badge="r(u,v) = <x, y, z>"
-      blurb="One vector-valued function of two parameters. Resolution stays subordinate."
     >
       <div>
-        <SectionLabel>Definition</SectionLabel>
+        <SectionLabel>Expression</SectionLabel>
         <div className="flex flex-col gap-1.5" role="group" aria-label="Parametric surface components r(u,v)">
           {tuple.map((entry) => (
             <ExpressionInput
@@ -449,7 +461,7 @@ export function ParametricSurfaceDefinitionEditor({
         {diagnostic ? <div className="mt-2"><DiagnosticNote message={diagnostic} /></div> : null}
       </div>
       <div>
-        <SectionLabel>Parameter domains</SectionLabel>
+        <SectionLabel>Parameter ranges</SectionLabel>
         <CompactDomainGrid>
           <DomainNumberInput label="u min" value={object.domain.uMin} onCommit={(v) => updateParametricSurfaceExpression(object.id, "uMin", v)} />
           <DomainNumberInput label="u max" value={object.domain.uMax} onCommit={(v) => updateParametricSurfaceExpression(object.id, "uMax", v)} />
@@ -465,10 +477,12 @@ export function ParametricSurfaceDefinitionEditor({
 
 export function ImplicitSurfaceDefinitionEditor({
   object,
-  index
+  index,
+  hideEquation = false
 }: {
   object: ImplicitSurfaceObject;
   index: number;
+  hideEquation?: boolean;
 }) {
   const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
   const diagnostic = useMemo(() => {
@@ -484,11 +498,9 @@ export function ImplicitSurfaceDefinitionEditor({
   return (
     <DefinitionShell
       title={`Implicit Surface${index >= 0 ? ` #${index + 1}` : ""}`}
-      badge="F(x,y,z) = 0"
-      blurb="Type the equation naturally — bare fields and equalities both work."
     >
-      <div>
-        <SectionLabel>Definition</SectionLabel>
+      {!hideEquation ? <div>
+        <SectionLabel>Expression</SectionLabel>
         <ExpressionInput
           prefix="F ="
           committed={object.equation}
@@ -503,9 +515,9 @@ export function ImplicitSurfaceDefinitionEditor({
             <DiagnosticNote message={diagnostic} />
           </div>
         ) : null}
-      </div>
+      </div> : null}
       <div>
-        <SectionLabel>Sampling box</SectionLabel>
+        <SectionLabel>3D plot bounds</SectionLabel>
         <CompactDomainGrid>
           <DomainNumberInput label="x min" value={object.domain.xMin} onCommit={(v) => updateImplicitSurfaceExpression(object.id, "xMin", v)} />
           <DomainNumberInput label="x max" value={object.domain.xMax} onCommit={(v) => updateImplicitSurfaceExpression(object.id, "xMax", v)} />
@@ -567,11 +579,9 @@ export function VectorFieldDefinitionEditor({
   return (
     <DefinitionShell
       title={`Vector Field${index >= 0 ? ` #${index + 1}` : ""}`}
-      badge={`F(${coords}) = <${is3D ? "P, Q, R" : "P, Q"}>`}
-      blurb={`One mathematical vector on a bounded grid. ${is3D ? "3D fields sample F(x,y,z)." : "2D fields sample F(x,y)."}`}
     >
       <div>
-        <SectionLabel>Definition</SectionLabel>
+        <SectionLabel>Expression</SectionLabel>
         <div className="flex flex-col gap-1.5" role="group" aria-label={`Vector field components F(${coords})`}>
           {components.map((entry) => (
             <ExpressionInput
@@ -587,7 +597,7 @@ export function VectorFieldDefinitionEditor({
         </div>
         {diagnostic ? <div className="mt-2"><DiagnosticNote message={diagnostic} /></div> : null}
         <label className="mt-2 block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--text-secondary)]">
             Dimension
           </span>
           <select
@@ -599,7 +609,7 @@ export function VectorFieldDefinitionEditor({
                 setObjectKind(object.id, "vectorField", next);
               }
             }}
-            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--radius-sm)] border border-transparent bg-[var(--editor-control)] px-2.5 text-[13px] text-[var(--text-primary)]"
           >
             <option value="2d">2D — F(x,y)</option>
             <option value="3d">3D — F(x,y,z)</option>
@@ -607,7 +617,7 @@ export function VectorFieldDefinitionEditor({
         </label>
       </div>
       <div>
-        <SectionLabel>Domain</SectionLabel>
+        <SectionLabel>Plot range</SectionLabel>
         <CompactDomainGrid>
           <DomainNumberInput label="x min" value={object.domain.xMin} onCommit={(v) => updateVectorFieldExpression(object.id, "xMin", v)} />
           <DomainNumberInput label="x max" value={object.domain.xMax} onCommit={(v) => updateVectorFieldExpression(object.id, "xMax", v)} />
@@ -634,7 +644,7 @@ export function VectorFieldDefinitionEditor({
           Sampling · density {object.density}
         </summary>
         <label className="mt-2 block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[12px] font-medium text-[var(--text-secondary)]">
             Density per axis
           </span>
           <Input
@@ -647,11 +657,11 @@ export function VectorFieldDefinitionEditor({
                 updateVectorFieldExpression(object.id, "density", v);
               }
             }}
-            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--radius-sm)] border-transparent bg-[var(--editor-control)] px-2.5 text-[13px]"
           />
         </label>
         <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-tertiary)]">
-          Scale and normalize live in the Styles tab — presentation only, never resampling.
+          Scale and normalize live in the Settings tab — presentation only, never resampling.
         </p>
       </details>
     </DefinitionShell>

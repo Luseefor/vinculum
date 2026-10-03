@@ -17,6 +17,7 @@ export interface FirstRunHintProps {
   canvasMode?: "perspective" | "ortho" | "math";
   onDismiss: () => void;
   onOpenExamples: () => void;
+  onOpenGuide?: () => void;
 }
 
 export function firstRunCopy(workspace: WorkspaceId): {
@@ -27,18 +28,18 @@ export function firstRunCopy(workspace: WorkspaceId): {
     return {
       title: WORKSPACE_CONTENT.geometry.label,
       steps: [
-        "Add a point, line, or surface from Objects or Quick Add.",
-        "Select an object to edit it in the Inspector.",
-        "Open Analyze for distances, angles, and constructions."
+        "Use Objects → Add to create a point, line, or surface.",
+        "Click an object row to edit. Inspector changes its properties.",
+        "Select an object → Inspector → Analyze for distances and angles."
       ]
     };
   }
   return {
     title: WORKSPACE_CONTENT.math.label,
     steps: [
-      "Add an expression or mathematical object to begin.",
-      "Edit definitions in the Inspector Object tab.",
-      "Use Analyze for derivatives, fields, integrals, and linear algebra."
+      "Type an equation in Objects: x=y^2 is 2D; add z for 3D.",
+      "Click an expression row to edit its formula.",
+      "Use Solve for field problems; Inspector → Analyze for a selected object."
     ]
   };
 }
@@ -50,6 +51,7 @@ export function canvasNavHint(
   if (touchHints) {
     return "Drag to move the view · Pinch to zoom";
   }
+  if (canvasMode === "math") return "3D: drag to orbit · 2D: drag to pan · Scroll to zoom";
   if (canvasMode === "ortho") {
     return "Drag to pan · Scroll to zoom";
   }
@@ -63,7 +65,8 @@ export default function FirstRunHint({
   touchHints = false,
   canvasMode = "perspective",
   onDismiss,
-  onOpenExamples
+  onOpenExamples,
+  onOpenGuide
 }: FirstRunHintProps) {
   if (!open) {
     return null;
@@ -76,7 +79,7 @@ export default function FirstRunHint({
     <aside
       data-testid="first-run-hint"
       aria-label="Getting started"
-      className="pointer-events-auto absolute left-1/2 top-4 z-20 w-[min(22rem,calc(100%-1.5rem))] -translate-x-1/2 animate-fade-in rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-3.5 shadow-[var(--shadow-floating)]"
+      className="pointer-events-auto absolute left-1/2 top-4 z-20 w-[min(22rem,calc(100%-1.5rem))] max-h-[calc(50%_-_2rem)] -translate-x-1/2 overflow-y-auto animate-fade-in rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-3.5 shadow-[var(--shadow-floating)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -118,6 +121,7 @@ export default function FirstRunHint({
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {onOpenGuide ? <button type="button" onClick={(event) => { event.currentTarget.focus(); onOpenGuide(); }} className="h-8 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-2.5 text-[12px] font-medium text-[var(--text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Where are the tools?</button> : null}
         <button
           type="button"
           onClick={onOpenExamples}

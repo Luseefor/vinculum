@@ -1,3 +1,4 @@
+import { getGraphObjectFor3D } from "./graphObject3dGuards";
 import type { GraphRenderer } from "./graphRenderer";
 import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
@@ -35,8 +36,11 @@ export function syncThreeSceneObjects(
 ): void {
   const parameterSignature = getParameterSignature();
   const hasSurfaces = sceneHasVisibleSurface(allObjects);
-  keyLight.castShadow = hasSurfaces;
-  renderer.shadowMap.enabled = hasSurfaces;
+  // Node materials retain the light's shadow resources. Keep the pipeline
+  // enabled after its first use so hiding/deleting the last surface cannot
+  // invalidate a shadow node that another visible material still references.
+  keyLight.castShadow = keyLight.castShadow || hasSurfaces;
+  renderer.shadowMap.enabled = renderer.shadowMap.enabled || hasSurfaces;
   const nextIds = new Set<string>();
   const computeContext: GeometryComputeSyncContext | null =
     computeManager && getComputeTheme
@@ -50,7 +54,9 @@ export function syncThreeSceneObjects(
         }
       : null;
 
-  for (const object of allObjects) {
+  for (const source of allObjects) {
+    const object = getGraphObjectFor3D(source);
+    if (source.kind === "implicitCurve" && !source.extendTo3D) computeContext?.manager.notifyObjectsRemoved([source.id]);
     nextIds.add(object.id);
     if (computeContext && isWorkerizedComputeKind(object)) {
       syncComputedSurfaceObject(object, theme, parameterSignature, computeContext);

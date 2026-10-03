@@ -76,6 +76,13 @@ interface DrawnSegment {
 function collectDrawnSegments(node: Object3D | null): DrawnSegment[] {
   const segments: DrawnSegment[] = [];
   node?.traverse((child) => {
+    if (child.userData.wideStroke) {
+      const geometry = (child as import("three").Mesh).geometry;
+      const start = geometry.getAttribute("instanceStart");
+      const end = geometry.getAttribute("instanceEnd");
+      for (let i = 0; i < start.count; i++) segments.push({ x0: start.getX(i), y0: start.getZ(i), x1: end.getX(i), y1: end.getZ(i) });
+      return;
+    }
     if (!(child instanceof Line)) {
       return;
     }
@@ -425,7 +432,7 @@ describe("parametric gap regression", () => {
     expect(sampled.connectedSegments[46]).toBe(0);
   });
 
-  it("rendered index obeys canonical connectivity exactly", () => {
+  it("wide strokes obey canonical connectivity exactly", () => {
     const curve = makeCurve("t", "1/(t - 0.5)", "0", 0, 1, 100);
     const compiled = compileParametricExpressions(curve.xExpr, curve.yExpr, curve.zExpr);
     if (compiled.error) {
@@ -435,24 +442,20 @@ describe("parametric gap regression", () => {
     const node = buildParametric(curve);
     expect(node).not.toBeNull();
     let pairCount = 0;
-    node?.traverse((child) => {
-      if (!(child instanceof Line)) {
-        return;
-      }
-      const index = child.geometry.getIndex();
-      expect(index).not.toBeNull();
-      const count = index?.count ?? 0;
-      expect(count % 2).toBe(0);
-      for (let i = 0; i + 1 < count; i += 2) {
-        const a = index?.getX(i) ?? -1;
-        const b = index?.getX(i + 1) ?? -2;
-        expect(b).toBe(a + 1);
-        expect(a).toBeLessThan(curve.samples);
-        expect(sampled.connectedSegments[a]).toBe(1);
+    node?.traverse(child => {
+      if (!child.userData.wideStroke) return;
+      const geometry = (child as import("three").Mesh).geometry;
+      const start = geometry.getAttribute("instanceStart");
+      const end = geometry.getAttribute("instanceEnd");
+      const expectedStarts = Array.from(sampled.connectedSegments).flatMap((connected, i) => connected === 1 ? [i] : []);
+      expect(start.count).toBe(expectedStarts.length);
+      expectedStarts.forEach((a, i) => {
         expect(sampled.validSamples[a]).toBe(1);
-        expect(sampled.validSamples[b]).toBe(1);
-        pairCount += 1;
-      }
+        expect(sampled.validSamples[a + 1]).toBe(1);
+        expect([start.getX(i), start.getY(i), start.getZ(i)]).toEqual(Array.from(sampled.positions.slice(a * 3, a * 3 + 3)));
+        expect([end.getX(i), end.getY(i), end.getZ(i)]).toEqual(Array.from(sampled.positions.slice((a + 1) * 3, (a + 1) * 3 + 3)));
+        pairCount++;
+      });
     });
     let expectedPairs = 0;
     for (let i = 0; i < curve.samples - 1; i += 1) {

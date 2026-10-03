@@ -60,6 +60,22 @@ describe("Sheet focus contract", () => {
     expect(search).toBeInTheDocument();
   });
 
+  it("keeps the active field visible after viewport resize and removes the listener on close", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "Open objects" }));
+    const search = screen.getByLabelText("Search objects");
+    const scroll = vi.fn();
+    search.scrollIntoView = scroll;
+    search.focus();
+    scroll.mockClear();
+    fireEvent(window, new Event("resize"));
+    expect(scroll).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+    fireEvent.keyDown(window, { key: "Escape" });
+    scroll.mockClear();
+    fireEvent(window, new Event("resize"));
+    expect(scroll).not.toHaveBeenCalled();
+  });
+
   it("closes on backdrop click", () => {
     const onOpenChange = vi.fn();
     render(<Harness onOpenChange={onOpenChange} />);

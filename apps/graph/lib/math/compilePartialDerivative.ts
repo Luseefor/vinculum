@@ -8,7 +8,7 @@ import { formatExpressionError } from "./expressionErrorFormat";
 // generated expression string runs through the SAME S11 safety pipeline
 // (no policy expansion — e.g. `tan(x)` differentiates to `sec(x)^2`, which
 // fails as an unsupported function and becomes "derivative unavailable").
-// Compiled with mathjs `compile`; evaluators never throw (NaN on
+// Executed by the Rust/WASM core; evaluators never throw (NaN on
 // throw/non-finite). No finite-difference fallback: unsupported means
 // "unavailable", never a silent approximation.
 //

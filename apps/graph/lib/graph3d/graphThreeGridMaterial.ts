@@ -23,6 +23,6 @@ export function createGraphGridMaterial() {
   const fade = smoothstep(uFadeDistance.mul(0.12), uFadeDistance.mul(0.88), distance(coordinate, camera)).oneMinus();
   const material = new MeshBasicNodeMaterial({ depthWrite: false, side: DoubleSide, transparent: true, toneMapped: false });
   material.colorNode = uMinorColor.mul(minor).add(uMajorColor.mul(major));
-  material.opacityNode = minor.mul(0.38).add(major.mul(0.82)).mul(fade);
+  material.opacityNode = minor.mul(0.2).add(major.mul(0.48)).mul(fade);
   return { material, uniforms };
 }

@@ -211,7 +211,7 @@ describe("implicit surface persistence", () => {
     }
   });
 
-  it("warns (never silently drops) implicit surfaces in 2D SVG export", async () => {
+  it("exports labeled implicit surface cross-sections in 2D SVG", async () => {
     const scene = createSceneDocument({ objects: [makeImplicit()] });
     const result = export2dSvg({
       sceneName: scene.metadata.name,
@@ -221,9 +221,11 @@ describe("implicit surface persistence", () => {
       viewportFrame: { width: 800, height: 600 }
     });
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.some((warning) => warning.includes("not yet represented"))).toBe(true);
+    expect(result.file?.warnings).toEqual([]);
     const svg = await result.file!.blob.text();
     expect(svg).toContain("<svg");
+    expect(svg).toContain("Implicit surface cross-sections: z = 0.");
+    expect(svg).toContain("<path d=");
   });
 });
 
@@ -298,11 +300,13 @@ describe("buildImplicitSurface", () => {
     expect(buildImplicitSurface(makeImplicit({ equation: "0" }), "dark", tokens)).toBeNull();
   });
 
-  it("omits the edge overlay in wireframe mode", () => {
+  it("renders smooth filled surfaces and only shows wireframe when requested", () => {
     const tokens = getGraphThemeTokens("dark");
     const solid = buildImplicitSurface(makeImplicit(), "dark", tokens);
     const wire = buildImplicitSurface(makeImplicit({ appearance: { wireframe: true } }), "dark", tokens);
-    expect(solid!.children.length).toBe(2);
+    expect(solid!.children.length).toBe(1);
+    expect((solid!.children[0] as Mesh).material).toMatchObject({ wireframe: false });
+    expect((wire!.children[0] as Mesh).material).toMatchObject({ wireframe: true });
     expect(wire!.children.length).toBe(1);
   });
 

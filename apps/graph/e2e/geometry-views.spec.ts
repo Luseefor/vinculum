@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { expectInputValue, fillInput } from "./helpers/mathInput";
 import { expect, test, type Page } from "@playwright/test";
 
 // Geometry Studio synchronized views: single/split/quad across
@@ -5,14 +7,13 @@ import { expect, test, type Page } from "@playwright/test";
 const SURFACE_INPUT = 'input[placeholder="x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1"]';
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -53,14 +54,14 @@ test.describe("Geometry synchronized views", () => {
     await startClean(page);
     await toGeometry(page);
     // Seed one asymmetric surface + one plane for readable panes.
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Surface");
+    await addObject(page, "Plane");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     for (const view of ["Perspective", "XY", "XZ", "YZ"] as const) {
       await setGeometryView(page, view);
       await page.waitForTimeout(600);
-      await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
-      await expect(page.getByLabel("Geometry view")).toHaveValue(view.toLowerCase());
+      await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first()).toBeVisible();
+      await expectInputValue(page.getByLabel("Geometry view"), view.toLowerCase());
       await expect(page.getByRole("button", { name: `${view} viewport` })).toHaveCount(0);
       await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     }
@@ -72,7 +73,7 @@ test.describe("Geometry synchronized views", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
     await setGeometryLayout(page, "Split");
@@ -86,7 +87,7 @@ test.describe("Geometry synchronized views", () => {
     if ((await input.count()) === 0) {
       await page.getByRole("button", { name: "Expand definition" }).first().click();
     }
-    await page.locator(SURFACE_INPUT).first().fill("z = x^2 - y^2");
+    await fillInput(page.locator(SURFACE_INPUT).first(), "z = x^2 - y^2");
     await page.waitForTimeout(800);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
@@ -109,20 +110,29 @@ test.describe("Geometry synchronized views", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("pane activation, ortho zoom/pan isolation, perspective orbit", async ({ page }) => {    const { consoleErrors, pageErrors } = collectErrors(page);
+  test("pane activation, ortho zoom/pan isolation, perspective orbit", async ({ page }) => {
+    const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await setGeometryLayout(page, "Quad");
     await page.waitForTimeout(800);
-    const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const canvas = page.locator('canvas[data-graph3d-canvas="true"]:visible').first();
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     if (!box) return;
 
+    // The selector, chip, and engine share the same active pane.
+    await setGeometryView(page, "YZ");
+    await expect(page.getByRole("button", { name: "YZ viewport" })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "XZ viewport" }).click();
+    await expect(page.getByLabel("Geometry view")).toHaveValue("xz");
+
     // Clicking the XY quadrant activates it.
     await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.25);
     await expect(page.getByRole("button", { name: "XY viewport" })).toHaveAttribute("aria-pressed", "true");
+
+    await expect(page.getByLabel("Geometry view")).toHaveValue("xy");
 
     // Wheel over XY zooms without errors; canvas stays live.
     await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.25);
@@ -154,7 +164,7 @@ test.describe("Geometry synchronized views", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await setGeometryLayout(page, "Split");
     await page.waitForTimeout(800);
     // Adding the surface selects it and opens the inspector, which narrows
@@ -162,7 +172,7 @@ test.describe("Geometry synchronized views", () => {
     // the inspector, resizing the canvas and legitimately changing the
     // perspective aspect. Click empty sky first so the layout is settled
     // before comparing perspective state.
-    const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const canvas = page.locator('canvas[data-graph3d-canvas="true"]:visible').first();
     let box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     if (!box) return;
@@ -231,12 +241,12 @@ test.describe("Geometry synchronized views", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await setGeometryView(page, "XY");
     await page.waitForTimeout(800);
     // Probe tool via compact select is desktop-only here; use toolbar Tool select.
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
-    const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const canvas = page.locator('canvas[data-graph3d-canvas="true"]:visible').first();
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     if (box) {
@@ -255,11 +265,11 @@ test.describe("Geometry synchronized views", () => {
     await expect(page.locator('canvas[data-graph2d-canvas="true"]:visible').first()).toBeVisible();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "3D only" }).click();
-    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first()).toBeVisible();
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible:visible').first()).toBeVisible();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "2D and 3D together" }).click();
     await expect(page.locator('canvas[data-graph2d-canvas="true"]:visible').first()).toBeVisible();
-    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first()).toBeVisible();
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible:visible').first()).toBeVisible();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
 
     expect(pageErrors).toEqual([]);
@@ -272,17 +282,17 @@ test.describe("Geometry synchronized views", () => {
     await toGeometry(page);
     // Shallow tilted plane: no ortho ray is parallel to it, so every
     // probe point hits and mapping is fully determined by orientation.
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     const eqInput = page.locator(SURFACE_INPUT).first();
     if ((await eqInput.count()) === 0) {
       await page.getByRole("button", { name: "Expand definition" }).first().click();
     }
-    await page.locator(SURFACE_INPUT).first().fill("z = 0.1 * x + 0.1 * y");
+    await fillInput(page.locator(SURFACE_INPUT).first(), "z = 0.1 * x + 0.1 * y");
     await page.locator(SURFACE_INPUT).first().blur();
-    await expect(page.locator(SURFACE_INPUT).first()).toHaveValue("z = 0.1 * x + 0.1 * y");
+    await expectInputValue(page.locator(SURFACE_INPUT).first(), "z = 0.1 * x + 0.1 * y");
     await page.waitForTimeout(1000);
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
-    const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const canvas = page.locator('canvas[data-graph3d-canvas="true"]:visible').first();
 
     // World coordinates reported by the probe badge: world.x = math x,
     // world.y = math z, world.z = math y.
@@ -357,23 +367,23 @@ test.describe("Geometry synchronized views", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("narrow geometry single view stays usable", async ({ page }) => {    const { consoleErrors, pageErrors } = collectErrors(page);
+  test("narrow geometry single view stays usable", async ({ page }) => {
+    const { consoleErrors, pageErrors } = collectErrors(page);
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Objects" })).toBeVisible();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { name: "Objects" })).not.toBeVisible();
-    await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first()).toBeVisible();
 
     // The CSS2D label layer is clipped to the perspective pane, so its box
     // directly proves panes tile without overlap or collapse at 430px.
     async function labelLayerGeometry() {
-      return page.evaluate(() => {
-        const canvas = document.querySelector('canvas[data-graph3d-canvas="true"]');
+      return page.locator('canvas[data-graph3d-canvas="true"]:visible').first().evaluate((canvas) => {
         const label = canvas?.nextElementSibling as HTMLElement | null;
         if (!canvas || !label) {
           return null;
@@ -421,7 +431,7 @@ test.describe("Geometry synchronized views", () => {
     // The Scene Navigator (with the object count) is hidden at this width;
     // canvas visibility proves the quad view is still live. Scene integrity
     // was already asserted above (count "1" before the layout switches).
-    await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
+    await expect(page.locator('canvas[data-graph3d-canvas="true"]:visible').first()).toBeVisible();
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);

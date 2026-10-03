@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -7,17 +9,17 @@ import { expect, test, type Page } from "@playwright/test";
 // parameter liveness, camera independence, synchronized views,
 // visibility, delete/kind-switch, persistence, undo/redo, workspace,
 // narrow sheets, security/a11y. Zero unexpected console/page errors.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -27,7 +29,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -91,12 +93,12 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("2");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "2");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "3");
     await expect(graph3dCanvas(page)).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -108,11 +110,11 @@ test.describe("S27 geometry relations", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Parametric x(t) =").first().fill("0");
-    await page.getByLabel("Parametric y(t) =").first().fill("0");
-    await page.getByLabel("Parametric z(t) =").first().fill("0");
+    await fillInput(page.getByLabel("Parametric x(t) =").first(), "0");
+    await fillInput(page.getByLabel("Parametric y(t) =").first(), "0");
+    await fillInput(page.getByLabel("Parametric z(t) =").first(), "0");
     // Historical preset keeps its curve identity and legacy row label.
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
     await expect(graph3dCanvas(page)).toBeVisible();
@@ -125,17 +127,17 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("4");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("2");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "4");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "2");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -156,18 +158,18 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("-3");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("4");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "-3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "4");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Ray origin x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray origin y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray origin z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Ray direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray direction z").fill("0");
+    await addObject(page, "Ray");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Ray #2");
@@ -184,17 +186,17 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("4");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Segment start x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment start y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment start z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment end x").fill("2");
-    await page.locator("#graph-inspector").getByLabel("Segment end y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment end z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "4");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
+    await addObject(page, "Segment");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end x"), "2");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Segment #2");
@@ -211,11 +213,11 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("7");
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "7");
+    await addObject(page, "Plane");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
@@ -232,21 +234,21 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("-1");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "-1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -266,18 +268,18 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -298,21 +300,21 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("2");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "2");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -331,21 +333,21 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("5");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("-2");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "5");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "-2");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -361,14 +363,14 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("1");
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "1");
+    await addObject(page, "Plane");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
@@ -389,21 +391,21 @@ test.describe("S27 geometry relations", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Ray", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Ray origin x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray origin y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray origin z").fill("5");
-    await page.locator("#graph-inspector").getByLabel("Ray direction x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Ray direction z").fill("1");
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Segment start x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment start y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment start z").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Segment end x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment end y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Segment end z").fill("4");
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Ray");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray origin z"), "5");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Ray direction z"), "1");
+    await addObject(page, "Segment");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment start z"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Segment end z"), "4");
+    await addObject(page, "Plane");
     await page.getByRole("button", { name: /Ray #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
@@ -427,29 +429,11 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Plane");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
-    // Tilt the second plane off the default (x+y+z=1) so the pair meets
-    // in a genuine intersection line rather than coinciding. Creation
-    // focuses the new plane's equation input: wait for focus to land,
-    // then fill it via the native setter (React onChange contract).
-    await expect
-      .poll(async () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.tagName ?? "none"), {
-        timeout: 10000
-      })
-      .toBe("INPUT");
-    await page.evaluate(() => {
-      const el = document.activeElement as HTMLInputElement;
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(el, "x = 0");
-      } else {
-        el.value = "x = 0";
-      }
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    await addObject(page, "Plane");
+    // Edit through the canonical math-input helper after lazy typeset initialization.
+    await fillInput(page.locator("#graph-inspector").getByLabel("Plane equation"), "x = 0");
     await page.getByRole("button", { name: /Plane #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane #2");
@@ -468,15 +452,15 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Vector component x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Vector component y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Vector component z").fill("0");
+    await addObject(page, "Vector");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component z"), "0");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Vector component x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Vector component y").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Vector component z").fill("0");
+    await addObject(page, "Vector");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component y"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Vector component z"), "0");
     await page.getByRole("button", { name: /Vector #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Vector #2");
@@ -489,42 +473,29 @@ test.describe("S27 geometry relations", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("O: parameter edits update analysis instantly with zero workers", async ({ page }) => {
+  test("O: formula edits update Point analysis live", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("r");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "r");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-point")).toContainText("2.5", { timeout: 10000 });
-    await page.getByRole("button", { name: "PARAMETERS" }).click();
-    const slider = page.getByLabel("Parameter r");
-    await expect(slider).toBeVisible();
-    await slider.evaluate((element, value) => {
-      const input = element as HTMLInputElement;
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(input, String(value));
-      } else {
-        input.value = String(value);
-      }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, "4");
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "4");
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-point")).toContainText("4", { timeout: 10000 });
 
@@ -536,14 +507,14 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("1");
-    await page.getByRole("button", { name: "Plane", exact: true }).click();
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "1");
+    await addObject(page, "Plane");
     await page.getByRole("button", { name: /Line #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Plane");
@@ -573,17 +544,17 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("4");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "4");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -606,17 +577,17 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("3");
-    await page.locator("#graph-inspector").getByLabel("Point y").fill("4");
-    await page.locator("#graph-inspector").getByLabel("Point z").fill("0");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
-    await page.locator("#graph-inspector").getByLabel("Line point x").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line point z").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction x").fill("1");
-    await page.locator("#graph-inspector").getByLabel("Line direction y").fill("0");
-    await page.locator("#graph-inspector").getByLabel("Line direction z").fill("0");
+    await addObject(page, "Point");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "3");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "4");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point z"), "0");
+    await addObject(page, "Infinite Line");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point x"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line point z"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction x"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction y"), "0");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Line direction z"), "0");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
@@ -639,15 +610,15 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Point");
+    await addObject(page, "Infinite Line");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Line #2");
     await openAnalyze(page);
     await expect(page.getByTestId("geometry-fact-distance")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: /Line #2/ }).click();
-    await page.keyboard.press("Delete");
+    await page.getByRole("button", { name: /Line #2/ }).press("Delete");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByText("Select another object.")).toBeVisible({ timeout: 10000 });
 
@@ -659,10 +630,10 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("2*pi");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "2*pi");
+    await addObject(page, "Infinite Line");
     await page.getByRole("button", { name: /Point #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Infinite Line #2");
@@ -670,7 +641,7 @@ test.describe("S27 geometry relations", () => {
     await expect(page.getByTestId("geometry-fact-distance")).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s27-points");
+    await fillInput(page.locator("#project-name-input"), "s27-points");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -689,7 +660,7 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Segment", exact: true }).click();
+    await addObject(page, "Segment");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
@@ -706,9 +677,9 @@ test.describe("S27 geometry relations", () => {
     await startClean(page);
     await toMathLab(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
+    await addObject(page, "Vector");
     await page.getByRole("button", { name: /Vector #1/ }).click();
     await openAnalyze(page);
     await selectSecondObject(page, "Vector #2");
@@ -732,9 +703,9 @@ test.describe("S27 geometry relations", () => {
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByRole("button", { name: "Infinite Line", exact: true }).click();
+    await addObject(page, "Infinite Line");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
@@ -749,9 +720,9 @@ test.describe("S27 geometry relations", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Point", exact: true }).click();
+    await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.locator("#graph-inspector").getByLabel("Point x").fill("sin(factorial(a))");
+    await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "sin(factorial(a))");
     await expect(page.getByRole("alert").first()).toBeVisible({ timeout: 10000 });
     // Park the mouse on the inert 3D canvas: its resting position
     // persists across tests in one profile, and a hover-brightened

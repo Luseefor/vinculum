@@ -84,12 +84,21 @@ export function computeVectorFieldData(input: VectorFieldDataInput): VectorField
   const vectors: number[] = [];
   const magnitudes: number[] = [];
   let maxMagnitude = 0;
+  let sampled: Float64Array[];
+  try {
+    sampled = compiled.evaluateGrid!([
+      { symbol: "x", min: domain.xMin, max: domain.xMax, count: density },
+      { symbol: "y", min: domain.yMin, max: domain.yMax, count: density },
+      { symbol: "z", min: domain3D?.zMin ?? 0, max: domain3D?.zMax ?? 0, count: domain3D ? density : 1 }
+    ]);
+  } catch (error) {
+    return { status: "error", error: error instanceof Error ? error.message : "Field sampling failed." };
+  }
+  let sampleIndex = 0;
 
   const visit = (x: number, y: number, z: number) => {
-    const components =
-      dimension === "2d"
-        ? (compiled.evaluate2D as NonNullable<typeof compiled.evaluate2D>)(x, y)
-        : (compiled.evaluate3D as NonNullable<typeof compiled.evaluate3D>)(x, y, z);
+    const index = sampleIndex++;
+    const components = sampled.map((axis) => axis[index]!);
     for (const component of components) {
       if (!Number.isFinite(component)) {
         return;

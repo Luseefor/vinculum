@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { type RefObject, useEffect, useState } from "react";
 import type { Canvas2DTool } from "@/types/graphUi";
 import {
@@ -55,8 +57,8 @@ export function Graph2DCanvasUiCursorTooltip({
         bottom: isNearBottom ? Math.min(ch - y + CURSOR_TOOLTIP_OFFSET_PX, VIEWPORT_BADGE_HEIGHT_PX) : undefined,
       }}
     >
-      ({axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)},{" "}
-      {axisPair.verticalLabel}: {formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)})
+      ({axisPair.horizontalLabel}: <MathExpression expression={formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)} />,{" "}
+      {axisPair.verticalLabel}: <MathExpression expression={formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)} />)
     </div>
   );
 }

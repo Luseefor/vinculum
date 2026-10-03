@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { buildShareSceneUrl } from "@/lib/share/shareSceneLink";
 import TopToolbar from "@/components/editor/TopToolbar";
 
 const mockOpenSceneDialog = vi.fn();
@@ -99,12 +100,32 @@ describe("TopToolbar scene menu", () => {
     const menu = screen.getByRole("menu");
 
     expect(within(menu).getByText("Projects")).toBeInTheDocument();
-    expect(within(menu).getByText("Import / Export")).toBeInTheDocument();
-    expect(within(menu).getByText("Share")).toBeInTheDocument();
+    expect(within(menu).getByText("Transfer")).toBeInTheDocument();
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(8);
+    expect(within(menu).queryByText("Show tips again")).not.toBeInTheDocument();
+    expect(within(menu).queryByText("Export 3D PNG")).not.toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Share & export..." })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: /New scene/ })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Save as..." })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Import..." })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Copy share link" })).toBeInTheDocument();
+  });
+
+  it("refreshes 3D export availability when Share opens after the canvas mounts", () => {
+    render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
+    const canvas = document.createElement("canvas");
+    canvas.dataset.graph3dCanvas = "true";
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 400 }, clientHeight: { value: 300 },
+      getClientRects: { value: () => [{ width: 400, height: 300 }] }
+    });
+    document.body.appendChild(canvas);
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Share" }));
+      expect(screen.getByRole("button", { name: "3D PNG" })).toBeEnabled();
+    } finally {
+      canvas.remove();
+    }
   });
 
   it("routes actions to existing handlers and closes on Escape", async () => {
@@ -128,5 +149,41 @@ describe("TopToolbar scene menu", () => {
     await waitFor(() => {
       expect(screen.queryByRole("menuitem", { name: "New scene" })).not.toBeInTheDocument();
     });
+  });
+});
+
+
+describe("share action feedback", () => {
+  const url = "https://vinculum.example/editor?scene=validated-payload";
+  it("shows pending and successful clipboard feedback outside the share dialog", async () => {
+    let complete!: () => void;
+    const writeText = vi.fn(() => new Promise<void>((resolve) => { complete = resolve; }));
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    vi.mocked(buildShareSceneUrl).mockReturnValue({ ok: true, url });
+    render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Scene" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy share link" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Copying link");
+    expect(writeText).toHaveBeenCalledWith(url);
+    complete();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Share link copied."));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss action feedback" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+  it("provides the actual share link, selected for manual copying, when clipboard access fails", async () => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) } });
+    vi.mocked(buildShareSceneUrl).mockReturnValue({ ok: true, url });
+    render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Scene" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy share link" }));
+    const input = await screen.findByRole("textbox", { name: "Copy share link manually" });
+    expect(input).toHaveValue(url);
+    expect(input).toHaveFocus();
+    expect((input as HTMLInputElement).selectionEnd).toBe(url.length);
+    expect(screen.getByRole("status")).toHaveTextContent("Copy the selected link below");
+    expect(screen.getByRole("button", { name: "2D PNG" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    expect(screen.queryByRole("textbox", { name: "Copy share link manually" })).toBeNull();
   });
 });

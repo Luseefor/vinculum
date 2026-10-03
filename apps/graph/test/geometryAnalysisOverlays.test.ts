@@ -115,7 +115,7 @@ describe("geometry analysis overlay sync (S27 PART 23/46)", () => {
     const key = `${GEOMETRY_ANALYSIS_OVERLAY_PREFIX}${line.id}`;
     const cached = frame.cache.get(key);
     expect(cached).toBeDefined();
-    const lines = (cached?.group.children ?? []).filter((child) => (child as { isLine?: boolean }).isLine === true);
+    const lines = (cached?.group.children ?? []).filter((child) => (child as { isLine?: boolean }).isLine === true || child.userData.wideStroke === true);
     expect(lines.length).toBeGreaterThan(0);
     let raycastable = 0;
     cached?.group.traverse((child) => {
@@ -138,7 +138,7 @@ describe("geometry analysis overlay sync (S27 PART 23/46)", () => {
     const cached = frame.cache.get(key);
     expect(cached).toBeDefined();
     // Line allocated in place on first refresh (PART 26).
-    const lines = (cached?.group.children ?? []).filter((child) => (child as { isLine?: boolean }).isLine === true);
+    const lines = (cached?.group.children ?? []).filter((child) => (child as { isLine?: boolean }).isLine === true || child.userData.wideStroke === true);
     expect(lines.length).toBeGreaterThan(0);
   });
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { createSceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
+import { registerGraphCanvasCapture } from "@/lib/graph3d/graphCanvasCapture";
 import {
   export2dPngFromCanvas,
   export2dSvg,
@@ -100,7 +101,23 @@ describe("scene export service", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/WebGL capture/i);
+    expect(result.error).toMatch(/GPU capture/i);
+  });
+
+  it("captures through the owning GPU engine and unregisters on disposal", async () => {
+    const canvas = document.createElement("canvas");
+    const blob = new Blob(["rendered-frame"], { type: "image/png" });
+    const capture = vi.fn().mockResolvedValue(blob);
+    const unregister = registerGraphCanvasCapture(canvas, capture);
+    const result = await export3dPngFromCanvas({ canvas, sceneName: "gpu" });
+    expect(result.file?.blob).toBe(blob);
+    expect(capture).toHaveBeenCalledOnce();
+    capture.mockRejectedValue(new Error("device lost"));
+    expect((await export3dPngFromCanvas({ canvas, sceneName: "gpu" })).ok).toBe(false);
+    unregister();
+    Object.defineProperty(canvas, "toBlob", { value: (callback: BlobCallback) => callback(blob) });
+    expect((await export3dPngFromCanvas({ canvas, sceneName: "gpu" })).ok).toBe(true);
+    expect(capture).toHaveBeenCalledTimes(2);
   });
 
   it("exports simple 2D SVG with viewport dimensions", async () => {

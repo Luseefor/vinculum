@@ -1,22 +1,24 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
 import { expect, test, type Page } from "@playwright/test";
 
 // Heavy worker-compute timing bounds are load-sensitive (res-48 gyroids
 // across workers plus dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S19 workerized heavy geometry: implicit sphere through the worker,
 // rapid-edit races, interaction during heavy compute, deletion race,
 // view/layout stability, parametric worker parity, persistence, narrow
 // sheet, and error consistency. Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -26,7 +28,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -127,9 +129,9 @@ test.describe("S19 workerized geometry", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
     // Three rapid edits with no settle waits: a stale empty must never win.
-    await eqInput.fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
-    await eqInput.fill("1");
-    await eqInput.fill("x^2 + y^2 + z^2 = 1");
+    await fillInput(eqInput, "sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    await fillInput(eqInput, "1");
+    await fillInput(eqInput, "x^2 + y^2 + z^2 = 1");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     await page.locator('label:has-text("Tool") select').first().selectOption("probe");
@@ -151,13 +153,13 @@ test.describe("S19 workerized geometry", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
-    await eqInput.fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    await fillInput(eqInput, "sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
     // S32: resolution lives in the Styles tab (Tessellation section).
-    await page.getByRole("tab", { name: "Styles" }).first().click();
-    await page.getByLabel("Resolution", { exact: true }).first().fill("48");
+    await page.getByRole("tab", { name: "Settings" }).first().click();
+    await fillInput(page.getByLabel("Resolution", { exact: true }).first(), "48");
     // Heavy compute is now in flight. Every interaction below must complete
     // promptly (generous bound distinguishes responsive from multi-second
     // main-thread block, without millisecond fragility).
@@ -186,15 +188,15 @@ test.describe("S19 workerized geometry", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Slow compute so the delete below lands while the job is in flight.
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
-    await eqInput.fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    await fillInput(eqInput, "sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
     // S32: resolution lives in the Styles tab (Tessellation section).
-    await page.getByRole("tab", { name: "Styles" }).first().click();
-    await page.getByLabel("Resolution", { exact: true }).first().fill("48");
-    await page.locator('[aria-label^="Selected "]').first().click();
+    await page.getByRole("tab", { name: "Settings" }).first().click();
+    await fillInput(page.getByLabel("Resolution", { exact: true }).first(), "48");
+    await page.locator('[aria-label^="Selected "]').first().focus();
     await page.keyboard.press("Backspace");
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     // Settle well past any worker round-trip, then confirm nothing returned.
@@ -210,9 +212,9 @@ test.describe("S19 workerized geometry", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2 + y^2 + z^2 = 1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2 + y^2 + z^2 = 1");
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByLabel("Geometry layout").selectOption("quad");
     await page.getByLabel("Geometry view").selectOption("perspective");
@@ -258,7 +260,7 @@ test.describe("S19 workerized geometry", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s19-isphere");
+    await fillInput(page.locator("#project-name-input"), "s19-isphere");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -274,9 +276,9 @@ test.describe("S19 workerized geometry", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "sin(x)*cos(y) + sin(y)*cos(z) + sin(z)*cos(x) = 0");
     // The Objects drawer is already open as an overlay sheet at this width;
     // close it first, then exercise open/close while compute is in flight.
     await page.keyboard.press("Escape");
@@ -294,10 +296,10 @@ test.describe("S19 workerized geometry", () => {
   test("I: unsafe expression is rejected consistently (no worker involvement)", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const eqInput = page.getByLabel("Equation", { exact: true }).first();
-    await eqInput.fill("sin(factorial(x)) + y + z = 0");
+    await fillInput(eqInput, "sin(factorial(x)) + y + z = 0");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
 
     expect(pageErrors).toEqual([]);

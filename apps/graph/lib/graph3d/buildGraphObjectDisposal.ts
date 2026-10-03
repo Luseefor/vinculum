@@ -102,6 +102,9 @@ export function applySelectionEmphasisToNode(node: Object3D, selected: boolean):
         });
         userData[BASE_COLOR_KEY] = base ?? "#ffffff";
       }
+      if ("linewidth" in entry && child.userData.wideStroke) {
+        (entry as Material & { linewidth: number }).linewidth = selected ? 4.5 : 3;
+      }
       const baseHex = userData[BASE_COLOR_KEY] as string;
       eachColor(entry, (color) => {
         color.set(baseHex);
@@ -149,6 +152,9 @@ export function applyHoverEmphasisToNode(node: Object3D, hovered: boolean): void
           }
         });
         userData[BASE_COLOR_KEY] = base ?? "#ffffff";
+      }
+      if ("linewidth" in entry && child.userData.wideStroke) {
+        (entry as Material & { linewidth: number }).linewidth = hovered ? 4 : 3;
       }
       const baseHex = userData[BASE_COLOR_KEY] as string;
       eachColor(entry, (color) => {

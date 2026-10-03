@@ -1,3 +1,5 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, expectInputValue, expectInputFocused, pressInput, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -6,17 +8,17 @@ import { expect, test, type Page } from "@playwright/test";
 // S16–S31 suites; this spec pins the Math Lab workflow layer (definition
 // hierarchy, domain/sampling presentation, draft preservation, contextual
 // analysis, selectors, view preservation, narrow flow, axe).
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -25,7 +27,7 @@ async function startClean(page: Page) {
 }
 
 async function showMoreAdd(page: Page) {
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -39,7 +41,7 @@ async function openAnalyze(page: Page) {
 }
 
 async function openObjectTab(page: Page) {
-  const tab = page.getByRole("tab", { name: "Object" });
+  const tab = page.getByRole("tab", { name: "Edit" });
   if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
     await tab.first().click();
   }
@@ -87,15 +89,15 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expect(page.getByRole("button", { name: "Selected Surface #1" })).toBeVisible();
     // Creation focuses the first meaningful math field (list row equation).
     await expect(page.getByLabel("Equation").first()).toBeFocused({ timeout: 8000 });
     // The Inspector leads with the same expression-first definition.
-    await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toBeVisible();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
-    await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toHaveValue("x^2 + y^2");
+    await expectInputVisible(inspector(page).getByLabel("Surface expression z = f(x,y)"));
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
+    await expectInputValue(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -105,7 +107,7 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const group = inspector(page).getByRole("group", { name: "Parametric curve components r(t)" });
     await expect(group).toBeVisible();
@@ -114,19 +116,23 @@ test.describe("S32 Math Lab workflow", () => {
     const z = inspector(page).getByLabel("Parametric z(t)");
     const tMin = inspector(page).getByLabel("t min");
     const tMax = inspector(page).getByLabel("t max");
-    // Deliberate tab sequence x → y → z → t min → t max.
-    await x.focus();
+    // Typeset fields and their text-mode controls are both keyboard reachable.
+    await inspector(page).locator('math-field[aria-label="Parametric x(t)"]').focus();
+    for (const [label, next] of [["Parametric x(t)", y], ["Parametric y(t)", z]] as const) {
+      await page.keyboard.press("Tab");
+      await expect(inspector(page).getByRole("button", { name: `Edit as text: ${label}`, exact: true })).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expectInputFocused(next);
+    }
     await page.keyboard.press("Tab");
-    await expect(y).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(z).toBeFocused();
+    await expect(inspector(page).getByRole("button", { name: "Edit as text: Parametric z(t)", exact: true })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(tMin).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(tMax).toBeFocused();
-    await x.fill("cos(t)");
-    await y.fill("sin(t)");
-    await z.fill("t");
+    await fillInput(x, "cos(t)");
+    await fillInput(y, "sin(t)");
+    await fillInput(z, "t");
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -136,8 +142,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toBeVisible();
+    await addObject(page, "Surface");
+    await expectInputVisible(inspector(page).getByLabel("Surface expression z = f(x,y)"));
     const dependent = inspector(page).getByLabel("Dependent variable");
     const labels = await dependent.evaluate((element) =>
       Array.from((element as HTMLSelectElement).options).map((option) => option.label)
@@ -145,7 +151,7 @@ test.describe("S32 Math Lab workflow", () => {
     expect(labels).toEqual(["z = f(x,y)", "x = f(y,z)", "y = f(x,z)"]);
     await dependent.selectOption("x");
     // Labels and domain pairing update coherently with no stale names.
-    await expect(inspector(page).getByLabel("Surface expression x = f(y,z)")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Surface expression x = f(y,z)"));
     await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -160,7 +166,7 @@ test.describe("S32 Math Lab workflow", () => {
     await expect(
       inspector(page).getByRole("group", { name: "Parametric surface components r(u,v)" })
     ).toBeVisible();
-    await expect(inspector(page).getByLabel("Parametric surface x(u,v)")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Parametric surface x(u,v)"));
     await expect(inspector(page).getByLabel("u min")).toBeVisible();
     await expect(inspector(page).getByLabel("v max")).toBeVisible();
     // Resolution is subordinate: no competing visible Object-tab resolution
@@ -177,10 +183,10 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     const equation = inspector(page).getByLabel("Implicit surface equation F(x,y,z) = 0");
-    await expect(equation).toBeVisible();
-    await equation.fill("x^2 + y^2 + z^2 = 1");
+    await expectInputVisible(equation);
+    await fillInput(equation, "x^2 + y^2 + z^2 = 1");
     await expect(inspector(page).getByLabel("z min")).toBeVisible();
     await expect(page.locator('canvas[data-graph3d-canvas="true"]').first()).toBeVisible();
     expect(pageErrors).toEqual([]);
@@ -191,11 +197,11 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(
       inspector(page).getByRole("group", { name: "Vector field components F(x,y)" })
     ).toBeVisible();
-    await expect(inspector(page).getByLabel("Vector field P component")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Vector field P component"));
     await expect(inspector(page).getByLabel("Vector field R component")).toHaveCount(0);
     const dimension = inspector(page).getByLabel("Vector field dimension");
     const labels = await dimension.evaluate((element) =>
@@ -206,7 +212,7 @@ test.describe("S32 Math Lab workflow", () => {
     await expect(
       inspector(page).getByRole("group", { name: "Vector field components F(x,y,z)" })
     ).toBeVisible();
-    await expect(inspector(page).getByLabel("Vector field R component")).toBeVisible();
+    await expectInputVisible(inspector(page).getByLabel("Vector field R component"));
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -215,8 +221,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-visualization-section")).toBeVisible();
     // Sub-controls hide until their master toggle enables them.
@@ -234,8 +240,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     await expect(page.getByText("Differential Analysis")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pick analysis point on surface" })).toBeVisible();
@@ -247,15 +253,15 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await addObject(page, "2D Vector Field");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-section")).toBeVisible();
     // Empty state instructs instead of blank dashes.
     await expect(page.getByText(/Enter a point in the field domain/)).toBeVisible();
-    await page.getByLabel("Analysis point x").fill("1");
-    await page.getByLabel("Analysis point y").fill("0");
+    await fillInput(page.getByLabel("Analysis point x"), "1");
+    await fillInput(page.getByLabel("Analysis point y"), "0");
     await expect(page.getByTestId("vector-calculus-jacobian")).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId("vector-calculus-divergence")).toContainText("0");
     await expect(page.getByTestId("vector-calculus-curl")).toContainText("2");
@@ -267,9 +273,9 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await addObject(page, "2D Vector Field");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     await openAnalyze(page);
     await expect(page.getByTestId("streamline-section")).toBeVisible();
     await expect(page.getByLabel("Seed density")).toHaveCount(0);
@@ -286,7 +292,7 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await openAnalyze(page);
     const mode = page.getByLabel("Integral mode");
     const labels = await mode.evaluate((element) =>
@@ -306,8 +312,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     const mode = page.getByLabel("Integral mode");
     const labels = await mode.evaluate((element) =>
@@ -329,7 +335,7 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toBeVisible({ timeout: 25000 });
     await expect(page.getByTestId("integral-result-error")).toContainText("Estimated numerical error");
@@ -341,17 +347,26 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     const group = inspector(page).getByRole("group", { name: "2 by 2 matrix entries" });
     await expect(group).toBeVisible();
-    await page.getByLabel("Row 1 column 1").first().focus();
-    await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Row 1 column 2").first()).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(page.getByLabel("Row 2 column 1").first()).toBeFocused();
+    const firstCell = page.locator('math-field[aria-label="Row 1 column 1"]').first();
+    await expect(firstCell).toBeVisible();
+    await firstCell.focus();
+    for (const [label, next] of [["Row 1 column 1", "Row 1 column 2"], ["Row 1 column 2", "Row 2 column 1"]]) {
+      await page.keyboard.press("Tab");
+      await expect(page.getByRole("button", { name: `Edit as text: ${label}`, exact: true }).first()).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expectInputFocused(page.getByLabel(next).first());
+    }
+    // Reverse navigation follows the same visible DOM order.
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("button", { name: "Edit as text: Row 1 column 2", exact: true }).first()).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expectInputFocused(page.getByLabel("Row 1 column 2").first());
     // Enter in a matrix cell commits without creating a next object.
-    await page.getByLabel("Row 1 column 1").first().fill("2");
-    await page.getByLabel("Row 1 column 1").first().press("Enter");
+    await fillInput(page.getByLabel("Row 1 column 1").first(), "2");
+    await pressInput(page.getByLabel("Row 1 column 1").first(), "Enter");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -361,7 +376,7 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-determinant")).toHaveText("1", { timeout: 10000 });
     await expect(page.getByTestId("linear-fact-rank")).toHaveText("2");
@@ -375,12 +390,12 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     // Rotation by 90°: [[0,-1],[1,0]].
-    await page.getByLabel("Row 1 column 1").first().fill("0");
-    await page.getByLabel("Row 1 column 2").first().fill("-1");
-    await page.getByLabel("Row 2 column 1").first().fill("1");
-    await page.getByLabel("Row 2 column 2").first().fill("0");
+    await fillInput(page.getByLabel("Row 1 column 1").first(), "0");
+    await fillInput(page.getByLabel("Row 1 column 2").first(), "-1");
+    await fillInput(page.getByLabel("Row 2 column 1").first(), "1");
+    await fillInput(page.getByLabel("Row 2 column 2").first(), "0");
     await openAnalyze(page);
     await expect(page.getByTestId("linear-fact-eigen-none")).toContainText("No real eigendirections.", {
       timeout: 10000
@@ -394,20 +409,22 @@ test.describe("S32 Math Lab workflow", () => {
 // NOTE: letter Q (shear eigendirection presentation) is covered by the
 // frozen S28 linearAlgebra suite (shear/defective cases); O/P pin the S32
 // presentation contract (compact facts, neutral complex-eigen state).
-  test("R: Apply-to-Vector selector shows snippet options with v and Av", async ({ page }) => {
+  test("R: Apply-to-Vector selector shows compact labels and typeset v and Av", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Vector", exact: true }).click();
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "Vector");
+    await addObject(page, "2D Linear Transformation");
     await openAnalyze(page);
     const select = page.getByLabel("Vector for transformation analysis");
     const labels = await select.evaluate((element) =>
       Array.from((element as HTMLSelectElement).options).map((option) => option.label)
     );
     expect(labels.some((label) => label.startsWith("Vector #"))).toBe(true);
-    expect(labels.some((label) => label.includes("<"))).toBe(true);
+    await select.selectOption({ index: 1 });
+    await expect(select.locator("..").getByRole("math")).toBeVisible();
+    await expect(page.getByTestId("linear-fact-av")).toBeVisible();
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -416,18 +433,16 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     const input = page.getByLabel("Equation").first();
-    await input.fill("x^2 + y^2");
+    await fillInput(input, "x^2 + y^2");
     await input.press("End");
     await page.keyboard.type(" + ");
     await page.keyboard.type("sin(");
     // Invalid intermediate stays editable: no reset, no selection loss.
-    await expect(input).toHaveValue("x^2 + y^2 + sin(");
+    await expectInputValue(input, "x^2 + y^2 + sin(");
     await expect(page.getByRole("button", { name: "Selected Surface #1" })).toBeVisible();
-    await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toHaveValue(
-      "x^2 + y^2 + sin("
-    );
+    await expectInputValue(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2 + sin(");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -436,13 +451,11 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await inspector(page).getByLabel("Surface expression z = f(x,y)").fill("x^3 - 3*x*y^2");
+    await addObject(page, "Surface");
+    await fillInput(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^3 - 3*x*y^2");
     await openAnalyze(page);
     await openObjectTab(page);
-    await expect(inspector(page).getByLabel("Surface expression z = f(x,y)")).toHaveValue(
-      "x^3 - 3*x*y^2"
-    );
+    await expectInputValue(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^3 - 3*x*y^2");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
@@ -451,8 +464,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-analysis-section")).toBeVisible();
     await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "2D only" }).click();
@@ -469,8 +482,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-analysis-section")).toBeVisible();
     await toGeometry(page);
@@ -487,8 +500,8 @@ test.describe("S32 Math Lab workflow", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await settleCompute(page);
     // Pure UI storm: tabs, view switches, palette open. None may compute.
     await openAnalyze(page);
@@ -510,17 +523,17 @@ test.describe("S32 Math Lab workflow", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
-    await inspector(page).getByLabel("Surface expression z = f(x,y)").fill("x^2 + y^2");
-    await inspector(page).getByLabel("x min").fill("-3");
+    await fillInput(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2");
+    await fillInput(inspector(page).getByLabel("x min"), "-3");
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-visualization-section")).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -528,7 +541,7 @@ test.describe("S32 Math Lab workflow", () => {
     await expect(page.getByTestId("streamline-section")).toBeVisible();
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Linear Transformation", exact: true }).click();
+    await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("3");
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -537,8 +550,8 @@ test.describe("S32 Math Lab workflow", () => {
   test("AD: Math Lab workflow has no axe violations", async ({ page }) => {
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
-    await page.getByLabel("Equation").first().fill("x^2 + y^2");
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation").first(), "x^2 + y^2");
     await openAnalyze(page);
     await page.waitForTimeout(800);
     const results = await new AxeBuilder({ page })

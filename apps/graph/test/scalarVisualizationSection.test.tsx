@@ -102,6 +102,16 @@ describe("ScalarVisualizationSection explicit sources (S23 PART 19/54)", () => {
     });
     expect(screen.getByTestId("scalar-viz-legend").textContent).toMatch(/Range/);
     expect(screen.getByTestId("scalar-viz-legend").textContent).toMatch(/50/);
+    fireEvent.click(screen.getByLabelText("Show contours"));
+    act(() => {
+      const entry = useScalarVizResultsStore.getState().entries[`scalar:${id}`];
+      if (entry.result.status !== "ok") throw new Error("Expected a computed field.");
+      useScalarVizResultsStore.getState().setResult(`scalar:${id}`, { ...entry, result: { ...entry.result, min: -50, levels: new Float32Array([0]), contourStatus: "ok", contourSegmentCount: 1 } });
+    });
+    expect(screen.getByTestId("scalar-viz-legend")).toHaveTextContent(/Includes the.*contour/);
+    fireEvent.click(screen.getByLabelText("Hide contours"));
+    expect(screen.getByTestId("scalar-viz-legend")).not.toHaveTextContent(/Includes the/);
+
   });
 
   it("isolates unavailable gradients without disabling the section", () => {

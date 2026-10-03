@@ -167,7 +167,6 @@ export function useGraph2dCanvasInteraction(
       const mathCoords =
         snapEnabled &&
         (canvas2dTool === "probe" ||
-          canvas2dTool === "draw" ||
           canvas2dTool === "measureDistance" ||
           canvas2dTool === "measureAngle" ||
           canvas2dTool === "addPin")
@@ -233,7 +232,6 @@ export function useGraph2dCanvasInteraction(
   const handleContextMenu = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       event.preventDefault();
-      event.stopPropagation();
       if (
         isQuadTop ||
         (canvas2dTool !== "probe" &&
@@ -259,6 +257,7 @@ export function useGraph2dCanvasInteraction(
       };
       const hit = findNearestProbePinScreen(probePins, pairForCanvas, x, y, dc, graph2dMathToScreen);
       if (hit) {
+        event.stopPropagation();
         removeProbePin(hit.id);
       }
     },
@@ -280,7 +279,6 @@ export function useGraph2dCanvasInteraction(
       const mathCoords =
         snapEnabled &&
         (canvas2dTool === "probe" ||
-          canvas2dTool === "draw" ||
           canvas2dTool === "measureDistance" ||
           canvas2dTool === "measureAngle" ||
           canvas2dTool === "addPin")

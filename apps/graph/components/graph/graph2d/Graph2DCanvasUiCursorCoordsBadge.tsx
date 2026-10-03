@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { formatGraph2dCoordForTool } from "./graph2dUiFormatCoordForTool";
 import type { AxisPairSpec, MousePosition } from "./graph2dCanvasTypes";
 import type { Canvas2DTool } from "@/types/graphUi";
@@ -27,9 +29,9 @@ export function Graph2DCanvasUiCursorCoordsBadge({
       }
     >
       <span className="text-[var(--text-tertiary)]">Cursor </span>
-      {axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)}
+      <MathExpression expression={`${axisPair.horizontalLabel}: ${formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)}`} />
       {" · "}
-      {axisPair.verticalLabel}: {formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)}
+      <MathExpression expression={`${axisPair.verticalLabel}: ${formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)}`} />
     </div>
   );
 }

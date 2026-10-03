@@ -19,6 +19,6 @@ export const WORKSPACE_CONTENT: Record<WorkspaceId, WorkspaceContent> = {
   },
   math: {
     label: "Math Lab",
-    emptyHint: "Add an expression or field to begin."
+    emptyHint: "Type an equation in Objects to begin."
   }
 };

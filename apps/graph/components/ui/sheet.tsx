@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { getFocusableWithin } from "@/lib/a11y/useDialogFocusTrap";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/styles";
 
@@ -12,8 +13,6 @@ interface SheetProps {
   children: ReactNode;
 }
 
-const FOCUSABLE_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
   const asideRef = useRef<HTMLElement>(null);
@@ -42,10 +41,8 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     if (!aside) {
       return;
     }
-    restoreFocusRef.current = document.activeElement;    const items = () =>
-      [...aside.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)].filter(
-        (element) => !element.hasAttribute("disabled")
-      );
+    restoreFocusRef.current = document.activeElement;
+    const items = () => getFocusableWithin(aside);
     (items()[0] ?? aside).focus({ preventScroll: true });
     // S34 PART 46/47: keep the focused field visible when the virtual
     // keyboard shrinks the viewport (and on plain focus changes) without a
@@ -62,8 +59,17 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
       }
     };
     aside.addEventListener("focusin", onFocusIn);
+    // A keyboard can resize the viewport without causing another focus event.
+    const onResize = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && aside.contains(active)) {
+        active.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      }
+    };
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
     const onTrapTab = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") {
+      if (event.key !== "Tab" || event.defaultPrevented) {
         return;
       }
       const focusables = items();
@@ -84,6 +90,8 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     return () => {
       aside.removeEventListener("keydown", onTrapTab);
       aside.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
       // S34 PART 107: return focus to the trigger — unless focus already
       // moved into another still-mounted overlay (menu/dialog), which owns
       // it now. The unmount race (Chrome resets activeElement to body
@@ -128,17 +136,17 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
             onOpenChange(false);
           }
         }}
-        className="absolute right-0 top-0 h-full w-[24rem] max-w-[90vw] border-l border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-2xl"
+        className="absolute right-0 top-0 flex h-full w-[24rem] max-w-[calc(100vw-16px)] flex-col rounded-l-[var(--radius-xl)] bg-[var(--editor-chrome)] shadow-[var(--shadow-floating)]"
       >
-        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2">
-          <h2 className="text-xs font-semibold tracking-[0.08em] text-[var(--text-secondary)]">{title}</h2>
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <h2 className="text-[14px] font-semibold text-[var(--text-secondary)]">{title}</h2>
           <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </div>
         {/* S34: the sheet owns vertical overflow so content scrolls even if
             a future child lacks its own scroller. */}
-        <div className="h-[calc(100%-41px)] overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </aside>
     </div>
   );

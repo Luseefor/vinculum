@@ -57,10 +57,21 @@ Vinculum should feel:
 - compact enough for serious editing
 - clear under both light and dark themes
 
+The user-requested direction is a clean, Desmos-like editor: readable expressions,
+soft neutral control fills, rounded controls, and minimal framing. Keep borders
+for separation, diagnostics, and focus where they serve a purpose. Avoid nested
+bordered panels around the canvas or individual definitions.
+
+Keep Help visible in the header at every supported width. The editor guide must
+explain tool locations and open the real Objects panel, Inspector, field solver,
+and examples. Empty-state choices must match their hint, describe what each
+starter creates, and explain where to edit it. Preserve non-blocking first-run
+tips; show the full guide only when requested.
+
 Preferred design language:
 
 ```txt
-Minimal Functional + Swiss Grid + Creative Tool Workspace
+Minimal Functional + Soft Mathematical Workspace
 ```
 
 Avoid:
@@ -142,6 +153,8 @@ Use for:
 
 Rules:
 
+- panels must have visible reopen controls at every composition
+- sheet/drawer contents must size to their container, not persisted desktop widths
 - inline diagnostics must be specific and actionable
 - do not show raw parser stack traces
 - debounce previews where needed

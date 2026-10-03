@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { useMemo } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
 import type { ScalarVizConfig } from "@/types/graphUi";
@@ -189,6 +191,12 @@ function ExplicitScalarControls({
         onChange={(checked) => onCommit({ showGradient: checked })}
       />
       {showGradient && (
+        <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          Visible in 2D and 3D. Arrows show the function gradient in the input plane;
+          in 3D they sit on the surface. Use Differential Analysis for the surface normal.
+        </p>
+      )}
+      {showGradient && (
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
             <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
@@ -253,8 +261,8 @@ function ExplicitScalarControls({
       )}
       {legend && (
         <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-[var(--text-secondary)]" role="status">
-          Range [{formatNumber(legend.min)}, {formatNumber(legend.max)}]
-          {legend.min < 0 && legend.max > 0 && legend.levels.includes(0) ? " · zero contour included" : ""}
+          Range [<MathExpression expression={formatNumber(legend.min)} />, <MathExpression expression={formatNumber(legend.max)} />]
+          {showContours && legend.levels.includes(0) ? <span className="block font-sans">Includes the <MathExpression expression="f = 0" /> contour.</span> : null}
         </p>
       )}
       {result?.status === "empty" && (showHeatmap || showContours || showGradient) && (
@@ -276,6 +284,12 @@ function ExplicitScalarControls({
         <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
           No finite gradients on this grid.
         </p>
+      )}
+      {result?.status === "ok" && result.gradientStatus === "ok" && result.gradientMaxMagnitude === 0 && showGradient && (
+        <p className="text-[12px] text-[var(--text-secondary)]" role="status">The gradient is zero on this grid, so there are no arrows.</p>
+      )}
+      {fieldStatus === "error" && (showHeatmap || showContours || showGradient) && (
+        <p className="text-[12px] text-[var(--text-secondary)]" role="status">Could not compute the field. Check the expression and plot range, then try again.</p>
       )}
     </div>
   );
@@ -381,8 +395,8 @@ function ImplicitSliceControls({
       )}
       {legend && (
         <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-[var(--text-secondary)]" role="status">
-          Range [{formatNumber(legend.min)}, {formatNumber(legend.max)}]
-          {legend.min < 0 && legend.max > 0 && legend.levels.includes(0) ? " · zero contour included" : ""}
+          Range [<MathExpression expression={formatNumber(legend.min)} />, <MathExpression expression={formatNumber(legend.max)} />]
+          {sliceEnabled && (config?.showSliceContours ?? true) && legend.levels.includes(0) ? <span className="block font-sans">Includes the <MathExpression expression="f = 0" /> contour.</span> : null}
         </p>
       )}
       {result?.status === "empty" && sliceEnabled && (

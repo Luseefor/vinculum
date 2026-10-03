@@ -45,7 +45,6 @@ export function createGraphThreeKeyboardAndContextHandlers(
 
   const handleContextMenu = (event: Event) => {
     event.preventDefault();
-    event.stopPropagation?.();
     const tool = useGraphStore.getState().ui.canvas3dTool;
     if (tool !== "probe" && tool !== "addPin" && tool !== "measureDistance" && tool !== "measureAngle") {
       return;
@@ -63,6 +62,7 @@ export function createGraphThreeKeyboardAndContextHandlers(
     const hit = hits[0];
     const id = hit?.object?.userData?.probePinId as string | undefined;
     if (id) {
+      event.stopPropagation?.();
       useGraphStore.getState().removeProbePin(id);
     }
   };

@@ -1,5 +1,6 @@
 import { parse, type MathNode } from "mathjs";
 import { compileRustExpression as compile } from "./rustMath";
+import type { CompiledRustExpression, RustGridAxis } from "./rustMath";
 import { validateExpressionSafety } from "./expressionSafety";
 import { getParamScopeSignature } from "./paramScope";
 import type { VectorFieldDimension } from "@vinculum/scene/types";
@@ -12,11 +13,10 @@ export interface CompiledVectorFieldExpression {
   evaluate2D: VectorFieldEvaluator2D | null;
   evaluate3D: VectorFieldEvaluator3D | null;
   error: string | null;
+  evaluateGrid?: (axes: [RustGridAxis, RustGridAxis, RustGridAxis]) => Float64Array[];
 }
 
-interface CompiledMathExpression {
-  evaluate: (scope: Record<string, number>) => unknown;
-}
+type CompiledMathExpression = CompiledRustExpression;
 
 const NAN_EVALUATOR_2D: VectorFieldEvaluator2D = () => [Number.NaN, Number.NaN];
 const NAN_EVALUATOR_3D: VectorFieldEvaluator3D = () => [Number.NaN, Number.NaN, Number.NaN];
@@ -107,7 +107,7 @@ export function compileVectorFieldExpressions(
       evaluateVectorFieldAxis(pCompiled, { x, y }, params),
       evaluateVectorFieldAxis(qCompiled, { x, y }, params)
     ];
-    result = { dimension, evaluate2D, evaluate3D: null, error: null };
+    result = { dimension, evaluate2D, evaluate3D: null, error: null, evaluateGrid: (axes) => compiledAxes.map((axis) => axis.evaluateGrid(axes, params)) };
   } else {
     const [pCompiled, qCompiled, rCompiled] = compiledAxes as [
       CompiledMathExpression,
@@ -119,7 +119,7 @@ export function compileVectorFieldExpressions(
       evaluateVectorFieldAxis(qCompiled, { x, y, z }, params),
       evaluateVectorFieldAxis(rCompiled, { x, y, z }, params)
     ];
-    result = { dimension, evaluate2D: null, evaluate3D, error: null };
+    result = { dimension, evaluate2D: null, evaluate3D, error: null, evaluateGrid: (axes) => compiledAxes.map((axis) => axis.evaluateGrid(axes, params)) };
   }
   setCachedVectorFieldCompile(cacheKey, result);
   return result;

@@ -52,7 +52,7 @@ export default function VectorFieldAppearanceSection({ object }: VectorFieldAppe
 
   return (
     <section className="flex flex-col gap-3">
-      <h4 className="text-[11px] font-medium text-[var(--text-tertiary)]">Appearance</h4>
+      <h3 className="text-[11px] font-medium text-[var(--text-tertiary)]">Appearance</h3>
 
       <div className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent p-3">
         <div className="flex items-center gap-3 py-1">

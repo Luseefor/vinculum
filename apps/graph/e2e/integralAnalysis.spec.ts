@@ -1,9 +1,12 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput, pressInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 // S25 timing bounds are load-sensitive (integral worker quadrature plus
 // dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S25 integral calculus: arc length, scalar line integrals, work with
 // reversal, explicit surface area, flux with orientation, parametric
@@ -12,14 +15,13 @@ test.describe.configure({ mode: "serial" });
 // workspace coherence, transient persistence, narrow sheets, security/a11y.
 // Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -29,7 +31,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -53,7 +55,7 @@ async function openAnalyze(page: Page) {
 async function openObject(page: Page) {
   // S30 companion to openAnalyze: definition/domain editors live under the
   // Object tab. Guarded like openAnalyze.
-  const tab = page.getByRole("tab", { name: "Object" });
+  const tab = page.getByRole("tab", { name: "Edit" });
   if ((await tab.count()) > 0 && (await tab.first().isVisible())) {
     await tab.first().click();
   }
@@ -97,24 +99,24 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
 
 async function addLineCurve(page: Page) {
   await showMoreAdd(page);
-  await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+  await addObject(page, "Parametric Curve");
   await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-  await page.getByLabel("Parametric x(t) =").first().fill("t");
-  await page.getByLabel("Parametric y(t) =").first().fill("0");
-  await page.getByLabel("Parametric z(t) =").first().fill("0");
-  await page.getByLabel("t min").fill("0");
-  await page.getByLabel("t max").fill("3");
+  await fillInput(page.getByLabel("Parametric x(t) =").first(), "t");
+  await fillInput(page.getByLabel("Parametric y(t) =").first(), "0");
+  await fillInput(page.getByLabel("Parametric z(t) =").first(), "0");
+  await fillInput(page.getByLabel("t min"), "0");
+  await fillInput(page.getByLabel("t max"), "3");
 }
 
 async function addUnitCircle(page: Page) {
   await showMoreAdd(page);
-  await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+  await addObject(page, "Parametric Curve");
   await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-  await page.getByLabel("Parametric x(t) =").first().fill("cos(t)");
-  await page.getByLabel("Parametric y(t) =").first().fill("sin(t)");
-  await page.getByLabel("Parametric z(t) =").first().fill("0");
-  await page.getByLabel("t min").fill("0");
-  await page.getByLabel("t max").fill("6.2831853072");
+  await fillInput(page.getByLabel("Parametric x(t) =").first(), "cos(t)");
+  await fillInput(page.getByLabel("Parametric y(t) =").first(), "sin(t)");
+  await fillInput(page.getByLabel("Parametric z(t) =").first(), "0");
+  await fillInput(page.getByLabel("t min"), "0");
+  await fillInput(page.getByLabel("t max"), "6.2831853072");
 }
 
 async function selectObjectRow(page: Page, name: string) {
@@ -158,13 +160,13 @@ test.describe("S25 integral analysis", () => {
     await startClean(page);
     await toMathLab(page);
     await addLineCurve(page);
-    await page.getByLabel("t max").fill("1");
+    await fillInput(page.getByLabel("t max"), "1");
     await openAnalyze(page);
     await page.getByLabel("Integral mode").selectOption("scalarLine");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").fill("x");
+    await fillInput(page.getByLabel("Scalar integrand g(x,y,z)"), "x");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").press("Enter");
+    await pressInput(page.getByLabel("Scalar integrand g(x,y,z)"), "Enter");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("0.5", { timeout: 15000 });
 
@@ -177,11 +179,11 @@ test.describe("S25 integral analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await addUnitCircle(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Curve #1");
     await openAnalyze(page);
@@ -199,10 +201,10 @@ test.describe("S25 integral analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await addUnitCircle(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await addObject(page, "3D Vector Field");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Curve #1");
     await openAnalyze(page);
@@ -212,7 +214,7 @@ test.describe("S25 integral analysis", () => {
     await expect(page.getByTestId("integral-result-value")).toContainText("6.2832", { timeout: 25000 });
     await page.getByLabel("Curve direction").selectOption("reverse");
     await openAnalyze(page);
-    await expect(page.getByTestId("integral-result-value")).toContainText("-6.2832", { timeout: 15000 });
+    await expect(page.getByTestId("integral-result-value")).toContainText("−6.2832", { timeout: 15000 });
     await openAnalyze(page);
     await page.getByLabel("Integral mode").selectOption("arcLength");
     await openAnalyze(page);
@@ -226,14 +228,14 @@ test.describe("S25 integral analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = 0");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = 0");
     // S32: compact paired domain in the expression-first Object tab.
-    await page.locator("#graph-inspector").getByLabel("x min").fill("-1");
-    await page.locator("#graph-inspector").getByLabel("x max").fill("1");
-    await page.locator("#graph-inspector").getByLabel("y min").fill("-1");
-    await page.locator("#graph-inspector").getByLabel("y max").fill("1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("x min"), "-1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("x max"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("y min"), "-1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("y max"), "1");
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("4", { timeout: 15000 });
 
@@ -245,20 +247,20 @@ test.describe("S25 integral analysis", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = 0");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = 0");
     // S32: compact paired domain in the expression-first Object tab.
-    await page.locator("#graph-inspector").getByLabel("x min").fill("-1");
-    await page.locator("#graph-inspector").getByLabel("x max").fill("1");
-    await page.locator("#graph-inspector").getByLabel("y min").fill("-1");
-    await page.locator("#graph-inspector").getByLabel("y max").fill("1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("x min"), "-1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("x max"), "1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("y min"), "-1");
+    await fillInput(page.locator("#graph-inspector").getByLabel("y max"), "1");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("0");
-    await page.getByLabel("Vector field Q component").first().fill("0");
-    await page.getByLabel("Vector field R component").first().fill("1");
+    await fillInput(page.getByLabel("Vector field P component").first(), "0");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "0");
+    await fillInput(page.getByLabel("Vector field R component").first(), "1");
     await settleCompute(page);
     await selectObjectRow(page, "Surface #1");
     await openAnalyze(page);
@@ -268,7 +270,7 @@ test.describe("S25 integral analysis", () => {
     await expect(page.getByTestId("integral-result-value")).toContainText("4", { timeout: 25000 });
     await page.getByLabel("Surface orientation").selectOption("reversed");
     await openAnalyze(page);
-    await expect(page.getByTestId("integral-result-value")).toContainText("-4", { timeout: 15000 });
+    await expect(page.getByTestId("integral-result-value")).toContainText("−4", { timeout: 15000 });
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -295,11 +297,11 @@ test.describe("S25 integral analysis", () => {
     await addPreset(page, "Parametric Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("x");
-    await page.getByLabel("Vector field Q component").first().fill("y");
-    await page.getByLabel("Vector field R component").first().fill("z");
+    await fillInput(page.getByLabel("Vector field P component").first(), "x");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "y");
+    await fillInput(page.getByLabel("Vector field R component").first(), "z");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Surface #1");
     await openAnalyze(page);
@@ -309,7 +311,7 @@ test.describe("S25 integral analysis", () => {
     await expect(page.getByTestId("integral-result-value")).toContainText("12.566", { timeout: 25000 });
     await page.getByLabel("Surface orientation").selectOption("reversed");
     await openAnalyze(page);
-    await expect(page.getByTestId("integral-result-value")).toContainText("-12.566", { timeout: 15000 });
+    await expect(page.getByTestId("integral-result-value")).toContainText("−12.566", { timeout: 15000 });
 
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -322,11 +324,11 @@ test.describe("S25 integral analysis", () => {
     await addPreset(page, "Parametric Sphere");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("1");
-    await page.getByLabel("Vector field Q component").first().fill("0");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "1");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "0");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Surface #1");
     await openAnalyze(page);
@@ -372,9 +374,9 @@ test.describe("S25 integral analysis", () => {
     await openAnalyze(page);
     await page.getByLabel("Integral mode").selectOption("scalarLine");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").fill("1/x");
+    await fillInput(page.getByLabel("Scalar integrand g(x,y,z)"), "1/x");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").press("Enter");
+    await pressInput(page.getByLabel("Scalar integrand g(x,y,z)"), "Enter");
     // x=t over [0,3] crosses the pole: unavailable, never NaN/Infinity.
     await expect(page.getByText("Integrand is non-finite in the integration domain.")).toBeVisible({
       timeout: 15000
@@ -390,11 +392,11 @@ test.describe("S25 integral analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await addUnitCircle(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Curve #1");
     await openAnalyze(page);
@@ -412,10 +414,10 @@ test.describe("S25 integral analysis", () => {
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("6.2832", { timeout: 25000 });
     // Rapid field race: latest expression wins.
-    await page.getByLabel("Vector field P component").first().fill("2*x");
-    await page.getByLabel("Vector field Q component").first().fill("2*y");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "2*x");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "2*y");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     await settleCompute(page);
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("6.2832", { timeout: 25000 });
@@ -429,11 +431,11 @@ test.describe("S25 integral analysis", () => {
     await startClean(page);
     await toGeometry(page);
     await addUnitCircle(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await selectObjectRow(page, "Parametric Curve #1");
     await openAnalyze(page);
@@ -443,7 +445,7 @@ test.describe("S25 integral analysis", () => {
     await expect(page.getByTestId("integral-result-value")).toBeVisible({ timeout: 25000 });
     // Delete the field (curve #1 stays): select its row, then Backspace.
     await page.getByRole("button", { name: "Select Vector Field #2" }).click();
-    await page.keyboard.press("Backspace");
+    await page.getByRole("button", { name: "Selected Vector Field #2" }).press("Backspace");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1", { timeout: 10000 });
     await expect(page.getByText("Select a vector field to compute work.")).toBeVisible({ timeout: 10000 });
     expect(await page.locator("body").textContent()).not.toMatch(/NaN/);
@@ -452,35 +454,23 @@ test.describe("S25 integral analysis", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("O: parameter updates recompute the result", async ({ page }) => {
+  test("O: formula edits recompute the integral", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toMathLab(page);
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Parametric x(t) =").first().fill("r*cos(t)");
-    await page.getByLabel("Parametric y(t) =").first().fill("r*sin(t)");
-    await page.getByLabel("Parametric z(t) =").first().fill("0");
-    await page.getByLabel("t min").fill("0");
-    await page.getByLabel("t max").fill("6.2831853072");
+    await fillInput(page.getByLabel("Parametric x(t) =").first(), "r*cos(t)");
+    await fillInput(page.getByLabel("Parametric y(t) =").first(), "r*sin(t)");
+    await fillInput(page.getByLabel("Parametric z(t) =").first(), "0");
+    await fillInput(page.getByLabel("t min"), "0");
+    await fillInput(page.getByLabel("t max"), "6.2831853072");
     // Default r=2.5: arc length 2*pi*2.5 ≈ 15.708.
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("15.708", { timeout: 15000 });
-    await page.getByRole("button", { name: "PARAMETERS" }).click();
-    const slider = page.getByLabel("Parameter r");
-    await expect(slider).toBeVisible();
-    await slider.evaluate((element, value) => {
-      const input = element as HTMLInputElement;
-      input.focus();
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      if (setter) {
-        setter.call(input, String(value));
-      } else {
-        input.value = String(value);
-      }
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    }, "4");
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await fillInput(page.getByLabel("Parametric x(t) =").first(), "4*cos(t)");
+    await fillInput(page.getByLabel("Parametric y(t) =").first(), "4*sin(t)");
     // r=4: arc length 2*pi*4 ≈ 25.1327.
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toContainText("25.1327", { timeout: 15000 });
@@ -504,14 +494,14 @@ test.describe("S25 integral analysis", () => {
     // stability across a geometry settle instead of zero pending here).
     const before = await page.getByTestId("integral-result-value").textContent();
         // S32: resolution lives in the Styles tab (Tessellation section).
-        await page.getByRole("tab", { name: "Styles" }).first().click();
-        await page.getByLabel("Resolution", { exact: true }).first().fill("24");
+        await page.getByRole("tab", { name: "Settings" }).first().click();
+        await fillInput(page.getByLabel("Resolution", { exact: true }).first(), "24");
     await settleCompute(page);
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toHaveText(before ?? "", { timeout: 25000 });
     await openAnalyze(page);
     await expect(page.getByTestId("integral-result-value")).toBeVisible();
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await expectNoComputePending(page, async () => {
       await page.getByLabel("Geometry view").selectOption("xy");
     });
@@ -548,7 +538,7 @@ test.describe("S25 integral analysis", () => {
     await expect(page.getByTestId("integral-result-value")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s25-integral");
+    await fillInput(page.locator("#project-name-input"), "s25-integral");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -568,7 +558,7 @@ test.describe("S25 integral analysis", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Parametric Curve", exact: true }).click();
+    await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -592,9 +582,9 @@ test.describe("S25 integral analysis", () => {
     await openAnalyze(page);
     await page.getByLabel("Integral mode").selectOption("scalarLine");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").fill("sin(factorial(x))");
+    await fillInput(page.getByLabel("Scalar integrand g(x,y,z)"), "sin(factorial(x))");
     await openAnalyze(page);
-    await page.getByLabel("Scalar integrand g(x,y,z)").press("Enter");
+    await pressInput(page.getByLabel("Scalar integrand g(x,y,z)"), "Enter");
     await expect(page.getByText("Integrand is non-finite in the integration domain.").or(page.getByText(/not supported|unsupported/i))).toBeVisible({
       timeout: 15000
     });

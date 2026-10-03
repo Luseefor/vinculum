@@ -31,9 +31,10 @@ interface Graph2DCanvasProps {
   className?: string;
   /** Quad bottom-right: XZ top view with its own pan/zoom state. */
   variant?: Graph2DCanvasVariant;
+  suspended?: boolean;
 }
 
-export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCanvasProps) {
+export function Graph2DCanvas({ className = "", variant = "primary", suspended = false }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resolvedTheme = useResolvedTheme();
@@ -155,6 +156,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     [objects, streamlineConfigs]
   );
   const drawMeasured = useCallback(() => {
+    if (suspended) return;
     const start = performance.now();
     draw();
     const end = performance.now();
@@ -164,7 +166,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
       viewport: "2d-viewport",
       scenePressure
     });
-  }, [draw, scenePressure]);
+  }, [draw, scenePressure, suspended]);
 
   useGraph2dCanvasPaintSchedule({
     canvasRef,
@@ -190,6 +192,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         ref={canvasRef}
         role="img"
         aria-label="2D graph. Pan, probe, measure, pin, or sketch. Press Escape to clear measurement drafts or cancel a sketch."
+        tabIndex={0}
         data-graph2d-canvas="true"
         data-graph2d-variant={variant}
         className={`h-full w-full ${canvasCursorClass}`}

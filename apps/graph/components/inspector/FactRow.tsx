@@ -4,6 +4,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { MathText } from "@/components/math/MathExpression";
 
 export function FactRow({
   label,
@@ -16,12 +17,12 @@ export function FactRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="shrink-0 text-[11px] text-[var(--text-secondary)]">{label}</span>
+      <span className="shrink-0 text-[11px] text-[var(--text-secondary)]"><MathText text={label} /></span>
       <span
         data-testid={testId}
-        className="min-w-0 break-words text-right font-mono text-[12px] text-[var(--text-primary)]"
+        className="min-w-0 break-words text-right text-[12px] text-[var(--text-primary)]"
       >
-        {value}
+        {typeof value === "string" ? <MathText text={value} /> : value}
       </span>
     </div>
   );

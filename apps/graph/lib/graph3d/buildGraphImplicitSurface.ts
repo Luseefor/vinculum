@@ -69,6 +69,7 @@ export function buildImplicitSurface(
     indices: result.indices,
     theme,
     tokens,
-    repairZeroNormals: true
+    repairZeroNormals: true,
+    smoothNormals: true
   });
 }

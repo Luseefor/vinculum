@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useState, type ReactNode } from "react";
 import CanvasEmptyState from "@/components/viewport/CanvasEmptyState";
 import SplitViewport from "@/components/viewport/SplitViewport";
 import type { ViewportMode } from "@/lib/types/ui";
@@ -14,22 +14,28 @@ interface ViewportHostProps {
   viewport2dQuadTop?: ReactNode;
   viewport3d: ReactNode;
   workspaceId: WorkspaceId;
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
 }
 
 function Pane({
   children,
   showEmptyPrompt = false,
-  workspaceId
+  workspaceId,
+  onOpenGuide,
+  onOpenExamples
 }: {
   children: ReactNode;
   /** S30: the empty-scene prompt renders once per layout (first pane). */
   showEmptyPrompt?: boolean;
   workspaceId?: WorkspaceId;
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
 }) {
   return (
     <section className="relative h-full w-full min-w-0 overflow-hidden bg-[var(--surface-canvas)]">
       {children}
-      {showEmptyPrompt && workspaceId ? <CanvasEmptyState workspaceId={workspaceId} /> : null}
+      {showEmptyPrompt && workspaceId ? <CanvasEmptyState workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples} /> : null}
     </section>
   );
 }
@@ -39,40 +45,29 @@ export default function ViewportHost({
   viewport2d,
   viewport2dQuadTop,
   viewport3d,
-  workspaceId
+  workspaceId,
+  onOpenGuide,
+  onOpenExamples
 }: ViewportHostProps) {
-  const mountViewport = (node: ReactNode, key: string): ReactNode => {
-    if (isValidElement(node)) return cloneElement(node, { key });
+  const [visited3d, setVisited3d] = useState(mode !== "2d");
+  useEffect(() => { if (mode !== "2d") setVisited3d(true); }, [mode]);
+  const mountViewport = (node: ReactNode, key: string, suspended = false): ReactNode => {
+    if (isValidElement<{ suspended?: boolean }>(node)) return cloneElement(node, { key, suspended: suspended || node.props.suspended });
     return node;
   };
 
-  if (mode === "2d") {
-    return (
-      <Pane showEmptyPrompt workspaceId={workspaceId}>
-        {mountViewport(viewport2d, "single-2d")}
-      </Pane>
-    );
-  }
-
-  if (mode === "3d") {
-    return (
-      <Pane showEmptyPrompt workspaceId={workspaceId}>
-        {mountViewport(viewport3d, "single-3d")}
-      </Pane>
-    );
-  }
-
-  if (mode === "split") {
+  if (mode !== "quad") {
     return (
       <SplitViewport
+        mode={mode}
         primary={
-          <Pane showEmptyPrompt workspaceId={workspaceId}>
-            {mountViewport(viewport2d, "split-2d")}
+          <Pane showEmptyPrompt workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
+            {mountViewport(viewport2d, "math-2d", mode === "3d")}
           </Pane>
         }
         secondary={
-          <Pane>
-            {mountViewport(viewport3d, "split-3d")}
+          <Pane showEmptyPrompt={mode === "3d"} workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
+            {visited3d || mode !== "2d" ? mountViewport(viewport3d, "math-3d", mode === "2d") : null}
           </Pane>
         }
       />
@@ -83,7 +78,7 @@ export default function ViewportHost({
 
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-px bg-[var(--border-strong)]">
-      <Pane showEmptyPrompt workspaceId={workspaceId}>
+      <Pane showEmptyPrompt workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
         {mountViewport(viewport2d, "quad-xy")}
       </Pane>
       <Pane>

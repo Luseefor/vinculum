@@ -306,10 +306,10 @@ class TetraExtractor {
   // Finite-pole witness: refine the sign-changing edge by bisection. A
   // continuous root converges (bracket magnitudes shrink toward 0); a pole
   // keeps both bracket ends large or hits non-finite values. The bar is the
-  // SMALLER original endpoint magnitude: a genuine root always improves on
-  // it within a few bisections, while a straddled pole cannot (one side
-  // stays huge). Bounded extra evaluations only (<= witnessBisections per
-  // crossing edge). Characterized on linear/steep/cubic roots, sphere and
+  // SMALLER original endpoint magnitude: a genuine root improves on
+  // it after sufficient refinement, while a straddled pole cannot (one side
+  // stays huge). Bounded evaluations: witnessBisections on the fast path,
+  // plus at most 24 refinements for uncertain edges. Characterized on linear/steep/cubic roots, sphere and
   // gyroid crossings (all kept) vs shifted reciprocal poles (all rejected).
   private witnessAllowsCrossing(a: number, b: number, fa: number, fb: number): boolean {
     const pa = this.mathPosition(a);
@@ -337,9 +337,27 @@ class TetraExtractor {
         rightValue = midValue;
       }
     }
-    // After refinement the bracket must improve on the better original
-    // endpoint; otherwise the "crossing" is a pole straddle, not a root.
-    return Math.min(Math.abs(leftValue), Math.abs(rightValue)) <= originalMin;
+    if (Math.min(Math.abs(leftValue), Math.abs(rightValue)) <= originalMin) return true;
+    // A few bisections cannot distinguish a pole from a curved/oscillating
+    // root near an endpoint. Refine uncertain edges further before rejecting
+    // them, rather than cutting valid triangles out of a continuous surface.
+    // Only uncertain edges pay this bounded cost; shared edges cache it.
+    for (let step = 0; step < 24; step += 1) {
+      const mid = (left + right) / 2;
+      const midValue = this.evaluate(
+        pa.x + (pb.x - pa.x) * mid,
+        pa.y + (pb.y - pa.y) * mid,
+        pa.z + (pb.z - pa.z) * mid
+      );
+      if (!Number.isFinite(midValue)) return false;
+      if (Math.abs(midValue) <= originalMin) return true;
+      if ((midValue < 0) === (leftValue < 0)) {
+        left = mid; leftValue = midValue;
+      } else {
+        right = mid; rightValue = midValue;
+      }
+    }
+    return false;
   }
 
   // Orient the triangle so its WORLD normal points toward the world-mapped

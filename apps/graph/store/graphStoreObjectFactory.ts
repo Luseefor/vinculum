@@ -1,3 +1,4 @@
+import { createEquationGraph } from "@/lib/graph/createEquationGraph";
 import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import {
   createLineGraph,
@@ -20,7 +21,7 @@ import {
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 
 export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
-  if (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
+  if (object.kind === "implicitCurve" || object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") {
     return !object.equation.trim();
   }
   if (object.kind === "vectorField") {
@@ -69,6 +70,11 @@ export function createEmptyGraphObject(
     dimension?: VectorFieldDimension | LinearTransformDimension;
   } = {}
 ): GraphObject {
+  if (kind === "implicitCurve") {
+    const base = createSurfaceGraph({ ...options, colorIndex });
+    return createEquationGraph("", { ok: true, kind: "implicitCurve", dimension: "2d", relation: "", orientation: "y" }, colorIndex, base);
+  }
+
   if (kind === "parametricCurve") {
     return createParametricCurve({
       colorIndex,
@@ -252,6 +258,11 @@ export function createGraphObject(
     dimension?: VectorFieldDimension | LinearTransformDimension;
   } = {}
 ): GraphObject {
+  if (kind === "implicitCurve") {
+    const base = createSurfaceGraph({ ...options, colorIndex });
+    return createEquationGraph("", { ok: true, kind: "implicitCurve", dimension: "2d", relation: "", orientation: "y" }, colorIndex, base);
+  }
+
   if (kind === "parametricCurve") {
     return createParametricCurve({
       colorIndex,

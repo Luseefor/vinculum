@@ -14,6 +14,7 @@ export type PickWorldFromCanvasArgs = {
    * Multi-view override: camera and client-coordinate rect scoping NDC to
    * one pane. Absent selects the legacy full-canvas perspective behavior.
    */
+  baselineOnly?: boolean;
   pickOverride?: {
     camera: PerspectiveCamera | OrthographicCamera;
     rect: { left: number; top: number; width: number; height: number };
@@ -29,12 +30,12 @@ export function pickWorldPointFromCanvasPointer(
   }
   const { raycaster, objectsRoot, baselinePlane, tempGround } = args;
 
-  const hits = raycaster.intersectObjects(objectsRoot.children, true);
+  const hits = args.baselineOnly ? [] : raycaster.intersectObjects(objectsRoot.children, true);
   for (const hit of hits) {
     // S26: invisible primitive pick proxies never own probe hits — a line
     // crossing a surface must not make surface probing impossible. The
     // visible shaft/head/marker meshes keep standard Mesh behavior.
-    if (hit.object instanceof Mesh && (hit.object.userData as { pickProxy?: unknown }).pickProxy !== true) {
+    if (hit.object instanceof Mesh && (hit.object.userData as { pickProxy?: unknown }).pickProxy !== true && !hit.object.userData.wideStroke) {
       return { x: hit.point.x, y: hit.point.y, z: hit.point.z };
     }
   }

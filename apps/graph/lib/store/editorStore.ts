@@ -6,6 +6,7 @@ import type { BottomPanelTab, GeometryLayout, GeometryView, ViewportMode } from 
 import type { ResponsiveComposition } from "@/lib/responsive/composition";
 
 interface EditorParameter {
+  defined?: boolean;
   id: string;
   value: number;
   min: number;
@@ -89,6 +90,8 @@ interface EditorStoreState {
   /** Optional performance HUD (FPS/frame-time) toggle. Off by default. */
   showPerfHud: boolean;
   parameters: EditorParameter[];
+  ensureParameters: (ids: string[]) => void;
+  setParameterDefinition: (id: string, value: number) => void;
   consoleEvents: string[];
   constraints: EditorConstraint[];
   animation: EditorAnimationState;
@@ -202,9 +205,18 @@ export const useEditorStore = create<EditorStoreState>()(
         playing: false
       },
       setViewportMode: (mode) => set({ viewportMode: mode }),
-      setGeometryLayout: (layout) => set({ geometryLayout: layout }),
-      setGeometryView: (view) => set({ geometryView: view }),
-      setGeometrySplitView: (view) => set({ geometrySplitView: view }),
+      setGeometryLayout: (layout) => set((state) => ({
+        geometryLayout: layout,
+        geometrySplitView: layout === "split" && state.geometryView !== "perspective" ? state.geometryView : state.geometrySplitView
+      })),
+      setGeometryView: (view) => set((state) => ({
+        geometryView: view,
+        geometrySplitView: state.geometryLayout === "split" && view !== "perspective" ? view : state.geometrySplitView
+      })),
+      setGeometrySplitView: (view) => set((state) => ({
+        geometrySplitView: view,
+        geometryView: state.geometryLayout === "split" && state.geometryView !== "perspective" ? view : state.geometryView
+      })),
       toggleLeftPanel: () =>
         set((state) => ({
           leftPanelCollapsed: !state.leftPanelCollapsed,
@@ -250,6 +262,16 @@ export const useEditorStore = create<EditorStoreState>()(
         })),
       setBottomPanelToggleSource: (source) => set({ bottomPanelToggleSource: source }),
       setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
+      ensureParameters: (ids) => set((state) => {
+        const missing = [...new Set(ids)].filter(id => !state.parameters.some(parameter => parameter.id === id));
+        return missing.length ? { parameters: [...state.parameters, ...missing.map(id => ({ id, value: 1, min: -10, max: 10 }))] } : state;
+      }),
+      setParameterDefinition: (id, value) => set((state) => {
+        if (!Number.isFinite(value)) return state;
+        const previous = state.parameters.find(parameter => parameter.id === id);
+        const next = { id, value, min: Math.min(previous?.min ?? -10, value), max: Math.max(previous?.max ?? 10, value), defined: true };
+        return { parameters: previous ? state.parameters.map(parameter => parameter.id === id ? next : parameter) : [...state.parameters, next] };
+      }),
       setParameterValue: (id, value) =>
         set((state) => ({
           parameters: state.parameters.map((parameter) =>
@@ -437,7 +459,7 @@ export const useEditorStore = create<EditorStoreState>()(
           ...currentState,
           ...incoming,
           geometryLayout,
-          geometryView,
+          geometryView: geometryLayout === "split" && geometryView !== "perspective" ? geometrySplitView : geometryView,
           geometrySplitView,
           constraints: normalizedConstraints
         };

@@ -2,6 +2,8 @@ import type { GraphObject } from "@vinculum/scene/types";
 import { Group, type Object3D } from "three";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
+import { getGraphObjectFor3D } from "./graphObject3dGuards";
+import { buildImplicitCurve } from "./buildGraphImplicitCurve";
 import { buildParametric } from "./buildGraphParametric";
 import { buildParametricSurface } from "./buildGraphParametricSurface";
 import { buildImplicitSurface } from "./buildGraphImplicitSurface";
@@ -44,6 +46,10 @@ function buildOne(
   theme: ResolvedTheme,
   tokens: ReturnType<typeof getGraphThemeTokens>
 ): Object3D | null {
+  object = getGraphObjectFor3D(object);
+  if (object.kind === "implicitCurve") {
+    return buildImplicitCurve(object);
+  }
   if (object.kind === "surface") {
     return buildSurface(object, theme, tokens);
   }

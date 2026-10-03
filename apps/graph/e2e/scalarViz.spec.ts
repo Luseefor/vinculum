@@ -1,23 +1,26 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
+import { screenshotPixels } from "./helpers/canvasPixels";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // S23 timing bounds are load-sensitive (scalar worker sampling plus
 // dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S23 scalar-field visualization: 2D heat maps, contour overlays, dense
 // gradient glyphs, 3D implicit planar slices, worker races, visibility,
 // source-edit refresh, transient persistence, workspace coherence, narrow
 // sheets, and security. Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -27,7 +30,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -83,15 +86,6 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
   }
 }
 
-async function screenshotPixels(page: Page, canvas: Locator): Promise<string | null> {
-  return canvas.evaluate((element) => {
-    try {
-      return (element as HTMLCanvasElement).toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  });
-}
 
 async function countChangedPixels(page: Page, canvas: Locator, beforeUrl: string): Promise<number> {
   const afterUrl = await screenshotPixels(page, canvas);
@@ -152,9 +146,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
     await openAnalyze(page);
@@ -176,9 +170,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
@@ -199,15 +193,15 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 - y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 - y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
     await page.getByLabel("Show contours").click();
     await openAnalyze(page);
-    await expect(page.getByTestId("scalar-viz-legend")).toContainText("zero contour included", {
+    await expect(page.getByTestId("scalar-viz-legend")).toContainText("Includes the f=0 contour.", {
       timeout: 15000
     });
 
@@ -219,9 +213,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = 1/x");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = 1/x");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
@@ -239,9 +233,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + 2*y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + 2*y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
     await openAnalyze(page);
@@ -258,9 +252,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = tan(x) + y");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = tan(x) + y");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
@@ -284,9 +278,9 @@ test.describe("S23 scalar field visualization", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-1");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
@@ -296,7 +290,7 @@ test.describe("S23 scalar field visualization", () => {
     // Unit tests pin exact zero contours for the sphere; here the mesh
     // repaint plus the finite range prove the slice landed.
     await openAnalyze(page);
-    await expect(page.getByTestId("scalar-viz-legend")).toContainText("-1");
+    await expect(page.getByTestId("scalar-viz-legend")).toContainText("−1");
     await expect
       .poll(async () => countChangedPixels(page, canvas, before ?? ""), { timeout: 25000 })
       .toBeGreaterThan(200);
@@ -310,9 +304,9 @@ test.describe("S23 scalar field visualization", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-1");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
@@ -320,7 +314,7 @@ test.describe("S23 scalar field visualization", () => {
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const atZero = await screenshotPixels(page, canvas);
     await openAnalyze(page);
-    await page.getByLabel("Slice value").fill("0.8");
+    await fillInput(page.getByLabel("Slice value"), "0.8");
     await expect
       .poll(async () => countChangedPixels(page, canvas, atZero ?? ""), { timeout: 25000 })
       .toBeGreaterThan(200);
@@ -334,9 +328,9 @@ test.describe("S23 scalar field visualization", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-1");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
@@ -359,22 +353,22 @@ test.describe("S23 scalar field visualization", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "Implicit Surface", exact: true }).click();
+    await addObject(page, "Implicit Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Rapid expression race with no settle waits (equation edits precede
     // enabling, since edits prune derived configs by design).
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-4");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-9");
-    await page.getByLabel("Equation", { exact: true }).first().fill("x^2+y^2+z^2-1");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-4");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-9");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "x^2+y^2+z^2-1");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show scalar slice").click();
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
     // Rapid slice moves: only the latest value sticks.
     await openAnalyze(page);
-    await page.getByLabel("Slice value").fill("0.5");
+    await fillInput(page.getByLabel("Slice value"), "0.5");
     await openAnalyze(page);
-    await page.getByLabel("Slice value").fill("1");
+    await fillInput(page.getByLabel("Slice value"), "1");
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 25000 });
 
@@ -386,9 +380,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
@@ -413,16 +407,16 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toContainText("50", { timeout: 15000 });
     // Bowl -> saddle edits prune the derived config by design: no stale
     // "50" may linger. Re-enabling shows the saddle range [-12.5, 12.5].
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = (x^2 - y^2)/2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = (x^2 - y^2)/2");
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).not.toBeVisible({ timeout: 15000 });
     await openAnalyze(page);
@@ -439,16 +433,16 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
     await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s23-scalar");
+    await fillInput(page.locator("#project-name-input"), "s23-scalar");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -466,9 +460,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);
@@ -491,7 +485,7 @@ test.describe("S23 scalar field visualization", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -508,9 +502,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = sin(factorial(x)) + y");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = sin(factorial(x)) + y");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await openAnalyze(page);
     await expect(page.getByText("Fix the source equation to enable scalar visualization.")).toBeVisible();
@@ -523,9 +517,9 @@ test.describe("S23 scalar field visualization", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "Surface", exact: true }).click();
+    await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Equation", { exact: true }).first().fill("z = x^2 + y^2");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
     await page.getByLabel("Show heat map").click();
     await openAnalyze(page);

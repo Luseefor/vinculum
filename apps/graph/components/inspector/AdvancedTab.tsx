@@ -16,9 +16,9 @@ export default function AdvancedTab() {
 
   if (!selected) {
     return (
-      <section className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
+      <section className="min-w-0">
         <header className="p-3">
-          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Advanced</h3>
+          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Object data</h3>
           <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to inspect advanced metadata.</p>
         </header>
       </section>
@@ -28,11 +28,8 @@ export default function AdvancedTab() {
   const serialized = JSON.stringify(selected, null, 2);
 
   return (
-    <section className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
-      <header className="p-3 pb-0">
-        <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Advanced</h3>
-      </header>
-      <div className="space-y-3 p-3 pt-3">
+    <section className="min-w-0">
+      <div className="min-w-0 space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <Diagnostic label="Object ID" value={selected.id} mono />
           <Diagnostic label="Kind" value={selected.kind} />
@@ -61,10 +58,9 @@ export default function AdvancedTab() {
           >
             Copy JSON
           </Button>
-          <span className="text-[11px] text-[var(--text-tertiary)]">
+          <span role="status" className="text-[12px] text-[var(--text-secondary)]">
             {copyState === "copied" && "Copied"}
             {copyState === "failed" && "Copy failed"}
-            {copyState === "idle" && "Export selected object payload"}
           </span>
         </div>
       </div>
@@ -74,9 +70,9 @@ export default function AdvancedTab() {
 
 function Diagnostic({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5">
+    <div className="min-w-0 rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2 py-1.5">
       <p className="text-[11px] font-medium text-[var(--text-tertiary)]">{label}</p>
-      <p className={`mt-0.5 text-[12px] text-[var(--text-primary)] ${mono ? "font-mono" : ""}`}>{value}</p>
+      <p className={`mt-0.5 break-words text-[12px] text-[var(--text-primary)] ${mono ? "font-mono" : ""}`}>{value}</p>
     </div>
   );
 }

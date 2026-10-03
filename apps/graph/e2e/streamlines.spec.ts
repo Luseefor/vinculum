@@ -1,23 +1,26 @@
+import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
+import { screenshotPixels } from "./helpers/canvasPixels";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 // S24 timing bounds are load-sensitive (streamline worker tracing plus
 // dev-server compile), so this spec runs serially.
-test.describe.configure({ mode: "serial" });
+// Each case owns a fresh page/scene; a failure must not skip later coverage.
+test.describe.configure({ mode: "default" });
 
 // S24 streamlines: 2D constant/rotation/radial/singular fields, control
 // recompute, glyph independence, 3D rotation/quad/helix, worker races,
 // visibility, deletion, workspace coherence, transient persistence,
 // narrow sheets, and security. Zero unexpected console/page errors.
 async function startClean(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   for (let i = 0; i < 5; i++) {
     if ((await page.locator('[role="dialog"]:visible').count()) === 0) break;
     await page.keyboard.press("Escape");
@@ -27,7 +30,7 @@ async function startClean(page: Page) {
 
 async function showMoreAdd(page: Page) {
   // S30: Quick Add shows six actions per workspace; the rest sit behind More.
-  const more = page.getByRole("button", { name: "Show more object types" });
+  const more = page.getByRole("button", { name: "Open object menu" });
   if ((await more.count()) > 0 && (await more.first().isVisible())) {
     await more.first().click();
   }
@@ -83,15 +86,6 @@ async function expectNoComputePending(page: Page, action: () => Promise<void>) {
   }
 }
 
-async function screenshotPixels(page: Page, canvas: Locator): Promise<string | null> {
-  return canvas.evaluate((element) => {
-    try {
-      return (element as HTMLCanvasElement).toDataURL("image/png");
-    } catch {
-      return null;
-    }
-  });
-}
 
 async function countChangedPixels(page: Page, canvas: Locator, beforeUrl: string): Promise<number> {
   const afterUrl = await screenshotPixels(page, canvas);
@@ -152,10 +146,10 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("1");
-    await page.getByLabel("Vector field Q component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "1");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "0");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
     await openAnalyze(page);
@@ -174,10 +168,10 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
     await openAnalyze(page);
@@ -196,7 +190,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
@@ -216,10 +210,10 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("1/x");
-    await page.getByLabel("Vector field Q component").first().fill("1");
+    await fillInput(page.getByLabel("Vector field P component").first(), "1/x");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "1");
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
     await expect(page.locator('canvas[data-graph2d-canvas="true"]').first()).toBeVisible();
@@ -234,7 +228,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -242,7 +236,7 @@ test.describe("S24 streamlines", () => {
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     const before = await page.getByTestId("streamline-count").textContent();
     await openAnalyze(page);
-    await page.getByLabel("Seed density").fill("10");
+    await fillInput(page.getByLabel("Seed density"), "10");
     await expect
       .poll(async () => page.getByTestId("streamline-count").textContent(), { timeout: 15000 })
       .not.toBe(before);
@@ -260,19 +254,19 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
     await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
-    await page.getByRole("tab", { name: "Styles" }).click();
+    await page.getByRole("tab", { name: "Settings" }).click();
     await expectNoComputePending(page, async () => {
       await page.getByLabel("Enable vector normalization").click();
     });
     await expectNoComputePending(page, async () => {
-      await page.getByLabel("Arrow scale", { exact: true }).fill("2");
+      await fillInput(page.getByLabel("Arrow scale", { exact: true }), "2");
       await page.keyboard.press("Tab");
     });
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -288,11 +282,11 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
@@ -313,11 +307,11 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -343,11 +337,11 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0.5");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0.5");
     await settleCompute(page);
     const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
     const before = await screenshotPixels(page, canvas);
@@ -368,18 +362,18 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     // Rapid expression race with no settle waits (edits precede enabling,
     // since math edits prune derived configs by design).
-    await page.getByLabel("Vector field P component").first().fill("x");
-    await page.getByLabel("Vector field Q component").first().fill("y");
-    await page.getByLabel("Vector field R component").first().fill("z");
-    await page.getByLabel("Vector field P component").first().fill("-y");
-    await page.getByLabel("Vector field Q component").first().fill("x");
-    await page.getByLabel("Vector field R component").first().fill("0");
-    await page.getByLabel("Vector field P component").first().fill("x");
-    await page.getByLabel("Vector field Q component").first().fill("-y");
+    await fillInput(page.getByLabel("Vector field P component").first(), "x");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "y");
+    await fillInput(page.getByLabel("Vector field R component").first(), "z");
+    await fillInput(page.getByLabel("Vector field P component").first(), "-y");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "x");
+    await fillInput(page.getByLabel("Vector field R component").first(), "0");
+    await fillInput(page.getByLabel("Vector field P component").first(), "x");
+    await fillInput(page.getByLabel("Vector field Q component").first(), "-y");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -388,11 +382,11 @@ test.describe("S24 streamlines", () => {
     await expect(page.locator("body")).toContainText("x");
     // Rapid config race: only the latest density settles.
     await openAnalyze(page);
-    await page.getByLabel("Seed density").fill("2");
+    await fillInput(page.getByLabel("Seed density"), "2");
     await openAnalyze(page);
-    await page.getByLabel("Seed density").fill("4");
+    await fillInput(page.getByLabel("Seed density"), "4");
     await openAnalyze(page);
-    await page.getByLabel("Seed density").fill("3");
+    await fillInput(page.getByLabel("Seed density"), "3");
     await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
 
@@ -404,7 +398,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -434,14 +428,14 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await settleCompute(page);
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
     await openAnalyze(page);
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 25000 });
-    await page.locator('[aria-label^="Selected "]').first().click();
+    await page.locator('[aria-label^="Selected "]').first().focus();
     await page.keyboard.press("Backspace");
     await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     await expect(page.getByTestId("streamline-section")).not.toBeVisible();
@@ -454,7 +448,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -478,7 +472,7 @@ test.describe("S24 streamlines", () => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await to2DOnly(page);
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await openAnalyze(page);
     await page.getByLabel("Show streamlines").click();
@@ -486,7 +480,7 @@ test.describe("S24 streamlines", () => {
     await expect(page.getByTestId("streamline-count")).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Scene" }).click();
     await page.getByRole("menuitem", { name: "Save as..." }).click();
-    await page.locator("#project-name-input").fill("s24-streamlines");
+    await fillInput(page.locator("#project-name-input"), "s24-streamlines");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Save as project" })).not.toBeVisible({ timeout: 10000 });
     await page.reload();
@@ -504,7 +498,7 @@ test.describe("S24 streamlines", () => {
     await page.setViewportSize({ width: 430, height: 800 });
     await startClean(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.getByRole("button", { name: "2D Vector Field", exact: true }).click();
+    await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
@@ -522,9 +516,9 @@ test.describe("S24 streamlines", () => {
     await startClean(page);
     await toGeometry(page);
     await showMoreAdd(page);
-    await page.getByRole("button", { name: "3D Vector Field", exact: true }).click();
+    await addObject(page, "3D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByLabel("Vector field P component").first().fill("sin(factorial(x))");
+    await fillInput(page.getByLabel("Vector field P component").first(), "sin(factorial(x))");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
     await openAnalyze(page);
     await expect(page.getByText("Fix the component expressions to enable streamlines.")).toBeVisible();

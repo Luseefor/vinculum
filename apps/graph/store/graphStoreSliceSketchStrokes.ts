@@ -1,3 +1,4 @@
+import { worldToMath3D } from "@/lib/math/coordinates";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { fitParametricSketch, fitParametricSketch3d, formatPolynomialExpression } from "@/lib/math/fitParametricSketch";
@@ -18,8 +19,8 @@ export function buildSketchStrokesSlice(set: GraphStoreSet): Pick<
         }
 
         const pair = axisPairOverride ?? state.ui.axis2dPair;
-        const hPoly = formatPolynomialExpression(fit.horizontalCoeffs, "t");
-        const vPoly = formatPolynomialExpression(fit.verticalCoeffs, "t");
+        const hPoly = fit.horizontalExpr;
+        const vPoly = fit.verticalExpr;
 
         let xExpr = "0";
         let yExpr = "0";
@@ -27,16 +28,16 @@ export function buildSketchStrokesSlice(set: GraphStoreSet): Pick<
 
         if (pair === "xy") {
           xExpr = hPoly;
-          yExpr = "0";
-          zExpr = vPoly;
-        } else if (pair === "xz") {
-          xExpr = hPoly;
           yExpr = vPoly;
           zExpr = "0";
+        } else if (pair === "xz") {
+          xExpr = hPoly;
+          yExpr = "0";
+          zExpr = vPoly;
         } else {
           xExpr = "0";
-          yExpr = vPoly;
-          zExpr = hPoly;
+          yExpr = hPoly;
+          zExpr = vPoly;
         }
 
         const tMin = 0;
@@ -79,7 +80,7 @@ export function buildSketchStrokesSlice(set: GraphStoreSet): Pick<
       let createdObjectId = "";
 
       set((state) => {
-        const fit = fitParametricSketch3d(stroke);
+        const fit = fitParametricSketch3d(stroke.map(worldToMath3D));
         if (!fit) {
           return state;
         }
@@ -90,9 +91,9 @@ export function buildSketchStrokesSlice(set: GraphStoreSet): Pick<
 
         const nextObject = createParametricCurve({
           colorIndex: state.scene.objects.length,
-          xExpr: formatPolynomialExpression(fit.xCoeffs, "t"),
-          yExpr: formatPolynomialExpression(fit.yCoeffs, "t"),
-          zExpr: formatPolynomialExpression(fit.zCoeffs, "t"),
+          xExpr: fit.xExpr ?? formatPolynomialExpression(fit.xCoeffs, "t"),
+          yExpr: fit.yExpr ?? formatPolynomialExpression(fit.yCoeffs, "t"),
+          zExpr: fit.zExpr ?? formatPolynomialExpression(fit.zCoeffs, "t"),
           tMin,
           tMax,
           samples

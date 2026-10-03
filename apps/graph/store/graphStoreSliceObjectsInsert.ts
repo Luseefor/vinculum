@@ -1,3 +1,12 @@
+import { normalizeMathInput } from "@/lib/math/mathNotation";
+import { useEditorStore } from "@/lib/store/editorStore";
+import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
+import { validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { compileRustExpression } from "@/lib/math/rustMath";
+import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { getEquationParameterNames, isParameterName, getEditorParameterScope } from "@/lib/store/editorParameters";
+import { parseGraphObject } from "@/lib/scene/validateSceneGraphParsers";
+import { createEquationGraph } from "@/lib/graph/createEquationGraph";
 import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import { createLinearTransformGraph } from "@/lib/graph/createLinearTransformGraph";
 import { convertLinearTransformDimension } from "./graphStoreLinearTransformField";
@@ -33,6 +42,7 @@ import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   GraphStoreState,
   | "addDefinedObject"
+  | "commitAutoEquation"
   | "addSurfaceObject"
   | "addParametricCurve"
   | "addPlaneObject"
@@ -50,6 +60,50 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   | "setObjectKind"
 > {
   return {
+    commitAutoEquation: (equation, id) => {
+      equation = normalizeMathInput(equation);
+      const params = getEditorParameterScope();
+      const equality = splitSingleMathEquality(equation) ?? (isParameterName(equation.trim()) ? { lhs: equation.trim(), rhs: String(params[equation.trim()] ?? 1) } : null);
+      if (!id && equality && isParameterName(equality.lhs)) {
+        const safety = validateExpressionSafety(equality.rhs, { operation: "define-parameter", expressionLabel: "Parameter", allowedSymbols: Object.keys(params).filter(name => name !== equality.lhs), strictSymbols: true });
+        if (!safety.ok) return { id: null, error: safety.violation.message };
+        try {
+          const value = compileRustExpression(equality.rhs).evaluate({ ...params, pi: Math.PI, e: Math.E });
+          if (!Number.isFinite(value)) return { id: null, error: "Parameter values must be finite." };
+          useEditorStore.getState().setParameterDefinition(equality.lhs, value);
+          return { id: null, parameterId: equality.lhs, error: null };
+        } catch { return { id: null, error: "Check the parameter value." }; }
+      }
+      const names = getEquationParameterNames(equation);
+      const provisional = { ...params };
+      for (const name of names) if (!(name in provisional)) provisional[name] = 1;
+      const inference = equation.trim() ? inferGraphEquation(equation, provisional) : { ok: true as const, kind: "implicitCurve" as const, dimension: "2d" as const, relation: "", orientation: "y" as const };
+      if (!inference.ok) return { id: null, error: inference.error };
+      let committedId: string | null = null;
+      let error: string | null = null;
+      set((state) => {
+        const current = id ? state.scene.objects.find((object) => object.id === id) : undefined;
+        if (id && !current) { error = "This equation was removed."; return state; }
+        if (current && ((!current.autoExpression && current.kind !== "implicitCurve") || !("equation" in current))) { error = "This object uses a specific definition type."; return state; }
+        if (current && "equation" in current && current.equation === equation) { committedId = current.id; return state; }
+        const replacement = createEquationGraph(equation, inference, state.scene.objects.length, current);
+        const errors: string[] = [];
+        const validated = parseGraphObject(replacement, 0, errors);
+        if (!validated) { error = errors.join(" "); return state; }
+        committedId = validated.id;
+        if (current) {
+          useScalarVizResultsStore.getState().removeForSource(current.id);
+          useStreamlineResultsStore.getState().removeForSource(current.id);
+          useIntegralResultsStore.getState().removeForSource(current.id);
+        }
+        return {
+          scene: applySceneCommand(state.scene, current ? { type: "UPDATE_OBJECT", payload: { object: validated } } : { type: "ADD_OBJECT", payload: { object: validated } }),
+          ui: { ...(current ? pruneGeometryAnalysisForSourceId(clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, current.id), current.id), current.id) : state.ui), selectedObjectId: validated.id }
+        };
+      });
+      if (committedId && !error) useEditorStore.getState().ensureParameters(names);
+      return { id: committedId, error, dimension: inference.dimension };
+    },
     addDefinedObject: (object) => {
       // Internal insertion of a definition validated by the canonical parser.
       const id = appendObject(set, () => object);
@@ -104,14 +158,15 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
     },
 
     addEmptyObject: () => {
-      return appendObject(set, (index) => createSurfaceGraph({ colorIndex: index, equation: "" }));
+      return appendObject(set, (index) => ({ ...createEquationGraph("", { ok: true, kind: "implicitCurve", dimension: "2d", relation: "", orientation: "y" }, index) }));
     },
 
     insertObjectAfter: (id, kind, dimension) => {
       let createdObjectId = "";
 
       set((state) => {
-        const nextObject = createGraphObject(kind, state.scene.objects.length, { dimension });
+        const source = state.scene.objects.find((object) => object.id === id);
+        const nextObject = source?.autoExpression || source?.kind === "implicitCurve" ? createEmptyGraphObject("implicitCurve", state.scene.objects.length) : createGraphObject(kind, state.scene.objects.length, { dimension });
         createdObjectId = nextObject.id;
 
         const insertIndex = state.scene.objects.findIndex((object) => object.id === id);

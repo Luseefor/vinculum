@@ -7,6 +7,8 @@
 
 "use client";
 
+import { MathText } from "@/components/math/MathExpression";
+
 import { useMemo } from "react";
 import type { GraphObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
@@ -326,11 +328,12 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
               const candidateIndex = objects.findIndex((o) => o.id === candidate.id);
               return (
                 <option key={candidate.id} value={candidate.id}>
-                  {meta.label} #{candidateIndex + 1} — {meta.type}
+                  {meta.label} #{candidateIndex + 1}
                 </option>
               );
             })}
           </select>
+          {secondaryMeta ? <span className="mt-1 block min-w-0 text-[12px] text-[var(--text-secondary)]"><MathText text={secondaryMeta.type} /></span> : null}
         </label>
         {!config || !secondary ? (
           <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">

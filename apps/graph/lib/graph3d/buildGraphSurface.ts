@@ -32,7 +32,7 @@ export function buildSurface(
     sampled = sampleSurface(evaluator, {
       domain: object.domain,
       resolution: Math.max(2, Math.floor(object.resolution)),
-      clampHeight: 10_000,
+      clampHeight: (object.autoDomain ?? object.autoExpression) ? 1e12 : 10_000,
       orientation: effectiveOrientation
     });
   } catch {

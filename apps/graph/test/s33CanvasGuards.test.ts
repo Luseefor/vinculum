@@ -89,7 +89,7 @@ function makeInteraction(pointId: string) {
   const controls = {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-  } as unknown as import("three-stdlib").OrbitControls;
+  } as unknown as import("three/addons/controls/OrbitControls.js").OrbitControls;
   const multiView = {
     activeView: "xy",
     panes: ["xy"],

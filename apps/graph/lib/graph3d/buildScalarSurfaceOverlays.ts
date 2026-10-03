@@ -15,6 +15,7 @@ import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
 import { mathToWorld3D } from "@/lib/math/coordinates";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { removeCachedSliceOverlay, sliceDataTexture, type ScalarSliceOverlayFrame } from "./buildScalarSliceOverlays";
+import { buildVectorFieldGroup } from "./buildGraphVectorField";
 
 // 3D heat map + contours for explicit surfaces. The worker grid (`scalar:<id>`,
 // shared with the 2D canvas) is lifted onto the graph f(u,v): the heat layer is
@@ -31,6 +32,10 @@ export function scalarSurfaceCacheKey(sourceId: string): string {
 
 export function scalarSurfaceContourCacheKey(sourceId: string): string {
   return `${SCALAR_SURFACE_KEY_PREFIX}${sourceId}-contour`;
+}
+
+export function scalarSurfaceGradientCacheKey(sourceId: string): string {
+  return `${SCALAR_SURFACE_KEY_PREFIX}${sourceId}-gradient`;
 }
 
 type OkResult = Extract<ScalarVizResultEntry["result"], { status: "ok" }>;
@@ -71,6 +76,7 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
     }
     const meshKey = scalarSurfaceCacheKey(sourceId);
     const contourKey = scalarSurfaceContourCacheKey(sourceId);
+    const gradientKey = scalarSurfaceGradientCacheKey(sourceId);
     const liveIdentity = scalarVizMathIdentity(source, Object.keys(frame.params));
     if (liveIdentity === null || liveIdentity !== config.structure) {
       continue;
@@ -85,6 +91,19 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
     const orientation = source.orientation ?? "z";
     const meshKeyValue = [config.structure, entry?.signature ?? "", orientation].join("|");
     const contourKeyValue = [meshKeyValue, frame.theme].join("|");
+
+    if (config.showGradient && result?.gradientStatus === "ok" && result.gradientValidCount > 0) {
+      liveKeys.add(gradientKey);
+      const key = [meshKeyValue, config.gradientScale, config.gradientNormalize, config.gradientDensity, frame.theme].join("|");
+      if (frame.cache.get(gradientKey)?.key !== key) {
+        removeCachedSliceOverlay(frame, gradientKey);
+        const group = buildSurfaceGradient(sourceId, result, orientation, config.gradientDensity,
+          config.gradientScale, config.gradientNormalize, frame.theme);
+        frame.overlayRoot.add(group);
+        frame.cache.set(gradientKey, { key, group });
+      }
+      frame.cache.get(gradientKey)!.group.visible = visible;
+    }
 
     if (wantMesh && result) {
       liveKeys.add(meshKey);
@@ -222,6 +241,44 @@ function sampleGrid(result: OkResult, u: number, v: number): number | null {
   const top = (result.values[a] as number) * (1 - tx) + (result.values[b] as number) * tx;
   const bottom = (result.values[c] as number) * (1 - tx) + (result.values[d] as number) * tx;
   return top * (1 - ty) + bottom * ty;
+}
+
+/** Function gradient in the independent-coordinate plane, anchored on f(u,v).
+ * The dependent component stays zero: these are not surface normals. */
+function buildSurfaceGradient(sourceId: string, result: OkResult, orientation: Orientation,
+  density: number, scale: number, normalize: boolean, theme: ResolvedTheme): Group {
+  const positions = new Float32Array(result.gradientValidCount * 3);
+  const vectors = new Float32Array(positions.length);
+  const magnitudes = new Float32Array(result.gradientValidCount);
+  let count = 0;
+  for (let i = 0; i < result.gradientValidCount; i++) {
+    const u = result.gradientPositions[i * 3] as number;
+    const v = result.gradientPositions[i * 3 + 1] as number;
+    const f = sampleGrid(result, u, v);
+    if (f === null) continue;
+    const point = explicitSurfaceMathPoint(orientation, u, v, clampHeight(f));
+    const vector = explicitSurfaceMathPoint(orientation, result.gradientVectors[i * 3] as number,
+      result.gradientVectors[i * 3 + 1] as number, 0);
+    positions.set([point.x, point.y, point.z], count * 3);
+    vectors.set([vector.x, vector.y, vector.z], count * 3);
+    magnitudes[count++] = result.gradientMagnitudes[i] as number;
+  }
+  const cell = Math.min(result.domain.uMax - result.domain.uMin, result.domain.vMax - result.domain.vMin) / Math.max(1, density - 1);
+  const group = buildVectorFieldGroup({ id: `gradient:${sourceId}`, color: theme === "dark" ? "#fbbf24" : "#9a3412",
+    scale, normalize, roughness: 0.6, metalness: 0, samples: { positions, vectors, magnitudes,
+      validCount: count, maxMagnitude: result.gradientMaxMagnitude, cell } });
+  group.userData.analysisSourceId = sourceId;
+  group.userData.scalarSurfaceGradient = true;
+  // Input-plane arrows can enter the surface. Draw them as readable analysis
+  // glyphs above the surface shading without changing their mathematical direction.
+  group.traverse(child => {
+    if (child instanceof Mesh) {
+      child.renderOrder = 4;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(material => { material.depthTest = false; material.depthWrite = false; });
+    }
+  });
+  return group;
 }
 
 function buildSurfaceContours(

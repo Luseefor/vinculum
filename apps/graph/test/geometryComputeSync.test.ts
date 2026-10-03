@@ -471,4 +471,22 @@ describe("workerized sync integration (PART 32 job matrix)", () => {
     expect(fake.posted).toHaveLength(1);
     expect(useGeometryComputeStore.getState().entries["implicit-1"]).toBeUndefined();
   });
+  it("only computes a curve extrusion after opt-in and discards results after removal", () => {
+    const curve: GraphObject = { id: "curve-1", kind: "implicitCurve", equation: "x=y^2", visible: true, color: "#3b82f6", autoExpression: true };
+    sync([curve]);
+    expect(fake.posted).toHaveLength(0);
+    sync([{ ...curve, extendTo3D: true }]);
+    expect(fake.posted).toHaveLength(1);
+    expect(fake.posted[0]).toMatchObject({ kind: "implicitSurface", payload: { equation: "x=y^2" } });
+    fake.respond(okResultFor(fake.posted[0]!));
+    expect(meshNodeFor(root, curve.id)).toBeDefined();
+    expect(useGraphStore.getState().scene.objects[0].kind).toBe("implicitCurve");
+    sync([curve]);
+    const planarNode = nodes.get(curve.id);
+    expect(planarNode?.userData.wideStroke).toBe(true);
+    applyGeometryComputeResult(okResultFor(fake.posted[0]!), ctx);
+    expect(nodes.get(curve.id)).toBe(planarNode);
+    expect(manager.getTrackedObjectIds()).not.toContain(curve.id);
+  });
+
 });

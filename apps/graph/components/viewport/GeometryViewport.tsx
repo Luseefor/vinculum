@@ -35,10 +35,14 @@ function paneFraction(index: number, paneCount: number): { left: string; top: st
  */
 export default function GeometryViewport({
   className = "",
-  suspended = false
+  suspended = false,
+  onOpenGuide,
+  onOpenExamples
 }: {
   className?: string;
   suspended?: boolean;
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GraphThreeEngine | null>(null);
@@ -52,7 +56,8 @@ export default function GeometryViewport({
     () => resolveGeometryPanes(geometryLayout, geometryView, geometrySplitView),
     [geometryLayout, geometryView, geometrySplitView]
   );
-  const [activeView, setActiveView] = useState<GeometryView>(panes[0] ?? "perspective");
+  const activeView = panes.includes(geometryView) ? geometryView : panes[0] ?? "perspective";
+  const setGeometryView = useEditorStore((state) => state.setGeometryView);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -87,13 +92,12 @@ export default function GeometryViewport({
 
   useEffect(() => {
     engineRef.current?.setGeometryPanes(panes);
-    const first = panes[0] ?? "perspective";
-    setActiveView((current) => (panes.includes(current) ? current : first));
-  }, [panes]);
+    engineRef.current?.setActiveGeometryView(activeView);
+  }, [panes, activeView]);
 
   const activatePane = (view: GeometryView) => {
     engineRef.current?.setActiveGeometryView(view);
-    setActiveView(view);
+    setGeometryView(view);
   };
 
   const handleContainerPointerDownCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -111,7 +115,7 @@ export default function GeometryViewport({
     const index = routePointerToPaneIndex(paneRects, event.clientX - rect.left, event.clientY - rect.top);
     const view = panes[index];
     if (view) {
-      setActiveView(view);
+      setGeometryView(view);
     }
   };
 
@@ -131,7 +135,7 @@ export default function GeometryViewport({
     const index = routePointerToPaneIndex(paneRects, event.clientX - rect.left, event.clientY - rect.top);
     const view = panes[index];
     if (view) {
-      setActiveView(view);
+      setGeometryView(view);
     }
   };
 
@@ -147,7 +151,7 @@ export default function GeometryViewport({
       >
         {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--surface-canvas)] text-sm text-[var(--text-secondary)]">Starting 3D renderer…</p> : null}
         {/* S30: single empty-scene prompt (the engine canvas mounts once). */}
-        <CanvasEmptyState workspaceId="geometry" />
+        <CanvasEmptyState workspaceId="geometry" onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples} />
         {/* Pane buttons pick the active pane; a single pane needs no picker
             (the toolbar View select already names it). */}
         {panes.length > 1 && panes.map((pane, index) => {
@@ -162,7 +166,7 @@ export default function GeometryViewport({
               onClick={() => activatePane(pane)}
               style={{ position: "absolute", left: position.left, top: position.top }}
               className={cn(
-                "z-20 h-7 shrink-0 rounded-full border px-3 text-[12px] font-medium shadow-[var(--shadow-control)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                "z-20 h-11 md:h-7 shrink-0 rounded-full border px-3 text-[12px] font-medium shadow-[var(--shadow-control)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
                 activeView === pane
                   ? "border-[var(--accent)] bg-[var(--surface-overlay)] text-[var(--accent-ink)]"
                   : "border-[var(--border-subtle)] bg-[var(--surface-overlay)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"

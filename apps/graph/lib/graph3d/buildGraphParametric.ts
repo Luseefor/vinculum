@@ -1,15 +1,12 @@
 import type { ParametricCurveObject } from "@vinculum/scene/types";
 import {
-  BufferAttribute,
-  BufferGeometry,
-  LineBasicMaterial,
-  LineSegments,
   Mesh,
   MeshBasicMaterial,
   Object3D,
   SphereGeometry
 } from "three";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { createWideStroke } from "./graphWideStroke";
 import { sampleCurve } from "@/lib/math/sampleCurve";
 
 // Sample cap (8192 in MAX_PARAMETRIC_CURVE_SAMPLES) keeps every vertex index
@@ -42,8 +39,8 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
   }
 
   // S5: render exactly the canonically connected segments — no chord through
-  // invalid samples, no classified cross-pole segment. One indexed
-  // LineSegments draw, no vertex duplication.
+  // invalid samples, no classified cross-pole segment. One instanced
+  // wide-stroke draw with explicit segment pairs.
   const sampleCount = sampled.positions.length / 3;
   if (sampleCount > MAX_CURVE_INDEX) {
     return null;
@@ -57,12 +54,6 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
   if (segmentIndex.length === 0) {
     return null;
   }
-
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new BufferAttribute(sampled.positions, 3));
-  geometry.setIndex(new BufferAttribute(new Uint16Array(segmentIndex), 1));
-  geometry.computeBoundingSphere();
-  geometry.setDrawRange(0, segmentIndex.length);
 
   if (isDegenerateCurve(sampled.positions, sampled.validSamples)) {
     const pointGeometry = new SphereGeometry(0.12, 14, 14);
@@ -78,13 +69,9 @@ export function buildParametric(object: ParametricCurveObject): Object3D | null 
     return point;
   }
 
-  const material = new LineBasicMaterial({
-    color: object.color,
-    transparent: true,
-    opacity: 0.95
-  });
-
-  const lines = new LineSegments(geometry, material);
+  const segments = new Float32Array(segmentIndex.length * 3);
+  segmentIndex.forEach((vertex, index) => segments.set(sampled.positions.subarray(vertex * 3, vertex * 3 + 3), index * 3));
+  const lines = createWideStroke(segments, object.color);
   lines.userData.vinculumId = object.id;
   return lines;
 }

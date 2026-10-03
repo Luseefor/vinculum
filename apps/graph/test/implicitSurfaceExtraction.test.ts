@@ -494,7 +494,7 @@ describe("marching tetrahedra index type and budgets", () => {
 
   it("selects Uint32 past the boundary without overflow", () => {
     const { mesh } = extract(
-      "sin(40 * x) * sin(40 * y) * sin(40 * z) - 0.1",
+      "sin(12 * x) * sin(12 * y) * sin(12 * z) - 0.1",
       SPHERE_BOX,
       MAX_IMPLICIT_SURFACE_RESOLUTION
     );
@@ -539,17 +539,16 @@ describe("marching tetrahedra index type and budgets", () => {
     expect(positionBytes + indexBytes).toBeLessThan(2_000_000);
   });
 
-  it("bounds worst-case Uint32 output within browser-safe memory", () => {
+  it("aborts an extremely oscillating field without returning a partial mesh", () => {
     const { mesh } = extract(
       "sin(40 * x) * sin(40 * y) * sin(40 * z) - 0.1",
       SPHERE_BOX,
       MAX_IMPLICIT_SURFACE_RESOLUTION
     );
-    expect(mesh.status).toBe("ok");
-    const positionBytes = mesh.positions.length * Float32Array.BYTES_PER_ELEMENT;
-    const indexBytes = mesh.indices.length * 4;
-    // Even the densest representable mesh stays well under 64MB.
-    expect(positionBytes + indexBytes).toBeLessThan(64_000_000);
+    expect(mesh.status).toBe("budget-exceeded");
+    expect(mesh.triangleCount).toBeGreaterThan(MAX_IMPLICIT_SURFACE_TRIANGLES);
+    expect(mesh.positions.length).toBe(0);
+    expect(mesh.indices.length).toBe(0);
   }, 30_000);
 });
 

@@ -6,6 +6,8 @@
 
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { useMemo } from "react";
 import type { GraphObject, LinearTransformObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
@@ -212,7 +214,7 @@ export default function LinearTransformInspector({
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-[var(--text-secondary)]">Inverse</span>
                 <span data-testid="linear-fact-inverse" className="font-mono text-[12px] text-[var(--text-primary)]">
-                  {formatMatrixText(properties.inverse, resolved.dimension)}
+                  <MathExpression expression={formatMatrixText(properties.inverse, resolved.dimension)} latex={`\\begin{bmatrix}${Array.from({ length: resolved.dimension }, (_, row) => properties.inverse!.slice(row * resolved.dimension, (row + 1) * resolved.dimension).map(formatNumber).join(" & ")).join(" \\\\ ")}\\end{bmatrix}`} />
                 </span>
               </div>
             ) : (
@@ -242,15 +244,14 @@ export default function LinearTransformInspector({
             <option value="">Select a vector…</option>
             {vectorOptions.map((candidate) => {
               const candidateIndex = objects.findIndex((o) => o.id === candidate.id);
-              const snippet = `<${candidate.vxExpr}, ${candidate.vyExpr}, ${candidate.vzExpr}>`;
-              const short = snippet.length > 28 ? `${snippet.slice(0, 27)}…` : snippet;
               return (
                 <option key={candidate.id} value={candidate.id}>
-                  Vector #{candidateIndex + 1} — {short}
+                  Vector #{candidateIndex + 1}
                 </option>
               );
             })}
           </select>
+          {selectedVector?.kind === "vector" ? <span className="mt-1 block min-w-0 text-[12px] text-[var(--text-secondary)]"><MathExpression expression={`<${selectedVector.vxExpr}, ${selectedVector.vyExpr}, ${selectedVector.vzExpr}>`} /></span> : null}
         </label>
         {appliedVector && !("error" in appliedVector) && (
           <div className="flex flex-col gap-1" role="status" aria-label="Transformed vector">

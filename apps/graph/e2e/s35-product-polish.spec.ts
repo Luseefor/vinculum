@@ -14,23 +14,23 @@ async function dismissStartupChrome(page: Page) {
 }
 
 async function startFresh(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("vinculum-test-fresh-onboarding")) return;
     window.localStorage.removeItem("vinculum-welcome-onboarding-v1");
+    sessionStorage.setItem("vinculum-test-fresh-onboarding", "1");
   });
-  await page.reload();
+  await page.goto("/editor");
   await dismissStartupChrome(page);
 }
 
 async function startDismissed(page: Page) {
-  await page.goto("/editor");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.localStorage.setItem(
       "vinculum-welcome-onboarding-v1",
       JSON.stringify({ version: 1, dismissed: true, updatedAt: new Date().toISOString() })
     );
   });
-  await page.reload();
+  await page.goto("/editor");
   await dismissStartupChrome(page);
 }
 
@@ -55,8 +55,14 @@ function collectErrors(page: Page) {
 }
 
 async function axeScan(page: Page) {
+  // Contrast is measured after finite entrance animations finish, rather
+  // than during their intentionally translucent first frames.
+  await page.evaluate(async () => {
+    const animations = document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(animations.map(animation => animation.finished.catch(() => undefined)));
+  });
   return new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"])
     .analyze();
 }
 
@@ -163,7 +169,7 @@ test.describe("S35 final product polish", () => {
     await toGeometry(page);
     await expect(page.getByText("Add a point, line, or surface to begin.").first()).toBeVisible();
     await toMathLab(page);
-    await expect(page.getByText("Add an expression or field to begin.").first()).toBeVisible();
+    await expect(page.getByText("Type an equation in Objects to begin.").first()).toBeVisible();
   });
 
   test("X: reduced motion keeps tips usable", async ({ page }) => {

@@ -31,6 +31,7 @@ From the repo root:
 
 ```bash
 bun install
+rustup show # installs the pinned Rust toolchain and WASM target
 ```
 
 ### Run the app
@@ -46,6 +47,7 @@ bun run lint
 bun run typecheck
 bun run test
 bun run build
+bun run test:rust
 ```
 
 ### E2E validation
@@ -57,6 +59,24 @@ bun run test:e2e
 # Full local browser matrix
 bun run test:e2e:all-browsers
 ```
+
+## Computation and rendering migration
+
+React continues to own the editor UI, scene stores, persistence, and history.
+Real numeric expressions execute in the Rust/WASM core in both the main thread
+and existing compute workers. Vector-field grids are sampled inside WASM.
+`bun run dev` and `bun run build` regenerate the embedded WASM artifact; after
+editing Rust while the dev server is running, run `bun run build:wasm`.
+
+The 3D engine uses Three.js WebGPURenderer and node-based grid materials, with
+WebGL2 fallback when WebGPU is unavailable. Initialization, device loss, disposal,
+and PNG capture use the existing viewport and export paths.
+
+This is the first migration stage: mathjs still parses and differentiates
+expressions and performs symbolic algebra; mesh construction, integration, and
+other sampling algorithms remain TypeScript. The 2D view remains Canvas2D.
+These boundaries are explicit so the next Rust and GPU ports can preserve the
+existing mathematical results and scene format.
 
 ## User documentation
 

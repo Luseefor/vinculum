@@ -1,6 +1,8 @@
 import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
+import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { compileImplicitSurfaceExpression, type CompiledImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
 import type { GraphObject, LinearTransformObject2D } from "@vinculum/scene/types";
 import type { LinearTransformAnalysisConfig, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import {
@@ -14,6 +16,25 @@ import { buildVectorFieldArrows } from "./graph2dCanvasVectorField";
 import { analyzeEigen } from "@/lib/math/matrixEigen";
 import { resolveLinearTransform } from "@/lib/math/linearTransformResolve";
 import type { AxisPairSpec, LinearTransformLayer, RenderableGraph } from "./graph2dCanvasTypes";
+
+// Keep unchanged fields stable across color/visibility/selection updates so
+// the contour renderer can reuse its cached paths instead of resampling.
+const planarFields = new WeakMap<CompiledImplicitSurfaceExpression, Map<string, (x: number, y: number) => number | null>>();
+function getPlanarField(compiled: CompiledImplicitSurfaceExpression, horizontal: "x" | "y" | "z" = "x", vertical: "x" | "y" | "z" = "y") {
+  let fields = planarFields.get(compiled);
+  if (!fields) { fields = new Map(); planarFields.set(compiled, fields); }
+  const key = horizontal + vertical;
+  let field = fields.get(key);
+  if (!field) {
+    field = Object.assign((h: number, v: number) => {
+      const coords = { x: 0, y: 0, z: 0, [horizontal]: h, [vertical]: v };
+      const value = compiled.evaluator(coords.x, coords.y, coords.z);
+      return Number.isFinite(value) ? value : null;
+    }, { sampleXYGrid: compiled.samplePlaneGrid ? (hMin: number, hMax: number, columns: number, vMin: number, vMax: number, rows: number) => compiled.samplePlaneGrid!(horizontal, vertical, hMin, hMax, columns, vMin, vMax, rows) : undefined });
+    fields.set(key, field);
+  }
+  return field;
+}
 
 export function buildRenderableGraphsFromScene(
   objects: GraphObject[],
@@ -47,15 +68,18 @@ export function buildRenderableGraphsFromScene(
       continue;
     }
 
-    // S17: parametric surfaces have no single-equation axis-pair projection,
-    // so they render in 3D views only. Skipping here (before `obj.equation`
-    // access, which this kind does not define) keeps 2D rendering safe;
-    // export2dSvg warns per skipped visible object so SVG export stays honest.
-    // S18: true implicit 3D surfaces follow the same policy — no fake 2D
-    // interpretation of the volumetric mesh.
-    if (obj.kind === "parametricSurface" || obj.kind === "implicitSurface") {
+    // Implicit surfaces show the zero cross-section in the selected coordinate
+    // plane. This is an intersection, never a projection of the 3D mesh.
+    if (obj.kind === "implicitSurface") {
+      if (!obj.equation.trim()) continue;
+      const compiled = compileImplicitSurfaceExpression(obj.equation, params);
+      if (compiled.error) continue;
+      graphs.push({ id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null,
+        evaluate: null, implicitEvaluate: getPlanarField(compiled, axisPair.horizontal, axisPair.vertical), hatchDomain: null, polylineHV: null });
       continue;
     }
+    // Parametric surfaces have no canonical coordinate-plane intersection yet.
+    if (obj.kind === "parametricSurface") continue;
 
     // S20: 2D vector fields sample synchronously (bounded, microseconds)
     // and draw as Canvas2D glyphs. 3D fields skip here (PART 10): they
@@ -154,6 +178,22 @@ export function buildRenderableGraphsFromScene(
           linearTransform: attachment
         });
       }
+      continue;
+    }
+
+    if (obj.kind === "implicitCurve") {
+      if (axisPair.horizontal !== "x" || axisPair.vertical !== "y" || !obj.equation.trim()) continue;
+      const inferred = inferGraphEquation(obj.equation, params);
+      if (!inferred.ok || inferred.dimension !== "2d") continue;
+      const compiled = compileImplicitSurfaceExpression(inferred.relation, params);
+      if (compiled.error) continue;
+      const field = getPlanarField(compiled);
+      // Ordinary y=f(x) graphs reuse the explicit curve sampler, including
+      // its discontinuity handling. General relations remain zero contours.
+      const explicitY = inferred.explicitAxis === "y";
+      graphs.push({ id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null,
+        evaluate: explicitY ? (x) => { const value = field(x, 0); return value === null ? null : -value; } : null,
+        implicitEvaluate: explicitY ? null : field, hatchDomain: null, polylineHV: null });
       continue;
     }
 

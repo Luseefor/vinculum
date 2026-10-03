@@ -66,16 +66,33 @@ function interpolateZeroCrossing(
   };
 }
 
+const contourPaths = new WeakMap<Function, { key: string; points: Float32Array }>();
+
 export function drawImplicitContour(
   evaluate: (horizontalValue: number, verticalValue: number) => number | null,
-  ctx: CanvasRenderingContext2D,
-  dc: DrawContext,
+  ctx: Pick<CanvasRenderingContext2D, "moveTo" | "lineTo">,
+  dc: Omit<DrawContext, "ctx">,
   width: number,
   height: number
 ) {
-  const cols = clamp(Math.round(width / 9), 40, 220);
-  const rows = clamp(Math.round(height / 9), 40, 220);
-  const values = new Float64Array((cols + 1) * (rows + 1));
+  const key = `${width}:${height}:${dc.centerX}:${dc.centerY}:${dc.scale}`;
+  const cached = contourPaths.get(evaluate);
+  if (cached?.key === key) {
+    for (let index = 0; index < cached.points.length; index += 4) {
+      ctx.moveTo(cached.points[index], cached.points[index + 1]);
+      ctx.lineTo(cached.points[index + 2], cached.points[index + 3]);
+    }
+    return;
+  }
+  const points: number[] = [];
+  const drawSegment = (start: { x: number; y: number }, end: { x: number; y: number }) => {
+    points.push(start.x, start.y, end.x, end.y);
+    ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y);
+  };
+  const cols = clamp(Math.ceil(width / 3), 40, 768);
+  const rows = clamp(Math.ceil(height / 3), 40, 768);
+  const sampleXYGrid = (evaluate as typeof evaluate & { sampleXYGrid?: (xMin: number, xMax: number, columns: number, yMin: number, yMax: number, rows: number) => Float64Array }).sampleXYGrid;
+  const values = sampleXYGrid ? sampleXYGrid(dc.centerX - width / (2 * dc.scale), dc.centerX + width / (2 * dc.scale), cols + 1, dc.centerY + height / (2 * dc.scale), dc.centerY - height / (2 * dc.scale), rows + 1) : new Float64Array((cols + 1) * (rows + 1));
 
   const sampleValue = (gridX: number, gridY: number): number => {
     const px = (gridX / cols) * width;
@@ -86,7 +103,7 @@ export function drawImplicitContour(
     return value === null ? Number.NaN : value;
   };
 
-  for (let y = 0; y <= rows; y += 1) {
+  if (!sampleXYGrid) for (let y = 0; y <= rows; y += 1) {
     for (let x = 0; x <= cols; x += 1) {
       values[y * (cols + 1) + x] = sampleValue(x, y);
     }
@@ -107,39 +124,49 @@ export function drawImplicitContour(
       const b = getValue(x + 1, y);
       const c = getValue(x + 1, y + 1);
       const d = getValue(x, y + 1);
-      if (![a, b, c, d].every(Number.isFinite)) {
+      if (!Number.isFinite(a) || !Number.isFinite(b) || !Number.isFinite(c) || !Number.isFinite(d)) {
+        continue;
+      }
+      // Most cells contain no crossing. Reject them before allocating
+      // intersections or inspecting edges; zeros must still reach extraction.
+      if ((a > 0 && b > 0 && c > 0 && d > 0) || (a < 0 && b < 0 && c < 0 && d < 0)) {
         continue;
       }
 
       const intersections: Array<{ x: number; y: number }> = [];
-      const edges: Array<[number, number, number, number, number, number]> = [
-        [x0, y0, a, x1, y0, b],
-        [x1, y0, b, x1, y1, c],
-        [x1, y1, c, x0, y1, d],
-        [x0, y1, d, x0, y0, a]
-      ];
-      for (const [ex1, ey1, ev1, ex2, ey2, ev2] of edges) {
+      const addCrossing = (ex1: number, ey1: number, ev1: number, ex2: number, ey2: number, ev2: number) => {
         const crosses =
           (ev1 === 0 && ev2 !== 0) ||
           (ev2 === 0 && ev1 !== 0) ||
           (ev1 < 0 && ev2 > 0) ||
           (ev1 > 0 && ev2 < 0);
         if (!crosses) {
-          continue;
+          return;
         }
         const point = interpolateZeroCrossing(ex1, ey1, ev1, ex2, ey2, ev2);
         if (point) {
           intersections.push(point);
         }
-      }
-      if (intersections.length >= 2) {
-        ctx.moveTo(intersections[0].x, intersections[0].y);
-        ctx.lineTo(intersections[1].x, intersections[1].y);
-      }
-      if (intersections.length >= 4) {
-        ctx.moveTo(intersections[2].x, intersections[2].y);
-        ctx.lineTo(intersections[3].x, intersections[3].y);
+      };
+      addCrossing(x0, y0, a, x1, y0, b);
+      addCrossing(x1, y0, b, x1, y1, c);
+      addCrossing(x1, y1, c, x0, y1, d);
+      addCrossing(x0, y1, d, x0, y0, a);
+      if (intersections.length === 4) {
+        // Saddle cells have two possible pairings. Evaluate the field at
+        // their center instead of always connecting the same edges.
+        const horizontal = ((x0 + x1) / 2 - width / 2) / dc.scale + dc.centerX;
+        const vertical = -((y0 + y1) / 2 - height / 2) / dc.scale + dc.centerY;
+        const center = evaluate(horizontal, vertical);
+        if (center === null || !Number.isFinite(center)) continue;
+        const pairs = (center >= 0) === (a >= 0) ? [[0, 1], [2, 3]] : [[0, 3], [1, 2]];
+        for (const [start, end] of pairs) {
+          drawSegment(intersections[start], intersections[end]);
+        }
+      } else if (intersections.length >= 2) {
+        drawSegment(intersections[0], intersections[1]);
       }
     }
   }
+  contourPaths.set(evaluate, { key, points: new Float32Array(points) });
 }

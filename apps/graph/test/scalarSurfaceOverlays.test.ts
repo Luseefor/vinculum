@@ -12,6 +12,7 @@ import {
   explicitSurfaceMathPoint,
   scalarSurfaceCacheKey,
   scalarSurfaceContourCacheKey,
+  scalarSurfaceGradientCacheKey,
   updateScalarSurfaceOverlays
 } from "@/lib/graph3d/buildScalarSurfaceOverlays";
 import { updateAnalysisOverlays } from "@/lib/graph3d/buildAnalysisOverlays";
@@ -46,13 +47,15 @@ function enable(id: string, patch: Record<string, unknown>) {
   useGraphStore.getState().setScalarVizConfig(id, patch, identity);
 }
 
-function seedResult(id: string) {
+function seedResult(id: string, gradientDensity = 0) {
+  const source = liveObject(id);
+  if (source.kind !== "surface") throw new Error("expected surface");
   const computed = computeScalarFieldData({
-    source: { kind: "surface", equation: EQUATION, orientation: "z" },
+    source: { kind: "surface", equation: source.equation, orientation: source.orientation ?? "z" },
     target: { kind: "domain2D", domain: { uMin: -2, uMax: 2, vMin: -2, vMax: 2 } },
     resolution: 24,
     contourCount: 4,
-    gradientDensity: 0,
+    gradientDensity,
     params: {}
   });
   if (computed.status !== "ok") {
@@ -88,6 +91,40 @@ describe("explicit surface 3D heat map and contours", () => {
     expect(explicitSurfaceMathPoint("z", 1, 2, 3)).toEqual({ x: 1, y: 2, z: 3 });
     expect(explicitSurfaceMathPoint("x", 1, 2, 3)).toEqual({ x: 3, y: 1, z: 2 });
     expect(explicitSurfaceMathPoint("y", 1, 2, 3)).toEqual({ x: 1, y: 3, z: 2 });
+  });
+
+  it.each(["x", "y", "z"] as const)("anchors %s-oriented gradient arrows on the surface without turning them into normals", orientation => {
+    const id = addSurface();
+    useGraphStore.getState().updateSurfaceOrientation(id, orientation);
+    const vars = orientation === "x" ? ["y", "z"] : orientation === "y" ? ["x", "z"] : ["x", "y"];
+    useGraphStore.getState().updateSurfaceEquation(id, `${orientation} = ${vars[0]}^2 + ${vars[1]}^2`);
+    enable(id, { showGradient: true, gradientDensity: 4 });
+    seedResult(id, 4);
+    const frame = makeFrame([liveObject(id)]);
+    updateScalarSurfaceOverlays(frame);
+    const key = scalarSurfaceGradientCacheKey(id);
+    const group = frame.cache.get(key)!.group;
+    const samples = group.userData.vectorFieldSamples;
+    expect(samples.validCount).toBe(16);
+    const dependent = orientation === "x" ? 0 : orientation === "y" ? 1 : 2;
+    for (let i = 0; i < samples.validCount; i++) {
+      const point = Array.from(samples.positions.slice(i * 3, i * 3 + 3)) as number[];
+      const independent = point.filter((_, axis) => axis !== dependent);
+      expect(point[dependent]).toBeCloseTo(independent[0]! ** 2 + independent[1]! ** 2, 1);
+      expect(samples.vectors[i * 3 + dependent]).toBe(0);
+      const vector = Array.from(samples.vectors.slice(i * 3, i * 3 + 3)).filter((_, axis) => axis !== dependent) as number[];
+      expect(vector[0]).toBeCloseTo(2 * independent[0]!, 4);
+      expect(vector[1]).toBeCloseTo(2 * independent[1]!, 4);
+    }
+    expect(new Raycaster(new Vector3(0, 10, 0), new Vector3(0, -1, 0)).intersectObject(group, true)).toEqual([]);
+    updateScalarSurfaceOverlays(frame);
+    expect(frame.cache.get(key)!.group).toBe(group);
+    frame.objectNodes.get(id)!.visible = false;
+    updateScalarSurfaceOverlays(frame);
+    expect(group.visible).toBe(false);
+    enable(id, { showGradient: false });
+    updateScalarSurfaceOverlays({ ...frame, configs: useGraphStore.getState().ui.scalarVizBySourceId });
+    expect(frame.cache.has(key)).toBe(false);
   });
 
   it("drapes the heat mesh on z = f(x, y) and reuses it across frames", () => {
