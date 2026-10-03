@@ -2,7 +2,12 @@ import { validateExpressionSafety, type ExpressionSafetyFailureCode } from "./ex
 import { compileSurfaceExpression, getEffectiveSurfaceOrientation } from "./compileExpression";
 import { compilePlaneEquation } from "./samplePlane";
 import { compileParametricExpressions } from "./compileParametric";
+import { compileParametricSurfaceExpressions } from "./compileParametricSurface";
+import { compileImplicitSurfaceExpression } from "./compileImplicitSurface";
+import { compileVectorFieldExpressions } from "./compileVectorField";
+import { splitSingleMathEquality } from "./implicitEquation";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import type { VectorFieldDimension } from "@vinculum/scene/types";
 
 export type ExpressionDiagnosticStatus = "valid" | "warning" | "error";
 
@@ -28,7 +33,7 @@ function mapSafetyViolationToDiagnostic(code: ExpressionSafetyFailureCode): { me
     case "unsupported-function":
       return { message: "Unsupported function.", suggestion: UNSUPPORTED_SUGGESTION };
     case "unsupported-symbol":
-      return { message: "Unsupported function.", suggestion: UNSUPPORTED_SUGGESTION };
+      return { message: "Unsupported symbol." };
     case "expression-too-complex":
       return { message: "Expression is too complex to render safely." };
     case "expression-disallowed-node":
@@ -41,11 +46,12 @@ function mapSafetyViolationToDiagnostic(code: ExpressionSafetyFailureCode): { me
 }
 
 function stripLabelPrefix(error: string): string {
-  // compileParametricErrors often look like "x(t): ..." or "y(t): ..."
+  // compileParametricErrors often look like "x(t): ..." or "y(t): ...";
+  // parametric-surface errors look like "x(u,v): ...".
   const idx = error.indexOf(":");
   if (idx >= 0 && idx < error.length - 1) {
     const maybeLabel = error.slice(0, idx).trim();
-    if (/(x\\(t\\)|y\\(t\\)|z\\(t\\)|Parametric)/i.test(maybeLabel)) {
+    if (/(x\(t\)|y\(t\)|z\(t\)|x\(u,v\)|y\(u,v\)|z\(u,v\)|Parametric)/i.test(maybeLabel)) {
       return error.slice(idx + 1).trim();
     }
   }
@@ -145,5 +151,149 @@ export function getParametricAxisDiagnostics(params: {
   }
 
   return { status: "valid", message: "", fieldContext: `parametric.${field}` };
+}
+
+export function getParametricSurfaceAxisDiagnostics(params: {
+  field: "xExpr" | "yExpr" | "zExpr";
+  xExpr: string;
+  yExpr: string;
+  zExpr: string;
+}): ExpressionDiagnostic {
+  const { field, xExpr, yExpr, zExpr } = params;
+
+  const axisExpr = field === "xExpr" ? xExpr : field === "yExpr" ? yExpr : zExpr;
+  const safety = validateExpressionSafety(axisExpr, {
+    operation: "diagnostics-parametric-surface-axis",
+    expressionLabel: `Parametric surface ${field}`,
+    allowedSymbols: [...Object.keys(getEditorParameterScope()), "u", "v"]
+  });
+  if (!safety.ok) {
+    const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+    return toSafeDiagnostics({
+      status: "error",
+      message: mapped.message,
+      suggestion: mapped.suggestion,
+      fieldContext: `parametricSurface.${field}`
+    });
+  }
+
+  const compiled = compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope());
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: stripLabelPrefix(compiled.error),
+      fieldContext: `parametricSurface.${field}`
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: `parametricSurface.${field}` };
+}
+
+export function getVectorFieldComponentDiagnostics(params: {
+  field: "pExpr" | "qExpr" | "rExpr";
+  dimension: VectorFieldDimension;
+  pExpr: string;
+  qExpr: string;
+  rExpr: string;
+}): ExpressionDiagnostic {
+  const { field, dimension, pExpr, qExpr, rExpr } = params;
+  const componentExpr = field === "pExpr" ? pExpr : field === "qExpr" ? qExpr : rExpr;
+  const componentLabel = field === "pExpr" ? "P" : field === "qExpr" ? "Q" : "R";
+
+  if (!componentExpr.trim()) {
+    return { status: "valid", message: "", fieldContext: `vectorField.${field}` };
+  }
+
+  const safety = validateExpressionSafety(componentExpr, {
+    operation: "diagnostics-vector-field-component",
+    expressionLabel: `Vector field ${componentLabel}`,
+    allowedSymbols: [
+      ...Object.keys(getEditorParameterScope()),
+      "x",
+      "y",
+      ...(dimension === "3d" ? ["z"] : [])
+    ]
+  });
+  if (!safety.ok) {
+    const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+    return toSafeDiagnostics({
+      status: "error",
+      message: mapped.message,
+      suggestion: mapped.suggestion,
+      fieldContext: `vectorField.${field}`
+    });
+  }
+
+  const compiled = compileVectorFieldExpressions(dimension, pExpr, qExpr, rExpr, getEditorParameterScope());
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: stripLabelPrefix(compiled.error),
+      fieldContext: `vectorField.${field}`
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: `vectorField.${field}` };
+}
+
+export function getImplicitSurfaceEquationDiagnostics(equation: string): ExpressionDiagnostic {  const trimmed = equation.trim();
+  if (!trimmed) {
+    return { status: "error", message: "Invalid expression syntax.", fieldContext: "implicitSurface.equation" };
+  }
+
+  // Malformed equality (chained/comparison/missing side) reports up front
+  // with the same grammar the compiler enforces.
+  if (trimmed.includes("=")) {
+    const parts = splitSingleMathEquality(trimmed);
+    if (!parts) {
+      return toSafeDiagnostics({
+        status: "error",
+        message: "Equation must contain exactly one '=' with expressions on both sides.",
+        fieldContext: "implicitSurface.equation"
+      });
+    }
+    for (const side of [parts.lhs, parts.rhs]) {
+      const safety = validateExpressionSafety(side, {
+        operation: "diagnostics-implicit-surface",
+        expressionLabel: "Implicit surface equation",
+        allowedSymbols: Object.keys(getEditorParameterScope())
+      });
+      if (!safety.ok) {
+        const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+        return toSafeDiagnostics({
+          status: "error",
+          message: mapped.message,
+          suggestion: mapped.suggestion,
+          fieldContext: "implicitSurface.equation"
+        });
+      }
+    }
+  } else {
+    const safety = validateExpressionSafety(trimmed, {
+      operation: "diagnostics-implicit-surface",
+      expressionLabel: "Implicit surface equation",
+      allowedSymbols: Object.keys(getEditorParameterScope())
+    });
+    if (!safety.ok) {
+      const mapped = mapSafetyViolationToDiagnostic(safety.violation.code);
+      return toSafeDiagnostics({
+        status: "error",
+        message: mapped.message,
+        suggestion: mapped.suggestion,
+        fieldContext: "implicitSurface.equation"
+      });
+    }
+  }
+
+  const compiled = compileImplicitSurfaceExpression(equation, getEditorParameterScope());
+  if (compiled.error) {
+    return toSafeDiagnostics({
+      status: "error",
+      message: compiled.error,
+      fieldContext: "implicitSurface.equation"
+    });
+  }
+
+  return { status: "valid", message: "", fieldContext: "implicitSurface.equation" };
 }
 

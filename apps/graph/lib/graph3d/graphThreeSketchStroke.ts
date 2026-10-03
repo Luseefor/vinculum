@@ -21,6 +21,7 @@ export function appendThreeSketchPoint(
     arr[i * 3 + 2] = p.z;
   }
   sketchGeometry.setAttribute("position", new BufferAttribute(arr, 3));
+  sketchGeometry.setDrawRange(0, next.length);
   sketchGeometry.computeBoundingSphere();
   sketchLine.visible = next.length > 1;
   return next;

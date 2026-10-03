@@ -11,9 +11,9 @@ import {
   useState
 } from "react";
 import type { Active2dViewportSlot, Axis2DPair, Canvas2DTool, GraphProbePin, Viewport2D } from "@/types/graphUi";
-import { SKETCH_SAMPLE_MIN_SCREEN_PX, ZOOM_IN_FACTOR, ZOOM_OUT_FACTOR } from "./graph2dCanvasConstants";
+import { SKETCH_SAMPLE_MIN_SCREEN_PX } from "./graph2dCanvasConstants";
 import { finalizeGraph2dSketchStroke } from "./graph2dCanvasInteractionFinishStroke";
-import { graph2dViewportPatchZoomAtScreen } from "./graph2dCanvasInteractionZoom";
+import { graph2dPinchViewportPatch, graph2dViewportPatchZoomAtScreen, graph2dWheelViewportPatch } from "./graph2dCanvasInteractionZoom";
 import { findNearestProbePinScreen } from "./graph2dCanvasProbes";
 import { snapGraph2dMathPoint } from "./graph2dCanvasSnapMath";
 import type { MousePosition, SketchFitPreview } from "./graph2dCanvasTypes";
@@ -79,6 +79,14 @@ export function useGraph2dCanvasInteraction(
   const isDragging = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
   const activePointerId = useRef<number | null>(null);
+  // S34 touch pinch: second-pointer zoom/pan baseline (camera-only).
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{
+    ids: [number, number];
+    distance: number;
+    midX: number;
+    midY: number;
+  } | null>(null);
   const isSketching = useRef(false);
   const lastSketchScreen = useRef<{ x: number; y: number } | null>(null);
   const sketchAccumRef = useRef<{ horizontal: number; vertical: number }[]>([]);
@@ -106,17 +114,33 @@ export function useGraph2dCanvasInteraction(
       setActive2dViewport(isQuadTop ? "quadTop" : "primary");
 
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      zoomAtScreenPoint(
-        mouseX,
-        mouseY,
-        e.deltaY > 0 ? ZOOM_OUT_FACTOR : ZOOM_IN_FACTOR,
+      // S26 infinite-paper gestures (Excalidraw model): a plain wheel /
+      // trackpad scroll pans the paper in both axes at ANY zoom (including
+      // 100%), so the full trackpad surface moves the view and scaling
+      // stays precise. Pinch (trackpad) and Ctrl/Cmd+wheel zoom toward the
+      // cursor with a delta-proportional factor for smooth trackpad
+      // response; buttons/double-click keep the fixed-step factors. The
+      // viewport model (center + scale) is already unbounded, and the grid
+      // draws whatever range is visible — the paper is infinite.
+      const patch = graph2dWheelViewportPatch(
+        {
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          clientX: e.clientX - rect.left,
+          clientY: e.clientY - rect.top
+        },
         rect.width,
-        rect.height
+        rect.height,
+        viewport
       );
+      if (patch) {
+        patchViewport2D(patch);
+      }
     },
-    [canvasRef, isQuadTop, setActive2dViewport, zoomAtScreenPoint]
+    [canvasRef, isQuadTop, patchViewport2D, setActive2dViewport, viewport]
   );
 
   const handlePointerDown = useCallback(
@@ -143,7 +167,6 @@ export function useGraph2dCanvasInteraction(
       const mathCoords =
         snapEnabled &&
         (canvas2dTool === "probe" ||
-          canvas2dTool === "draw" ||
           canvas2dTool === "measureDistance" ||
           canvas2dTool === "measureAngle" ||
           canvas2dTool === "addPin")
@@ -174,6 +197,30 @@ export function useGraph2dCanvasInteraction(
         return;
       }
 
+      // S34 touch pinch: a second pointer converts pan into pinch/pan
+      // (re-baselined, no jump). Sketching owns its pointer exclusively.
+      // A third finger stays tracked but pair-locked out until the pinch
+      // ends (documented limitation, not a gesture framework).
+      pointersRef.current.set(event.pointerId, { x: screenX, y: screenY });
+      if (pointersRef.current.size >= 2 && !isSketching.current) {
+        const ids = [...pointersRef.current.keys()].slice(-2) as [number, number];
+        const first = pointersRef.current.get(ids[0])!;
+        const second = pointersRef.current.get(ids[1])!;
+        pinchRef.current = {
+          ids,
+          distance: Math.hypot(first.x - second.x, first.y - second.y),
+          midX: (first.x + second.x) / 2,
+          midY: (first.y + second.y) / 2
+        };
+        isDragging.current = false;
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // Capture unsupported; pinch still tracks while over the canvas.
+        }
+        return;
+      }
+
       isDragging.current = true;
       lastMouse.current = { x: event.clientX, y: event.clientY };
       activePointerId.current = event.pointerId;
@@ -185,7 +232,6 @@ export function useGraph2dCanvasInteraction(
   const handleContextMenu = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       event.preventDefault();
-      event.stopPropagation();
       if (
         isQuadTop ||
         (canvas2dTool !== "probe" &&
@@ -211,6 +257,7 @@ export function useGraph2dCanvasInteraction(
       };
       const hit = findNearestProbePinScreen(probePins, pairForCanvas, x, y, dc, graph2dMathToScreen);
       if (hit) {
+        event.stopPropagation();
         removeProbePin(hit.id);
       }
     },
@@ -232,7 +279,6 @@ export function useGraph2dCanvasInteraction(
       const mathCoords =
         snapEnabled &&
         (canvas2dTool === "probe" ||
-          canvas2dTool === "draw" ||
           canvas2dTool === "measureDistance" ||
           canvas2dTool === "measureAngle" ||
           canvas2dTool === "addPin")
@@ -243,6 +289,33 @@ export function useGraph2dCanvasInteraction(
         screen: { x: screenX, y: screenY },
         math: mathCoords
       });
+
+      // S34 touch pinch continuation: zoom toward the midpoint, pan with it.
+      const pinch = pinchRef.current;
+      if (pinch) {
+        pointersRef.current.set(event.pointerId, { x: screenX, y: screenY });
+        const first = pointersRef.current.get(pinch.ids[0]);
+        const second = pointersRef.current.get(pinch.ids[1]);
+        if (first && second) {
+          const current = {
+            distance: Math.hypot(first.x - second.x, first.y - second.y),
+            midX: (first.x + second.x) / 2,
+            midY: (first.y + second.y) / 2
+          };
+          const patch = graph2dPinchViewportPatch(
+            { distance: pinch.distance, midX: pinch.midX, midY: pinch.midY },
+            current,
+            rect.width,
+            rect.height,
+            viewport
+          );
+          if (patch) {
+            patchViewport2D(patch);
+          }
+          pinchRef.current = { ids: pinch.ids, ...current };
+        }
+        return;
+      }
 
       if (
         canvas2dTool === "draw" &&
@@ -279,6 +352,30 @@ export function useGraph2dCanvasInteraction(
 
   const handlePointerUp = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
+      // S34 touch pinch teardown: dropping below two fingers ends the pinch
+      // (no jump); the remaining finger resumes single-pan from its current
+      // position.
+      pointersRef.current.delete(event.pointerId);
+      if (pinchRef.current) {
+        const remaining = pinchRef.current.ids.find((id) => id !== event.pointerId);
+        pinchRef.current = null;
+        if (remaining !== undefined && pointersRef.current.has(remaining)) {
+          // Resume single-pan with the remaining finger (client coords: the
+          // map stores canvas-relative positions).
+          const pos = pointersRef.current.get(remaining)!;
+          const canvas = canvasRef.current;
+          const rect = canvas?.getBoundingClientRect();
+          lastMouse.current = {
+            x: pos.x + (rect?.left ?? 0),
+            y: pos.y + (rect?.top ?? 0)
+          };
+          isDragging.current = true;
+          activePointerId.current = remaining;
+          return;
+        }
+        isDragging.current = false;
+        activePointerId.current = null;
+      }
       if (activePointerId.current !== event.pointerId) {
         return;
       }
@@ -319,11 +416,17 @@ export function useGraph2dCanvasInteraction(
         // Pointer may already be released (e.g. touch cancelled by OS).
       }
     },
-    [addSketchedParametricFromStroke, axis2dPairQuadTop, canvas2dTool, isQuadTop, sketchAutoCreate]
+    [addSketchedParametricFromStroke, axis2dPairQuadTop, canvas2dTool, canvasRef, isQuadTop, sketchAutoCreate]
   );
 
   const handlePointerLeave = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
     setMousePos(null);
+    pointersRef.current.delete(event.pointerId);
+    if (pinchRef.current) {
+      pinchRef.current = null;
+      isDragging.current = false;
+      activePointerId.current = null;
+    }
     if (activePointerId.current === event.pointerId) {
       isDragging.current = false;
       activePointerId.current = null;
@@ -331,6 +434,8 @@ export function useGraph2dCanvasInteraction(
   }, []);
 
   const handlePointerCancel = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    pinchRef.current = null;
     if (activePointerId.current === event.pointerId) {
       isDragging.current = false;
       isSketching.current = false;

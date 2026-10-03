@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { type RefObject, useEffect, useState } from "react";
 import type { Canvas2DTool } from "@/types/graphUi";
 import {
@@ -47,7 +49,7 @@ export function Graph2DCanvasUiCursorTooltip({
 
   return (
     <div
-      className="absolute pointer-events-none z-[23] max-w-[min(220px,calc(100%-2rem))] truncate rounded-[5px] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-lg"
+      className="absolute pointer-events-none z-[23] max-w-[min(220px,calc(100%-2rem))] truncate rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] shadow-[var(--shadow-floating)]"
       style={{
         left: isNearRight ? undefined : Math.min(x + CURSOR_TOOLTIP_OFFSET_PX, cw - CURSOR_TOOLTIP_WIDTH_PX - CURSOR_TOOLTIP_OFFSET_PX),
         right: isNearRight ? Math.min(cw - x + CURSOR_TOOLTIP_OFFSET_PX, CURSOR_TOOLTIP_WIDTH_PX) : undefined,
@@ -55,8 +57,8 @@ export function Graph2DCanvasUiCursorTooltip({
         bottom: isNearBottom ? Math.min(ch - y + CURSOR_TOOLTIP_OFFSET_PX, VIEWPORT_BADGE_HEIGHT_PX) : undefined,
       }}
     >
-      ({axisPair.horizontalLabel}: {formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)},{" "}
-      {axisPair.verticalLabel}: {formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)})
+      ({axisPair.horizontalLabel}: <MathExpression expression={formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)} />,{" "}
+      {axisPair.verticalLabel}: <MathExpression expression={formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)} />)
     </div>
   );
 }

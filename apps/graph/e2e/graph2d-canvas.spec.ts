@@ -63,4 +63,31 @@ test.describe("2D canvas", () => {
     await canvas2d.dispatchEvent("wheel", { deltaY: -500 });
     await expect(rangeBadge).not.toHaveText(before ?? "");
   });
+
+  test("plain wheel pans (scale preserved) and ctrl+wheel zooms to cursor", async ({ page }) => {
+    await page.goto("/editor");
+    await dismissBlockingDialogs(page);
+    await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "2D only" }).click();
+
+    const canvas2d = page.locator('canvas[data-graph2d-canvas="true"]').first();
+    await expect(canvas2d).toBeVisible();
+
+    const readViewport = () =>
+      canvas2d.evaluate((element) => {
+        const badge = document.querySelector('[data-testid="graph2d-viewport-range-badge"]');
+        return badge?.textContent ?? "";
+      });
+    const before = await readViewport();
+
+    // Plain trackpad-style scroll pans both axes: badge range shifts.
+    await canvas2d.dispatchEvent("wheel", { deltaX: 120, deltaY: 60 });
+    const panned = await readViewport();
+    expect(panned).not.toBe(before);
+
+    // Ctrl+wheel (pinch) zooms instead of panning: dispatch again and
+    // require a further change driven by scale.
+    await canvas2d.dispatchEvent("wheel", { deltaX: 0, deltaY: -100, ctrlKey: true });
+    const zoomed = await readViewport();
+    expect(zoomed).not.toBe(panned);
+  });
 });

@@ -24,6 +24,11 @@ export function useGraph2dCanvasPaintSchedule(args: {
 
     const flushDraw = () => {
       resizeRaf = 0;
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) setFrameForCanvas({ width: rect.width, height: rect.height });
+      }
       drawRef.current();
     };
 
@@ -33,19 +38,16 @@ export function useGraph2dCanvasPaintSchedule(args: {
       }
     };
 
-    const handleResize = () => {
-      const container = containerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        setFrameForCanvas({ width: rect.width, height: rect.height });
-      }
-      scheduleDraw();
-    };
+    // ResizeObserver delivery must not synchronously update React layout.
+    const handleResize = scheduleDraw;
 
     handleResize();
+    const observer = new ResizeObserver(handleResize);
+    if (containerRef.current) observer.observe(containerRef.current);
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
+      observer.disconnect();
       if (resizeRaf !== 0) {
         window.cancelAnimationFrame(resizeRaf);
       }

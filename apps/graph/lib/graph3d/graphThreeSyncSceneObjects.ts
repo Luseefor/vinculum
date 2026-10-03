@@ -1,6 +1,8 @@
+import { getGraphObjectFor3D } from "./graphObject3dGuards";
+import type { GraphRenderer } from "./graphRenderer";
 import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
-import { Group, type DirectionalLight, type WebGLRenderer, type Object3D } from "three";
+import { Group, type DirectionalLight, type Object3D } from "three";
 import {
   applyObjectColorToNode,
   buildGraphObject,
@@ -8,9 +10,17 @@ import {
   getGraphObjectRenderSignature,
   getGraphObjectStructureSignature,
   sceneHasVisibleSurface,
+  syncGeometrySelectionEmphasis,
   syncNonRenderableObjectNode
 } from "@/lib/graph3d/buildGraphObjects";
+import { useGraphStore } from "@/store/graphStore";
 import { getParameterSignature } from "./graphThreeEngineDom";
+import {
+  isWorkerizedComputeKind,
+  syncComputedSurfaceObject,
+  type GeometryComputeSyncContext
+} from "@/lib/compute/geometryComputeSync";
+import type { GeometryComputeManager } from "@/lib/compute/geometryComputeManager";
 
 export function syncThreeSceneObjects(
   theme: ResolvedTheme,
@@ -20,16 +30,38 @@ export function syncThreeSceneObjects(
   objectSignatures: Map<string, string>,
   objectStructureSignatures: Map<string, string>,
   keyLight: DirectionalLight,
-  renderer: WebGLRenderer
+  renderer: GraphRenderer,
+  computeManager?: GeometryComputeManager,
+  getComputeTheme?: () => ResolvedTheme
 ): void {
   const parameterSignature = getParameterSignature();
   const hasSurfaces = sceneHasVisibleSurface(allObjects);
-  keyLight.castShadow = hasSurfaces;
-  renderer.shadowMap.enabled = hasSurfaces;
+  // Node materials retain the light's shadow resources. Keep the pipeline
+  // enabled after its first use so hiding/deleting the last surface cannot
+  // invalidate a shadow node that another visible material still references.
+  keyLight.castShadow = keyLight.castShadow || hasSurfaces;
+  renderer.shadowMap.enabled = renderer.shadowMap.enabled || hasSurfaces;
   const nextIds = new Set<string>();
+  const computeContext: GeometryComputeSyncContext | null =
+    computeManager && getComputeTheme
+      ? {
+          objectsRoot,
+          objectNodes,
+          objectSignatures,
+          objectStructureSignatures,
+          getTheme: getComputeTheme,
+          manager: computeManager
+        }
+      : null;
 
-  for (const object of allObjects) {
+  for (const source of allObjects) {
+    const object = getGraphObjectFor3D(source);
+    if (source.kind === "implicitCurve" && !source.extendTo3D) computeContext?.manager.notifyObjectsRemoved([source.id]);
     nextIds.add(object.id);
+    if (computeContext && isWorkerizedComputeKind(object)) {
+      syncComputedSurfaceObject(object, theme, parameterSignature, computeContext);
+      continue;
+    }
     if (
       syncNonRenderableObjectNode(
         object,
@@ -47,11 +79,18 @@ export function syncThreeSceneObjects(
     const nextStructure = `${theme}:${parameterSignature}:${getGraphObjectStructureSignature(object)}`;
     const prevSignature = objectSignatures.get(object.id);
     const prevStructure = objectStructureSignatures.get(object.id);
+    // S7 (F6): visibility is presentation state, not geometry identity, so it is
+    // excluded from both signatures. Synchronize it on the cached node before
+    // any signature-based early-out, otherwise a visibility-only change would
+    // reuse the node but leave a stale `.visible`.
+    const prevNode = objectNodes.get(object.id);
+    if (prevNode) {
+      prevNode.visible = object.visible;
+    }
     if (prevSignature === nextSignature) {
       continue;
     }
 
-    const prevNode = objectNodes.get(object.id);
     if (prevNode && prevStructure === nextStructure) {
       applyObjectColorToNode(prevNode, object.color);
       prevNode.visible = object.visible;
@@ -76,6 +115,7 @@ export function syncThreeSceneObjects(
     objectStructureSignatures.set(object.id, nextStructure);
   }
 
+  const prunedIds: string[] = [];
   for (const [id, node] of objectNodes.entries()) {
     if (nextIds.has(id)) {
       continue;
@@ -85,5 +125,35 @@ export function syncThreeSceneObjects(
     objectNodes.delete(id);
     objectSignatures.delete(id);
     objectStructureSignatures.delete(id);
+    prunedIds.push(id);
+  }
+
+  // S31 selection emphasis (Part 1): material-only brightening for the
+  // selected geometric object. Runs on every sync so rebuilt nodes pick it
+  // up; selection-only changes arrive via objectsDirty (no signature, no
+  // rebuild, no worker jobs).
+  const kindsById = new Map<string, GraphObject["kind"]>();
+  for (const object of allObjects) {
+    kindsById.set(object.id, object.kind);
+  }
+  syncGeometrySelectionEmphasis(
+    objectNodes,
+    kindsById,
+    useGraphStore.getState().ui.selectedObjectId
+  );
+
+  if (computeContext) {
+    // Drop compute ownership for deleted objects so late results for them
+    // are discarded and no pending-state entry leaks (PART 20). Tracked ids
+    // cover pending-but-never-built objects that have no scene node yet.
+    const removed = new Set(prunedIds);
+    for (const trackedId of computeContext.manager.getTrackedObjectIds()) {
+      if (!nextIds.has(trackedId)) {
+        removed.add(trackedId);
+      }
+    }
+    if (removed.size > 0) {
+      computeContext.manager.notifyObjectsRemoved([...removed]);
+    }
   }
 }

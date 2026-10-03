@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "@/lib/math/rustMath";
 import type { CompiledMathExpression } from "./graph2dCanvasTypes";
 import { validateExpressionSafety } from "@/lib/math/expressionSafety";
 
@@ -26,11 +26,15 @@ export function tryCompileMathExpression(expr: string): CompiledMathExpression |
     }
 
     const node = compile(trimmed);
-    // Quick sanity evaluation to prevent non-finite values from silently propagating.
+    // S9 (F1): smoke-evaluate once to catch expressions that cannot
+    // evaluate at all (unknown symbols, arity errors) — those still fail.
+    // A non-finite mathematical result at this arbitrary point is a
+    // sampling-domain concern handled per point by the evaluate closures,
+    // which return null on throw or non-finite.
     const scope: Record<string, number> = { x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E };
-    const initial = node.evaluate(scope);
-    const numeric = typeof initial === "number" ? initial : Number(initial);
-    if (!Number.isFinite(numeric)) {
+    try {
+      node.evaluate(scope);
+    } catch {
       return null;
     }
     return isCompiledMathExpression(node) ? node : null;

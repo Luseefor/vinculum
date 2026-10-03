@@ -1,4 +1,4 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "@/lib/math/rustMath";
 import {
   BufferAttribute,
   BufferGeometry,

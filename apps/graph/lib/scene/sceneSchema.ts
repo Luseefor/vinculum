@@ -92,6 +92,7 @@ export function cloneSceneDocument(scene: SceneDocument): SceneDocument {
 }
 
 export function cloneGraphObject(object: GraphObject): GraphObject {
+  if (object.kind === "implicitCurve") return { ...object };
   if (object.kind === "surface") {
     return {
       ...object,
@@ -105,6 +106,65 @@ export function cloneGraphObject(object: GraphObject): GraphObject {
   }
 
   if (object.kind === "parametricCurve") {
+    return {
+      ...object
+    };
+  }
+
+  if (object.kind === "parametricSurface") {
+    return {
+      ...object,
+      domain: {
+        ...object.domain
+      },
+      appearance: {
+        ...object.appearance
+      }
+    };
+  }
+
+  if (object.kind === "implicitSurface") {
+    return {
+      ...object,
+      domain: {
+        ...object.domain
+      },
+      appearance: {
+        ...object.appearance
+      }
+    };
+  }
+
+  if (object.kind === "vectorField") {
+    if (object.dimension === "2d") {
+      return {
+        ...object,
+        dimension: "2d",
+        domain: {
+          ...object.domain
+        }
+      };
+    }
+    return {
+      ...object,
+      dimension: "3d",
+      domain: {
+        ...object.domain
+      }
+    };
+  }
+
+  if (
+    object.kind === "point" ||
+    object.kind === "vector" ||
+    object.kind === "line" ||
+    object.kind === "ray" ||
+    object.kind === "segment" ||
+    object.kind === "linearTransform"
+  ) {
+    // S26/S27/S28: flat scalar-expression objects — a shallow copy
+    // preserves the raw expressions exactly (no resolved numeric cache
+    // is ever serialized).
     return {
       ...object
     };

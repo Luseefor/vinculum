@@ -6,7 +6,7 @@ import { cn } from "@/components/ui/styles";
 type BadgeVariant = "default" | "secondary" | "outline";
 
 const badgeVariantClasses: Record<BadgeVariant, string> = {
-  default: "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent)]",
+  default: "border-[var(--accent)]/40 bg-[var(--accent-soft)] text-[var(--accent-ink)]",
   secondary: "border-[var(--border-subtle)] bg-[var(--surface-raised)] text-[var(--text-secondary)]",
   outline: "border-[var(--border-strong)] bg-transparent text-[var(--text-secondary)]"
 };
@@ -19,7 +19,7 @@ export function Badge({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
         badgeVariantClasses[variant],
         className
       )}

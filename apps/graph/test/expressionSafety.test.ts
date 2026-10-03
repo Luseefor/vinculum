@@ -35,14 +35,27 @@ describe("expression safety", () => {
     expect(error).toMatch(/Invalid expression syntax/i);
   });
 
-  it("rejects non-finite results from surface evaluation", () => {
-    const { error } = compileSurfaceExpression("z = 1/0", "z");
-    expect(error).toMatch(/Expression produced a non-finite value/i);
+  it("accepts constant non-finite surface expressions structurally; evaluator yields NaN", () => {
+    // S9 (F1): 1/0 is syntactically valid and sandbox-safe, so compilation
+    // accepts it. Pointwise invalidity belongs to sampling, not compilation.
+    const { error, evaluator } = compileSurfaceExpression("z = 1/0", "z");
+    expect(error).toBeNull();
+    if (error) {
+      return;
+    }
+    expect(evaluator(0, 0)).toBeNaN();
+    expect(evaluator(3, -2)).toBeNaN();
   });
 
-  it("rejects non-finite results from parametric axis evaluation", () => {
+  it("compiles constant non-finite expressions; evaluator yields NaN (domain handled at sampling, not fixed-point compilation)", () => {
     const compiled = compileParametricExpressions("1/0", "0", "0");
-    expect(compiled.error).toMatch(/Expression produced a non-finite value/i);
+    expect(compiled.error).toBeNull();
+    if (compiled.error) {
+      return;
+    }
+    for (const t of [-5, 0, 5]) {
+      expect(compiled.evaluator(t)[0]).toBeNaN();
+    }
   });
 
   it("rejects overlong imported scene surface expressions", () => {

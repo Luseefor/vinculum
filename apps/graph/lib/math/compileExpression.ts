@@ -1,11 +1,11 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getParamScopeSignature } from "./paramScope";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 import type { CompiledSurfaceExpression, SurfaceEvaluator } from "./compileExpressionTypes";
 import { formatExpressionError } from "./expressionErrorFormat";
 import { getEffectiveSurfaceOrientation } from "./surfaceExpressionOrientation";
 import {
-  formatNonFiniteEvaluationError,
   validateExpressionSafety
 } from "./expressionSafety";
 
@@ -20,8 +20,16 @@ const NAN_EVALUATOR: SurfaceEvaluator = () => Number.NaN;
 const SURFACE_COMPILE_CACHE_LIMIT = 128;
 const surfaceCompileCache = new Map<string, CompiledSurfaceExpression>();
 
-function makeSurfaceCompileCacheKey(expression: string, orientation: "x" | "y" | "z"): string {
-  return `${orientation}::${expression}`;
+function makeSurfaceCompileCacheKey(
+  expression: string,
+  orientation: "x" | "y" | "z",
+  params: Record<string, number>
+): string {
+  // S29-R5: the safety check depends on the live parameter set
+  // (allowedSymbols = param keys), so the cache key must carry the snapshot
+  // signature. Previously same-text/different-params shared entries, serving
+  // stale accept/reject after param add/remove.
+  return `${orientation}::${expression}::${getParamScopeSignature(params)}`;
 }
 
 function getCachedSurfaceCompile(key: string): CompiledSurfaceExpression | null {
@@ -47,9 +55,14 @@ function setCachedSurfaceCompile(key: string, value: CompiledSurfaceExpression):
 
 export function compileSurfaceExpression(
   expression: string,
-  orientation: "x" | "y" | "z" = "z"
+  orientation: "x" | "y" | "z" = "z",
+  params?: Record<string, number>
 ): CompiledSurfaceExpression {
-  const cacheKey = makeSurfaceCompileCacheKey(expression, orientation);
+  // S29-R5: snapshot the live scope once per call so safety, cache key, and
+  // smoke-evaluation agree (previously safety read live scope but the key
+  // omitted it).
+  const scopeSnapshot = params ?? getEditorParameterScope();
+  const cacheKey = makeSurfaceCompileCacheKey(expression, orientation, scopeSnapshot);
   const cached = getCachedSurfaceCompile(cacheKey);
   if (cached) {
     return cached;
@@ -78,7 +91,7 @@ export function compileSurfaceExpression(
   const safety = validateExpressionSafety(body, {
     operation: "compile-surface",
     expressionLabel: "Surface equation",
-    allowedSymbols: Object.keys(getEditorParameterScope()),
+    allowedSymbols: Object.keys(scopeSnapshot),
   });
   if (!safety.ok) {
     const safetyResult: CompiledSurfaceExpression = {
@@ -116,7 +129,7 @@ export function compileSurfaceExpression(
       t: 0,
       pi: Math.PI,
       e: Math.E,
-      ...getEditorParameterScope()
+      ...(params ?? getEditorParameterScope())
     };
 
     if (effectiveOrientation === "x") {
@@ -132,18 +145,13 @@ export function compileSurfaceExpression(
     return scope;
   };
 
+  // S9 (F1): smoke-evaluate once to catch evaluator-construction failure,
+  // but never reject a non-finite mathematical result. A throw here means
+  // the compiled expression cannot evaluate at all (arity/type failure),
+  // which stays a compile error; NaN/Infinity at one arbitrary point is a
+  // sampling-domain concern handled per sample by the evaluator below.
   try {
-    const initialValue = compiledExpression.evaluate(getScope(0, 0));
-    const numeric = typeof initialValue === "number" ? initialValue : Number(initialValue);
-    if (!Number.isFinite(numeric)) {
-      const nonFiniteResult: CompiledSurfaceExpression = {
-        evaluator: NAN_EVALUATOR,
-        error: formatNonFiniteEvaluationError(),
-        effectiveOrientation
-      };
-      setCachedSurfaceCompile(cacheKey, nonFiniteResult);
-      return nonFiniteResult;
-    }
+    compiledExpression.evaluate(getScope(0, 0));
   } catch (error) {
     reportWarning("Surface expression validation evaluate failed.", {
       featureArea: "expression-eval",

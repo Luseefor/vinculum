@@ -7,6 +7,12 @@ on:
       - "packages/scene/**"
       - "project-description.md"
       - "bun.lock"
+      - "package.json"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "scripts/build-math-wasm.ts"
+      - "scripts/prepare-math-assets.ts"
       - ".github/workflows/graph.yml"
   pull_request:
     paths:
@@ -14,6 +20,12 @@ on:
       - "packages/scene/**"
       - "project-description.md"
       - "bun.lock"
+      - "package.json"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "scripts/build-math-wasm.ts"
+      - "scripts/prepare-math-assets.ts"
       - ".github/workflows/graph.yml"
 
 jobs:
@@ -29,6 +41,20 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@1.91.1
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+
+      - name: Rust quality checks
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked --all-targets -- -D warnings
+          bun run test:rust
+
+      - name: Build Rust math artifact
+        run: bun run build:wasm
 
       - name: Lint
         run: bun run lint
@@ -53,7 +79,9 @@ jobs:
               fi
             fi
             if [ -n "${PID:-}" ]; then
-              if ! wait "$PID"; then
+              if wait "$PID"; then
+                :
+              else
                 status=$?
                 if [ "$status" -ne 143 ] && [ "$status" -ne 137 ]; then
                   return "$status"
@@ -70,7 +98,8 @@ jobs:
             fi
             sleep 0.5
           done
-          curl -fsS "http://127.0.0.1:3102/" | head -c 8000 | grep -q .
+          curl -fsS "http://127.0.0.1:3102/" -o /tmp/vinculum-home.html
+          test -s /tmp/vinculum-home.html
           trap - EXIT
           cleanup
 
@@ -88,7 +117,7 @@ jobs:
           - os: macos-latest
             browser: chromium
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -98,6 +127,16 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@1.91.1
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Build Rust math artifact
+        run: bun run build:wasm
+
+      - name: Production build
+        run: bun run build
 
       - name: Install Playwright (${{ matrix.browser }})
         working-directory: apps/graph
@@ -112,4 +151,44 @@ jobs:
         working-directory: apps/graph
         env:
           CI: "true"
-        run: bunx playwright test --project="${{ matrix.browser }}"
+          PLAYWRIGHT_SERVER_MODE: production
+        run: bunx playwright test --project="${{ matrix.browser }}" --timeout=60000 --grep-invert 'stress |ordinary 2D|Capture real Vinculum|Record interactive Vinculum'
+      - name: Preserve browser failure context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph-e2e-${{ matrix.os }}-${{ matrix.browser }}
+          path: apps/graph/test-results
+          if-no-files-found: ignore
+
+  graph-performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@1.91.1
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Production build
+        run: bun run build
+      - name: Install Chromium
+        working-directory: apps/graph
+        run: bunx playwright install --with-deps chromium
+      - name: Isolated graph performance and recovery checks
+        working-directory: apps/graph
+        env:
+          CI: "true"
+          PLAYWRIGHT_SERVER_MODE: production
+        run: bunx playwright test e2e/graph-stress.spec.ts --project=chromium --workers=1 --retries=0
+      - name: Preserve performance reports and failure context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph-performance-results
+          path: apps/graph/test-results
+          if-no-files-found: ignore

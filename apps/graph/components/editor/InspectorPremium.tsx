@@ -3,7 +3,7 @@
 import InspectorShell from "@/components/editor/InspectorShell";
 
 interface InspectorPremiumProps {
-  width: number;
+  width?: number;
   onOpenExamples?: () => void;
 }
 

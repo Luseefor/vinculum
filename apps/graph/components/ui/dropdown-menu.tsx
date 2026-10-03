@@ -44,7 +44,8 @@ export function DropdownMenu({
   const [restoreFocusOnClose, setRestoreFocusOnClose] = useState(false);
   useEffect(() => {
     if (wasOpenRef.current && !open && restoreFocusOnClose) {
-      triggerRef.current?.focus();
+      // A selected action may have opened a dialog. Its focus trap owns focus.
+      if (!document.activeElement?.closest('[role="dialog"][aria-modal="true"]')) triggerRef.current?.focus();
       setRestoreFocusOnClose(false);
     }
     wasOpenRef.current = open;
@@ -121,6 +122,10 @@ export function DropdownMenuContent({
 }) {
   const { open, setOpen, triggerRef, menuId } = useDropdownMenuContext();
   const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (open) contentRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+  }, [open]);
+
 
   useEffect(() => {
     if (!open) {
@@ -132,7 +137,7 @@ export function DropdownMenuContent({
         triggerRef.current?.focus();
       }
     };
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (contentRef.current?.contains(target)) {
         return;
@@ -143,10 +148,10 @@ export function DropdownMenuContent({
       setOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("pointerdown", onPointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("pointerdown", onPointerDown);
     };
   }, [open, setOpen, triggerRef]);
 
@@ -160,8 +165,17 @@ export function DropdownMenuContent({
       ref={contentRef}
       role="menu"
       aria-orientation="vertical"
+      onKeyDown={(event) => {
+        const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'));
+        const index = items.indexOf(document.activeElement as HTMLButtonElement);
+        const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
+        if (step || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          items[event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + step + items.length) % items.length]?.focus();
+        }
+      }}
       className={cn(
-        "absolute z-[100] mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] p-1 shadow-2xl backdrop-blur-xl animate-slide-up",
+        "absolute z-[100] mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1 shadow-lg backdrop-blur-xl animate-fade-in",
         align === "end" ? "right-0" : "left-0",
         className
       )}
@@ -197,7 +211,7 @@ export function DropdownMenuItem({
   onSelect?: () => void;
   disabled?: boolean;
 }) {
-  const { setOpen } = useDropdownMenuContext();
+  const { setOpen, triggerRef } = useDropdownMenuContext();
   return (
     <button
       type="button"
@@ -205,6 +219,7 @@ export function DropdownMenuItem({
       disabled={disabled}
       onClick={() => {
         if (disabled) return;
+        triggerRef.current?.focus();
         onSelect?.();
         setOpen(false);
       }}

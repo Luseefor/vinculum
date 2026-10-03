@@ -2,6 +2,12 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { mergePersistedGraphStore } from "./graphStoreMerge";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
+import { buildAnalysisSlice } from "./graphStoreSliceAnalysis";
+import { buildGeometryAnalysisSlice } from "./graphStoreSliceGeometryAnalysis";
+import { buildLinearTransformSlice } from "./graphStoreSliceLinearTransform";
+import { buildIntegralSlice } from "./graphStoreSliceIntegral";
+import { buildScalarVizSlice } from "./graphStoreSliceScalarViz";
+import { buildStreamlineSlice } from "./graphStoreSliceStreamline";
 import { buildObjectsSliceB } from "./graphStoreSliceObjectsB";
 import { buildObjectsSliceExpr } from "./graphStoreSliceObjectsExpr";
 import { buildObjectsSliceInsert } from "./graphStoreSliceObjectsInsert";
@@ -31,6 +37,12 @@ export const useGraphStore = create<GraphStoreState>()(
       scene: initialScene,
       ui: createInitialUiState(initialScene.objects[0]?.id ?? null),
       cameraResetVersion: 0,
+      ...buildAnalysisSlice(set),
+      ...buildGeometryAnalysisSlice(set),
+      ...buildLinearTransformSlice(set),
+      ...buildIntegralSlice(set),
+      ...buildScalarVizSlice(set),
+      ...buildStreamlineSlice(set),
       ...buildObjectsSliceInsert(set),
       ...buildObjectsSliceExpr(set),
       ...buildObjectsSliceB(set),
@@ -50,6 +62,32 @@ export const useGraphStore = create<GraphStoreState>()(
         scene: state.scene,
         ui: {
           ...state.ui,
+          // Transient interaction requests never persist across sessions.
+          focusEquationForObjectId: null,
+          // S21: differential analysis is probe-like inspection state.
+          // The point, captured structure, and arming never persist;
+          // derivatives recompute live after reload when still valid.
+          differentialAnalysisBySourceId: {},
+          differentialAnalysisPickArmedId: null,
+          // S22: vector-calculus records and directional inputs are
+          // equally transient (recomputed live, never serialized).
+          vectorCalculusBySourceId: {},
+          directionInputBySourceId: {},
+          // S23: scalar-visualization configs are toggles only (grids
+          // live in the result cache); equally transient.
+          scalarVizBySourceId: {},
+          // S24: streamline configs are toggles only (polylines live in
+          // the result cache); equally transient.
+          streamlineVizBySourceId: {},
+          // S25: integral-analysis configs are inputs only (numbers live
+          // in the result cache); equally transient.
+          integralAnalysisBySourceId: {},
+          // S27: geometry-analysis records are selection pairs only
+          // (facts recompute live); equally transient.
+          geometryAnalysisBySourceId: {},
+          // S28: linearTransform analysis (vector selection + overlay
+          // toggles) is transient UI; facts recompute live.
+          linearTransformAnalysisBySourceId: {},
           sceneDialog: {
             isOpen: false,
             mode: state.ui.sceneDialog.mode,

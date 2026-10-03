@@ -12,6 +12,8 @@ describe("measurement list UI", () => {
 
   it("exposes an accessible delete button and removes a measurement", () => {
     render(<ObjectBrowserPanel width={320} />);
+    expect(screen.queryByRole("button", { name: "measurements" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Search objects" }));
     fireEvent.click(screen.getByRole("button", { name: "measurements" }));
     const deleteButton = screen.getByRole("button", { name: /Delete measurement pin/i });
     expect(deleteButton).toBeInTheDocument();

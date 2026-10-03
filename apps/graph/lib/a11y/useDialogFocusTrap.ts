@@ -6,12 +6,16 @@ import { useEffect, useRef } from "react";
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-function getFocusableWithin(container: HTMLElement): HTMLElement[] {
+export function getFocusableWithin(container: HTMLElement): HTMLElement[] {
   const nodes = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
   return nodes.filter((el) => {
-    if (el.hasAttribute("disabled")) return false;
-    const ariaHidden = el.getAttribute("aria-hidden");
-    if (ariaHidden === "true") return false;
+    if (el.hasAttribute("disabled") || el.tabIndex < 0) return false;
+    if (el.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+    for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+      const style = window.getComputedStyle(node);
+      if (style.display === "none" || style.visibility === "hidden") return false;
+      if (node === container) break;
+    }
     return true;
   });
 }
@@ -43,14 +47,24 @@ export function useDialogFocusTrap(args: {
 
     const focusable = getFocusableWithin(container);
     const target = autofocusEl ?? focusable[0] ?? null;
-    target?.focus();
+    if (target) target.focus();
+    else { container.tabIndex = -1; container.focus(); }
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab" || event.defaultPrevented) return;
       if (!containerRef.current) return;
 
       const focusable = getFocusableWithin(containerRef.current);
-      if (focusable.length < 2) return;
+      if (focusable.length === 0) {
+        event.preventDefault();
+        containerRef.current.focus();
+        return;
+      }
+      if (focusable.length === 1) {
+        event.preventDefault();
+        focusable[0].focus();
+        return;
+      }
 
       const active = document.activeElement as HTMLElement | null;
       if (!active || !containerRef.current.contains(active)) return;

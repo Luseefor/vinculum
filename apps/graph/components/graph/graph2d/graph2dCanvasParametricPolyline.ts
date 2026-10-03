@@ -1,14 +1,14 @@
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { worldIndexForMathAxis } from "@/lib/math/coordinates";
 import { sampleCurve } from "@/lib/math/sampleCurve";
 import type { ParametricCurveObject } from "@vinculum/scene/types";
-import { axisComponentIndex } from "./graph2dCanvasAxis";
-import type { AxisVariable } from "./graph2dCanvasTypes";
+import type { AxisVariable, ParametricPolyline2D } from "./graph2dCanvasTypes";
 
 export function buildParametricPolylineHV(
   obj: ParametricCurveObject,
   horizontal: AxisVariable,
   vertical: AxisVariable
-): Float64Array | null {
+): ParametricPolyline2D | null {
   if (![obj.xExpr, obj.yExpr, obj.zExpr].some((expr) => expr.trim())) {
     return null;
   }
@@ -29,8 +29,13 @@ export function buildParametricPolylineHV(
     return null;
   }
 
-  const hi = axisComponentIndex(horizontal);
-  const vi = axisComponentIndex(vertical);
+  // sampleCurve emits WORLD-frame tuples; resolve the requested MATHEMATICAL
+  // axes to world tuple indices (S3 F4 fix). Single conversion, no re-mapping.
+  const hi = worldIndexForMathAxis(horizontal);
+  const vi = worldIndexForMathAxis(vertical);
+  // S5: projects positions only; canonical connectedSegments passes through
+  // below so Canvas branch topology is zoom-invariant. Behavior otherwise
+  // unchanged (S3 frame mapping, sample order, no reclassification here).
   const pointCount = sampled.positions.length / 3;
   if (pointCount < 2) {
     return null;
@@ -42,5 +47,7 @@ export function buildParametricPolylineHV(
     poly[i * 2 + 1] = sampled.positions[i * 3 + vi];
   }
 
-  return poly;
+  // Pass through canonical connectivity untouched (S5): the Canvas consumer
+  // decides branches from this mask, never from pixels. Do not mutate it.
+  return { points: poly, connectedSegments: sampled.connectedSegments };
 }

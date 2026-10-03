@@ -1,8 +1,8 @@
+import type { GraphRenderer } from "./graphRenderer";
 import type { BufferGeometry, Line, LineSegments, Object3D, Scene } from "three";
 import { LineBasicMaterial, Mesh, MeshBasicMaterial } from "three";
 import type { Group } from "three";
-import type { ShaderMaterial } from "three";
-import type { WebGLRenderer } from "three";
+import type { Material } from "three";
 import type { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { disposeObject3D } from "@/lib/graph3d/buildGraphObjects";
 
@@ -20,9 +20,12 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   measurementMarkersRoot: Group;
   measurementLines: Line[];
   measurementLabels: CSS2DObject[];
+  analysisOverlayRoot: Group;
+  analysisOverlayCache: Map<string, { key: string; group: Group }>;
+  interactionRoot: Group;
   hoverMarker: Mesh;
   gridMesh: Mesh;
-  gridMaterial: ShaderMaterial;
+  gridMaterial: Material;
   axisLineGeometry: BufferGeometry | null;
   axisLineSegments: LineSegments | null;
   axisTubeGroup: Group | null;
@@ -34,7 +37,7 @@ export type DisposeGraphThreeEngineResourcesArgs = {
   warningBadge: HTMLDivElement;
   probeBadge: HTMLDivElement;
   hoverProbeBadge: HTMLDivElement;
-  renderer: WebGLRenderer;
+  renderer: GraphRenderer;
   labelRenderer: CSS2DRenderer;
   container: HTMLElement;
 };
@@ -54,6 +57,9 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     measurementMarkersRoot,
     measurementLines,
     measurementLabels,
+    analysisOverlayRoot,
+    analysisOverlayCache,
+    interactionRoot,
     hoverMarker,
     gridMesh,
     gridMaterial,
@@ -119,6 +125,19 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
     }
   }
   scene.remove(measurementMarkersRoot);
+
+  // S21: derived analysis overlays (cached groups disposed with the engine).
+  for (const [, cached] of analysisOverlayCache) {
+    analysisOverlayRoot.remove(cached.group);
+    disposeObject3D(cached.group);
+  }
+  analysisOverlayCache.clear();
+  scene.remove(analysisOverlayRoot);
+
+  // S33: interaction-handle overlay (materials already disposed by the
+  // interaction module; the empty namespaced group detaches here so no
+  // transient renderer resource outlives the engine).
+  scene.remove(interactionRoot);
 
   hoverMarker.geometry.dispose();
   (hoverMarker.material as MeshBasicMaterial).dispose();

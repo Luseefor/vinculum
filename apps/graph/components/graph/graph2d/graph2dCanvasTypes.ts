@@ -53,5 +53,62 @@ export interface RenderableGraph {
   evaluate: ((horizontalValue: number) => number | null) | null;
   implicitEvaluate: ((horizontalValue: number, verticalValue: number) => number | null) | null;
   hatchDomain: { hMin: number; hMax: number; vMin: number; vMax: number } | null;
-  polylineHV: Float64Array | null;
+  polylineHV: ParametricPolyline2D | null;
+  // S20: 2D vector-field glyphs (pair-projected at build time). Only the
+  // vector path produces non-null values; every other path omits the key.
+  vectorField?: VectorFieldArrows | null;
+  // S23: scalar-visualization attachment (heat/contour/gradient reference).
+  // Set only for explicit scalar sources whose independent variables match
+  // the canvas pair and whose config is live; the draw layer resolves the
+  // cached worker result by sourceId. Every other path omits the key.
+  scalarField?: ScalarFieldAttachment | null;
+  // S24: streamline attachment. Set only for 2D vector fields with a live
+  // enabled config; the draw layer resolves cached polylines by sourceId.
+  streamlines?: StreamlineAttachment | null;
+  // S28: 2D linear-transformation layer (resolved matrix + real
+  // eigendirections at build time). Only 2D transforms under the XY pair
+  // produce values; every other path omits the key.
+  linearTransform?: LinearTransformLayer | null;
+}
+
+export interface ScalarFieldAttachment {
+  sourceId: string;
+  domain: { uMin: number; uMax: number; vMin: number; vMax: number };
+}
+
+export interface StreamlineAttachment {
+  sourceId: string;
+}
+
+// Canonical 2D linear-transformation layer data (S28): resolved entries
+// plus real unit eigendirections computed at build time (microseconds,
+// synchronous). Pure data; no Canvas types.
+export interface LinearTransformLayer {
+  dimension: 2;
+  matrix: [number, number, number, number];
+  eigenDirections: Array<[number, number]>;
+  showEigen: boolean;
+}
+
+// Canonical 2D parametric data (S5): projected math-frame points plus the
+// sampler's segment connectivity. Pure data; no Canvas types. Only the
+// parametric path produces non-null values; explicit/implicit paths use the
+// other RenderableGraph fields and are unaffected.
+export interface ParametricPolyline2D {
+  points: Float64Array;
+  connectedSegments: Uint8Array;
+}
+
+// Canonical 2D vector-field glyph data (S20): pair-projected base points
+// and unit direction deltas plus the sampler's magnitudes. Pure data; no
+// Canvas types. Only the vector path produces non-null values.
+export interface VectorFieldArrows {
+  bases: Float64Array;
+  directions: Float64Array;
+  magnitudes: Float32Array;
+  count: number;
+  maxMagnitude: number;
+  cell: number;
+  scale: number;
+  normalize: boolean;
 }

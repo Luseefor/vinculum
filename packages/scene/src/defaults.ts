@@ -1,10 +1,29 @@
 import type {
+  ImplicitSurfaceDomain,
+  ImplicitSurfaceObject,
+  LinearTransformDimension,
+  LinearTransformObject,
+  LinearTransformObject2D,
+  LinearTransformObject3D,
+  LineObject,
   ParametricCurveObject,
+  ParametricSurfaceDomain,
+  ParametricSurfaceObject,
   PlaneAppearance,
   PlaneGraphObject,
+  PointObject,
+  RayObject,
+  SegmentObject,
   SurfaceAppearance,
   SurfaceDomain,
-  SurfaceGraphObject
+  SurfaceGraphObject,
+  VectorFieldDimension,
+  VectorFieldDomain2D,
+  VectorFieldDomain3D,
+  VectorFieldObject,
+  VectorFieldObject2D,
+  VectorFieldObject3D,
+  VectorObject
 } from "./types";
 
 export const defaultGraphPalette = ["#3b82f6", "#06b6d4", "#f59e0b", "#fb7185", "#22c55e"];
@@ -47,6 +66,56 @@ export const defaultCurveSamples = 220;
 export const defaultPlaneEquation = "x + y + z - 1 = 0";
 export const defaultPlaneSize = 12;
 
+// Parametric surfaces sample a (resolution + 1) x (resolution + 1) grid, so
+// one resolution serves both parameter directions (same convention as the
+// explicit-surface grid). At the cap, 129 x 129 = 16641 vertices stay under
+// the Uint16 index limit (65536) and ~200KB under the 2MB position budget.
+export const MIN_PARAMETRIC_SURFACE_RESOLUTION = 2;
+export const MAX_PARAMETRIC_SURFACE_RESOLUTION = 128;
+export const defaultParametricSurfaceResolution = 48;
+
+export function normalizeParametricSurfaceResolution(value: number): number {
+  const normalized = Math.floor(value);
+  return Math.min(MAX_PARAMETRIC_SURFACE_RESOLUTION, Math.max(MIN_PARAMETRIC_SURFACE_RESOLUTION, normalized));
+}
+
+export const defaultParametricSurfaceExpressions = {
+  xExpr: "u",
+  yExpr: "v",
+  zExpr: "0"
+};
+
+export const defaultParametricSurfaceDomain: ParametricSurfaceDomain = {
+  uMin: -5,
+  uMax: 5,
+  vMin: -5,
+  vMax: 5
+};
+
+// Implicit surfaces sample a (resolution + 1)^3 scalar grid, so O(n^3)
+// forces a much smaller cap than the O(n^2) surface grids. At the cap,
+// 49^3 = 117649 samples stay browser-safe; the extraction budget and index
+// type are decided after extraction (Uint16 vs Uint32).
+export const MIN_IMPLICIT_SURFACE_RESOLUTION = 2;
+export const MAX_IMPLICIT_SURFACE_RESOLUTION = 48;
+export const defaultImplicitSurfaceResolution = 32;
+
+export function normalizeImplicitSurfaceResolution(value: number): number {
+  const normalized = Math.floor(value);
+  return Math.min(MAX_IMPLICIT_SURFACE_RESOLUTION, Math.max(MIN_IMPLICIT_SURFACE_RESOLUTION, normalized));
+}
+
+export const defaultImplicitSurfaceEquation = "x^2 + y^2 + z^2 - 9";
+
+export const defaultImplicitSurfaceDomain: ImplicitSurfaceDomain = {
+  xMin: -5,
+  xMax: 5,
+  yMin: -5,
+  yMax: 5,
+  zMin: -5,
+  zMax: 5
+};
+
 const defaultSurfaceAppearance: SurfaceAppearance = {
   wireframe: false
 };
@@ -87,6 +156,30 @@ interface CreateDefaultPlaneGraphOptions {
   visible?: boolean;
   color?: string;
   appearance?: Partial<PlaneAppearance>;
+}
+
+interface CreateDefaultParametricSurfaceOptions {
+  id: string;
+  index?: number;
+  xExpr?: string;
+  yExpr?: string;
+  zExpr?: string;
+  domain?: Partial<ParametricSurfaceDomain>;
+  resolution?: number;
+  visible?: boolean;
+  color?: string;
+  appearance?: Partial<SurfaceAppearance>;
+}
+
+interface CreateDefaultImplicitSurfaceOptions {
+  id: string;
+  index?: number;
+  equation?: string;
+  domain?: Partial<ImplicitSurfaceDomain>;
+  resolution?: number;
+  visible?: boolean;
+  color?: string;
+  appearance?: Partial<SurfaceAppearance>;
 }
 
 export function createDefaultSurfaceGraph(options: CreateDefaultSurfaceGraphOptions): SurfaceGraphObject {
@@ -143,5 +236,409 @@ export function createDefaultPlaneGraph(options: CreateDefaultPlaneGraphOptions)
       ...defaultPlaneAppearance,
       ...options.appearance
     }
+  };
+}
+
+export function createDefaultParametricSurfaceGraph(
+  options: CreateDefaultParametricSurfaceOptions
+): ParametricSurfaceObject {
+  const baseDomain = {
+    ...defaultParametricSurfaceDomain,
+    ...options.domain
+  };
+
+  return {
+    id: options.id,
+    kind: "parametricSurface",
+    xExpr: options.xExpr ?? defaultParametricSurfaceExpressions.xExpr,
+    yExpr: options.yExpr ?? defaultParametricSurfaceExpressions.yExpr,
+    zExpr: options.zExpr ?? defaultParametricSurfaceExpressions.zExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index),
+    domain: {
+      uMin: baseDomain.uMin,
+      uMax: baseDomain.uMax,
+      vMin: baseDomain.vMin,
+      vMax: baseDomain.vMax
+    },
+    resolution: normalizeParametricSurfaceResolution(options.resolution ?? defaultParametricSurfaceResolution),
+    appearance: {
+      ...defaultSurfaceAppearance,
+      ...options.appearance
+    }
+  };
+}
+
+export function createDefaultImplicitSurfaceGraph(
+  options: CreateDefaultImplicitSurfaceOptions
+): ImplicitSurfaceObject {  const baseDomain = {
+    ...defaultImplicitSurfaceDomain,
+    ...options.domain
+  };
+
+  return {
+    id: options.id,
+    kind: "implicitSurface",
+    equation: options.equation ?? defaultImplicitSurfaceEquation,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index),
+    domain: {
+      xMin: baseDomain.xMin,
+      xMax: baseDomain.xMax,
+      yMin: baseDomain.yMin,
+      yMax: baseDomain.yMax,
+      zMin: baseDomain.zMin,
+      zMax: baseDomain.zMax
+    },
+    resolution: normalizeImplicitSurfaceResolution(options.resolution ?? defaultImplicitSurfaceResolution),
+    appearance: {
+      ...defaultSurfaceAppearance,
+      ...options.appearance
+    }
+  };
+}
+
+// Vector fields sample a density-per-axis grid: 2D density^2 glyphs,
+// 3D density^3 glyphs. Caps keep worst cases browser-safe without a
+// benchmark framework: 32^2 = 1024 2D arrows draw cheaply on Canvas2D,
+// 12^3 = 1728 3D instances stay usable with the S16 scene drawn four
+// times in Quad. Single density serves every axis (no xDensity/yDensity).
+export const MIN_VECTOR_FIELD_DENSITY = 2;
+export const MAX_VECTOR_FIELD_2D_DENSITY = 32;
+export const MAX_VECTOR_FIELD_3D_DENSITY = 12;
+export const defaultVectorField2DDensity = 16;
+export const defaultVectorField3DDensity = 8;
+
+export function maxVectorFieldDensityForDimension(dimension: VectorFieldDimension): number {
+  return dimension === "2d" ? MAX_VECTOR_FIELD_2D_DENSITY : MAX_VECTOR_FIELD_3D_DENSITY;
+}
+
+// Worst-case glyph count: 12^3 = 1728 3D instances (2D caps at 32^2 =
+// 1024). Reference for scene-pressure normalization (PART 23).
+export const MAX_VECTOR_FIELD_GLYPH_COUNT = MAX_VECTOR_FIELD_3D_DENSITY ** 3;
+
+// S24 streamline pressure reference: worst-case packed points per job
+// (PART 8/34). Render-segment estimates normalize against the same bound
+// packed points obey, keeping one conservative budget across compute and
+// draw pressure.
+export const MAX_STREAMLINE_SEGMENT_COUNT = 65536;
+
+export function normalizeVectorFieldDensity(value: number, dimension: VectorFieldDimension): number {
+  const normalized = Math.floor(value);
+  return Math.min(
+    maxVectorFieldDensityForDimension(dimension),
+    Math.max(MIN_VECTOR_FIELD_DENSITY, normalized)
+  );
+}
+
+// Glyph length policy anchor: scale multiplies the magnitude-normalized
+// length (capped at one cell spacing). Zero would hide every glyph while
+// the object stays "visible", so the floor is a small positive value.
+export const MIN_VECTOR_FIELD_SCALE = 0.1;
+export const MAX_VECTOR_FIELD_SCALE = 3;
+export const defaultVectorFieldScale = 1;
+
+export function normalizeVectorFieldScale(value: number): number {
+  return Math.min(MAX_VECTOR_FIELD_SCALE, Math.max(MIN_VECTOR_FIELD_SCALE, value));
+}
+
+export const defaultVectorField2DComponents = {
+  pExpr: "x",
+  qExpr: "y"
+};
+
+export const defaultVectorField3DComponents = {
+  pExpr: "x",
+  qExpr: "y",
+  rExpr: "z"
+};
+
+export const defaultVectorField2DDomain: VectorFieldDomain2D = {
+  xMin: -5,
+  xMax: 5,
+  yMin: -5,
+  yMax: 5
+};
+
+// 3D default is ±3 (not ±5): the default perspective camera sits at
+// (6,6,6) looking corner-on through the domain, so a ±5 field stacks eight
+// arrow layers along the view ray with near-corner glyphs looming across
+// the viewport. ±3 clears the camera by ~6 cells so a fresh field reads
+// correctly before the user orbits (2D auto-fits, so it keeps ±5).
+export const defaultVectorField3DDomain: VectorFieldDomain3D = {
+  xMin: -3,
+  xMax: 3,
+  yMin: -3,
+  yMax: 3,
+  zMin: -3,
+  zMax: 3
+};
+
+interface CreateDefaultVectorFieldGraphOptions {
+  id: string;
+  dimension: VectorFieldDimension;
+  index?: number;
+  pExpr?: string;
+  qExpr?: string;
+  rExpr?: string;
+  domain?: Partial<VectorFieldDomain2D & VectorFieldDomain3D>;
+  density?: number;
+  scale?: number;
+  normalize?: boolean;
+  visible?: boolean;
+  color?: string;
+}
+
+export function createDefaultVectorFieldGraph(
+  options: CreateDefaultVectorFieldGraphOptions & { dimension: "2d" }
+): VectorFieldObject2D;
+export function createDefaultVectorFieldGraph(
+  options: CreateDefaultVectorFieldGraphOptions & { dimension: "3d" }
+): VectorFieldObject3D;
+export function createDefaultVectorFieldGraph(
+  options: CreateDefaultVectorFieldGraphOptions
+): VectorFieldObject;
+export function createDefaultVectorFieldGraph(
+  options: CreateDefaultVectorFieldGraphOptions
+): VectorFieldObject {
+  const dimension = options.dimension;
+  const color = options.color ?? pickDefaultGraphColor(options.index);
+  const visible = options.visible ?? true;
+
+  if (dimension === "2d") {
+    const baseDomain = { ...defaultVectorField2DDomain, ...options.domain };
+    return {
+      id: options.id,
+      kind: "vectorField",
+      dimension: "2d",
+      pExpr: options.pExpr ?? defaultVectorField2DComponents.pExpr,
+      qExpr: options.qExpr ?? defaultVectorField2DComponents.qExpr,
+      rExpr: "",
+      domain: {
+        xMin: baseDomain.xMin,
+        xMax: baseDomain.xMax,
+        yMin: baseDomain.yMin,
+        yMax: baseDomain.yMax
+      },
+      density: normalizeVectorFieldDensity(options.density ?? defaultVectorField2DDensity, dimension),
+      scale: Number.isFinite(options.scale)
+        ? normalizeVectorFieldScale(options.scale as number)
+        : defaultVectorFieldScale,
+      normalize: options.normalize ?? false,
+      visible,
+      color
+    };
+  }
+
+  const baseDomain = { ...defaultVectorField3DDomain, ...options.domain };
+  return {
+    id: options.id,
+    kind: "vectorField",
+    dimension: "3d",
+    pExpr: options.pExpr ?? defaultVectorField3DComponents.pExpr,
+    qExpr: options.qExpr ?? defaultVectorField3DComponents.qExpr,
+    rExpr: options.rExpr ?? defaultVectorField3DComponents.rExpr,
+    domain: {
+      xMin: baseDomain.xMin,
+      xMax: baseDomain.xMax,
+      yMin: baseDomain.yMin,
+      yMax: baseDomain.yMax,
+      zMin: baseDomain.zMin ?? defaultVectorField3DDomain.zMin,
+      zMax: baseDomain.zMax ?? defaultVectorField3DDomain.zMax
+    },
+    density: normalizeVectorFieldDensity(options.density ?? defaultVectorField3DDensity, dimension),
+    scale: Number.isFinite(options.scale)
+      ? normalizeVectorFieldScale(options.scale as number)
+      : defaultVectorFieldScale,
+    normalize: options.normalize ?? false,
+    visible,
+    color
+  };
+}
+
+// S27 canonical point default: asymmetric coordinates so a fresh point
+// already exercises the math->world axis mapping.
+export const defaultPointCoordinates = { xExpr: "1", yExpr: "2", zExpr: "3" };
+
+export function createDefaultPointObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultPointCoordinates>
+): PointObject {
+  return {
+    id: options.id,
+    kind: "point",
+    xExpr: options.xExpr ?? defaultPointCoordinates.xExpr,
+    yExpr: options.yExpr ?? defaultPointCoordinates.yExpr,
+    zExpr: options.zExpr ?? defaultPointCoordinates.zExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+// S26 geometric-primitive defaults: distinct asymmetric definitions so a
+// fresh object already exercises the math->world axis mapping.
+export const defaultVectorOrigin = { oxExpr: "1", oyExpr: "2", ozExpr: "3" };
+export const defaultVectorComponents = { vxExpr: "2", vyExpr: "-1", vzExpr: "4" };
+export const defaultLinePoint = { pxExpr: "-1", pyExpr: "2", pzExpr: "0" };
+export const defaultLineDirection = { dxExpr: "3", dyExpr: "1", dzExpr: "2" };
+export const defaultRayOrigin = { oxExpr: "2", oyExpr: "-1", ozExpr: "1" };
+export const defaultRayDirection = { dxExpr: "-1", dyExpr: "2", dzExpr: "3" };
+export const defaultSegmentEndpoints = {
+  axExpr: "-2",
+  ayExpr: "-1",
+  azExpr: "0",
+  bxExpr: "3",
+  byExpr: "2",
+  bzExpr: "4"
+};
+
+interface CreateDefaultGeometryPrimitiveOptions {
+  id: string;
+  index?: number;
+  visible?: boolean;
+  color?: string;
+}
+
+export function createDefaultVectorObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultVectorOrigin & typeof defaultVectorComponents>
+): VectorObject {
+  return {
+    id: options.id,
+    kind: "vector",
+    oxExpr: options.oxExpr ?? defaultVectorOrigin.oxExpr,
+    oyExpr: options.oyExpr ?? defaultVectorOrigin.oyExpr,
+    ozExpr: options.ozExpr ?? defaultVectorOrigin.ozExpr,
+    vxExpr: options.vxExpr ?? defaultVectorComponents.vxExpr,
+    vyExpr: options.vyExpr ?? defaultVectorComponents.vyExpr,
+    vzExpr: options.vzExpr ?? defaultVectorComponents.vzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultLineObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultLinePoint & typeof defaultLineDirection>
+): LineObject {
+  return {
+    id: options.id,
+    kind: "line",
+    pxExpr: options.pxExpr ?? defaultLinePoint.pxExpr,
+    pyExpr: options.pyExpr ?? defaultLinePoint.pyExpr,
+    pzExpr: options.pzExpr ?? defaultLinePoint.pzExpr,
+    dxExpr: options.dxExpr ?? defaultLineDirection.dxExpr,
+    dyExpr: options.dyExpr ?? defaultLineDirection.dyExpr,
+    dzExpr: options.dzExpr ?? defaultLineDirection.dzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultRayObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultRayOrigin & typeof defaultRayDirection>
+): RayObject {
+  return {
+    id: options.id,
+    kind: "ray",
+    oxExpr: options.oxExpr ?? defaultRayOrigin.oxExpr,
+    oyExpr: options.oyExpr ?? defaultRayOrigin.oyExpr,
+    ozExpr: options.ozExpr ?? defaultRayOrigin.ozExpr,
+    dxExpr: options.dxExpr ?? defaultRayDirection.dxExpr,
+    dyExpr: options.dyExpr ?? defaultRayDirection.dyExpr,
+    dzExpr: options.dzExpr ?? defaultRayDirection.dzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+export function createDefaultSegmentObject(
+  options: CreateDefaultGeometryPrimitiveOptions & Partial<typeof defaultSegmentEndpoints>
+): SegmentObject {
+  return {
+    id: options.id,
+    kind: "segment",
+    axExpr: options.axExpr ?? defaultSegmentEndpoints.axExpr,
+    ayExpr: options.ayExpr ?? defaultSegmentEndpoints.ayExpr,
+    azExpr: options.azExpr ?? defaultSegmentEndpoints.azExpr,
+    bxExpr: options.bxExpr ?? defaultSegmentEndpoints.bxExpr,
+    byExpr: options.byExpr ?? defaultSegmentEndpoints.byExpr,
+    bzExpr: options.bzExpr ?? defaultSegmentEndpoints.bzExpr,
+    visible: options.visible ?? true,
+    color: options.color ?? pickDefaultGraphColor(options.index)
+  };
+}
+
+// S28 linear-transform defaults: identity in both dimensions (PART 12 —
+// never a flashy default that distorts the scene on creation).
+export const defaultLinearTransform2DEntries = {
+  m11: "1",
+  m12: "0",
+  m21: "0",
+  m22: "1"
+};
+
+export const defaultLinearTransform3DEntries = {
+  m11: "1",
+  m12: "0",
+  m13: "0",
+  m21: "0",
+  m22: "1",
+  m23: "0",
+  m31: "0",
+  m32: "0",
+  m33: "1"
+};
+
+interface CreateDefaultLinearTransformGraphOptions {
+  id: string;
+  dimension: LinearTransformDimension;
+  index?: number;
+  entries?: Partial<Record<string, string>>;
+  visible?: boolean;
+  color?: string;
+}
+
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions & { dimension: "2d" }
+): LinearTransformObject2D;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions & { dimension: "3d" }
+): LinearTransformObject3D;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions
+): LinearTransformObject;
+export function createDefaultLinearTransformGraph(
+  options: CreateDefaultLinearTransformGraphOptions
+): LinearTransformObject {
+  const color = options.color ?? pickDefaultGraphColor(options.index);
+  const visible = options.visible ?? true;
+  if (options.dimension === "2d") {
+    const defaults = defaultLinearTransform2DEntries;
+    return {
+      id: options.id,
+      kind: "linearTransform",
+      dimension: "2d",
+      m11: options.entries?.m11 ?? defaults.m11,
+      m12: options.entries?.m12 ?? defaults.m12,
+      m21: options.entries?.m21 ?? defaults.m21,
+      m22: options.entries?.m22 ?? defaults.m22,
+      visible,
+      color
+    };
+  }
+  const defaults = defaultLinearTransform3DEntries;
+  return {
+    id: options.id,
+    kind: "linearTransform",
+    dimension: "3d",
+    m11: options.entries?.m11 ?? defaults.m11,
+    m12: options.entries?.m12 ?? defaults.m12,
+    m13: options.entries?.m13 ?? defaults.m13,
+    m21: options.entries?.m21 ?? defaults.m21,
+    m22: options.entries?.m22 ?? defaults.m22,
+    m23: options.entries?.m23 ?? defaults.m23,
+    m31: options.entries?.m31 ?? defaults.m31,
+    m32: options.entries?.m32 ?? defaults.m32,
+    m33: options.entries?.m33 ?? defaults.m33,
+    visible,
+    color
   };
 }

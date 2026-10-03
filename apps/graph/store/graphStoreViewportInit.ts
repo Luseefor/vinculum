@@ -13,6 +13,10 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
   return {
     selectedObjectId,
     selectedMeasurementId: null,
+    // Math Lab default: the landing experience is equation-first, and the
+    // default split view covers 2D + 3D graphing. Remembered afterwards.
+    workspace: "math",
+    focusEquationForObjectId: null,
     sceneDialog: {
       isOpen: false,
       mode: "export",
@@ -50,6 +54,15 @@ export function createInitialUiState(selectedObjectId: string | null): GraphUiSt
     sketchExtendFraction: 0.15,
     sketchAutoCreate: true,
     snapEnabled: true,
-    snapStep: 0.25
+    snapStep: 0.25,
+    differentialAnalysisBySourceId: {},
+    differentialAnalysisPickArmedId: null,
+    vectorCalculusBySourceId: {},
+    directionInputBySourceId: {},
+    scalarVizBySourceId: {},
+    streamlineVizBySourceId: {},
+    integralAnalysisBySourceId: {},
+    geometryAnalysisBySourceId: {},
+    linearTransformAnalysisBySourceId: {}
   };
 }

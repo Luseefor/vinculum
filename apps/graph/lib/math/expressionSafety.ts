@@ -31,6 +31,10 @@ export interface ExpressionSafetyContext {
   schemaVersion?: number;
   details?: Record<string, unknown>;
   allowedSymbols?: string[];
+  /** Domain-specific compilers can narrow symbols without changing legacy policies. */
+  strictSymbols?: boolean;
+  /** Extra functions are opt-in for a specific compiler, never globally enabled. */
+  additionalFunctions?: readonly string[];
 }
 
 type SafetyCheckResult =
@@ -47,6 +51,7 @@ const ALLOWED_FUNCTIONS = new Set([
   "asin",
   "acos",
   "atan",
+  "atan2",
   // Roots / absolute / exp/log
   "sqrt",
   "abs",
@@ -124,9 +129,10 @@ export function validateExpressionSafety(expression: string, context: Expression
     }
   };
 
-  // `mathjs` node.forEach skips the root node; inspect the root explicitly.
-  inspectNode(node);
-  node.forEach((childNode: MathNode) => inspectNode(childNode));
+  // S11: `mathjs` node.traverse visits the root and every descendant
+  // exactly once (forEach visits direct children only). Policy enforcement
+  // must reach every node regardless of nesting depth.
+  node.traverse((childNode: MathNode) => inspectNode(childNode));
 
   if (disallowedNodeViolation) {
     reportWarning("Expression safety violation: disallowed node.", buildMonitoringContext(context, disallowedNodeViolation));
@@ -141,11 +147,18 @@ export function validateExpressionSafety(expression: string, context: Expression
     return { ok: false, violation: complexityViolation };
   }
 
-  const allowedSymbols = context.allowedSymbols?.length
-    ? new Set([...BASE_ALLOWED_SYMBOLS, ...context.allowedSymbols])
-    : null;
+  // S29-R8: an explicitly provided (even empty) allowedSymbols list must
+  // still enforce the base-symbol gate. The old `?.length` check treated
+  // `[]` the same as `undefined`, disabling symbol validation exactly when
+  // no scene parameters exist — so `a*t` compiled clean then evaluated to
+  // NaN everywhere. `undefined` (parser structural checks without a param
+  // context) still skips the gate; `[]` checks against base symbols only.
+  const allowedSymbols =
+    context.allowedSymbols !== undefined
+      ? new Set([...(context.strictSymbols ? ["pi", "e"] : BASE_ALLOWED_SYMBOLS), ...context.allowedSymbols])
+      : null;
 
-  const unsupportedFunction = findFirstUnsupportedFunction(node);
+  const unsupportedFunction = findFirstUnsupportedFunction(node, context.additionalFunctions);
   if (unsupportedFunction) {
     const violation: ExpressionSafetyViolation = {
       code: "unsupported-function",
@@ -205,7 +218,7 @@ function buildMonitoringContext(
   };
 }
 
-function findFirstUnsupportedFunction(node: MathNode): string | null {
+function findFirstUnsupportedFunction(node: MathNode, additionalFunctions: readonly string[] = []): string | null {
   let unsupported: string | null = null;
 
   const inspect = (candidate: MathNode) => {
@@ -221,11 +234,10 @@ function findFirstUnsupportedFunction(node: MathNode): string | null {
         : (fnCandidate as unknown as { name?: unknown })?.name;
 
     if (typeof fnName !== "string") return;
-    if (!ALLOWED_FUNCTIONS.has(fnName)) unsupported = fnName;
+    if (!ALLOWED_FUNCTIONS.has(fnName) && !additionalFunctions.includes(fnName)) unsupported = fnName;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode) => inspect(childNode));
+  node.traverse((childNode: MathNode) => inspect(childNode));
   return unsupported;
 }
 
@@ -241,8 +253,7 @@ function findFirstUnsupportedSymbol(node: MathNode, allowedSymbols: Set<string>)
     if (!allowedSymbols.has(maybeSymbol.name)) unsupported = maybeSymbol.name;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode, path: string) => {
+  node.traverse((childNode: MathNode, path: string) => {
     // `mathjs` represents function names as a SymbolNode at `fn`.
     // Skip those so we don't accidentally reject whitelisted functions like `sin(...)`.
     if (path === "fn") {
@@ -269,9 +280,7 @@ function findFirstNumericLiteralOutOfRange(node: MathNode): number | null {
     if (magnitude > MAX_LITERAL_MAGNITUDE) outOfRange = magnitude;
   };
 
-  inspect(node);
-  node.forEach((childNode: MathNode) => inspect(childNode));
+  node.traverse((childNode: MathNode) => inspect(childNode));
 
   return outOfRange;
 }
-

@@ -9,6 +9,7 @@ import {
   MeshBasicMaterial
 } from "three";
 import { compilePlaneEquation, samplePlane } from "@/lib/math/samplePlane";
+import { mathToWorld3D } from "@/lib/math/coordinates";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { updateFloat32Attribute, updateIndexAttributeUint32 } from "./bufferGeometryAttributes";
 
@@ -33,7 +34,20 @@ export function buildPlane(object: PlaneGraphObject, theme: ResolvedTheme): Grou
   }
 
   const geometry = new BufferGeometry();
-  updateFloat32Attribute(geometry, "position", sampled.positions, 3);
+  // S2 (F5), centralized S3: samplePlane emits math-frame corners; convert via
+  // the canonical math(x,y,z) -> world(x,z,y) helper (see lib/math/coordinates).
+  const worldPositions = new Float32Array(sampled.positions.length);
+  for (let i = 0; i + 2 < sampled.positions.length; i += 3) {
+    const world = mathToWorld3D({
+      x: sampled.positions[i] ?? 0,
+      y: sampled.positions[i + 1] ?? 0,
+      z: sampled.positions[i + 2] ?? 0
+    });
+    worldPositions[i] = world.x;
+    worldPositions[i + 1] = world.y;
+    worldPositions[i + 2] = world.z;
+  }
+  updateFloat32Attribute(geometry, "position", worldPositions, 3);
   updateIndexAttributeUint32(geometry, sampled.indices);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();

@@ -1,5 +1,7 @@
 "use client";
 
+import { MathExpression } from "@/components/math/MathExpression";
+
 import { formatCoord } from "./graph2dCanvasFormat";
 import type { AxisPairSpec } from "./graph2dCanvasTypes";
 import type { Viewport2dVisibleRange } from "./graph2dViewportRange";
@@ -21,12 +23,12 @@ export function Graph2DCanvasUiViewportRangeBadge({
       className={
         embedded
           ? "min-w-0 font-mono text-[10px] text-[var(--text-secondary)]"
-          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-lg"
+          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-[var(--shadow-floating)]"
       }
     >
-      {axisPair.horizontalLabel}: [{formatCoord(viewportRange.horizontalMin)}, {formatCoord(viewportRange.horizontalMax)}]
+      {axisPair.horizontalLabel}: <MathExpression expression={`[${formatCoord(viewportRange.horizontalMin)}, ${formatCoord(viewportRange.horizontalMax)}]`} latex={`\\left[${formatCoord(viewportRange.horizontalMin)},\\,${formatCoord(viewportRange.horizontalMax)}\\right]`} />
       {" · "}
-      {axisPair.verticalLabel}: [{formatCoord(viewportRange.verticalMin)}, {formatCoord(viewportRange.verticalMax)}]
+      {axisPair.verticalLabel}: <MathExpression expression={`[${formatCoord(viewportRange.verticalMin)}, ${formatCoord(viewportRange.verticalMax)}]`} latex={`\\left[${formatCoord(viewportRange.verticalMin)},\\,${formatCoord(viewportRange.verticalMax)}\\right]`} />
     </div>
   );
 }

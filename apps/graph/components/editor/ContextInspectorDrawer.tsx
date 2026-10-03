@@ -24,7 +24,7 @@ export default function ContextInspectorDrawer({
   }
   return (
     <aside
-      className="absolute bottom-2 right-2 top-11 z-30 flex min-h-0 flex-col overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--editor-chrome)] shadow-[0_4px_12px_rgba(2,6,23,0.18)]"
+      className="absolute bottom-2 right-2 top-2 z-30 flex min-h-0 flex-col overflow-hidden max-w-[calc(100%-16px)] rounded-[var(--radius-xl)] bg-[var(--editor-chrome)] shadow-[var(--shadow-floating)]"
       style={{ width: Math.max(296, Math.min(width, 332)) }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -34,8 +34,8 @@ export default function ContextInspectorDrawer({
       }}
       tabIndex={-1}
     >
-      <div className="flex h-9 items-center justify-between border-b border-[var(--border-subtle)] px-2 text-[11px]">
-        <span className="font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Inspector</span>
+      <div className="flex h-9 items-center justify-between  px-2 text-[11px]">
+        <span className="font-semibold text-[var(--text-secondary)]">Inspector</span>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -54,7 +54,7 @@ export default function ContextInspectorDrawer({
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <InspectorPremium width={Math.max(280, Math.min(width, 360))} onOpenExamples={onOpenExamples} />
+        <InspectorPremium width={Math.max(296, Math.min(width, 332))} onOpenExamples={onOpenExamples} />
       </div>
     </aside>
   );

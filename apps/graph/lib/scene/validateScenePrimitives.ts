@@ -76,11 +76,25 @@ export function parseSceneMetadata(value: unknown, errors: string[]): {
 }
 
 export function parseObjectKind(value: unknown, path: string, errors: string[]): GraphObjectKind | null {
-  if (value === "surface" || value === "parametricCurve" || value === "plane") {
+  if (
+    value === "surface" ||
+    value === "implicitCurve" ||
+    value === "parametricCurve" ||
+    value === "plane" ||
+    value === "parametricSurface" ||
+    value === "implicitSurface" ||
+    value === "vectorField" ||
+    value === "point" ||
+    value === "vector" ||
+    value === "line" ||
+    value === "ray" ||
+    value === "segment" ||
+    value === "linearTransform"
+  ) {
     return value;
   }
 
-  errors.push(`${path} must be one of: surface, parametricCurve, plane.`);
+  errors.push(`${path} must be one of: surface, implicitCurve, parametricCurve, plane, parametricSurface, implicitSurface, vectorField, point, vector, line, ray, segment, linearTransform.`);
   return null;
 }
 

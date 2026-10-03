@@ -40,6 +40,8 @@ test.describe("Graph shell", () => {
   test("2D Plane and 3D Base are separate toolbar selects; labels track store", async ({ page }) => {
     await page.goto("/editor");
     await dismissBlockingDialogs(page);
+    await expect(page.getByTestId("toolbar-2d-plane-select")).toHaveCount(0);
+    await page.getByRole("button", { name: "View options" }).click();
     const plane2d = page.getByTestId("toolbar-2d-plane-select");
     const base3d = page.getByTestId("toolbar-3d-base-select");
     await expect(plane2d).toBeVisible();
@@ -82,7 +84,8 @@ test.describe("Graph shell", () => {
   test("new scene opens confirmation when the scene has objects", async ({ page }) => {
     await page.goto("/editor");
     await dismissBlockingDialogs(page);
-    await page.getByRole("button", { name: "Examples" }).click();
+    await page.getByRole("button", { name: "Scene", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Open example..." }).click();
     await page.getByRole("button", { name: "Open example" }).first().click();
     await expect(page.getByTestId("scene-object-count")).not.toHaveText("0");
 

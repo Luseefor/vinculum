@@ -10,7 +10,7 @@ export const ui = {
   panelInset: "panel-inset",
   
   // Typography
-  sectionTitle: "text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]",
+  sectionTitle: "text-[12px] font-semibold text-[var(--text-primary)]",
   fieldLabel: "mb-1.5 block text-[11px] font-medium text-[var(--text-secondary)]",
   fieldLabelCompact: "text-[10px] font-medium text-[var(--text-secondary)]",
   helperText: "text-[11px] leading-relaxed text-[var(--text-tertiary)]",
@@ -29,7 +29,7 @@ export const ui = {
   
   // Misc
   badge: "px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--surface-muted)] rounded-md",
-  tinyControl: "btn text-[10px] px-2 py-0.5 uppercase tracking-wide",
+  tinyControl: "btn text-[11px] px-2 py-0.5",
   colorInput: "color-swatch",
   textarea: "input h-[360px] resize-none font-mono text-xs leading-relaxed"
 } as const;

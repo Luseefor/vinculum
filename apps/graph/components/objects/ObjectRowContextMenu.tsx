@@ -1,23 +1,34 @@
 "use client";
 
-import type { LegacyRef } from "react";
-import type { GraphObject, GraphObjectKind } from "@vinculum/scene/types";
-import { cn } from "@/components/ui/styles";
-import { Portal } from "@/components/ui/portal";
+import { useEffect, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
+import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
+import { OBJECT_DESCRIPTORS } from "@/lib/objects/objectDescriptors";
 
-const CONVERT_OPTIONS = [
-  { kind: "surface" as const, label: "Surface" },
-  { kind: "parametricCurve" as const, label: "Parametric curve" },
-  { kind: "plane" as const, label: "Plane" }
-] as const;
+
+// Keep the conversion taxonomy tied to canonical object descriptors.
+// The actions menu exposes only the data-preserving dimension switch.
+export const CONVERT_OPTIONS: Array<{
+  kind: GraphObjectKind;
+  dimension?: VectorFieldDimension | LinearTransformDimension;
+  label: string;
+  value: string;
+}> = OBJECT_DESCRIPTORS.map((entry) => ({
+  kind: entry.kind,
+  dimension: entry.dimension,
+  label: entry.label,
+  value: entry.dimension ? `${entry.kind}:${entry.dimension}` : entry.kind
+}));
 
 type ObjectRowContextMenuProps = {
   object: GraphObject;
   menuOpen: boolean;
   menuPos: { top: number; left: number } | null;
-  menuRef: LegacyRef<HTMLDivElement>;
-  onConvertKind: (kind: GraphObjectKind) => void;
+  menuRef: RefObject<HTMLDivElement>;
+  onClose: () => void;
+  onConvertKind: (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => void;
   onRemove: () => void;
+  onToggleCurveExtension?: () => void;
 };
 
 export function ObjectRowContextMenu({
@@ -26,47 +37,60 @@ export function ObjectRowContextMenu({
   menuPos,
   menuRef,
   onConvertKind,
-  onRemove
+  onToggleCurveExtension,
+  onRemove,
+  onClose
 }: ObjectRowContextMenuProps) {
-  if (!menuOpen || !menuPos) {
-    return null;
-  }
+  const [placement, setPlacement] = useState({ top: 12, left: 12, width: 240, maxHeight: 480 });
+  useEffect(() => {
+    if (!menuOpen || !menuPos) return;
+    const position = () => {
+      const width = Math.min(240, window.innerWidth - 24);
+      const maxHeight = Math.min(480, window.innerHeight - 24);
+      const height = Math.min(menuRef.current?.scrollHeight ?? 480, maxHeight);
+      setPlacement({ width, maxHeight, left: Math.max(12, Math.min(menuPos.left, window.innerWidth - width - 12)), top: Math.max(12, Math.min(menuPos.top, window.innerHeight - height - 12)) });
+    };
+    position();
+    menuRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    window.addEventListener("resize", position);
+    return () => window.removeEventListener("resize", position);
+  }, [menuOpen, menuPos, menuRef]);
+  if (!menuOpen || !menuPos) return null;
+  const current = CONVERT_OPTIONS.find(({ kind, dimension }) => object.kind === kind &&
+    ((object.kind !== "vectorField" && object.kind !== "linearTransform") || object.dimension === dimension));
+  // Generic kind switches rebuild the object with defaults rather than converting
+  // its definition. Only transformation dimension changes preserve actual data.
+  const options = object.kind === "linearTransform"
+    ? CONVERT_OPTIONS.filter(({ kind, dimension }) => kind === "linearTransform" && dimension !== object.dimension)
+    : [];
 
-  return (
-    <Portal>
-      <div
-        ref={menuRef}
-        role="menu"
-        className="fixed z-[500] min-w-[11rem] rounded-lg border border-[var(--border-strong)] bg-[var(--bg-primary)] py-1 shadow-lg"
-        style={{ top: menuPos.top, left: menuPos.left }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Convert to</p>
-        {CONVERT_OPTIONS.map(({ kind, label }) => (
-          <button
-            key={kind}
-            type="button"
-            role="menuitem"
-            disabled={object.kind === kind}
-            onClick={() => onConvertKind(kind)}
-            className={cn(
-              "flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-              object.kind === kind && "cursor-not-allowed opacity-40 hover:bg-transparent"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-        <div className="my-1 h-px bg-[var(--border-subtle)]" />
-        <button
-          type="button"
-          role="menuitem"
-          onClick={onRemove}
-          className="flex w-full px-2.5 py-1.5 text-left text-[11px] font-medium text-red-600 hover:bg-red-500/10 dark:text-red-400"
-        >
-          Remove
+  return createPortal(
+    <div ref={menuRef} role="menu" aria-label="Object actions" className="object-convert-menu" style={placement}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); return; }
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const direction = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
+        if (direction || event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          buttons[event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + direction + buttons.length) % buttons.length]?.focus();
+        }
+      }}>
+      {object.kind === "implicitCurve" && onToggleCurveExtension && (
+        <button type="button" role="menuitemcheckbox" aria-checked={object.extendTo3D === true}
+          onClick={onToggleCurveExtension} className="object-convert-dimension">
+          {object.extendTo3D ? "Remove 3D extension" : "Extend to 3D"}
         </button>
-      </div>
-    </Portal>
+      )}
+      {options.length > 0 && <>
+        <div className="object-convert-heading"><strong>Change dimension</strong><span>Current: {current?.label}</span></div>
+        {options.map(({ kind, dimension, label, value }) => (
+          <button key={value} type="button" role="menuitem" onClick={() => onConvertKind(kind, dimension)} className="object-convert-dimension">{label}</button>
+        ))}
+      </>}
+      <button type="button" role="menuitem" onClick={onRemove} className="object-convert-remove">Remove</button>
+    </div>,
+    document.activeElement?.closest('[role="dialog"]') ?? document.body
   );
 }

@@ -1,10 +1,19 @@
-import type { GraphObject } from "@vinculum/scene/types";
+import type {
+  GraphObject,
+  VectorFieldDimension
+} from "@vinculum/scene/types";
 
 export type ExpressionFocusDirection = "up" | "down";
 export type ExpressionRemoveReason = "button" | "keyboard";
 
 export type SceneDialogMode = "import" | "export";
 export type GraphMode = "2d" | "3d" | "split";
+/**
+ * Product workspace: which kind of work the UI organizes around.
+ * UI preference only — it never determines which objects exist.
+ * The canonical scene is shared across workspaces.
+ */
+export type WorkspaceId = "geometry" | "math";
 export type ThemeMode = "system" | "light" | "dark";
 export type UiDensity = "comfortable" | "balanced" | "compact";
 export type AccentPreset =
@@ -58,6 +67,10 @@ export type GraphProbePin = { id: string; color: string; world: { x: number; y: 
 export interface GraphUiState {
   selectedObjectId: string | null;
   selectedMeasurementId: string | null;
+  /** Active product workspace. UI preference; the scene is shared. */
+  workspace: WorkspaceId;
+  /** Transient request to focus an object's primary equation input after creation. Cleared on consume. */
+  focusEquationForObjectId: string | null;
   sceneDialog: SceneDialogState;
   projectSession: ProjectSessionState;
   graphMode: GraphMode;
@@ -92,6 +105,148 @@ export interface GraphUiState {
   snapEnabled: boolean;
   /** Snap grid spacing in math units for probe/sketch interactions. */
   snapStep: number;
+  /**
+   * S21 transient differential-analysis records keyed by source object id.
+   * Probe-like inspection state: point (math coords), the source structure
+   * captured at pick, and overlay flags. Never serialized (see persist
+   * partialize); computed derivatives are recomputed live, never stored.
+   */
+  differentialAnalysisBySourceId: Record<string, DifferentialAnalysisState>;
+  /** Source id awaiting the next surface click, or null when not picking. */
+  differentialAnalysisPickArmedId: string | null;
+  /**
+   * S22 transient vector-calculus records keyed by source field id.
+   * Separate map (not forced into the surface record type): point in
+   * canonical math coords, math identity with parameter KEYS (values
+   * recompute live per PART 9), and the curl-overlay flag. Never
+   * serialized; Jacobian/divergence/curl recompute live, never stored.
+   */
+  vectorCalculusBySourceId: Record<string, VectorCalculusState>;
+  /**
+   * S22 transient directional-derivative inputs keyed by source surface
+   * id. Independent lifecycle from the analysis point (survives re-pick
+   * and equation edits; pruned on delete/kind-switch/replace/reset).
+   */
+  directionInputBySourceId: Record<string, { u: number; v: number }>;
+  /**
+   * S24 transient streamline configs keyed by source field id. Toggles
+   * and numeric settings only — computed polylines live in the
+   * streamline-result cache, never here and never serialized.
+   */
+  streamlineVizBySourceId: Record<string, StreamlineVizConfig>;
+  /**
+   * S25 transient integral-analysis configs keyed by target object id.
+   * One active mode per target (PART 19): mode, committed scalar
+   * integrand text, referenced vector-field id, quality, and
+   * direction/orientation signs. Computed numbers live in the integral
+   * result cache, never here and never serialized.
+   */
+  integralAnalysisBySourceId: Record<string, IntegralAnalysisConfig>;
+  /**
+   * S23 transient scalar-visualization configs keyed by source id.
+   * Toggles and numeric settings only — computed grids live in the
+   * scalar-result cache, never here and never serialized. 2D fields use
+   * the heat/contour/gradient half; implicit sources use the slice half.
+   */
+  scalarVizBySourceId: Record<string, ScalarVizConfig>;
+  /**
+   * S27 transient geometry-analysis records keyed by PRIMARY source id.
+   * One secondary per primary: referenced object id plus the overlay
+   * visibility toggle. Computed facts live nowhere — Inspector and
+   * overlays recompute synchronously from live sources every render, so
+   * parameters, undo/redo, and workspace switches never show stale math.
+   * Never serialized; no history entries.
+   */
+  geometryAnalysisBySourceId: Record<string, GeometryAnalysisConfig>;
+  /**
+   * S28 transient linearTransform analysis keyed by transform id:
+   * referenced Vector id plus overlay toggles. Computed facts (Av,
+   * eigenpairs, properties) live nowhere — recomputed synchronously
+   * from live sources every render. Never serialized; no history.
+   */
+  linearTransformAnalysisBySourceId: Record<string, LinearTransformAnalysisConfig>;
+}
+
+export interface GeometryAnalysisConfig {
+  secondaryId: string;
+  showOverlay: boolean;
+}
+
+export interface LinearTransformAnalysisConfig {
+  vectorId: string | null;
+  showVector: boolean;
+  showEigen: boolean;
+}
+
+export type IntegralAnalysisMode =
+  | "arcLength"
+  | "scalarLine"
+  | "work"
+  | "surfaceArea"
+  | "scalarSurface"
+  | "flux";
+
+export interface IntegralAnalysisConfig {
+  sourceId: string;
+  mode: IntegralAnalysisMode;
+  /** Committed scalar integrand text ("" when the mode needs none). */
+  scalarIntegrand: string;
+  /** Referenced canonical vector-field id (null when mode needs none). */
+  vectorFieldId: string | null;
+  quality: "low" | "medium" | "high";
+  /** Curve traversal: 1 forward (increasing t), -1 reverse. */
+  direction: 1 | -1;
+  /** Flux orientation: 1 native, -1 reversed. */
+  orientationSign: 1 | -1;
+}
+
+export interface StreamlineVizConfig {
+  sourceId: string;
+  /** Math-only source identity at enable (see vectorCalculusSourceIdentity). */
+  structure: string;
+  /** Source dimension at enable (dimension switches clear the config). */
+  dimension: "2d" | "3d";
+  enabled: boolean;
+  seedDensity: number;
+  length: "short" | "medium" | "long";
+  quality: "low" | "medium" | "high";
+}
+
+export interface ScalarVizConfig {
+  sourceId: string;
+  /** Math-only source identity at enable (see scalarVizMathIdentity). */
+  structure: string;
+  showHeatmap: boolean;
+  showContours: boolean;
+  contourCount: number;
+  showGradient: boolean;
+  gradientDensity: number;
+  gradientScale: number;
+  gradientNormalize: boolean;
+  sliceEnabled: boolean;
+  slicePlane: "xy" | "xz" | "yz";
+  sliceValue: number;
+  showSliceHeatmap: boolean;
+  showSliceContours: boolean;
+}
+
+export interface DifferentialAnalysisState {
+  sourceId: string;
+  /** Canonical math coordinates (worldToMath3D applied once at pick). */
+  point: { x: number; y: number; z: number };
+  /** Math-only source identity at pick (see analysisSourceIdentity). */
+  structure: string;
+  showNormal: boolean;
+  showTangent: boolean;
+}
+
+export interface VectorCalculusState {
+  sourceId: string;
+  /** Canonical math coordinates; 2D uses x/y (z ignored). */
+  point: { x: number; y: number; z: number };
+  /** Math identity with parameter keys (see vectorCalculusSourceIdentity). */
+  structure: string;
+  showCurl: boolean;
 }
 
 export interface ExpressionValidationState {
@@ -105,7 +260,7 @@ export interface ExpressionRowProps {
   registerInputRef: (id: string, node: HTMLInputElement | null) => void;
   onSelect: (id: string) => void;
   onMoveFocus: (id: string, direction: ExpressionFocusDirection) => void;
-  onInsertBelow: (id: string, kind: GraphObject["kind"]) => void;
+  onInsertBelow: (id: string, kind: GraphObject["kind"], dimension?: VectorFieldDimension) => void;
   onRemove: (id: string, reason: ExpressionRemoveReason) => void;
   onOpenInspector: (id: string) => void;
 }

@@ -3,7 +3,7 @@
 import ObjectBrowserPanel from "@/components/layout/ObjectBrowserPanel";
 
 interface LeftObjectBrowserProps {
-  width: number;
+  width?: number;
 }
 
 export default function LeftObjectBrowser({ width }: LeftObjectBrowserProps) {

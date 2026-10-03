@@ -20,7 +20,7 @@ export default defineConfig({
     { name: "webkit", use: { ...devices["Desktop Safari"] } }
   ],
   webServer: {
-    command: "next dev -p 3100",
+    command: process.env.PLAYWRIGHT_SERVER_MODE === "production" ? "next start -p 3100" : "next dev -p 3100",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000

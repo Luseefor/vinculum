@@ -1,8 +1,10 @@
 "use client";
 
-import { cloneElement, isValidElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useState, type ReactNode } from "react";
+import CanvasEmptyState from "@/components/viewport/CanvasEmptyState";
 import SplitViewport from "@/components/viewport/SplitViewport";
 import type { ViewportMode } from "@/lib/types/ui";
+import type { WorkspaceId } from "@/types/graphUi";
 import { cn } from "@/components/ui/styles";
 
 interface ViewportHostProps {
@@ -11,29 +13,29 @@ interface ViewportHostProps {
   /** Quad layout only: second 2D panel (XZ top view, independent camera). */
   viewport2dQuadTop?: ReactNode;
   viewport3d: ReactNode;
-  selectedLabel: string;
-  snapLabel: string;
+  workspaceId: WorkspaceId;
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
 }
 
-function Pane({ selectedLabel, snapLabel, children }: { selectedLabel: string; snapLabel: string; children: ReactNode }) {
+function Pane({
+  children,
+  showEmptyPrompt = false,
+  workspaceId,
+  onOpenGuide,
+  onOpenExamples
+}: {
+  children: ReactNode;
+  /** S30: the empty-scene prompt renders once per layout (first pane). */
+  showEmptyPrompt?: boolean;
+  workspaceId?: WorkspaceId;
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
+}) {
   return (
-    <section className="relative h-full w-full min-w-0 overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-canvas)]">
-      {/* Bottom-left: scene selection + snap (keeps bottom-right free for zoom/reset controls). */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[12] flex max-w-[min(320px,calc(100%-4rem))] flex-col justify-end">
-        <div className="mr-auto flex min-w-0 flex-col gap-0.5 rounded-[5px] border border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/88 px-2 py-1.5 text-[10px] leading-snug text-[var(--text-secondary)] shadow-sm backdrop-blur-sm">
-          <div className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Scene</div>
-          <div className="flex w-full items-baseline gap-1.5 overflow-hidden">
-            <span className="shrink-0 text-[var(--text-tertiary)]">Selected</span>
-            <span className="truncate font-medium">{selectedLabel}</span>
-          </div>
-          <div className="flex w-full items-baseline gap-1.5 overflow-hidden">
-            <span className="shrink-0 text-[var(--text-tertiary)]">Snap</span>
-            <span className="truncate font-medium">{snapLabel}</span>
-          </div>
-        </div>
-      </div>
-
+    <section className="relative h-full w-full min-w-0 overflow-hidden bg-[var(--surface-canvas)]">
       {children}
+      {showEmptyPrompt && workspaceId ? <CanvasEmptyState workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples} /> : null}
     </section>
   );
 }
@@ -43,41 +45,29 @@ export default function ViewportHost({
   viewport2d,
   viewport2dQuadTop,
   viewport3d,
-  selectedLabel,
-  snapLabel
+  workspaceId,
+  onOpenGuide,
+  onOpenExamples
 }: ViewportHostProps) {
-  const mountViewport = (node: ReactNode, key: string): ReactNode => {
-    if (isValidElement(node)) return cloneElement(node, { key });
+  const [visited3d, setVisited3d] = useState(mode !== "2d");
+  useEffect(() => { if (mode !== "2d") setVisited3d(true); }, [mode]);
+  const mountViewport = (node: ReactNode, key: string, suspended = false): ReactNode => {
+    if (isValidElement<{ suspended?: boolean }>(node)) return cloneElement(node, { key, suspended: suspended || node.props.suspended });
     return node;
   };
 
-  if (mode === "2d") {
-    return (
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
-        {mountViewport(viewport2d, "single-2d")}
-      </Pane>
-    );
-  }
-
-  if (mode === "3d") {
-    return (
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
-        {mountViewport(viewport3d, "single-3d")}
-      </Pane>
-    );
-  }
-
-  if (mode === "split") {
+  if (mode !== "quad") {
     return (
       <SplitViewport
+        mode={mode}
         primary={
-          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
-            {mountViewport(viewport2d, "split-2d")}
+          <Pane showEmptyPrompt workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
+            {mountViewport(viewport2d, "math-2d", mode === "3d")}
           </Pane>
         }
         secondary={
-          <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
-            {mountViewport(viewport3d, "split-3d")}
+          <Pane showEmptyPrompt={mode === "3d"} workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
+            {visited3d || mode !== "2d" ? mountViewport(viewport3d, "math-3d", mode === "2d") : null}
           </Pane>
         }
       />
@@ -88,16 +78,16 @@ export default function ViewportHost({
 
   return (
     <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-px bg-[var(--border-strong)]">
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane showEmptyPrompt workspaceId={workspaceId} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples}>
         {mountViewport(viewport2d, "quad-xy")}
       </Pane>
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane>
         {mountViewport(viewport3d, "quad-perspective")}
       </Pane>
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane>
         {mountViewport(viewport3d, "quad-front")}
       </Pane>
-      <Pane selectedLabel={selectedLabel} snapLabel={snapLabel}>
+      <Pane>
         {mountViewport(quadTop2d, "quad-top")}
       </Pane>
     </div>

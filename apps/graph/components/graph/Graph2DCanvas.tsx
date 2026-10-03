@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, useMemo, useCallback } from "react";
+import { useRef, useMemo, useCallback, useEffect } from "react";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
+import { useGraphStore } from "@/store/graphStore";
+import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
+import { getStreamlineSyncContext, syncStreamlines } from "@/lib/compute/streamlineSync";
+import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import { getAxisPairSpec } from "./graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
 import { Graph2DCanvasUiChrome } from "./graph2d/Graph2DCanvasUiChrome";
@@ -13,6 +18,7 @@ import { useGraph2dCanvasInteraction } from "./graph2d/useGraph2dCanvasInteracti
 import { useGraph2dCanvasPaintSchedule } from "./graph2d/useGraph2dCanvasPaintSchedule";
 import { useGraph2dCanvasStoreSlice } from "./graph2d/useGraph2dCanvasStoreSlice";
 import { useEditorStore } from "@/lib/store/editorStore";
+import { parametersToScope } from "@/lib/store/editorParameters";
 import {
   computeScenePressureFromObjects,
   recordPaintSample
@@ -25,9 +31,10 @@ interface Graph2DCanvasProps {
   className?: string;
   /** Quad bottom-right: XZ top view with its own pan/zoom state. */
   variant?: Graph2DCanvasVariant;
+  suspended?: boolean;
 }
 
-export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCanvasProps) {
+export function Graph2DCanvas({ className = "", variant = "primary", suspended = false }: Graph2DCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resolvedTheme = useResolvedTheme();
@@ -63,10 +70,39 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
   const palette = useMemo(() => graph2dPaintPalette(resolvedTheme), [resolvedTheme]);
 
+  // S20-R9: parameters thread explicitly into the builder (pure data flow,
+  // no ambient store reads inside). Viewport-only changes (pan/zoom) never
+  // rebuild: the builder takes no viewport input.
+  const editorParameters = useEditorStore((state) => state.parameters);
+  const paramScope = useMemo(() => parametersToScope(editorParameters), [editorParameters]);
+
+  // S23: scalar-viz configs gate derived heat/contour/gradient attachments;
+  // cached worker results paint them. Both subscribe here so results stream
+  // in without resampling on pan/zoom (the builder takes no viewport).
+  const scalarConfigs = useGraphStore((state) => state.ui.scalarVizBySourceId);
+  const scalarResults = useScalarVizResultsStore((state) => state.entries);
+  // S24: same pattern for streamline polylines.
+  const streamlineConfigs = useGraphStore((state) => state.ui.streamlineVizBySourceId);
+  const streamlineResults = useStreamlineResultsStore((state) => state.entries);
+  // S28: eigen-toggle liveness for transform layers (build-time only).
+  const linearTransformAnalysis = useGraphStore((state) => state.ui.linearTransformAnalysisBySourceId);
+
   const renderableGraphs = useMemo<RenderableGraph[]>(
-    () => buildRenderableGraphsFromScene(objects, axisPair),
-    [axisPair, objects]
+    () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis),
+    [axisPair, objects, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis]
   );
+
+  // S23: request desired scalar jobs when sources/configs/params change.
+  // Signature-tracked: viewport-only changes enqueue 0 jobs.
+  useEffect(() => {
+    syncScalarViz(getScalarSyncContext(), objects, paramScope);
+  }, [objects, paramScope, scalarConfigs]);
+
+  // S24: same for streamline jobs (shared signature ledger per context, so
+  // the two canvases never double-request).
+  useEffect(() => {
+    syncStreamlines(getStreamlineSyncContext(), objects, paramScope);
+  }, [objects, paramScope, streamlineConfigs]);
 
   const {
     mousePos,
@@ -97,8 +133,13 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     canvasRef,
     containerRef,
     palette,
+    theme: resolvedTheme,
     viewport,
     renderableGraphs,
+    scalarResults,
+    scalarConfigs,
+    streamlineResults,
+    streamlineConfigs,
     canvas2dTool,
     mousePos,
     isQuadTop,
@@ -110,8 +151,12 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
     sketchDraft
   });
 
-  const scenePressure = useMemo(() => computeScenePressureFromObjects(objects), [objects]);
+  const scenePressure = useMemo(
+    () => computeScenePressureFromObjects(objects, streamlineConfigs),
+    [objects, streamlineConfigs]
+  );
   const drawMeasured = useCallback(() => {
+    if (suspended) return;
     const start = performance.now();
     draw();
     const end = performance.now();
@@ -121,7 +166,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
       viewport: "2d-viewport",
       scenePressure
     });
-  }, [draw, scenePressure]);
+  }, [draw, scenePressure, suspended]);
 
   useGraph2dCanvasPaintSchedule({
     canvasRef,
@@ -147,6 +192,7 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
         ref={canvasRef}
         role="img"
         aria-label="2D graph. Pan, probe, measure, pin, or sketch. Press Escape to clear measurement drafts or cancel a sketch."
+        tabIndex={0}
         data-graph2d-canvas="true"
         data-graph2d-variant={variant}
         className={`h-full w-full ${canvasCursorClass}`}
@@ -175,12 +221,13 @@ export function Graph2DCanvas({ className = "", variant = "primary" }: Graph2DCa
 
       {(showPerfHud || metrics.warningLevel !== "ok") && (
         <div
-          className={`pointer-events-none absolute right-3 top-3 z-[22] flex max-w-[min(320px,calc(100%-4rem))] flex-col gap-0.5 rounded-[5px] border px-2 py-1 font-mono text-[10px] leading-snug shadow-sm backdrop-blur-sm ${
+          // Bottom-right, left of the zoom stack and clear of the pane label.
+          className={`pointer-events-none absolute bottom-3 right-[3.75rem] z-[22] flex max-w-[min(300px,calc(100%-6rem))] flex-col gap-0.5 rounded-[var(--radius-md)] border bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug shadow-[var(--shadow-control)] ${
             metrics.warningLevel === "critical"
-              ? "border-amber-500/60 bg-[var(--surface-overlay)]/90 text-amber-200"
+              ? "border-[var(--status-error-border)] text-[var(--status-error-fg)]"
               : metrics.warningLevel === "warning"
-                ? "border-amber-400/40 bg-[var(--surface-overlay)]/85 text-amber-100"
-                : "border-[var(--border-subtle)]/75 bg-[var(--surface-overlay)]/85 text-[var(--text-secondary)]"
+                ? "border-[var(--status-warning-border)] text-[var(--status-warning-fg)]"
+                : "border-[var(--border-subtle)] font-mono text-[var(--text-secondary)]"
           }`}
           role="status"
           aria-live="polite"

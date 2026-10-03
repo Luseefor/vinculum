@@ -44,7 +44,7 @@ describe("Canonical 3D export function", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/WebGL capture/i);
+    expect(result.error).toMatch(/GPU capture/i);
   });
 });
 

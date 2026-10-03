@@ -1,3 +1,4 @@
+import { drawImplicitContour } from "@/components/graph/graph2d/graph2dCanvasImplicitDraw";
 import { buildGridSeries } from "@/components/viewport/Grid2D";
 import { getAxisPairSpec } from "@/components/graph/graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "@/components/graph/graph2d/buildRenderableGraphsFromScene";
@@ -10,9 +11,11 @@ import {
 import { graph2dMathToScreen } from "@/components/graph/graph2d/graph2dCanvasTransforms";
 import type { Axis2DPair, Viewport2DFrame } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
+import { getGraphCanvasCapture } from "@/lib/graph3d/graphCanvasCapture";
 
 export type SceneExportKind = "json" | "png2d" | "png3d" | "svg2d";
 
@@ -107,15 +110,21 @@ export async function export3dPngFromCanvas(input: {
     };
   }
 
-  const blob = await canvasToPngBlob(input.canvas);
+  let blob: Blob | null = null;
+  try {
+    const capture = getGraphCanvasCapture(input.canvas);
+    blob = capture ? await capture() : await canvasToPngBlob(input.canvas);
+  } catch {
+    // Device loss or failed rendering follows the existing export error path.
+  }
   if (!blob) {
-    reportWarning("3D PNG export failed during WebGL capture.", {
+    reportWarning("3D PNG export failed during GPU capture.", {
       featureArea: "export",
       operation: "export-3d-png-capture-failed"
     });
     return {
       ok: false,
-      error: "3D PNG export failed during WebGL capture. Try again after the frame finishes rendering."
+      error: "3D PNG export failed during GPU capture. Try again after the frame finishes rendering."
     };
   }
 
@@ -151,7 +160,7 @@ export function export2dSvg(input: {
   }
 
   const axisSpec = getAxisPairSpec(input.axisPair);
-  const renderables = buildRenderableGraphsFromScene(input.objects, axisSpec);
+  const renderables = buildRenderableGraphsFromScene(input.objects, axisSpec, getEditorParameterScope());
   const dc = {
     width,
     height,
@@ -163,11 +172,49 @@ export function export2dSvg(input: {
   const warnings: string[] = [];
   const graphLines: string[] = [];
 
+  // S17: parametric surfaces intentionally produce no 2D renderable (no
+  // single-equation axis-pair projection). Implicit surfaces export the
+  // same labeled coordinate-plane slice as the canvas. Warn per skipped object so SVG export
+  // never silently drops scene content. S20: 3D vector fields join the
+  // warn/skip set (no per-pane arrow projection in SVG); 2D field arrows
+  // are not yet represented either and warn via the renderable fallback
+  // below. Arrow-to-SVG export stays explicitly out of scope. S26: the
+  // four geometric primitives are 3D mathematical geometry with no
+  // established 2D projection model in the exporter — explicit warning,
+  // never silent omission.
+  // S28: canonical linearTransform objects always warn (PART 70) — the
+  // 2D transform layer is derived analysis rendering with no established
+  // SVG projection in the exporter, independent of renderable presence.
+  // Never silently omitted.
+  const renderedIds = new Set(renderables.map((graph) => graph.id));
+  for (const object of input.objects) {
+    if (object.visible && object.kind === "linearTransform") {
+      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
+      continue;
+    }
+    if (
+      object.visible &&
+      (object.kind === "parametricSurface" ||
+        object.kind === "implicitSurface" ||
+        object.kind === "point" ||
+        object.kind === "vector" ||
+        object.kind === "line" ||
+        object.kind === "ray" ||
+        object.kind === "segment" ||
+        (object.kind === "vectorField" && object.dimension === "3d")) &&
+      !renderedIds.has(object.id)
+    ) {
+      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
+    }
+  }
+
   for (const graph of renderables) {
-    if (graph.polylineHV && graph.polylineHV.length >= 4) {
+    // SVG export draws parametric points as one polyline (legacy: gaps render
+    // as chords here; canonical branch splitting in SVG export is out of scope).
+    if (graph.polylineHV && graph.polylineHV.points.length >= 4) {
       const points: string[] = [];
-      for (let i = 0; i < graph.polylineHV.length; i += 2) {
-        const screen = graph2dMathToScreen(graph.polylineHV[i], graph.polylineHV[i + 1], dc);
+      for (let i = 0; i < graph.polylineHV.points.length; i += 2) {
+        const screen = graph2dMathToScreen(graph.polylineHV.points[i], graph.polylineHV.points[i + 1], dc);
         points.push(`${screen.x.toFixed(2)},${screen.y.toFixed(2)}`);
       }
       if (points.length >= 2) {
@@ -191,6 +238,16 @@ export function export2dSvg(input: {
       graphLines.push(
         `<line x1="0" y1="${screen.y.toFixed(2)}" x2="${width}" y2="${screen.y.toFixed(2)}" stroke="${escapeXml(graph.color)}" stroke-width="2.2" />`
       );
+      continue;
+    }
+
+    if (graph.implicitEvaluate) {
+      const segments: string[] = [];
+      drawImplicitContour(graph.implicitEvaluate, {
+        moveTo: (x, y) => { segments.push(`M ${x.toFixed(2)} ${y.toFixed(2)}`); },
+        lineTo: (x, y) => { segments.push(`L ${x.toFixed(2)} ${y.toFixed(2)}`); }
+      }, dc, width, height);
+      if (segments.length) graphLines.push(`<path d="${segments.join(" ")}" fill="none" stroke="${escapeXml(graph.color)}" stroke-width="2.2" stroke-linecap="round" />`);
       continue;
     }
 
@@ -234,6 +291,7 @@ export function export2dSvg(input: {
   const svg = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Vinculum 2D graph export">`,
+    ...(input.objects.some(object => object.visible && object.kind === "implicitSurface") ? [`<desc>Implicit surface cross-sections: ${input.axisPair === "xy" ? "z" : input.axisPair === "xz" ? "y" : "x"} = 0.</desc>`] : []),
     `<rect x="0" y="0" width="${width}" height="${height}" fill="#0f172a" />`,
     ...gridMarkup,
     ...axisMarkup,

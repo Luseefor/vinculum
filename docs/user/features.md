@@ -2,11 +2,13 @@
 
 ## Interactive 3D mathematical visualization
 
-Vinculum renders scenes in 3D using the implicit object types supported by the editor:
+Vinculum renders mathematical scenes in 3D using the object types supported by the editor:
 
-- Surfaces (implicit equations)
+- Surfaces (explicit functions)
 - Planes
 - Parametric curves
+- Parametric surfaces (x(u,v), y(u,v), z(u,v) with u/v ranges)
+- Implicit surfaces (F(x,y,z) = 0 extracted from a bounded 3D sampling box)
 
 Use the 3D viewport controls to orbit/pan/zoom your view.
 
@@ -20,9 +22,11 @@ In 2D mode you can edit and preview mathematical objects, and you can export the
 
 Objects are built from mathematical definitions:
 
-- **Surfaces**: implicit equations (with a bounded domain and render resolution)
+- **Surfaces**: explicit functions (with a bounded domain and render resolution)
 - **Planes**: plane equations with size/appearance
 - **Parametric curves**: x(t), y(t), z(t) with a sampling cap
+- **Parametric surfaces**: x(u,v), y(u,v), z(u,v) with u/v ranges and grid resolution (3D views only)
+- **Implicit surfaces**: F(x,y,z) = 0 as a bare field or equality, extracted from a bounded x/y/z sampling box (3D views only)
 
 ## Projects (save/load) and recovery
 
@@ -50,3 +54,23 @@ Math expression inputs are sandboxed and validated before evaluation. Invalid or
 
 An optional Performance HUD can be enabled from the editor’s theme/appearance menu. It is off by default.
 
+
+## Automatic field solutions
+
+In Math Lab, choose **Solve** and enter vector components, a scalar function,
+a polar curve, or a complex function. Answers update automatically; no analysis
+point is required for symbolic curl, divergence, gradients, or Laplacians.
+**Show solution** opens the formula, derivative steps, final answer, and domain
+conditions. Existing integral results also offer a numerical calculation overlay.
+
+Polar definitions use `r` and `theta` (radians). Vector components refer to the
+orthonormal radial and angular basis. **Add to scene** creates canonical
+Cartesian vector fields, explicit surfaces, or parametric curves/surfaces from
+these definitions. For complex functions, choose the associated `(u,v)` field,
+real part, imaginary part, magnitude, or phase before adding the plot.
+
+Selected fields and surfaces also have automatic solutions in **Analyze**.
+For a 2D field, choose **Complex function P + i Q** to check Cauchy–Riemann
+conditions. The solver can verify identities, reject constant contradictions,
+solve independent linear residual systems, and construct supported polynomial
+harmonic conjugates with an arbitrary additive real constant.

@@ -7,6 +7,7 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
   | "setSketchAutoCreate"
   | "setSnapEnabled"
   | "setSnapStep"
+  | "setWorkspace"
   | "applySceneSnapshot"
 > {
   return {
@@ -52,6 +53,22 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
           snapStep: Math.min(100, Math.max(0.0001, step))
         }
       }));
+    },
+
+    setWorkspace: (workspace) => {
+      set((state) => {
+        if (state.ui.workspace === workspace) {
+          return state;
+        }
+        // Workspace is UI organization only: scene, selection, cameras, and
+        // view state pass through untouched.
+        return {
+          ui: {
+            ...state.ui,
+            workspace
+          }
+        };
+      });
     },
 
     applySceneSnapshot: (snapshot) => {

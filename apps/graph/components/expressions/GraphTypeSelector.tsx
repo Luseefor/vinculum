@@ -1,24 +1,51 @@
 "use client";
 
-import type { GraphObjectKind } from "@vinculum/scene/types";
+import type { GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { parseGraphObjectKind } from "@/lib/graph/graphObjectKind";
 
 interface GraphTypeSelectorProps {
   value: GraphObjectKind;
-  onChange: (kind: GraphObjectKind) => void;
+  dimension?: VectorFieldDimension;
+  onChange: (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => void;
 }
 
-const GRAPH_TYPE_OPTIONS: Array<{ label: string; value: GraphObjectKind }> = [
-  { label: "Surface", value: "surface" },
-  { label: "Curve", value: "parametricCurve" },
-  { label: "Plane", value: "plane" }
+const GRAPH_TYPE_OPTIONS: Array<{
+  label: string;
+  value: string;
+  kind: GraphObjectKind;
+  dimension?: VectorFieldDimension | LinearTransformDimension;
+}> = [
+  { label: "Surface", value: "surface", kind: "surface" },
+  { label: "Curve", value: "parametricCurve", kind: "parametricCurve" },
+  { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface" },
+  { label: "Implicit Surface", value: "implicitSurface", kind: "implicitSurface" },
+  { label: "Plane", value: "plane", kind: "plane" },
+  { label: "Point", value: "point", kind: "point" },
+  { label: "Vector", value: "vector", kind: "vector" },
+  { label: "Line", value: "line", kind: "line" },
+  { label: "Ray", value: "ray", kind: "ray" },
+  { label: "Segment", value: "segment", kind: "segment" },
+  { label: "2D Linear Transformation", value: "linearTransform:2d", kind: "linearTransform", dimension: "2d" },
+  { label: "3D Linear Transformation", value: "linearTransform:3d", kind: "linearTransform", dimension: "3d" },
+  { label: "2D Vector Field", value: "vectorField:2d", kind: "vectorField", dimension: "2d" },
+  { label: "3D Vector Field", value: "vectorField:3d", kind: "vectorField", dimension: "3d" }
 ];
 
-export default function GraphTypeSelector({ value, onChange }: GraphTypeSelectorProps) {
+export default function GraphTypeSelector({ value, dimension, onChange }: GraphTypeSelectorProps) {
+  const selectValue =
+    value === "vectorField" || value === "linearTransform"
+      ? `${value}:${dimension ?? "2d"}`
+      : value;
+
   return (
     <select
-      value={value}
+      value={selectValue}
       onChange={(event) => {
+        const selected = GRAPH_TYPE_OPTIONS.find((option) => option.value === event.target.value);
+        if (selected) {
+          onChange(selected.kind, selected.dimension);
+          return;
+        }
         const kind = parseGraphObjectKind(event.target.value);
         if (kind) {
           onChange(kind);

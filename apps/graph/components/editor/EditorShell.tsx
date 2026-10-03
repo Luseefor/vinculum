@@ -1,22 +1,25 @@
 "use client";
 
 import GraphViewportErrorBoundary from "@/components/graph/GraphViewportErrorBoundary";
-import BottomDockPremium from "@/components/editor/BottomDockPremium";
 import CommandPalette from "@/components/editor/CommandPalette";
 import ContextInspectorDrawer from "@/components/editor/ContextInspectorDrawer";
 import ContextMenu from "@/components/editor/ContextMenu";
 import EditorHeader from "@/components/editor/EditorHeader";
 import EditorLayoutPremium from "@/components/editor/EditorLayoutPremium";
 import InspectorPremium from "@/components/editor/InspectorPremium";
+import InspectorShell from "@/components/editor/InspectorShell";
 import SceneNavigatorPremium from "@/components/editor/SceneNavigatorPremium";
-import StatusBar from "@/components/editor/StatusBar";
-import WelcomeDialog from "@/components/onboarding/WelcomeDialog";
+import SelectedObjectChip from "@/components/editor/SelectedObjectChip";
+import FirstRunHint from "@/components/onboarding/FirstRunHint";
 import RecoveryDialog from "@/components/projects/RecoveryDialog";
 import SceneImportExportDialog from "@/components/scene/SceneImportExportDialog";
 import SharedSceneConfirmDialog from "@/components/scene/SharedSceneConfirmDialog";
 import ThemeSync from "@/components/theme/ThemeSync";
 import { Sheet } from "@/components/ui/sheet";
 import ViewportHost from "@/components/viewport/ViewportHost";
+import { createObjectByKey } from "@/lib/objects/objectCreation";
+import { descriptorByCommandId } from "@/lib/objects/objectDescriptors";
+import GeometryViewport from "@/components/viewport/GeometryViewport";
 import Viewport2D from "@/components/viewport/Viewport2D";
 import Viewport3D from "@/components/viewport/Viewport3D";
 import { exportSceneJson, triggerSceneExportDownload } from "@/lib/export/sceneExport";
@@ -44,7 +47,13 @@ import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDerivedUpdates";
 import { captureEvent } from "@/lib/analytics/posthog";
-
+import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
+import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
+import EditorGuide from "@/components/onboarding/EditorGuide";
+import CanvasToolbar from "@/components/editor/CanvasToolbar";
+import { OBJECT_SEARCH_OPEN_EVENT } from "@/components/layout/ObjectBrowserPanel";
+import type { ViewTool } from "@/components/editor/ViewControls";
+import { compositionForViewport, type ResponsiveComposition } from "@/lib/responsive/composition";
 export default function EditorShell() {
   const graphMode = useGraphStore((state) => state.ui.graphMode);
   const setGraphMode = useGraphStore((state) => state.setGraphMode);
@@ -60,7 +69,6 @@ export default function EditorShell() {
   const setCanvas3dTool = useGraphStore((state) => state.setCanvas3dTool);
   const setBaseline3dPlane = useGraphStore((state) => state.setBaseline3dPlane);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
-  const snapStep = useGraphStore((state) => state.ui.snapStep);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
   const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
   const setObjectVisibility = useGraphStore((state) => state.setObjectVisibility);
@@ -77,9 +85,7 @@ export default function EditorShell() {
   const setProjectAutosaveStatus = useGraphStore((state) => state.setProjectAutosaveStatus);
   const resetViewport2D = useGraphStore((state) => state.resetViewport2D);
   const requestCameraReset = useGraphStore((state) => state.requestCameraReset);
-  const addSurfaceObject = useGraphStore((state) => state.addSurfaceObject);
-  const addParametricCurve = useGraphStore((state) => state.addParametricCurve);
-  const addPlaneObject = useGraphStore((state) => state.addPlaneObject);
+  const setWorkspace = useGraphStore((state) => state.setWorkspace);
 
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorPinned, setInspectorPinned] = useState(false);
@@ -96,8 +102,10 @@ export default function EditorShell() {
   const [sharedSceneDialogOpen, setSharedSceneDialogOpen] = useState(false);
   const [sharedSceneError, setSharedSceneError] = useState<string | null>(null);
   const [welcomeDialogOpen, setWelcomeDialogOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [solverOpenSignal, setSolverOpenSignal] = useState(0);
   const [welcomeDialogError, setWelcomeDialogError] = useState<string | null>(null);
-  const [welcomeDontShowAgain, setWelcomeDontShowAgain] = useState(false);
+  const [touchHints, setTouchHints] = useState(false);
   const [examplesOpenSignal, setExamplesOpenSignal] = useState(0);
   const [viewportFallbackMessage, setViewportFallbackMessage] = useState<string | null>(null);
   const [isGraphStoreHydrated, setIsGraphStoreHydrated] = useState(false);
@@ -114,18 +122,17 @@ export default function EditorShell() {
   const setRightPanelWidth = useEditorStore((state) => state.setRightPanelWidth);
   const setLeftPanelCollapsed = useEditorStore((state) => state.setLeftPanelCollapsed);
   const setRightPanelCollapsed = useEditorStore((state) => state.setRightPanelCollapsed);
-  const setBottomPanelCollapsed = useEditorStore((state) => state.setBottomPanelCollapsed);
-  const setBottomPanelHeight = useEditorStore((state) => state.setBottomPanelHeight);
-  const bottomPanelHeight = useEditorStore((state) => state.bottomPanelHeight);
-  const bottomPanelCollapsed = useEditorStore((state) => state.bottomPanelCollapsed);
   const leftCollapseSnapOffset = useEditorStore((state) => state.leftCollapseSnapOffset);
   const rightCollapseSnapOffset = useEditorStore((state) => state.rightCollapseSnapOffset);
-  const bottomCollapseSnapOffset = useEditorStore((state) => state.bottomCollapseSnapOffset);
   const beginResize = useEditorStore((state) => state.beginResize);
   const endResize = useEditorStore((state) => state.endResize);
   const setResponsiveFlags = useEditorStore((state) => state.setResponsiveFlags);
+  const composition = useEditorStore((state) => state.responsiveComposition);
+  const geometryView = useEditorStore((state) => state.geometryView);
   const viewportMode = useEditorStore((state) => state.viewportMode);
   const setViewportMode = useEditorStore((state) => state.setViewportMode);
+  const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
+  const setGeometryView = useEditorStore((state) => state.setGeometryView);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
   const constraints = useEditorStore((state) => state.constraints);
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
@@ -147,8 +154,6 @@ export default function EditorShell() {
   const effectiveViewportMode = viewportMode === "split" || viewportMode === "quad" ? viewportMode : graphMode;
   const planeSwitcherActivePair =
     effectiveViewportMode === "quad" && active2dViewport === "quadTop" ? axis2dPairQuadTop : axis2dPair;
-  const selectedLabel = selectedObjectId ? selectedObjectId.slice(0, 8) : "None";
-  const snapLabel = snapEnabled ? `ON (${snapStep})` : "OFF";
   const [inspectorDrawerMode, setInspectorDrawerMode] = useState(false);
 
   const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
@@ -180,6 +185,14 @@ export default function EditorShell() {
         activeTool === "measureAngle" ||
         activeTool === "addPin"));
 
+  // Closing the Inspector dismisses it for the current selection; the header
+  // toggle can reopen it without changing the selection.
+  useEffect(() => {
+    if (selectedObjectId || selectedMeasurementId) {
+      setUserClosedInspector(false);
+    }
+  }, [selectedObjectId, selectedMeasurementId]);
+
   const clearViewportSelection = useCallback(() => {
     useGraphStore.setState((state) => ({
       ui: {
@@ -195,13 +208,20 @@ export default function EditorShell() {
       if (!(activeTool === "pan" || activeTool === "probe")) {
         return;
       }
+      // S21: an armed analysis pick owns the click (selection stays so the
+      // Inspector keeps showing values after the point lands).
+      if (useGraphStore.getState().ui.differentialAnalysisPickArmedId !== null) {
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (!target) {
         return;
       }
-      const isCanvasTarget =
-        Boolean(target.closest('canvas[data-graph2d-canvas="true"]')) ||
-        Boolean(target.closest('canvas[data-graph3d-canvas="true"]'));
+      // S31: DOM-level deselect covers the 2D canvas only. The 3D engine
+      // deselects on genuine clean misses (never on orbit/pan drags) via
+      // attemptPrimitivePick; clearing here on pointerdown would wrongly
+      // deselect when a drag starts.
+      const isCanvasTarget = Boolean(target.closest('canvas[data-graph2d-canvas="true"]'));
       if (!isCanvasTarget) {
         return;
       }
@@ -243,6 +263,11 @@ export default function EditorShell() {
   }, []);
 
   const runUndo = useCallback(() => {
+    // S33 PART 78: global undo is not processed until a drag transaction
+    // ends (the snapshot must not mutate under an active drag).
+    if (isDragTransactionActive()) {
+      return;
+    }
     const current = getCurrentSceneSnapshot();
     const previous = undoHistory(current);
     if (!previous) return;
@@ -252,6 +277,10 @@ export default function EditorShell() {
   }, [addConsoleEvent, applySceneSnapshot, undoHistory]);
 
   const runRedo = useCallback(() => {
+    // S33 PART 78: symmetric with undo during an active drag.
+    if (isDragTransactionActive()) {
+      return;
+    }
     const current = getCurrentSceneSnapshot();
     const next = redoHistory(current);
     if (!next) return;
@@ -259,15 +288,6 @@ export default function EditorShell() {
     applySceneSnapshot(next);
     addConsoleEvent("Redo");
   }, [addConsoleEvent, applySceneSnapshot, redoHistory]);
-
-  const runCommand = useCallback((commandId: string) => {
-    if (commandId === "undo") { runUndo(); return; }
-    if (commandId === "redo") { runRedo(); return; }
-    if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
-    if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
-    if (commandId === "switch-split") { setViewportMode("split"); return; }
-    if (commandId === "switch-quad") { setViewportMode("quad"); return; }
-  }, [runUndo, runRedo, setGraphMode, setViewportMode]);
 
   useEffect(() => {
     const currentSnapshot = getCurrentSceneSnapshot();
@@ -278,8 +298,18 @@ export default function EditorShell() {
       return;
     }
 
-    if (historyActionRef.current) {
+    // S33-R8: consume the cancel-restore flag unconditionally first — a
+    // short-circuit would leave it armed to skip the next legitimate edit.
+    const historyActionConsumed = consumeHistoryActionFlag();
+    if (historyActionRef.current || historyActionConsumed) {
       historyActionRef.current = false;
+      lastSceneSnapshotRef.current = currentSnapshot;
+      return;
+    }
+
+    // S33 PART 24: pointermove commits during a drag transaction never push
+    // history (commit pushes the single pre-drag snapshot on release).
+    if (isDragTransactionActive()) {
       lastSceneSnapshotRef.current = currentSnapshot;
       return;
     }
@@ -320,32 +350,146 @@ export default function EditorShell() {
   }, [addConsoleEvent, constraints, scene.objects, setObjectVisibility, updateObjectColor]);
 
   useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null): boolean => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+      const tag = target.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+    };
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "k") {
+      const mod = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
+      if (mod && (key === "k" || (event.shiftKey && key === "p"))) {
         event.preventDefault();
         setCommandPaletteOpen(true);
+        return;
       }
       if (event.key === "Escape") {
-        setCommandPaletteOpen(false);
-        setContextMenu((state) => ({ ...state, open: false }));
+        // S33 PART 47: an active drag cancels first — the engine restores
+        // pre-drag values. Shell skips its own Escape handling so one
+        // keypress never double-processes (no menu/pick side effects).
+        if (isDragTransactionActive()) {
+          return;
+        }        // Functional updates return identical state when nothing is open so
+        // idle keypresses never force a shell re-render (which would churn
+        // downstream effect subscriptions such as drawer Escape handlers).
+        setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
+        setContextMenu((state) => (state.open ? { ...state, open: false } : state));
+        // S21: Escape cancels an armed analysis pick (guard typing targets:
+        // an Escape inside an equation input reverts the draft instead).
+        if (!isTypingTarget(event.target)) {
+          const armedId = useGraphStore.getState().ui.differentialAnalysisPickArmedId;
+          if (armedId !== null) {
+            useGraphStore.getState().armDifferentialAnalysisPick(null);
+          }
+        }
+        return;
+      }
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        // S33 PART 77/78: no destructive or history edits mid-drag.
+        if (isDragTransactionActive()) {
+          return;
+        }
+        const selectedId = useGraphStore.getState().ui.selectedObjectId;
+        if (selectedId) {
+          event.preventDefault();
+          removeObject(selectedId);
+        }
+        return;
+      }
+      // S33 PART 11/71: F frames the selection (Fit Scene when nothing is
+      // selected). Window-level with typing/modifier guards — equivalent to
+      // canvas focus without adding tab stops; equation inputs keep F.
+      if (event.key === "f" || event.key === "F") {
+        if (!isDragTransactionActive()) {
+          requestCanvasFrame(
+            useGraphStore.getState().ui.selectedObjectId ? "selected" : "scene"
+          );
+        }
+        return;
+      }
+      if (event.key === "/") {
+        const search = document.getElementById("object-search-input");
+        event.preventDefault();
+        if (search instanceof HTMLInputElement) {
+          search.focus();
+        } else {
+          window.dispatchEvent(new Event(OBJECT_SEARCH_OPEN_EVENT));
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [removeObject]);
+
+  const [narrowRailMode, setNarrowRailMode] = useState(false);
+  // Narrow-mode drawers open only on explicit user action so a fresh narrow
+  // load never starts with canvas-blocking overlays.
+  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);  const workspace = useGraphStore((state) => state.ui.workspace);
+  // Lazily mount each workspace tree on first visit, then keep it mounted
+  // (suspended while hidden) so cameras, sync state, and engines survive
+  // workspace switches without rebuilds.
+  const [visitedWorkspaces, setVisitedWorkspaces] = useState({ geometry: false, math: true });
+  useEffect(() => {
+    setVisitedWorkspaces((previous) =>
+      previous[workspace] ? previous : { ...previous, [workspace]: true }
+    );
+  }, [workspace]);
+
+  // S34-R13: skip store writes when nothing changed — an unguarded
+  // observer re-renders every composition subscriber on each resize frame.
+  // Ref lives at component scope (StrictMode-safe double effects share it).
+  const responsivePrevious = useRef({ initialized: false, narrow: false, drawer: false, composition: "wide" as ResponsiveComposition });
 
   useEffect(() => {
     const node = shellRef.current;
     if (!node) return;
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? window.innerWidth;
+      const rect = entries[0]?.contentRect;
+      const width = rect?.width ?? window.innerWidth;
+      const height = rect?.height ?? window.innerHeight;
       const inspectorDrawer = width <= 1100;
+      // S34 PART 1/2: one composition source (compact <720 wide, compact
+      // short landscapes, medium <1100, wide ≥1100). Wide ≥1100 preserves
+      // S30–S33 architecture exactly.
+      const composition = compositionForViewport(width, height);
+      const narrow = composition === "compact";
+      if (
+        responsivePrevious.current.initialized &&
+        responsivePrevious.current.narrow === narrow &&
+        responsivePrevious.current.drawer === inspectorDrawer &&
+        responsivePrevious.current.composition === composition
+      ) {
+        return;
+      }
+      responsivePrevious.current.initialized = true;
+      responsivePrevious.current.narrow = narrow;
+      responsivePrevious.current.drawer = inspectorDrawer;
+      responsivePrevious.current.composition = composition;
       setInspectorDrawerMode(inspectorDrawer);
-      setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false });
+      setNarrowRailMode(narrow);
+      setResponsiveFlags({ inspectorDrawer, leftRail: false, bottomCollapsed: false, composition });
     });
     observer.observe(node);
     return () => observer.disconnect();
   }, [setResponsiveFlags]);
+
+  // S34-R12: one-primary-sheet invariant across composition roundtrips.
+  // Toggles enforce it within compact, but a compact→widen→narrow cycle can
+  // otherwise reopen both sheets at once (two stacked fixed dialogs).
+  useEffect(() => {
+    if (!narrowRailMode) {
+      setNarrowObjectsOpen(false);
+      setInspectorOpen(false);
+    }
+  }, [narrowRailMode]);
 
   useEffect(() => {
     if (effectiveViewportMode !== "quad") {
@@ -462,6 +606,17 @@ export default function EditorShell() {
     setExamplesOpenSignal((current) => current + 1);
     captureEvent("editor_examples_entry_opened");
   }, [isGraphStoreHydrated]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const query = window.matchMedia("(pointer: coarse)");
+    const sync = () => setTouchHints(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!isGraphStoreHydrated || hasCheckedWelcomeRef.current) {
@@ -641,45 +796,16 @@ export default function EditorShell() {
   );
 
   const handleCloseWelcome = useCallback(() => {
-    if (welcomeDontShowAgain) {
-      persistWelcomePreference(true);
-    }
+    // S35: dismiss always persists — no checkbox dark pattern.
+    persistWelcomePreference(true);
     setWelcomeDialogOpen(false);
-  }, [persistWelcomePreference, welcomeDontShowAgain]);
-
-  const handleWelcomeStartBlankScene = useCallback(() => {
-    try {
-      clearHistory();
-      resetViewport2D();
-      requestCameraReset();
-      resetScene();
-      setCurrentProjectSession(null);
-      setProjectAutosaveStatus("idle");
-      if (welcomeDontShowAgain) {
-        persistWelcomePreference(true);
-      }
-      setWelcomeDialogOpen(false);
-    } catch {
-      setWelcomeDialogError("Blank scene could not be started. Try New Scene from the Scene menu.");
-    }
-  }, [
-    clearHistory,
-    persistWelcomePreference,
-    resetScene,
-    requestCameraReset,
-    resetViewport2D,
-    setCurrentProjectSession,
-    setProjectAutosaveStatus,
-    welcomeDontShowAgain
-  ]);
+  }, [persistWelcomePreference]);
 
   const handleWelcomeOpenExamples = useCallback(() => {
-    if (welcomeDontShowAgain) {
-      persistWelcomePreference(true);
-    }
+    persistWelcomePreference(true);
     setWelcomeDialogOpen(false);
     setExamplesOpenSignal((current) => current + 1);
-  }, [persistWelcomePreference, welcomeDontShowAgain]);
+  }, [persistWelcomePreference]);
 
   const handleViewportResetView = useCallback(() => {
     try {
@@ -717,8 +843,189 @@ export default function EditorShell() {
     setViewportFallbackMessage("Scene JSON exported.");
   }, [scene]);
 
-  const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {
-    const shell = shellRef.current;
+  const runCommand = useCallback((commandId: string) => {
+    if (commandId === "undo") { runUndo(); return; }
+    if (commandId === "redo") { runRedo(); return; }
+    if (commandId === "toggle-2d") { setGraphMode("2d"); setViewportMode("2d"); return; }
+    if (commandId === "add-expression") {
+      if (narrowRailMode) { setInspectorOpen(false); setNarrowObjectsOpen(true); }
+      else setLeftPanelCollapsed(false);
+      const store = useGraphStore.getState();
+      const id = store.addEmptyObject();
+      store.requestEquationFocus(id);
+      return;
+    }
+    if (commandId === "toggle-3d") { setGraphMode("3d"); setViewportMode("3d"); return; }
+    if (commandId === "switch-split") { setViewportMode("split"); return; }
+    if (commandId === "switch-quad") { setViewportMode("quad"); return; }
+    if (commandId === "geometry-view-perspective") { setGeometryView("perspective"); return; }
+    if (commandId === "geometry-view-xy") { setGeometryView("xy"); return; }
+    if (commandId === "geometry-view-xz") { setGeometryView("xz"); return; }
+    if (commandId === "geometry-view-yz") { setGeometryView("yz"); return; }
+    if (commandId === "geometry-layout-single") { setGeometryLayout("single"); return; }
+    if (commandId === "geometry-layout-split") { setGeometryLayout("split"); return; }
+    if (commandId === "geometry-layout-quad") { setGeometryLayout("quad"); return; }
+    if (commandId === "switch-workspace-geometry") { setWorkspace("geometry"); return; }
+    if (commandId === "switch-workspace-math") { setWorkspace("math"); return; }
+    // S33 PART 10/42: camera-only framing (never math/scene/analysis).
+    // Distinct from Reset View (restores default cameras).
+    if (commandId === "frame-selected") {
+      if (!isDragTransactionActive()) {
+        requestCanvasFrame("selected");
+      }
+      return;
+    }
+    if (commandId === "fit-scene") {
+      if (!isDragTransactionActive()) {
+        requestCanvasFrame("scene");
+      }
+      return;
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    {
+      // S30: creation funnels through the central descriptors path so
+      // palette/context creation cannot drift from Quick Add / Add Object.
+      const entry = descriptorByCommandId(commandId);
+      if (entry) {
+        createObjectByKey(entry.key);
+        return;
+      }
+    }
+    if (commandId === "delete-selected") {
+      // S33 PART 77: deleting mid-drag is cancelled safely by the engine;
+      // the command path refuses to start one (no crash, no orphan handle).
+      if (isDragTransactionActive()) {
+        return;
+      }
+      const selectedId = useGraphStore.getState().ui.selectedObjectId;
+      if (selectedId) {
+        removeObject(selectedId);
+      }
+      return;
+    }
+    if (commandId === "toggle-snap") { setSnapEnabled(!snapEnabled); return; }
+    if (commandId === "reset-view") { handleViewportResetView(); return; }
+    if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
+    if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
+  }, [narrowRailMode, setLeftPanelCollapsed, runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+
+  const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
     const divider = event.currentTarget;
     divider.setPointerCapture(event.pointerId);
@@ -758,52 +1065,52 @@ export default function EditorShell() {
     window.addEventListener("pointerup", onUp);
   }, [beginResize, endResize, leftCollapseSnapOffset, rightCollapseSnapOffset, setLeftPanelCollapsed, setLeftPanelWidth, setRightPanelCollapsed, setRightPanelWidth]);
 
-  const startBottomResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    beginResize("bottom", event.pointerId);
-    const bounds = shell.getBoundingClientRect();
-    const onMove = (moveEvent: PointerEvent) => {
-      const nextHeight = bounds.bottom - moveEvent.clientY - 24;
-      if (nextHeight <= bottomCollapseSnapOffset) { setBottomPanelCollapsed(true); return; }
-      setBottomPanelCollapsed(false);
-      setBottomPanelHeight(nextHeight);
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      endResize();
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, [beginResize, bottomCollapseSnapOffset, endResize, setBottomPanelCollapsed, setBottomPanelHeight]);
-
-   const [isMobile, setIsMobile] = useState(false);
-
-   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  const viewControlProps = {
+    activeViewType,
+    onViewTypeChange: (view: "2d" | "3d" | "both") => {
+      if (view === "2d") {
+        setGraphMode("2d");
+        setViewportMode("2d");
+        return;
+      }
+      if (view === "3d") {
+        setGraphMode("3d");
+        setViewportMode("3d");
+        return;
+      }
+      const nextLayout =
+        viewportMode === "split" || viewportMode === "quad" ? viewportMode : "split";
+      setViewportMode(nextLayout);
+    },
+    activeLayout,
+    onLayoutChange: (layout: "split" | "quad") => {
+      setViewportMode(layout);
+    },
+    plane2d: axis2dPair,
+    onPlane2dChange: setAxis2DPair,
+    base3d: baseline3dPlane,
+    onBase3dChange: setBaseline3dPlane,
+    activeToolLabel: activeToolLabel as ViewTool,
+    onToolChange: (tool: ViewTool) => {
+      const actualTool = tool === "select" ? "probe" : tool;
+      setActiveTool(actualTool);
+      captureEvent("tool_selected", { tool: actualTool });
+    }
+  };
 
   return (
     <div
       ref={shellRef}
-      className="flex h-screen flex-col overflow-hidden bg-[var(--bg-primary)] font-sans"
-      onContextMenu={(e) => { e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
+      data-composition={composition}
+      className="app-shell flex h-screen flex-col bg-[var(--bg-primary)] font-sans"
+      onContextMenu={(e) => { if (!(e.target instanceof HTMLCanvasElement)) return; e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
+      onKeyDown={(e) => {
+        if (!(e.target instanceof HTMLCanvasElement) || !(e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))) return;
+        e.preventDefault(); e.stopPropagation();
+        const rect = e.target.getBoundingClientRect();
+        setContextMenu({ open: true, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      }}
     >
-      {isMobile ? (
-        <div className="flex h-screen flex-col items-center justify-center gap-4 bg-[var(--bg-primary)] px-6 text-center">
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">Desktop Recommended</h1>
-          <p className="max-w-[320px] text-sm text-[var(--text-secondary)]">
-            Vinculum is optimized for desktop and laptop screens. For the best experience, please use a device with a wider screen.
-          </p>
-        </div>
-      ) : (
-        <>
       <ThemeSync />
       <EditorLayoutPremium
         header={
@@ -814,55 +1121,53 @@ export default function EditorShell() {
             onRedo={runRedo}
             onOpenWelcome={() => {
               setWelcomeDialogError(null);
-              setWelcomeDontShowAgain(false);
+              try {
+                setWelcomeOnboardingDismissed(false);
+              } catch {
+                // Preference reset is best-effort; still show tips this session.
+              }
               setWelcomeDialogOpen(true);
             }}
             openExamplesSignal={examplesOpenSignal}
-            activeViewType={activeViewType}
-            onViewTypeChange={(view) => {
-              if (view === "2d") {
-                setGraphMode("2d");
-                setViewportMode("2d");
-                return;
-              }
-              if (view === "3d") {
-                setGraphMode("3d");
-                setViewportMode("3d");
-                return;
-              }
-              const nextLayout =
-                viewportMode === "split" || viewportMode === "quad" ? viewportMode : "split";
-              setViewportMode(nextLayout);
-            }}
-            activeLayout={activeLayout}
-            onLayoutChange={(layout) => {
-              setViewportMode(layout);
-            }}
-            plane2d={axis2dPair}
-            onPlane2dChange={setAxis2DPair}
-            base3d={baseline3dPlane}
-            onBase3dChange={setBaseline3dPlane}
-            activeToolLabel={activeToolLabel}
-            onToolChange={(tool) => {
-              const actualTool = tool === "select" ? "probe" : tool;
-              setActiveTool(actualTool);
-              captureEvent("tool_selected", { tool: actualTool });
-            }}
-            inspectorOpen={contextInspectorOpen}
+            openSolverSignal={solverOpenSignal}
+            onOpenGuide={() => setGuideOpen(true)}
+            {...viewControlProps}
+            inspectorOpen={narrowRailMode ? inspectorOpen : !rightCollapsed && contextInspectorOpen}
             onToggleInspector={() => {
-              setInspectorOpen((open) => {
-                const next = !open;
-                if (next) {
-                  setUserClosedInspector(false);
-                }
-                return next;
-              });
+              // S34 PART 6: one primary sheet on compact — opening Inspector
+              // closes Objects and vice versa (no stacked full-screen sheets).
+              if (narrowRailMode) {
+                setNarrowObjectsOpen(false);
+              }
+              const next = narrowRailMode ? !inspectorOpen : rightCollapsed || !contextInspectorOpen;
+              setInspectorOpen(next);
+              setUserClosedInspector(!next);
+              if (next) setRightPanelCollapsed(false);
+              if (!next) setInspectorPinned(false);
             }}
+            objectsOpen={narrowRailMode ? narrowObjectsOpen : !leftCollapsed}
+            onToggleObjects={() => {
+              if (narrowRailMode) {
+                setInspectorOpen(false);
+                setNarrowObjectsOpen((open) => !open);
+                return;
+              }
+              toggleLeftPanel();
+            }}
+            showObjectsToggle
           />
         }
-        sceneNavigator={leftCollapsed ? null : <SceneNavigatorPremium width={leftWidth} />}
+        canvasToolbar={
+          composition === "wide" ? (
+            <CanvasToolbar
+              viewControls={viewControlProps}
+              onFitScene={() => runCommand("fit-scene")}
+            />
+          ) : null
+        }
+        sceneNavigator={leftCollapsed || narrowRailMode ? null : <SceneNavigatorPremium width={leftWidth} />}
         sceneDivider={
-          leftCollapsed ? null : <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
+          leftCollapsed || narrowRailMode ? null : <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "left")} />
         }
         workspace={
           <>
@@ -871,15 +1176,43 @@ export default function EditorShell() {
               onResetView={handleViewportResetView}
               onExportSceneJson={handleViewportExportSceneJson}
             >
-              <div className="h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
-                <ViewportHost
-                  mode={effectiveViewportMode}
-                  viewport2d={<Viewport2D key="graph-2d" />}
-                  viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" />}
-                  viewport3d={<Viewport3D key="graph-3d" />}
-                  selectedLabel={selectedLabel}
-                  snapLabel={snapLabel}
-                />
+              <div className="relative h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
+                {(workspace === "geometry" || visitedWorkspaces.geometry) && (
+                  <div className={workspace === "geometry" ? "h-full w-full" : "hidden"}>
+                    <GeometryViewport suspended={workspace !== "geometry"} onOpenGuide={() => setGuideOpen(true)} onOpenExamples={() => setExamplesOpenSignal(value => value + 1)} />
+                  </div>
+                )}
+                {(workspace === "math" || visitedWorkspaces.math) && (
+                  <div className={workspace === "math" ? "h-full w-full" : "hidden"}>
+                    <ViewportHost
+                      mode={effectiveViewportMode}
+                      viewport2d={<Viewport2D key="graph-2d" suspended={workspace !== "math"} />}
+                      viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" suspended={workspace !== "math"} />}
+                      viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
+                      workspaceId="math"
+                      onOpenGuide={() => setGuideOpen(true)}
+                      onOpenExamples={() => setExamplesOpenSignal(value => value + 1)}
+                    />
+                  </div>
+                )}
+                <div className="pointer-events-none absolute inset-0 z-20">
+                  <FirstRunHint
+                    open={welcomeDialogOpen}
+                    workspace={workspace}
+                    error={welcomeDialogError}
+                    touchHints={touchHints}
+                    canvasMode={
+                      workspace === "math"
+                        ? "math"
+                        : geometryView === "perspective"
+                          ? "perspective"
+                          : "ortho"
+                    }
+                    onDismiss={handleCloseWelcome}
+                    onOpenExamples={handleWelcomeOpenExamples}
+                    onOpenGuide={() => { setWelcomeDialogOpen(false); setGuideOpen(true); }}
+                  />
+                </div>
               </div>
             </GraphViewportErrorBoundary>
             {viewportFallbackMessage ? (
@@ -887,11 +1220,22 @@ export default function EditorShell() {
                 {viewportFallbackMessage}
               </div>
             ) : null}
+            {narrowRailMode && selectedObjectId ? (
+              <SelectedObjectChip
+                objectId={selectedObjectId}
+                onInspect={() => {
+                  // S34 PART 6/22: one primary surface — Inspect closes Objects.
+                  setNarrowObjectsOpen(false);
+                  setUserClosedInspector(false);
+                  setInspectorOpen(true);
+                }}
+              />
+            ) : null}
           </>
         }
         inspectorDrawer={
           <ContextInspectorDrawer
-            open={!inspectorDrawerMode && !rightCollapsed && contextInspectorOpen}
+            open={!narrowRailMode && inspectorDrawerMode && !rightCollapsed && contextInspectorOpen}
             pinned={inspectorPinned}
             width={rightWidth}
             onTogglePinned={() => setInspectorPinned((v) => !v)}
@@ -902,9 +1246,48 @@ export default function EditorShell() {
             onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)}
           />
         }
-        bottomDivider={<div className="divider-y" onPointerDown={startBottomResize} />}
-        bottomDock={<BottomDockPremium height={bottomPanelCollapsed ? 0 : bottomPanelHeight} />}
-        statusBar={<StatusBar />}
+        inspectorDivider={
+          !inspectorDrawerMode && !rightCollapsed && contextInspectorOpen ? (
+            <div className="divider-x" onPointerDown={(e) => startHorizontalResize(e, "right")} />
+          ) : null
+        }
+        inspectorPanel={
+          !inspectorDrawerMode && !rightCollapsed && contextInspectorOpen ? (
+            <div className="flex min-h-0 shrink-0 flex-col" style={{ width: rightWidth }}>
+              <InspectorShell
+                width={rightWidth}
+                onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)}
+                onClose={() => {
+                  setInspectorOpen(false);
+                  setUserClosedInspector(true);
+                }}
+              />
+            </div>
+          ) : null
+        }
+      />
+      <EditorGuide open={guideOpen} onOpenChange={setGuideOpen}
+        onShowObjects={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          if (narrowRailMode) { setInspectorOpen(false); setNarrowObjectsOpen(true); }
+          else setLeftPanelCollapsed(false);
+        }}
+        onShowInspector={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          setNarrowObjectsOpen(false);
+          setRightPanelCollapsed(false);
+          setUserClosedInspector(false);
+          setInspectorOpen(true);
+        }}
+        onOpenSolver={() => {
+          setGuideOpen(false);
+          setWelcomeDialogOpen(false);
+          setWorkspace("math");
+          setSolverOpenSignal(value => value + 1);
+        }}
+        onOpenExamples={() => { setGuideOpen(false); setWelcomeDialogOpen(false); setExamplesOpenSignal(value => value + 1); }}
       />
       <SceneImportExportDialog />
       <RecoveryDialog
@@ -920,20 +1303,14 @@ export default function EditorShell() {
         onConfirm={handleOpenSharedScene}
         onCancel={handleCancelSharedScene}
       />
-      <WelcomeDialog
-        open={welcomeDialogOpen}
-        error={welcomeDialogError}
-        dontShowAgain={welcomeDontShowAgain}
-        onDontShowAgainChange={setWelcomeDontShowAgain}
-        onOpenExamples={handleWelcomeOpenExamples}
-        onStartBlankScene={handleWelcomeStartBlankScene}
-        onContinue={handleCloseWelcome}
-        onClose={handleCloseWelcome}
-      />
-      <Sheet open={inspectorOpen || (inspectorDrawerMode && !rightCollapsed)} onOpenChange={setInspectorOpen} title="Inspector">
-        <InspectorPremium width={rightWidth} onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
+      <Sheet open={narrowRailMode && inspectorOpen} onOpenChange={setInspectorOpen} title="Inspector">
+        <InspectorPremium onOpenExamples={() => setExamplesOpenSignal((current) => current + 1)} />
       </Sheet>
-      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} snapEnabled={snapEnabled} currentMode={effectiveViewportMode} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      <Sheet open={narrowRailMode && narrowObjectsOpen} onOpenChange={setNarrowObjectsOpen} title="Objects">
+        <SceneNavigatorPremium />
+      </Sheet>
+      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
       
       <input
         ref={importInputRef}
@@ -953,8 +1330,6 @@ export default function EditorShell() {
           event.currentTarget.value = "";
         }}
       />
-        </>
-      )}
     </div>
   );
 }

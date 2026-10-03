@@ -10,6 +10,8 @@ interface EditorHeaderProps {
   onRedo: () => void;
   onOpenWelcome: () => void;
   openExamplesSignal?: number;
+  openSolverSignal?: number;
+  onOpenGuide?: () => void;
   activeViewType: "2d" | "3d" | "both";
   onViewTypeChange: (view: "2d" | "3d" | "both") => void;
   activeLayout: "split" | "quad";
@@ -22,6 +24,9 @@ interface EditorHeaderProps {
   onToolChange: (tool: "select" | "pan" | "probe" | "addPin" | "measureDistance" | "measureAngle" | "draw") => void;
   inspectorOpen: boolean;
   onToggleInspector: () => void;
+  objectsOpen: boolean;
+  onToggleObjects: () => void;
+  showObjectsToggle: boolean;
 }
 
 export default function EditorHeader(props: EditorHeaderProps) {

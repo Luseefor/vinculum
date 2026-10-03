@@ -1,5 +1,7 @@
 "use client";
 
+import { MathInput } from "@/components/math/MathInput";
+
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
 import { cx } from "@/components/ui/styles";
@@ -8,17 +10,36 @@ import type { ExpressionRowProps } from "@/types/graphUi";
 import GraphTypeSelector from "./GraphTypeSelector";
 import type { ExpressionDiagnostic } from "@/lib/math/expressionDiagnostics";
 import {
+  getImplicitSurfaceEquationDiagnostics,
   getParametricAxisDiagnostics,
+  getParametricSurfaceAxisDiagnostics,
   getPlaneEquationDiagnostics,
-  getSurfaceEquationDiagnostics
+  getSurfaceEquationDiagnostics,
+  getVectorFieldComponentDiagnostics
 } from "@/lib/math/expressionDiagnostics";
+import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
 import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
 import { compilePlaneEquation } from "@/lib/math/samplePlane";
 import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
-const PARAMETRIC_FIELDS = [
+const PARAMETRIC_CURVE_FIELDS = [
   { label: "y(t)", field: "yExpr" as const },
   { label: "z(t)", field: "zExpr" as const }
+];
+
+const PARAMETRIC_SURFACE_FIELDS = [
+  { label: "y(u,v)", field: "yExpr" as const },
+  { label: "z(u,v)", field: "zExpr" as const }
+];
+
+const VECTOR_FIELD_2D_FIELDS = [{ label: "Q(x,y)", field: "qExpr" as const }];
+
+const VECTOR_FIELD_3D_FIELDS = [
+  { label: "Q(x,y,z)", field: "qExpr" as const },
+  { label: "R(x,y,z)", field: "rExpr" as const }
 ];
 
 export default function ExpressionRow({
@@ -39,6 +60,9 @@ export default function ExpressionRow({
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
   const updateSurfaceEquation = useGraphStore((state) => state.updateSurfaceEquation);
   const updateParametricExpression = useGraphStore((state) => state.updateParametricExpression);
+  const updateParametricSurfaceExpression = useGraphStore((state) => state.updateParametricSurfaceExpression);
+  const updateImplicitSurfaceExpression = useGraphStore((state) => state.updateImplicitSurfaceExpression);
+  const updateVectorFieldExpression = useGraphStore((state) => state.updateVectorFieldExpression);
   const updatePlaneEquation = useGraphStore((state) => state.updatePlaneEquation);
 
   const EXPRESSION_DEBOUNCE_MS = 350;
@@ -55,17 +79,49 @@ export default function ExpressionRow({
     object.kind === "plane" ? getPlaneEquationDiagnostics(object.equation) : { status: "valid", message: "" }
   );
 
-  const [xDraft, setXDraft] = useState(object.kind === "parametricCurve" ? object.xExpr : "");
-  const [yDraft, setYDraft] = useState(object.kind === "parametricCurve" ? object.yExpr : "");
-  const [zDraft, setZDraft] = useState(object.kind === "parametricCurve" ? object.zExpr : "");
-  const [activeParametricField, setActiveParametricField] = useState<"xExpr" | "yExpr" | "zExpr">("xExpr");
+  const [implicitDraft, setImplicitDraft] = useState(object.kind === "implicitSurface" ? object.equation : "");
+  const [implicitDraftDiag, setImplicitDraftDiag] = useState<ExpressionDiagnostic>(() =>
+    object.kind === "implicitSurface"
+      ? getImplicitSurfaceEquationDiagnostics(object.equation)
+      : { status: "valid", message: "" }
+  );
+
+  const parametricObject =
+    object.kind === "parametricCurve" || object.kind === "parametricSurface" ? object : null;
+
+  const [xDraft, setXDraft] = useState(parametricObject ? parametricObject.xExpr : "");
+  const [yDraft, setYDraft] = useState(parametricObject ? parametricObject.yExpr : "");
+  const [zDraft, setZDraft] = useState(parametricObject ? parametricObject.zExpr : "");  const [activeParametricField, setActiveParametricField] = useState<"xExpr" | "yExpr" | "zExpr">("xExpr");
   const [paramDraftDiag, setParamDraftDiag] = useState<ExpressionDiagnostic>(() => {
-    if (object.kind !== "parametricCurve") return { status: "valid", message: "" };
-    return getParametricAxisDiagnostics({
+    if (!parametricObject) return { status: "valid", message: "" };
+    const getInitialAxisDiagnostics =
+      parametricObject.kind === "parametricSurface"
+        ? getParametricSurfaceAxisDiagnostics
+        : getParametricAxisDiagnostics;
+    return getInitialAxisDiagnostics({
       field: "xExpr",
-      xExpr: object.xExpr,
-      yExpr: object.yExpr,
-      zExpr: object.zExpr
+      xExpr: parametricObject.xExpr,
+      yExpr: parametricObject.yExpr,
+      zExpr: parametricObject.zExpr
+    });
+  });
+
+  // S20: vector-field component drafts mirror the parametric pattern (P is
+  // the primary input and registers for creation focus).
+  const vectorObject = object.kind === "vectorField" ? object : null;
+
+  const [pDraft, setPDraft] = useState(vectorObject ? vectorObject.pExpr : "");
+  const [qDraft, setQDraft] = useState(vectorObject ? vectorObject.qExpr : "");
+  const [rDraft, setRDraft] = useState(vectorObject ? vectorObject.rExpr : "");
+  const [activeVectorField, setActiveVectorField] = useState<"pExpr" | "qExpr" | "rExpr">("pExpr");
+  const [vectorDraftDiag, setVectorDraftDiag] = useState<ExpressionDiagnostic>(() => {
+    if (!vectorObject) return { status: "valid", message: "" };
+    return getVectorFieldComponentDiagnostics({
+      field: "pExpr",
+      dimension: vectorObject.dimension,
+      pExpr: vectorObject.pExpr,
+      qExpr: vectorObject.qExpr,
+      rExpr: vectorObject.rExpr
     });
   });
 
@@ -81,11 +137,18 @@ export default function ExpressionRow({
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "implicitSurface") {
+      setImplicitDraft(object.equation);
+      setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(object.equation));
+      return;
+    }
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       setXDraft(object.xExpr);
       setYDraft(object.yExpr);
       setZDraft(object.zExpr);
-      const diagX = getParametricAxisDiagnostics({
+      const getAxisDiagnostics =
+        object.kind === "parametricSurface" ? getParametricSurfaceAxisDiagnostics : getParametricAxisDiagnostics;
+      const diagX = getAxisDiagnostics({
         field: "xExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -97,7 +160,7 @@ export default function ExpressionRow({
         return;
       }
 
-      const diagY = getParametricAxisDiagnostics({
+      const diagY = getAxisDiagnostics({
         field: "yExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -109,7 +172,7 @@ export default function ExpressionRow({
         return;
       }
 
-      const diagZ = getParametricAxisDiagnostics({
+      const diagZ = getAxisDiagnostics({
         field: "zExpr",
         xExpr: object.xExpr,
         yExpr: object.yExpr,
@@ -118,28 +181,72 @@ export default function ExpressionRow({
       setActiveParametricField(diagZ.status === "error" ? "zExpr" : "xExpr");
       setParamDraftDiag(diagZ);
     }
+    if (object.kind === "vectorField") {
+      setPDraft(object.pExpr);
+      setQDraft(object.qExpr);
+      setRDraft(object.rExpr);
+      const fields = [
+        { field: "pExpr" as const, value: object.pExpr },
+        { field: "qExpr" as const, value: object.qExpr },
+        ...(object.dimension === "3d" ? [{ field: "rExpr" as const, value: object.rExpr }] : [])
+      ];
+      for (const entry of fields) {
+        const diag = getVectorFieldComponentDiagnostics({
+          field: entry.field,
+          dimension: object.dimension,
+          pExpr: object.pExpr,
+          qExpr: object.qExpr,
+          rExpr: object.rExpr
+        });
+        if (diag.status === "error") {
+          setActiveVectorField(entry.field);
+          setVectorDraftDiag(diag);
+          return;
+        }
+      }
+      setActiveVectorField("pExpr");
+      setVectorDraftDiag(
+        getVectorFieldComponentDiagnostics({
+          field: "pExpr",
+          dimension: object.dimension,
+          pExpr: object.pExpr,
+          qExpr: object.qExpr,
+          rExpr: object.rExpr
+        })
+      );
+    }
   }, [object]);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDraftRef = useRef({
     surfaceDraft,
     planeDraft,
+    implicitDraft,
     xDraft,
     yDraft,
     zDraft,
-    activeParametricField
+    activeParametricField,
+    pDraft,
+    qDraft,
+    rDraft,
+    activeVectorField
   });
 
   useEffect(() => {
     latestDraftRef.current = {
       surfaceDraft,
       planeDraft,
+      implicitDraft,
       xDraft,
       yDraft,
       zDraft,
-      activeParametricField
+      activeParametricField,
+      pDraft,
+      qDraft,
+      rDraft,
+      activeVectorField
     };
-  }, [surfaceDraft, planeDraft, xDraft, yDraft, zDraft, activeParametricField]);
+  }, [surfaceDraft, planeDraft, implicitDraft, xDraft, yDraft, zDraft, activeParametricField, pDraft, qDraft, rDraft, activeVectorField]);
 
   useEffect(() => {
     return () => {
@@ -168,17 +275,49 @@ export default function ExpressionRow({
     updatePlaneEquation(object.id, nextEquation);
   };
 
-  const commitParametricAxisIfValid = (field: "xExpr" | "yExpr" | "zExpr", nextValue: string) => {
+  const commitImplicitEquationIfValid = (nextEquation: string) => {
     const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
-    if (!current || current.kind !== "parametricCurve") return;
-    const compiled = compileParametricExpressions(
+    if (!current || current.kind !== "implicitSurface") return;
+    const compiled = compileImplicitSurfaceExpression(nextEquation, getEditorParameterScope());
+    if (compiled.error) return;
+    if (current.equation === nextEquation) return;
+    updateImplicitSurfaceExpression(object.id, "equation", nextEquation);
+  };
+
+  const commitParametricAxisIfValid = (field: "xExpr" | "yExpr" | "zExpr", nextValue: string) => {    const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
+    if (!current || (current.kind !== "parametricCurve" && current.kind !== "parametricSurface")) return;
+    const compileForKind =
+      current.kind === "parametricSurface"
+        ? (xExpr: string, yExpr: string, zExpr: string) =>
+            compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope())
+        : compileParametricExpressions;
+    const compiled = compileForKind(
       field === "xExpr" ? nextValue : xDraft,
       field === "yExpr" ? nextValue : yDraft,
       field === "zExpr" ? nextValue : zDraft
     );
     if (compiled.error) return;
     if (current[field] === nextValue) return;
+    if (current.kind === "parametricSurface") {
+      updateParametricSurfaceExpression(object.id, field, nextValue);
+      return;
+    }
     updateParametricExpression(object.id, field, nextValue);
+  };
+
+  const commitVectorFieldAxisIfValid = (field: "pExpr" | "qExpr" | "rExpr", nextValue: string) => {
+    const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
+    if (!current || current.kind !== "vectorField") return;
+    const compiled = compileVectorFieldExpressions(
+      current.dimension,
+      field === "pExpr" ? nextValue : pDraft,
+      field === "qExpr" ? nextValue : qDraft,
+      field === "rExpr" ? nextValue : rDraft,
+      getEditorParameterScope()
+    );
+    if (compiled.error) return;
+    if (current[field] === nextValue) return;
+    updateVectorFieldExpression(object.id, field, nextValue);
   };
 
   const scheduleDebouncedCommit = () => {
@@ -200,17 +339,49 @@ export default function ExpressionRow({
         return;
       }
 
-      if (object.kind === "parametricCurve") {
-        const compiled = compileParametricExpressions(latest.xDraft, latest.yDraft, latest.zDraft);
+      if (object.kind === "implicitSurface") {
+        commitImplicitEquationIfValid(latest.implicitDraft);
+        return;
+      }
+
+      if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
+        const compileForKind =
+          object.kind === "parametricSurface"
+            ? (xExpr: string, yExpr: string, zExpr: string) =>
+                compileParametricSurfaceExpressions(xExpr, yExpr, zExpr, getEditorParameterScope())
+            : compileParametricExpressions;
+        const compiled = compileForKind(latest.xDraft, latest.yDraft, latest.zDraft);
         if (compiled.error) return;
 
         const field = latest.activeParametricField;
         const nextValue = field === "xExpr" ? latest.xDraft : field === "yExpr" ? latest.yDraft : latest.zDraft;
         const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
-        if (!current || current.kind !== "parametricCurve") return;
+        if (!current || current.kind !== object.kind) return;
         if (current[field] === nextValue) return;
 
+        if (object.kind === "parametricSurface") {
+          updateParametricSurfaceExpression(object.id, field, nextValue);
+          return;
+        }
         updateParametricExpression(object.id, field, nextValue);
+      }
+
+      if (object.kind === "vectorField") {
+        const compiled = compileVectorFieldExpressions(
+          object.dimension,
+          latest.pDraft,
+          latest.qDraft,
+          latest.rDraft,
+          getEditorParameterScope()
+        );
+        if (compiled.error) return;
+
+        const field = latest.activeVectorField;
+        const nextValue = field === "pExpr" ? latest.pDraft : field === "qExpr" ? latest.qDraft : latest.rDraft;
+        const current = useGraphStore.getState().scene.objects.find((o) => o.id === object.id);
+        if (!current || current.kind !== "vectorField") return;
+        if (current[field] === nextValue) return;
+        updateVectorFieldExpression(object.id, field, nextValue);
       }
     }, EXPRESSION_DEBOUNCE_MS);
   };
@@ -224,10 +395,19 @@ export default function ExpressionRow({
       commitPlaneIfValid(planeDraft);
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "implicitSurface" && inputId.endsWith("-implicit")) {
+      commitImplicitEquationIfValid(implicitDraft);
+      return;
+    }
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
       if (inputId.endsWith("-xExpr")) commitParametricAxisIfValid("xExpr", xDraft);
       if (inputId.endsWith("-yExpr")) commitParametricAxisIfValid("yExpr", yDraft);
       if (inputId.endsWith("-zExpr")) commitParametricAxisIfValid("zExpr", zDraft);
+    }
+    if (object.kind === "vectorField") {
+      if (inputId.endsWith("-pExpr")) commitVectorFieldAxisIfValid("pExpr", pDraft);
+      if (inputId.endsWith("-qExpr")) commitVectorFieldAxisIfValid("qExpr", qDraft);
+      if (inputId.endsWith("-rExpr")) commitVectorFieldAxisIfValid("rExpr", rDraft);
     }
   };
 
@@ -242,21 +422,69 @@ export default function ExpressionRow({
       setPlaneDraftDiag(getPlaneEquationDiagnostics(object.equation));
       return;
     }
-    if (object.kind === "parametricCurve") {
+    if (object.kind === "implicitSurface" && inputId.endsWith("-implicit")) {
+      setImplicitDraft(object.equation);
+      setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(object.equation));
+      return;
+    }
+    if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
+      const getRevertAxisDiagnostics =
+        object.kind === "parametricSurface" ? getParametricSurfaceAxisDiagnostics : getParametricAxisDiagnostics;
       if (inputId.endsWith("-xExpr")) {
         setXDraft(object.xExpr);
         setActiveParametricField("xExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "xExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "xExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
       }
       if (inputId.endsWith("-yExpr")) {
         setYDraft(object.yExpr);
         setActiveParametricField("yExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "yExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "yExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
       }
       if (inputId.endsWith("-zExpr")) {
         setZDraft(object.zExpr);
         setActiveParametricField("zExpr");
-        setParamDraftDiag(getParametricAxisDiagnostics({ field: "zExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+        setParamDraftDiag(getRevertAxisDiagnostics({ field: "zExpr", xExpr: object.xExpr, yExpr: object.yExpr, zExpr: object.zExpr }));
+      }
+    }
+    if (object.kind === "vectorField") {
+      if (inputId.endsWith("-pExpr")) {
+        setPDraft(object.pExpr);
+        setActiveVectorField("pExpr");
+        setVectorDraftDiag(
+          getVectorFieldComponentDiagnostics({
+            field: "pExpr",
+            dimension: object.dimension,
+            pExpr: object.pExpr,
+            qExpr: object.qExpr,
+            rExpr: object.rExpr
+          })
+        );
+      }
+      if (inputId.endsWith("-qExpr")) {
+        setQDraft(object.qExpr);
+        setActiveVectorField("qExpr");
+        setVectorDraftDiag(
+          getVectorFieldComponentDiagnostics({
+            field: "qExpr",
+            dimension: object.dimension,
+            pExpr: object.pExpr,
+            qExpr: object.qExpr,
+            rExpr: object.rExpr
+          })
+        );
+      }
+      if (inputId.endsWith("-rExpr")) {
+        setRDraft(object.rExpr);
+        setActiveVectorField("rExpr");
+        setVectorDraftDiag(
+          getVectorFieldComponentDiagnostics({
+            field: "rExpr",
+            dimension: object.dimension,
+            pExpr: object.pExpr,
+            qExpr: object.qExpr,
+            rExpr: object.rExpr
+          })
+        );
       }
     }
   };
@@ -268,7 +496,11 @@ export default function ExpressionRow({
       ? surfaceDraftDiag
       : object.kind === "plane"
         ? planeDraftDiag
-        : paramDraftDiag;
+        : object.kind === "implicitSurface"
+          ? implicitDraftDiag
+          : object.kind === "vectorField"
+            ? vectorDraftDiag
+            : paramDraftDiag;
 
   const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -297,7 +529,11 @@ export default function ExpressionRow({
     if (event.key === "Enter" && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
       event.preventDefault();
       commitIfValidForInputId(input.id);
-      onInsertBelow(object.id, object.kind);
+      onInsertBelow(
+        object.id,
+        object.kind,
+        object.kind === "vectorField" ? object.dimension : undefined
+      );
       return;
     }
 
@@ -347,12 +583,13 @@ export default function ExpressionRow({
           aria-label="Expression color"
           value={object.color}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch h-6 w-6 shrink-0 rounded-[6px]"
+          className="color-swatch h-6 w-6 shrink-0 rounded-[var(--radius-sm)]"
         />
 
         <GraphTypeSelector
           value={object.kind}
-          onChange={(nextKind) => setObjectKind(object.id, nextKind)}
+          dimension={object.kind === "vectorField" ? object.dimension : undefined}
+          onChange={(nextKind, nextDimension) => setObjectKind(object.id, nextKind, nextDimension)}
         />
 
         <div className="ml-auto flex items-center gap-1">
@@ -363,7 +600,7 @@ export default function ExpressionRow({
               toggleObjectVisibility(object.id);
             }}
             className={cx(
-              "flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent transition-colors",
+              "flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent transition-colors",
               object.visible
                 ? "text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                 : "text-[var(--text-tertiary)] opacity-40 hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]"
@@ -389,7 +626,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
             title="Inspect"
             aria-label="Open inspector for this expression"
           >
@@ -405,7 +642,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-[6px] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
             title="Remove"
             aria-label="Remove expression"
           >
@@ -418,7 +655,7 @@ export default function ExpressionRow({
       </div>
 
       {object.kind === "surface" && (
-        <input
+        <MathInput
           id={`${inputIdBase}-equation`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -444,16 +681,16 @@ export default function ExpressionRow({
           aria-invalid={surfaceDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder={graphMode === "2d" ? placeholder2d : "z = sin(x) * cos(y)"}
-          className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
         />
       )}
 
-      {object.kind === "parametricCurve" && (
+      {(object.kind === "parametricCurve" || object.kind === "parametricSurface") && (
         <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-            x(t)
+          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
+            {object.kind === "parametricSurface" ? "x(u,v)" : "x(t)"}
           </label>
-          <input
+          <MathInput
             id={`${inputIdBase}-xExpr`}
             ref={(node) => registerInputRef(object.id, node)}
             type="text"
@@ -463,7 +700,11 @@ export default function ExpressionRow({
               const next = event.target.value;
               setXDraft(next);
               setActiveParametricField("xExpr");
-              setParamDraftDiag(getParametricAxisDiagnostics({ field: "xExpr", xExpr: next, yExpr: yDraft, zExpr: zDraft }));
+              setParamDraftDiag(
+                (object.kind === "parametricSurface"
+                  ? getParametricSurfaceAxisDiagnostics
+                  : getParametricAxisDiagnostics)({ field: "xExpr", xExpr: next, yExpr: yDraft, zExpr: zDraft })
+              );
               scheduleDebouncedCommit();
             }}
             onBlur={() => {
@@ -479,10 +720,10 @@ export default function ExpressionRow({
             aria-label="Parametric x expression"
             aria-invalid={paramDraftDiag.status === "error" && activeParametricField === "xExpr"}
             aria-describedby={`${inputIdBase}-diagnostic`}
-            className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+            className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
           />
 
-          {PARAMETRIC_FIELDS.map((entry) => (
+          {(object.kind === "parametricSurface" ? PARAMETRIC_SURFACE_FIELDS : PARAMETRIC_CURVE_FIELDS).map((entry) => (
             <ParametricInput
               key={entry.field}
               id={`${inputIdBase}-${entry.field}`}
@@ -491,14 +732,18 @@ export default function ExpressionRow({
               onFocus={() => onSelect(object.id)}
               onChange={(event) => {
                 const next = event.target.value;
+                const getChangeAxisDiagnostics =
+                  object.kind === "parametricSurface"
+                    ? getParametricSurfaceAxisDiagnostics
+                    : getParametricAxisDiagnostics;
                 if (entry.field === "yExpr") {
                   setYDraft(next);
                   setActiveParametricField("yExpr");
-                  setParamDraftDiag(getParametricAxisDiagnostics({ field: "yExpr", xExpr: xDraft, yExpr: next, zExpr: zDraft }));
+                  setParamDraftDiag(getChangeAxisDiagnostics({ field: "yExpr", xExpr: xDraft, yExpr: next, zExpr: zDraft }));
                 } else {
                   setZDraft(next);
                   setActiveParametricField("zExpr");
-                  setParamDraftDiag(getParametricAxisDiagnostics({ field: "zExpr", xExpr: xDraft, yExpr: yDraft, zExpr: next }));
+                  setParamDraftDiag(getChangeAxisDiagnostics({ field: "zExpr", xExpr: xDraft, yExpr: yDraft, zExpr: next }));
                 }
                 scheduleDebouncedCommit();
               }}
@@ -510,6 +755,7 @@ export default function ExpressionRow({
                 if (entry.field === "yExpr") commitParametricAxisIfValid("yExpr", yDraft);
                 if (entry.field === "zExpr") commitParametricAxisIfValid("zExpr", zDraft);
               }}
+              onKeyDown={handlePrimaryKeyDown}
               ariaInvalid={paramDraftDiag.status === "error" && activeParametricField === entry.field}
               ariaDescribedBy={`${inputIdBase}-diagnostic`}
             />
@@ -517,8 +763,104 @@ export default function ExpressionRow({
         </div>
       )}
 
+      {object.kind === "vectorField" && (
+        <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
+          <label htmlFor={`${inputIdBase}-pExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
+            {object.dimension === "3d" ? "P(x,y,z)" : "P(x,y)"}
+          </label>
+          <MathInput
+            id={`${inputIdBase}-pExpr`}
+            ref={(node) => registerInputRef(object.id, node)}
+            type="text"
+            value={pDraft}
+            onFocus={() => onSelect(object.id)}
+            onChange={(event) => {
+              const next = event.target.value;
+              setPDraft(next);
+              setActiveVectorField("pExpr");
+              setVectorDraftDiag(
+                getVectorFieldComponentDiagnostics({
+                  field: "pExpr",
+                  dimension: object.dimension,
+                  pExpr: next,
+                  qExpr: qDraft,
+                  rExpr: rDraft
+                })
+              );
+              scheduleDebouncedCommit();
+            }}
+            onBlur={() => {
+              if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+                debounceTimerRef.current = null;
+              }
+              commitVectorFieldAxisIfValid("pExpr", pDraft);
+            }}
+            onKeyDown={handlePrimaryKeyDown}
+            spellCheck={false}
+            autoComplete="off"
+            aria-label="P component"
+            aria-invalid={vectorDraftDiag.status === "error" && activeVectorField === "pExpr"}
+            aria-describedby={`${inputIdBase}-diagnostic`}
+            placeholder="x"
+            className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          />
+
+          {(object.dimension === "3d" ? VECTOR_FIELD_3D_FIELDS : VECTOR_FIELD_2D_FIELDS).map((entry) => (
+            <ParametricInput
+              key={entry.field}
+              id={`${inputIdBase}-${entry.field}`}
+              label={entry.label}
+              ariaLabel={`${entry.field === "qExpr" ? "Q" : "R"} component`}
+              value={entry.field === "qExpr" ? qDraft : rDraft}
+              onFocus={() => onSelect(object.id)}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (entry.field === "qExpr") {
+                  setQDraft(next);
+                  setActiveVectorField("qExpr");
+                  setVectorDraftDiag(
+                    getVectorFieldComponentDiagnostics({
+                      field: "qExpr",
+                      dimension: object.dimension,
+                      pExpr: pDraft,
+                      qExpr: next,
+                      rExpr: rDraft
+                    })
+                  );
+                } else {
+                  setRDraft(next);
+                  setActiveVectorField("rExpr");
+                  setVectorDraftDiag(
+                    getVectorFieldComponentDiagnostics({
+                      field: "rExpr",
+                      dimension: object.dimension,
+                      pExpr: pDraft,
+                      qExpr: qDraft,
+                      rExpr: next
+                    })
+                  );
+                }
+                scheduleDebouncedCommit();
+              }}
+              onBlur={() => {
+                if (debounceTimerRef.current) {
+                  clearTimeout(debounceTimerRef.current);
+                  debounceTimerRef.current = null;
+                }
+                if (entry.field === "qExpr") commitVectorFieldAxisIfValid("qExpr", qDraft);
+                if (entry.field === "rExpr") commitVectorFieldAxisIfValid("rExpr", rDraft);
+              }}
+              onKeyDown={handlePrimaryKeyDown}
+              ariaInvalid={vectorDraftDiag.status === "error" && activeVectorField === entry.field}
+              ariaDescribedBy={`${inputIdBase}-diagnostic`}
+            />
+          ))}
+        </div>
+      )}
+
       {object.kind === "plane" && (
-        <input
+        <MathInput
           id={`${inputIdBase}-plane`}
           ref={(node) => registerInputRef(object.id, node)}
           type="text"
@@ -544,7 +886,38 @@ export default function ExpressionRow({
           aria-invalid={planeDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder="ax + by + cz + d = 0"
-          className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+        />
+      )}
+
+      {object.kind === "implicitSurface" && (
+        <MathInput
+          id={`${inputIdBase}-implicit`}
+          ref={(node) => registerInputRef(object.id, node)}
+          type="text"
+          value={implicitDraft}
+          onFocus={() => onSelect(object.id)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setImplicitDraft(next);
+            setImplicitDraftDiag(getImplicitSurfaceEquationDiagnostics(next));
+            scheduleDebouncedCommit();
+          }}
+          onBlur={() => {
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
+              debounceTimerRef.current = null;
+            }
+            commitImplicitEquationIfValid(implicitDraft);
+          }}
+          onKeyDown={handlePrimaryKeyDown}
+          spellCheck={false}
+          autoComplete="off"
+          aria-label="Implicit surface equation"
+          aria-invalid={implicitDraftDiag.status === "error"}
+          aria-describedby={`${inputIdBase}-diagnostic`}
+          placeholder="x^2 + y^2 + z^2 = 1"
+          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
         />
       )}
 
@@ -570,8 +943,10 @@ interface ParametricInputProps {
   onFocus: () => void;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onBlur?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
   ariaInvalid?: boolean;
   ariaDescribedBy?: string;
+  ariaLabel?: string;
 }
 
 function ParametricInput({
@@ -581,27 +956,30 @@ function ParametricInput({
   onFocus,
   onChange,
   onBlur,
+  onKeyDown,
   ariaInvalid,
-  ariaDescribedBy
+  ariaDescribedBy,
+  ariaLabel
 }: ParametricInputProps) {
   return (
     <>
-      <label htmlFor={id} className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+      <label htmlFor={id} className="text-[11px] font-medium text-[var(--text-tertiary)]">
         {label}
       </label>
-      <input
+      <MathInput
         id={id}
         type="text"
         value={value}
         onFocus={onFocus}
         onChange={onChange}
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
         spellCheck={false}
         autoComplete="off"
-        aria-label={`Parametric ${label}`}
+        aria-label={ariaLabel ?? `Parametric ${label}`}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
-        className="input h-8 rounded-[6px] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+        className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
       />
     </>
   );

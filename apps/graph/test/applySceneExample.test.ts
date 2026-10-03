@@ -7,6 +7,7 @@ describe("applySceneExampleToEditor", () => {
     const clearHistory = vi.fn();
     const replaceSceneDocument = vi.fn();
     const setGraphMode = vi.fn();
+    const prepareView = vi.fn();
     const setCurrentProjectSession = vi.fn();
     const setProjectAutosaveStatus = vi.fn();
     const scene = createSceneDocument({ objects: [] });
@@ -17,6 +18,7 @@ describe("applySceneExampleToEditor", () => {
       clearHistory,
       replaceSceneDocument,
       setGraphMode,
+      prepareView,
       setCurrentProjectSession,
       setProjectAutosaveStatus
     });
@@ -24,6 +26,7 @@ describe("applySceneExampleToEditor", () => {
     expect(clearHistory).toHaveBeenCalledTimes(1);
     expect(replaceSceneDocument).toHaveBeenCalledWith(scene);
     expect(setGraphMode).toHaveBeenCalledWith("2d");
+    expect(prepareView).toHaveBeenCalledWith("2d");
     expect(setCurrentProjectSession).toHaveBeenCalledWith(null);
     expect(setProjectAutosaveStatus).toHaveBeenCalledWith("idle");
   });

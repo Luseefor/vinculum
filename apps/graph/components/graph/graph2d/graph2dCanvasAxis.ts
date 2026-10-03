@@ -1,17 +1,5 @@
 import type { Axis2DPair } from "@/types/graphUi";
-import type { AxisPairSpec, AxisVariable } from "./graph2dCanvasTypes";
-
-export function axisComponentIndex(axis: AxisVariable): 0 | 1 | 2 {
-  if (axis === "x") {
-    return 0;
-  }
-
-  if (axis === "y") {
-    return 1;
-  }
-
-  return 2;
-}
+import type { AxisPairSpec } from "./graph2dCanvasTypes";
 
 export function getAxisPairSpec(pair: Axis2DPair): AxisPairSpec {
   if (pair === "yz") {

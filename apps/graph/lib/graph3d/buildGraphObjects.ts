@@ -1,5 +1,5 @@
 export { buildGraphObject, buildGraphObjectsGroup } from "./buildGraphAssemblies";
-export { applyObjectColorToNode, disposeObject3D } from "./buildGraphObjectDisposal";
+export { applyHoverEmphasisToNode, applyObjectColorToNode, applySelectionEmphasisToNode, disposeObject3D, SELECTION_EMPHASIS_KINDS, syncGeometrySelectionEmphasis } from "./buildGraphObjectDisposal";
 export { syncNonRenderableObjectNode } from "./buildGraphSync";
 export {
   getGraphObjectRenderSignature,

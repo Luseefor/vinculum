@@ -2,9 +2,11 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { BottomPanelTab, ViewportMode } from "@/lib/types/ui";
+import type { BottomPanelTab, GeometryLayout, GeometryView, ViewportMode } from "@/lib/types/ui";
+import type { ResponsiveComposition } from "@/lib/responsive/composition";
 
 interface EditorParameter {
+  defined?: boolean;
   id: string;
   value: number;
   min: number;
@@ -23,6 +25,21 @@ const DEFAULT_AXIS_LOCKS: ConstraintAxisLocks = {
 const MIN_CONSTRAINT_OFFSET = -255;
 const MAX_CONSTRAINT_OFFSET = 255;
 const DEFAULT_OFFSET_VALUE = 28;
+
+const GEOMETRY_LAYOUTS: readonly GeometryLayout[] = ["single", "split", "quad"];
+const GEOMETRY_VIEWS: readonly GeometryView[] = ["perspective", "xy", "xz", "yz"];
+
+function sanitizeGeometryLayout(value: unknown, fallback: GeometryLayout): GeometryLayout {
+  return typeof value === "string" && (GEOMETRY_LAYOUTS as readonly string[]).includes(value)
+    ? (value as GeometryLayout)
+    : fallback;
+}
+
+function sanitizeGeometryView(value: unknown, fallback: GeometryView): GeometryView {
+  return typeof value === "string" && (GEOMETRY_VIEWS as readonly string[]).includes(value)
+    ? (value as GeometryView)
+    : fallback;
+}
 
 export interface EditorConstraint {
   id: string;
@@ -44,6 +61,12 @@ interface EditorAnimationState {
 
 interface EditorStoreState {
   viewportMode: ViewportMode;
+  /** Geometry Studio pane arrangement. Independent of Math view/layout. */
+  geometryLayout: GeometryLayout;
+  /** Geometry Studio single-pane view. */
+  geometryView: GeometryView;
+  /** Geometry Studio split secondary plane (orthographic). */
+  geometrySplitView: GeometryView;
   leftPanelCollapsed: boolean;
   rightPanelCollapsed: boolean;
   bottomPanelCollapsed: boolean;
@@ -59,6 +82,7 @@ interface EditorStoreState {
   responsiveInspectorDrawer: boolean;
   responsiveLeftRail: boolean;
   responsiveBottomCollapsed: boolean;
+  responsiveComposition: ResponsiveComposition;
   activeResizeHandle: "left" | "right" | "bottom" | null;
   resizePointerId: number | null;
   bottomPanelToggleSource: "manual" | "drag" | "breakpoint";
@@ -66,10 +90,15 @@ interface EditorStoreState {
   /** Optional performance HUD (FPS/frame-time) toggle. Off by default. */
   showPerfHud: boolean;
   parameters: EditorParameter[];
+  ensureParameters: (ids: string[]) => void;
+  setParameterDefinition: (id: string, value: number) => void;
   consoleEvents: string[];
   constraints: EditorConstraint[];
   animation: EditorAnimationState;
   setViewportMode: (mode: ViewportMode) => void;
+  setGeometryLayout: (layout: GeometryLayout) => void;
+  setGeometryView: (view: GeometryView) => void;
+  setGeometrySplitView: (view: GeometryView) => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleBottomPanel: () => void;
@@ -85,6 +114,7 @@ interface EditorStoreState {
     inspectorDrawer?: boolean;
     leftRail?: boolean;
     bottomCollapsed?: boolean;
+    composition?: ResponsiveComposition;
   }) => void;
   setBottomPanelToggleSource: (source: "manual" | "drag" | "breakpoint") => void;
   setBottomPanelTab: (tab: BottomPanelTab) => void;
@@ -103,18 +133,46 @@ interface EditorStoreState {
   setShowPerfHud: (value: boolean) => void;
 }
 
+const DEFAULT_LEFT_PANEL_WIDTH = 272;
+const DEFAULT_RIGHT_PANEL_WIDTH = 296;
+const EDITOR_LAYOUT_VERSION = 1;
+
+/**
+ * v0 → v1 (UI refresh): the bottom dock starts collapsed and side panels
+ * widen to the new defaults. User-chosen widths above the defaults stay.
+ */
+export function migrateEditorLayout(persistedState: unknown, version: number): Partial<EditorStoreState> {
+  if (!persistedState || typeof persistedState !== "object") {
+    return {};
+  }
+  const state = { ...(persistedState as Partial<EditorStoreState>) };
+  if (version < 1) {
+    state.bottomPanelCollapsed = true;
+    const widen = (value: unknown, fallback: number) =>
+      typeof value === "number" && Number.isFinite(value) ? Math.max(value, fallback) : fallback;
+    state.leftPanelWidth = widen(state.leftPanelWidth, DEFAULT_LEFT_PANEL_WIDTH);
+    state.leftPanelLastOpenWidth = widen(state.leftPanelLastOpenWidth, DEFAULT_LEFT_PANEL_WIDTH);
+    state.rightPanelWidth = widen(state.rightPanelWidth, DEFAULT_RIGHT_PANEL_WIDTH);
+    state.rightPanelLastOpenWidth = widen(state.rightPanelLastOpenWidth, DEFAULT_RIGHT_PANEL_WIDTH);
+  }
+  return state;
+}
+
 export const useEditorStore = create<EditorStoreState>()(
   persist(
     (set) => ({
       viewportMode: "split",
+      geometryLayout: "single",
+      geometryView: "perspective",
+      geometrySplitView: "xy",
       leftPanelCollapsed: false,
       rightPanelCollapsed: false,
-      bottomPanelCollapsed: false,
-      leftPanelWidth: 240,
-      rightPanelWidth: 248,
+      bottomPanelCollapsed: true,
+      leftPanelWidth: DEFAULT_LEFT_PANEL_WIDTH,
+      rightPanelWidth: DEFAULT_RIGHT_PANEL_WIDTH,
       bottomPanelHeight: 160,
-      leftPanelLastOpenWidth: 240,
-      rightPanelLastOpenWidth: 248,
+      leftPanelLastOpenWidth: DEFAULT_LEFT_PANEL_WIDTH,
+      rightPanelLastOpenWidth: DEFAULT_RIGHT_PANEL_WIDTH,
       bottomPanelLastOpenHeight: 160,
       leftCollapseSnapOffset: 40,
       rightCollapseSnapOffset: 40,
@@ -122,6 +180,11 @@ export const useEditorStore = create<EditorStoreState>()(
       responsiveInspectorDrawer: false,
       responsiveLeftRail: false,
       responsiveBottomCollapsed: false,
+      // S34: always starts "wide" so SSR and first client render match
+      // (lazy window-init would break hydration on compact viewports); the
+      // shell observer corrects it on mount. One frame of wide chrome may
+      // flash on phones — benign and self-correcting.
+      responsiveComposition: "wide",
       activeResizeHandle: null,
       resizePointerId: null,
       bottomPanelToggleSource: "manual",
@@ -142,6 +205,18 @@ export const useEditorStore = create<EditorStoreState>()(
         playing: false
       },
       setViewportMode: (mode) => set({ viewportMode: mode }),
+      setGeometryLayout: (layout) => set((state) => ({
+        geometryLayout: layout,
+        geometrySplitView: layout === "split" && state.geometryView !== "perspective" ? state.geometryView : state.geometrySplitView
+      })),
+      setGeometryView: (view) => set((state) => ({
+        geometryView: view,
+        geometrySplitView: state.geometryLayout === "split" && view !== "perspective" ? view : state.geometrySplitView
+      })),
+      setGeometrySplitView: (view) => set((state) => ({
+        geometrySplitView: view,
+        geometryView: state.geometryLayout === "split" && state.geometryView !== "perspective" ? view : state.geometryView
+      })),
       toggleLeftPanel: () =>
         set((state) => ({
           leftPanelCollapsed: !state.leftPanelCollapsed,
@@ -182,10 +257,21 @@ export const useEditorStore = create<EditorStoreState>()(
         set((state) => ({
           responsiveInspectorDrawer: flags.inspectorDrawer ?? state.responsiveInspectorDrawer,
           responsiveLeftRail: flags.leftRail ?? state.responsiveLeftRail,
-          responsiveBottomCollapsed: flags.bottomCollapsed ?? state.responsiveBottomCollapsed
+          responsiveBottomCollapsed: flags.bottomCollapsed ?? state.responsiveBottomCollapsed,
+          responsiveComposition: flags.composition ?? state.responsiveComposition
         })),
       setBottomPanelToggleSource: (source) => set({ bottomPanelToggleSource: source }),
       setBottomPanelTab: (tab) => set({ bottomPanelTab: tab }),
+      ensureParameters: (ids) => set((state) => {
+        const missing = [...new Set(ids)].filter(id => !state.parameters.some(parameter => parameter.id === id));
+        return missing.length ? { parameters: [...state.parameters, ...missing.map(id => ({ id, value: 1, min: -10, max: 10 }))] } : state;
+      }),
+      setParameterDefinition: (id, value) => set((state) => {
+        if (!Number.isFinite(value)) return state;
+        const previous = state.parameters.find(parameter => parameter.id === id);
+        const next = { id, value, min: Math.min(previous?.min ?? -10, value), max: Math.max(previous?.max ?? 10, value), defined: true };
+        return { parameters: previous ? state.parameters.map(parameter => parameter.id === id ? next : parameter) : [...state.parameters, next] };
+      }),
       setParameterValue: (id, value) =>
         set((state) => ({
           parameters: state.parameters.map((parameter) =>
@@ -333,6 +419,24 @@ export const useEditorStore = create<EditorStoreState>()(
     }),
     {
       name: "vinculum-editor-layout",
+      version: EDITOR_LAYOUT_VERSION,
+      migrate: (persistedState, version) => migrateEditorLayout(persistedState, version),
+      // S34-R14: viewport-derived responsive flags are transient
+      // (observer-owned) — never persist or restore them across sessions.
+      partialize: (state) => {
+        const {
+          responsiveComposition: _composition,
+          responsiveInspectorDrawer: _drawer,
+          responsiveLeftRail: _rail,
+          responsiveBottomCollapsed: _bottom,
+          ...durable
+        } = state;
+        void _composition;
+        void _drawer;
+        void _rail;
+        void _bottom;
+        return durable as EditorStoreState;
+      },
       merge: (persistedState, currentState) => {
         if (!persistedState || typeof persistedState !== "object") {
           return currentState;
@@ -342,9 +446,21 @@ export const useEditorStore = create<EditorStoreState>()(
         const normalizedConstraints = incomingConstraints.map((constraint) =>
           sanitizeConstraintRecord(constraint)
         );
+        // S16-R6: corrupted persisted geometry values reach the ortho camera
+        // orientation table inside the frame loop and would throw before the
+        // next frame is requested. Reject anything outside the whitelists.
+        const geometryLayout = sanitizeGeometryLayout(incoming.geometryLayout, currentState.geometryLayout);
+        const geometryView = sanitizeGeometryView(incoming.geometryView, currentState.geometryView);
+        const geometrySplitView = sanitizeGeometryView(
+          incoming.geometrySplitView,
+          currentState.geometrySplitView
+        );
         return {
           ...currentState,
           ...incoming,
+          geometryLayout,
+          geometryView: geometryLayout === "split" && geometryView !== "perspective" ? geometrySplitView : geometryView,
+          geometrySplitView,
           constraints: normalizedConstraints
         };
       }

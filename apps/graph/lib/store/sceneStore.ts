@@ -9,9 +9,13 @@ export function dispatchSceneAction(action: SceneAction): void {
   switch (action.type) {
     case "add":
       if (action.kind === "surface") {
-        store.addEmptyObject();
+        store.addSurfaceObject();
       } else if (action.kind === "parametricCurve") {
         store.addParametricCurve();
+      } else if (action.kind === "parametricSurface") {
+        store.addParametricSurface();
+      } else if (action.kind === "implicitSurface") {
+        store.addImplicitSurface();
       } else if (action.kind === "plane") {
         store.addPlaneObject();
       }

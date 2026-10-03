@@ -19,4 +19,7 @@ export type GraphThreeEngineTickRuntime = {
   gridState: AdaptiveGridState;
   baselinePlaneMode: number;
   scenePressure: ScenePressure;
+  // S24-R1: streamline toggles are ui-only (never set objectsDirty), so
+  // pressure tracks the configs map ref to stay fresh without a rebuild.
+  lastStreamlineConfigs: Record<string, unknown> | null;
 };

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { type ReactNode, Suspense } from "react";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import PostHogPageView from "@/components/analytics/PostHogPageView";
 
@@ -30,7 +31,10 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" }
+  ]
 };
 
 interface RootLayoutProps {

@@ -66,27 +66,28 @@ export default function ConstraintsTab() {
   const selectedLabel = selectedObjectId ? labelForObject(selectedObjectId) : "None";
 
   return (
-    <section className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent">
-      <header className="p-3 pb-0">
+    <section className="min-w-0">
+      <header className="pb-2">
         <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Links</h3>
         <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">
-          Create relation rules between a source object and a target object.
+          Link this object’s visibility or color to another object.
         </p>
       </header>
 
-      <div className="space-y-3 p-3 pt-3">
-        <div className="rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Source object</p>
+      <div className="space-y-3">
+        <div className="rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2.5 py-2">
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Source object</p>
           <p className="mt-1 text-[12px] font-medium text-[var(--text-primary)]">{selectedLabel}</p>
         </div>
 
         <label className="block space-y-1">
-          <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Target object</span>
+          <span className="block text-[11px] font-medium text-[var(--text-secondary)]">Target object</span>
           <select
+            aria-label="Target object"
             value={targetObjectId}
             onChange={(event) => setTargetObjectId(event.target.value)}
             disabled={!selectedObjectId || targetOptions.length === 0}
-            className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px] disabled:opacity-60"
+            className="h-8 w-full rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2.5 text-[13px] disabled:opacity-60"
           >
             {targetOptions.length === 0 ? (
               <option value="">No other objects</option>
@@ -110,34 +111,35 @@ export default function ConstraintsTab() {
             [
               {
                 type: "attach" as const,
-                label: "Attach",
+                label: "Visibility sync",
                 helper: "Mirror source visibility on target."
               },
               {
                 type: "align" as const,
-                label: "Align",
+                label: "Color sync",
                 helper: "Keep target color aligned with source."
               },
               {
                 type: "offset" as const,
-                label: "Offset",
+                label: "Color tint",
                 helper: "Apply a lighter color offset from source."
               }
             ] as const
           ).map((item) => (
             <div
               key={item.type}
-            className="flex items-center justify-between gap-3 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2"
+            className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2.5 py-2"
             >
               <div className="min-w-0">
                 <p className="text-[12px] font-semibold text-[var(--text-primary)]">{item.label}</p>
-                <p className="truncate text-[11px] text-[var(--text-tertiary)]">{item.helper}</p>
+                <p className="text-[12px] text-[var(--text-tertiary)]">{item.helper}</p>
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
                 className="shrink-0"
+                aria-label={`Add ${item.label.toLowerCase()} link`}
                 onClick={() => add(item.type)}
                 disabled={!canCreateLink}
               >
@@ -148,13 +150,13 @@ export default function ConstraintsTab() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Outgoing links</p>
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Outgoing links</p>
           {!selectedObjectId ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               Select an object to manage links.
             </p>
           ) : outgoingConstraints.length === 0 ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               No outgoing links from this object.
             </p>
           ) : (
@@ -173,13 +175,13 @@ export default function ConstraintsTab() {
         </div>
 
         <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--text-tertiary)]">Incoming links</p>
+          <p className="text-[11px] font-medium text-[var(--text-tertiary)]">Incoming links</p>
           {!selectedObjectId ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               Select an object to inspect incoming links.
             </p>
           ) : incomingConstraints.length === 0 ? (
-            <p className="rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-2 py-2 text-[12px] text-[var(--text-tertiary)]">
               No incoming links to this object.
             </p>
           ) : (
@@ -217,15 +219,15 @@ function LinkRow({
   onRemove: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 py-2">
+    <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2.5 py-2">
       <div className="min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[12px] font-semibold capitalize text-[var(--text-primary)]">{constraint.type}</p>
+          <p className="text-[12px] font-semibold capitalize text-[var(--text-primary)]">{constraint.type === "attach" ? "Visibility sync" : constraint.type === "align" ? "Color sync" : "Color tint"}</p>
           <span
             className={
               constraint.enabled
-                ? "rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-500"
-                : "rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]"
+                ? "rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-medium text-emerald-500"
+                : "rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-tertiary)]"
             }
           >
             {constraint.enabled ? "On" : "Off"}
@@ -240,22 +242,23 @@ function LinkRow({
           {constraint.id}
         </p>
       </div>
-      <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1 text-[11px] text-[var(--text-secondary)]">
-        <span>Axis</span>
+      {constraint.type === "offset" ? <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1 text-[12px] text-[var(--text-secondary)]">
+        <span>Color channels</span>
         <div className="flex items-center gap-1">
           {(["x", "y", "z"] as const).map((axis) => (
             <button
               key={axis}
               type="button"
+              aria-label={`Tint ${axis === "x" ? "red" : axis === "y" ? "green" : "blue"} channel`}
               aria-pressed={constraint.axisLocks[axis]}
               onClick={() => onAxisToggle(constraint.id, { [axis]: !constraint.axisLocks[axis] })}
-              className={`h-6 w-6 rounded-[6px] border text-[10px] font-semibold uppercase ${
+              className={`h-6 w-6 rounded-[var(--radius-sm)] border text-[10px] font-semibold uppercase ${
                 constraint.axisLocks[axis]
                   ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--text-primary)]"
                   : "border-[var(--border-subtle)] bg-transparent text-[var(--text-tertiary)]"
               }`}
             >
-              {axis}
+              {axis === "x" ? "R" : axis === "y" ? "G" : "B"}
             </button>
           ))}
         </div>
@@ -263,15 +266,14 @@ function LinkRow({
         <input
           type="number"
           value={constraint.offsetValue}
-          disabled={constraint.type !== "offset"}
           onChange={(event) => onOffsetChange(constraint.id, Number(event.target.value))}
-          className="h-8 w-full rounded-[6px] border border-[var(--border-subtle)] bg-transparent px-2.5 font-mono text-[13px] text-[var(--text-primary)] disabled:opacity-50"
+          className="h-8 w-full rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2.5 font-mono text-[13px] text-[var(--text-primary)] disabled:opacity-50"
           min={-255}
           max={255}
           step={1}
           aria-label="Constraint offset"
         />
-      </div>
+      </div> : null}
       <div className="flex flex-wrap items-center gap-1.5">
         <Button type="button" size="sm" variant="ghost" className="shrink-0" onClick={() => onToggle(constraint.id)}>
           {constraint.enabled ? "Disable" : "Enable"}

@@ -4,7 +4,6 @@ import {
   BufferGeometry,
   Color,
   DirectionalLight,
-  DoubleSide,
   Group,
   HemisphereLight,
   LineBasicMaterial,
@@ -13,20 +12,19 @@ import {
   Mesh,
   MeshBasicMaterial,
   Plane,
-  PCFSoftShadowMap,
   PerspectiveCamera,
   Raycaster,
   PlaneGeometry,
   Scene,
-  ShaderMaterial,
   SphereGeometry,
   Vector2,
   Vector3,
-  WebGLRenderer,
   type Object3D
 } from "three";
+import { WebGPURenderer } from "three/webgpu";
+import { registerGraphCanvasCapture } from "./graphCanvasCapture";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { OrbitControls } from "three-stdlib";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { createAdaptiveGridState } from "@/lib/graph/adaptiveGridState";
 import { dispatchGraphInteractionEvent } from "@/hooks/useAdaptiveResolution";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
@@ -48,35 +46,58 @@ import {
   shouldShowPerfBadge
 } from "./graphThreeEngineDom";
 import { readResolvedThemeFromDom } from "./graphThreeEngineTheme";
-import { GRID_FRAGMENT_SHADER, GRID_VERTEX_SHADER } from "./graphThreeGridShaders";
+import { createGraphGridMaterial } from "./graphThreeGridMaterial";
 import { disposeGraphThreeEngineThreeResources } from "./graphThreeEngineDisposeResources";
 import { createGraphThreeEngineInputHandlers } from "./graphThreeEngineInputHandlers";
 import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
+import { createCanvasInteraction } from "./graphThreeCanvasInteraction";
+import { surfaceDisplayDomain } from "./surfaceDisplayDomain";
+import { activeOrthoSpansForDisplay } from "./graphThreePrimitiveDisplay";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
+import { applyGeometryComputeResult } from "@/lib/compute/geometryComputeSync";
+import {
+  createGeometryComputeManager,
+  createGeometryWorkerTransport
+} from "@/lib/compute/geometryComputeManager";
 import type { GraphThreeEngine } from "./graphThreeEngineTypes";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
+import {
+  cancelGeometryMultiViewDrag,
+  createGeometryMultiViewState,
+  getActiveGeometryView,
+  multiViewPointerDown,
+  multiViewPointerMove,
+  multiViewPointerUp,
+  multiViewPickContext,
+  multiViewWheel,
+  renderGeometryMultiViewPanes,
+  resetActiveGeometryView,
+  routeAndActivateGeometryView,
+  setActiveGeometryView,
+  setGeometryMultiViewPanes,
+  type GeometryMultiViewState
+} from "./graphThreeGeometryMultiView";
+import type { GeometryView } from "@/lib/types/ui";
 
 export type { GraphThreeEngine } from "./graphThreeEngineTypes";
 export { snapWorldPoint } from "./graphThreeSnapWorld";
 
-export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine {
+export function createGraphThreeEngine(container: HTMLElement, onError?: (message: string) => void): GraphThreeEngine {
   const scene = new Scene();
   const camera = new PerspectiveCamera(48, 1, 0.1, CAMERA_FAR_PLANE);
   camera.position.copy(DEFAULT_CAMERA_POSITION);
 
-  const renderer = new WebGLRenderer({
+  const renderer = new WebGPURenderer({
     antialias: true,
     alpha: false,
-    powerPreference: "high-performance",
-    preserveDrawingBuffer: true
+    powerPreference: "high-performance"
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = false;
-  renderer.shadowMap.type = PCFSoftShadowMap;
 
   const labelRenderer = new CSS2DRenderer();
   labelRenderer.domElement.style.position = "absolute";
@@ -91,18 +112,21 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   renderer.domElement.style.width = "100%";
   renderer.domElement.style.height = "100%";
   renderer.domElement.setAttribute("data-graph3d-canvas", "true");
+  renderer.domElement.tabIndex = 0;
 
   const perfBadge = document.createElement("div");
   perfBadge.className =
-    "pointer-events-none absolute right-3 top-14 z-[18] rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/75 px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] backdrop-blur";
+    "pointer-events-none absolute right-3 top-14 z-[18] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]";
   perfBadge.style.display = shouldShowPerfBadge() ? "block" : "none";
   perfBadge.textContent = "FPS -- · Frame --ms";
   perfBadge.setAttribute("data-graph3d-perf", "true");
   container.appendChild(perfBadge);
 
   const warningBadge = document.createElement("div");
+  // S30: bottom-right like the 2D badge — clear of the Scene chip
+  // (bottom-left) and probe badges.
   warningBadge.className =
-    "pointer-events-none absolute left-3 bottom-[7.5rem] z-[18] max-w-[min(260px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] backdrop-blur whitespace-pre-line";
+    "pointer-events-none absolute right-3 bottom-3 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded-[var(--radius-md)] border border-[var(--status-warning-border)] bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug text-[var(--text-secondary)] shadow-[var(--shadow-control)] whitespace-pre-line";
   warningBadge.style.display = "none";
   warningBadge.setAttribute("data-graph3d-performance-warning", "true");
   warningBadge.setAttribute("role", "status");
@@ -155,26 +179,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   fillLight.position.set(-6, 4, -8);
   scene.add(fillLight);
 
-  const gridUniforms = {
-    uMinorStep: { value: 1 },
-    uMajorStep: { value: 1 },
-    uFadeDistance: { value: 100 },
-    uGridOffset: { value: new Vector2(0, 0) },
-    uCameraPosition: { value: new Vector3() },
-    uMinorColor: { value: new Color() },
-    uMajorColor: { value: new Color() },
-    uPlaneMode: { value: 0 }
-  };
-
-  const gridMaterial = new ShaderMaterial({
-    depthWrite: false,
-    side: DoubleSide,
-    transparent: true,
-    toneMapped: false,
-    uniforms: gridUniforms,
-    vertexShader: GRID_VERTEX_SHADER,
-    fragmentShader: GRID_FRAGMENT_SHADER
-  });
+  const { material: gridMaterial, uniforms: gridUniforms } = createGraphGridMaterial();
 
   const gridMesh = new Mesh(new PlaneGeometry(1, 1, 1, 1), gridMaterial);
   gridMesh.frustumCulled = false;
@@ -217,6 +222,28 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const objectSignatures = new Map<string, string>();
   const objectStructureSignatures = new Map<string, string>();
 
+  // S19: one dedicated geometry worker per engine. Created lazily on the
+  // first heavy-surface request; terminated on dispose (no leaks across dev
+  // hot reload). Pure numerical compute only — Three.js stays main-thread.
+  const computeManager = createGeometryComputeManager({
+    createTransport: () =>
+      createGeometryWorkerTransport(
+        new Worker(new URL("../../workers/geometryComputeWorker.ts", import.meta.url), {
+          type: "module"
+        })
+      ),
+    onResult: (response) => {
+      applyGeometryComputeResult(response, {
+        objectsRoot,
+        objectNodes,
+        objectSignatures,
+        objectStructureSignatures,
+        getTheme: () => tickRuntime.lastDomTheme,
+        manager: computeManager
+      });
+    }
+  });
+
   const tickTime0 = performance.now();
   const tickRuntime: GraphThreeEngineTickRuntime = {
     isContextLost: false,
@@ -234,11 +261,16 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     objectsDirty: true,
     gridState: createAdaptiveGridState(camera.position.x, camera.position.y, camera.position.z),
     baselinePlaneMode: 0,
-    scenePressure: computeScenePressureFromObjects(useGraphStore.getState().scene.objects)
+    scenePressure: computeScenePressureFromObjects(useGraphStore.getState().scene.objects),
+    lastStreamlineConfigs: null
   };
 
   let animationHandle = 0;
+  let resizeHandle = 0;
   let resizeObserver: ResizeObserver | null = null;
+  let suspended = false;
+  let disposed = false;
+  let initialized = false;
   const raycaster = new Raycaster();
   const ndc = new Vector2();
   const baselinePlane = new Plane(new Vector3(0, 1, 0), 0);
@@ -246,7 +278,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   const inputMutable = {
     isSketching: false,
     hoverProbePoint: null as { x: number; y: number; z: number } | null,
-    sketchPoints: [] as { x: number; y: number; z: number }[]
+    sketchPoints: [] as { x: number; y: number; z: number }[],
+    analysisPickDown: null as { x: number; y: number } | null,
+    primitivePickDown: null as { x: number; y: number } | null
   };
 
   const sketchGeometry = new BufferGeometry();
@@ -267,6 +301,15 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   scene.add(measurementMarkersRoot);
   const measurementLines: Line[] = [];
   const measurementLabels: CSS2DObject[] = [];
+  // S21: dedicated scene-level root for derived analysis overlays (never
+  // in objectsRoot, never in the canonical object sync).
+  const analysisOverlayRoot = new Group();
+  scene.add(analysisOverlayRoot);
+  const analysisOverlayCache = new Map<string, { key: string; group: Group }>();
+  // S33: explicit interaction-handle namespace (PART 63) — separate from
+  // analysis overlays so neither cleanup can sweep the other.
+  const interactionRoot = new Group();
+  scene.add(interactionRoot);
 
   const hoverMarker = new Mesh(
     new SphereGeometry(0.08, 10, 10),
@@ -288,12 +331,12 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       hoverProbeBadge.style.display = "none";
       return;
     }
-    const maxX = Math.max(0, container.clientWidth - 220);
-    const maxY = Math.max(0, container.clientHeight - 36);
     hoverProbeBadge.textContent = text;
-    hoverProbeBadge.style.left = `${Math.min(screenX + 12, maxX)}px`;
-    hoverProbeBadge.style.top = `${Math.min(screenY + 12, maxY)}px`;
     hoverProbeBadge.style.display = "block";
+    const maxX = Math.max(0, container.clientWidth - hoverProbeBadge.offsetWidth);
+    const maxY = Math.max(0, container.clientHeight - hoverProbeBadge.offsetHeight);
+    hoverProbeBadge.style.left = `${Math.max(0, Math.min(screenX + 12, maxX))}px`;
+    hoverProbeBadge.style.top = `${Math.max(0, Math.min(screenY + 12, maxY))}px`;
   };
 
   const formatProbe = (p: { x: number; y: number; z: number }) =>
@@ -325,7 +368,7 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       gridMesh.rotation.set(-Math.PI / 2, 0, 0);
       gridMesh.position.set(0, -0.0035, 0);
     }
-    (gridMaterial.uniforms.uPlaneMode as any).value = tickRuntime.baselinePlaneMode;
+    gridUniforms.uPlaneMode.value = tickRuntime.baselinePlaneMode;
   };
 
   /** World axis letters only; base-plane context lives in the 3D viewport chrome. */
@@ -405,16 +448,35 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     rebuildAxesGeometry(theme);
   };
 
+  let lastSurfaceDisplayKey = "";
+  let lastSurfaceDisplayCheck = 0;
+  const displayObjects = () => {
+    const view = { distance: camera.position.distanceTo(controls.target), fov: camera.fov, aspect: camera.aspect,
+      target: controls.target, orthoSpans: activeOrthoSpansForDisplay(multiView) };
+    return useGraphStore.getState().scene.objects.map((object) => object.kind === "surface"
+      ? { ...object, domain: surfaceDisplayDomain(object, view) } : object);
+  };
+  const displayKey = (objects: ReturnType<typeof displayObjects>) => JSON.stringify(objects.flatMap((object) => object.kind === "surface" && object.visible ? [[object.id, object.domain]] : []));
+  const refreshSurfaceDisplay = () => {
+    const now = performance.now();
+    if (now - lastSurfaceDisplayCheck < 250) return;
+    lastSurfaceDisplayCheck = now;
+    if (displayKey(displayObjects()) !== lastSurfaceDisplayKey) tickRuntime.objectsDirty = true;
+  };
   const syncObjects = (theme: ResolvedTheme) => {
+    const objects = displayObjects();
+    lastSurfaceDisplayKey = displayKey(objects);
     syncThreeSceneObjects(
       theme,
-      useGraphStore.getState().scene.objects,
+      objects,
       objectsRoot,
       objectNodes,
       objectSignatures,
       objectStructureSignatures,
       keyLight,
-      renderer
+      renderer,
+      computeManager,
+      () => tickRuntime.lastDomTheme
     );
   };
 
@@ -429,9 +491,22 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   };
 
   let prevSceneRef = useGraphStore.getState().scene;
+  let prevSelectedId = useGraphStore.getState().ui.selectedObjectId;
+  let prevAnalysisPickId = useGraphStore.getState().ui.differentialAnalysisPickArmedId;
   const unsub = useGraphStore.subscribe((state) => {
+    if (state.ui.differentialAnalysisPickArmedId !== prevAnalysisPickId) {
+      prevAnalysisPickId = state.ui.differentialAnalysisPickArmedId;
+      inputMutable.hoverProbePoint = null;
+      setHoverProbeBadge(null, 0, 0);
+    }
     if (state.scene !== prevSceneRef) {
       prevSceneRef = state.scene;
+      tickRuntime.objectsDirty = true;
+    }
+    // S31 selection emphasis is material-only (no signature, no rebuild):
+    // a selection-only change still needs one sync pass to apply it.
+    if (state.ui.selectedObjectId !== prevSelectedId) {
+      prevSelectedId = state.ui.selectedObjectId;
       tickRuntime.objectsDirty = true;
     }
   });
@@ -466,15 +541,30 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   });
 
   const requestNextFrame = (callback: () => void) => {
-    animationHandle = window.requestAnimationFrame(callback);
+    animationHandle = window.requestAnimationFrame(() => {
+      if (disposed) return;
+      try { callback(); }
+      catch (error) {
+        tickRuntime.isContextLost = true;
+        reportWarning("GPU frame failed.", { featureArea: "3d-viewport", operation: "gpu-frame", details: { error: error instanceof Error ? error.message : String(error) } });
+        onError?.("The 3D renderer could not draw this scene. Retry the viewport or export the scene before reloading.");
+      }
+    });
   };
 
+  // Geometry multi-view state. Null panes select the legacy
+  // single-perspective behavior used by Math Lab paths.
+  const multiView: GeometryMultiViewState = createGeometryMultiViewState();
+
+  const resolvePickContext = (clientX: number, clientY: number) =>
+    multiViewPickContext(multiView, camera, container, clientX, clientY);
+
   const {
-    handlePointerMove,
-    handlePointerDown,
-    handlePointerUp,
-    handlePointerLeave,
-    handleKeyDown,
+    handlePointerMove: basePointerMove,
+    handlePointerDown: basePointerDown,
+    handlePointerUp: basePointerUp,
+    handlePointerLeave: basePointerLeave,
+    handleKeyDown: baseKeyDown,
     handleKeyUp,
     handleContextMenu
   } = createGraphThreeEngineInputHandlers({
@@ -492,8 +582,156 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     sketchLine,
     maybeSnapPoint,
     formatProbe,
-    setHoverProbeBadge
+    setHoverProbeBadge,
+    resolvePickContext
   });
+
+  // S33 canvas interaction (hover/handles/drags/framing). Created after the
+  // input handlers so it can wrap them with the PART 1 precedence model.
+  const interaction = createCanvasInteraction({
+    renderer,
+    camera,
+    controls,
+    raycaster,
+    ndc,
+    objectsRoot,
+    interactionRoot,
+    objectNodes,
+    container,
+    multiView,
+    baselinePlane,
+    tempGround,
+    getPickContext: resolvePickContext
+  });
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // S33 Escape hierarchy: the viewport (child effect, registered first)
+    // cancels an active drag before EditorShell (parent effect) sees the
+    // keypress — so the shell's drag-active guard only fires when the engine
+    // deliberately skipped (typing target). One Escape otherwise performs at
+    // most the drag-cancel plus benign no-op menu closes, never a
+    // destructive action.
+    if (interaction.handleKeyDown(event)) {
+      return;
+    }
+    baseKeyDown(event);
+  };
+
+  const handlePointerMove = (event: PointerEvent) => {
+    // An active handle drag consumes the gesture (no camera pan alongside).
+    if (interaction.handlePointerMove(event)) {
+      return;
+    }
+    multiViewPointerMove(multiView, container, event);
+    basePointerMove(event);
+  };
+
+  // S16-R6: pointer ids currently captured for ortho gestures (S34: can
+  // hold two during a touch pinch). Capture targets the canvas so its own
+  // move/up listeners stay in the event path; legacy mode never captures.
+  let orthoCapturePointerIds: number[] = [];
+
+  const releaseOrthoPointerCapture = (pointerId?: number) => {
+    const ids = pointerId === undefined ? [...orthoCapturePointerIds] : [pointerId];
+    if (ids.length === 0) {
+      return;
+    }
+    for (const capturedId of ids) {
+      try {
+        if (renderer.domElement.hasPointerCapture?.(capturedId)) {
+          renderer.domElement.releasePointerCapture(capturedId);
+        }
+      } catch {
+        // Already released or capture unsupported; nothing to clean up.
+      }
+      orthoCapturePointerIds = orthoCapturePointerIds.filter((id) => id !== capturedId);
+    }
+  };
+
+  const captureOrthoPointer = (pointerId: number) => {
+    try {
+      renderer.domElement.setPointerCapture(pointerId);
+      if (!orthoCapturePointerIds.includes(pointerId)) {
+        orthoCapturePointerIds.push(pointerId);
+      }
+    } catch {
+      // Pointer capture unsupported (or already released); the drag still
+      // works while the pointer stays over the canvas.
+    }
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    // S33 PART 26: a draggable handle wins over the orthographic camera
+    // grab-drag; tool/armed-pick precedence is enforced inside.
+    if (interaction.handlePointerDown(event)) {
+      return;
+    }
+    // S33-R5: a second pointer during an active drag is fully ignored (no
+    // camera gesture and no selection alongside the object drag).
+    if (interaction.isDragging()) {
+      return;
+    }
+    const orthoDragStarted = multiViewPointerDown(
+      multiView,
+      container,
+      event,
+      useGraphStore.getState().ui.canvas3dTool
+    );
+    // S16-R6: keep ortho gestures alive when a pointer leaves the canvas
+    // mid-gesture (S34: each touch pointer captures independently).
+    if (orthoDragStarted) {
+      captureOrthoPointer(event.pointerId);
+    }
+    basePointerDown(event);
+  };
+
+  const handlePointerUp = (event: PointerEvent) => {
+    interaction.handlePointerUp(event);
+    // S34-R17: release only the lifting pointer (a pinch partner keeps its
+    // capture); cancel/suspend/dispose paths still release all.
+    releaseOrthoPointerCapture(event.pointerId);
+    multiViewPointerUp(multiView, event.pointerId);
+    basePointerUp(event);
+  };
+
+  const handleEnginePointerCancel = (event: PointerEvent) => {
+    // S34-R18: OS-cancelled touches must not leak pinch/pointer/capture
+    // state into the next gesture (the interaction module commits or clears
+    // the object drag itself via its own listener).
+    releaseOrthoPointerCapture(event.pointerId);
+    multiViewPointerUp(multiView, event.pointerId);
+  };
+
+  const handlePointerLeave = () => {
+    interaction.handlePointerLeave();
+    // With pointer capture a leave cannot fire mid-drag; without capture
+    // (unsupported platform) this still ends a drag that left the canvas.
+    releaseOrthoPointerCapture();
+    multiViewPointerUp(multiView);
+    basePointerLeave();
+  };
+
+  // S16-R2: container-capture routing runs before OrbitControls' own
+  // domElement listeners, so the first gesture over an orthographic pane
+  // never leaks into the perspective camera. No-ops entirely in legacy mode.
+  const handleContainerPointerDownCapture = (event: PointerEvent) => {
+    if (!multiView.panes) {
+      return;
+    }
+    const view = routeAndActivateGeometryView(multiView, container, event.clientX, event.clientY);
+    controls.enabled = view === null || view === "perspective";
+  };
+
+  const handleContainerWheelCapture = (event: WheelEvent) => {
+    if (!multiView.panes) {
+      return;
+    }
+    const view = routeAndActivateGeometryView(multiView, container, event.clientX, event.clientY);
+    controls.enabled = view === null || view === "perspective";
+    if (multiViewWheel(multiView, container, event)) {
+      event.preventDefault();
+    }
+  };
 
   const tick = createGraphThreeEngineTick({
     runtime: tickRuntime,
@@ -512,6 +750,8 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     measurementMarkersRoot,
     measurementLines,
     measurementLabels,
+    analysisOverlayRoot,
+    analysisOverlayCache,
     hoverMarker,
     getHoverProbePoint: () => inputMutable.hoverProbePoint,
     axesGroup,
@@ -522,9 +762,16 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     applyThemeToScene,
     resetCamera,
     syncObjects,
-    requestNextFrame
+    refreshSurfaceDisplay,
+    requestNextFrame,
+    container,
+    multiView,
+    isSuspended: () => suspended,
+    onFrameEnd: () => interaction.tick()
   });
 
+  let previousWidth = 0;
+  let previousHeight = 0;
   const resize = () => {
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -533,8 +780,22 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
     }
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height, false);
+    if (width !== previousWidth || height !== previousHeight) {
+      previousWidth = width;
+      previousHeight = height;
+      renderer.setSize(width, height, false);
+    }
     labelRenderer.setSize(width, height);
+  };
+
+  // GPU canvas and label dimensions are layout writes. Run them outside
+  // ResizeObserver delivery to avoid feedback loops when sheets or panes move.
+  const scheduleResize = () => {
+    if (disposed || suspended || resizeHandle) return;
+    resizeHandle = window.requestAnimationFrame(() => {
+      resizeHandle = 0;
+      if (!disposed && !suspended) resize();
+    });
   };
 
   const handleContextLost = (event: Event) => {
@@ -564,14 +825,15 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   renderer.domElement.addEventListener("pointerdown", handlePointerDown);
   renderer.domElement.addEventListener("pointerup", handlePointerUp);
   renderer.domElement.addEventListener("pointerleave", handlePointerLeave);
+  renderer.domElement.addEventListener("pointercancel", handleEnginePointerCancel);
+  container.addEventListener("pointerdown", handleContainerPointerDownCapture, true);
+  container.addEventListener("wheel", handleContainerWheelCapture, { passive: false, capture: true });
 
   window.addEventListener("keydown", handleKeyDown);
   window.addEventListener("keyup", handleKeyUp);
   renderer.domElement.addEventListener("contextmenu", handleContextMenu);
 
-  resizeObserver = new ResizeObserver(() => {
-    resize();
-  });
+  resizeObserver = new ResizeObserver(scheduleResize);
   resizeObserver.observe(container);
   resize();
 
@@ -580,11 +842,93 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
   syncObjects(tickRuntime.lastDomTheme);
   tickRuntime.objectsDirty = false;
 
-  animationHandle = window.requestAnimationFrame(tick);
+  renderer.onDeviceLost = (info) => {
+    if (disposed) return;
+    tickRuntime.isContextLost = true;
+    onError?.(`The ${info.api} rendering device was lost. Retry the viewport to reconnect.`);
+    reportWarning("Rendering device lost.", { featureArea: "3d-viewport", operation: "gpu-device-lost", details: { api: info.api, reason: info.reason } });
+  };
+  const ready = renderer.init().then(() => {
+    if (disposed) { renderer.dispose(); return; }
+    initialized = true;
+    renderer.domElement.dataset.renderBackend = (renderer.backend as unknown as { isWebGPUBackend?: boolean }).isWebGPUBackend ? "webgpu" : "webgl2";
+    renderer.domElement.dataset.mathBackend = "rust-wasm";
+    if (!suspended) requestNextFrame(tick);
+  });
+
+  const unregisterCapture = registerGraphCanvasCapture(renderer.domElement, async () => {
+    await ready;
+    if (disposed || tickRuntime.isContextLost) return null;
+    if (multiView.panes) {
+      renderGeometryMultiViewPanes(multiView, { renderer, labelRenderer, scene, perspectiveCamera: camera, container, labelGroup });
+    } else {
+      renderer.render(scene, camera);
+    }
+    return new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, "image/png"));
+  });
 
   return {
+    ready,
+    setGeometryPanes: (panes) => {
+      // S33 PART 76: a layout/view switch ends an active drag with restore
+      // before the pane semantics change (no axis corruption).
+      interaction.endForViewSwitch();
+      setGeometryMultiViewPanes(multiView, panes);
+      if (!multiView.panes) {
+        controls.enabled = true;
+        // Restore the full-container label viewport and perspective aspect
+        // that multi-pane rendering repositions per pane.
+        const labelElement = labelRenderer.domElement as HTMLElement;
+        labelElement.style.display = "block";
+        labelElement.style.left = "0px";
+        labelElement.style.top = "0px";
+        resize();
+      } else {
+        controls.enabled = getActiveGeometryView(multiView) === "perspective";
+      }
+    },
+    getActiveGeometryView: () => getActiveGeometryView(multiView),
+    setActiveGeometryView: (view: GeometryView) => {
+      setActiveGeometryView(multiView, view);
+    },
+    resetActiveGeometryPane: () => {
+      resetActiveGeometryView(multiView, resetCamera);
+    },
+    frameSelectedObject: () => interaction.frameSelected(),
+    fitSceneToView: () => interaction.fitScene(),
+    setSuspended: (value: boolean) => {
+      if (value === suspended) {
+        return;
+      }
+      suspended = value;
+      if (suspended) {
+        // Workspace switch hides the canvas: commit current drag work
+        // (preserve math) rather than restoring it away.
+        interaction.endForSuspend();
+        releaseOrthoPointerCapture();
+        cancelGeometryMultiViewDrag(multiView);
+        window.cancelAnimationFrame(animationHandle);
+        animationHandle = 0;
+        window.cancelAnimationFrame(resizeHandle);
+        resizeHandle = 0;
+        resizeObserver?.disconnect();
+        resizeObserver = null;
+      } else {
+        resizeObserver = new ResizeObserver(scheduleResize);
+        resizeObserver.observe(container);
+        resize();
+        if (initialized && !disposed) requestNextFrame(tick);
+      }
+    },
     dispose: () => {
+      if (disposed) return;
+      disposed = true;
+      unregisterCapture();
       window.cancelAnimationFrame(animationHandle);
+      window.cancelAnimationFrame(resizeHandle);
+      interaction.dispose();
+      releaseOrthoPointerCapture();
+      computeManager.dispose();
       unsub();
       unsubEditor();
       unsubPerfHud();
@@ -600,6 +944,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener("pointerleave", handlePointerLeave);
+      renderer.domElement.removeEventListener("pointercancel", handleEnginePointerCancel);
+      container.removeEventListener("pointerdown", handleContainerPointerDownCapture, true);
+      container.removeEventListener("wheel", handleContainerWheelCapture, true);
       renderer.domElement.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -618,6 +965,9 @@ export function createGraphThreeEngine(container: HTMLElement): GraphThreeEngine
         measurementMarkersRoot,
         measurementLines,
         measurementLabels,
+        analysisOverlayRoot,
+        analysisOverlayCache,
+        interactionRoot,
         hoverMarker,
         gridMesh,
         gridMaterial,

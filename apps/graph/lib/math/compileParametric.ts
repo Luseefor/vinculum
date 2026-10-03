@@ -1,6 +1,7 @@
-import { compile } from "mathjs";
+import { compileRustExpression as compile } from "./rustMath";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { formatNonFiniteEvaluationError, validateExpressionSafety } from "./expressionSafety";
+import { getParamScopeSignature } from "./paramScope";
+import { validateExpressionSafety } from "./expressionSafety";
 
 export type ParametricEvaluator = (t: number) => [number, number, number];
 
@@ -18,8 +19,16 @@ const MAX_ERROR_LENGTH = 92;
 const PARAMETRIC_COMPILE_CACHE_LIMIT = 128;
 const parametricCompileCache = new Map<string, CompiledParametricExpression>();
 
-function makeParametricCacheKey(xExpr: string, yExpr: string, zExpr: string): string {
-  return `${xExpr}\u0000${yExpr}\u0000${zExpr}`;
+function makeParametricCacheKey(
+  xExpr: string,
+  yExpr: string,
+  zExpr: string,
+  params: Record<string, number>
+): string {
+  // S29-R6: legacy key omitted the parameter snapshot, so param add/remove
+  // served stale accept/reject. Include the snapshot signature like the
+  // S25 explicit-params variant.
+  return [xExpr, yExpr, zExpr, getParamScopeSignature(params)].join("\u0000");
 }
 
 function getCachedParametricCompile(key: string): CompiledParametricExpression | null {
@@ -48,7 +57,8 @@ export function compileParametricExpressions(
   yExpr: string,
   zExpr: string
 ): CompiledParametricExpression {
-  const cacheKey = makeParametricCacheKey(xExpr, yExpr, zExpr);
+  const scopeSnapshot = getEditorParameterScope();
+  const cacheKey = makeParametricCacheKey(xExpr, yExpr, zExpr, scopeSnapshot);
   const cached = getCachedParametricCompile(cacheKey);
   if (cached) {
     return cached;
@@ -89,7 +99,11 @@ export function compileParametricExpressions(
   return successResult;
 }
 
-function compileAxisExpression(expr: string, label: string) {
+function compileAxisExpression(
+  expr: string,
+  label: string,
+  params?: Record<string, number>
+) {
   const trimmedExpr = expr.trim();
   if (!trimmedExpr) {
     return {
@@ -103,7 +117,7 @@ function compileAxisExpression(expr: string, label: string) {
     const safety = validateExpressionSafety(trimmedExpr, {
       operation: "compile-parametric-axis",
       expressionLabel: label,
-      allowedSymbols: Object.keys(getEditorParameterScope())
+      allowedSymbols: Object.keys(params ?? getEditorParameterScope())
     });
     if (!safety.ok) {
       return {
@@ -120,35 +134,29 @@ function compileAxisExpression(expr: string, label: string) {
     };
   }
 
-  try {
-    const initialValue = compiledExpression.evaluate({ t: 0, ...getEditorParameterScope() });
-    const numeric = typeof initialValue === "number" ? initialValue : Number(initialValue);
-    if (!Number.isFinite(numeric)) {
-      return {
-        expression: null,
-        error: `${label}: ${formatNonFiniteEvaluationError()}`
-      };
-    }
-  } catch (error) {
-    return {
-      expression: null,
-      error: `${label}: ${formatExpressionError(error)}`
-    };
-  }
-
+  // S6: no execution probe here. Compilation answers only whether the
+  // expression is syntactically valid, permitted, and compilable; per-sample
+  // domain validity belongs to the runtime evaluator/sampleCurve (NaN on
+  // throw or non-finite). Never probe at t=0, tMin, or any other fixed point.
   return {
     expression: compiledExpression,
     error: null
   };
 }
 
-function evaluateAxis(expression: CompiledMathExpression | null, t: number): number {
+function evaluateAxis(
+  expression: CompiledMathExpression | null,
+  t: number,
+  params?: Record<string, number>
+): number {
   if (!expression) {
     return Number.NaN;
   }
 
   try {
-    const value = expression.evaluate({ t, ...getEditorParameterScope() });
+    // Locals win over same-named parameters (S19 convention): t always
+    // means the curve parameter inside axis expressions.
+    const value = expression.evaluate({ ...(params ?? getEditorParameterScope()), t });
     const numericValue = typeof value === "number" ? value : Number(value);
     return Number.isFinite(numericValue) ? numericValue : Number.NaN;
   } catch (error) {
@@ -157,6 +165,54 @@ function evaluateAxis(expression: CompiledMathExpression | null, t: number): num
     }
     return Number.NaN;
   }
+}
+
+// S25 explicit-params variant for worker-safe integral geometry. Same
+// axis validation and evaluator semantics as the legacy entry, but the
+// parameter snapshot travels explicitly (S19 rule) and the cache key
+// carries the snapshot signature (the legacy key omits params and is left
+// untouched for existing callers).
+export function compileParametricCurveExpressions(
+  xExpr: string,
+  yExpr: string,
+  zExpr: string,
+  params: Record<string, number>
+): CompiledParametricExpression {
+  // S20-R1: \u0000-delimited segments, never bare concatenation (expression
+  // boundaries must not collide across axes).
+  const cacheKey = [xExpr, yExpr, zExpr, getParamScopeSignature(params)].join("\u0000");
+  const cached = getCachedParametricCompile(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const axes: Array<[string, string]> = [
+    [xExpr, "x(t)"],
+    [yExpr, "y(t)"],
+    [zExpr, "z(t)"]
+  ];
+  const compiledAxes: CompiledMathExpression[] = [];
+  for (const [expr, label] of axes) {
+    const compiled = compileAxisExpression(expr, label, params);
+    if (compiled.error) {
+      const errorResult = { evaluator: NAN_EVALUATOR, error: compiled.error };
+      setCachedParametricCompile(cacheKey, errorResult);
+      return errorResult;
+    }
+    compiledAxes.push(compiled.expression as CompiledMathExpression);
+  }
+  const [xCompiled, yCompiled, zCompiled] = compiledAxes as [
+    CompiledMathExpression,
+    CompiledMathExpression,
+    CompiledMathExpression
+  ];
+  const evaluator: ParametricEvaluator = (t) => [
+    evaluateAxis(xCompiled, t, params),
+    evaluateAxis(yCompiled, t, params),
+    evaluateAxis(zCompiled, t, params)
+  ];
+  const successResult = { evaluator, error: null };
+  setCachedParametricCompile(cacheKey, successResult);
+  return successResult;
 }
 
 function formatExpressionError(error: unknown): string {

@@ -1,5 +1,7 @@
-import type { Axis2DPair, GraphProbePin } from "@/types/graphUi";
+import type { Axis2DPair, GraphProbePin, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import type { SceneMeasurement } from "@/lib/scene/sceneSchema";
+import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
+import type { StreamlineResultEntry } from "@/lib/compute/streamlineResults";
 import { drawProbeLabel, drawScreenCrosshair } from "./graph2dCanvasDrawPrimitives";
 import { formatProbeCoord } from "./graph2dCanvasFormat";
 import { drawGraph2dGrid } from "./graph2dCanvasDrawGrid";
@@ -7,14 +9,26 @@ import { drawRenderableGraph2d } from "./graph2dCanvasDrawRenderableGraph";
 import { alignToPixel } from "./graph2dCanvasMath";
 import { graph2dMathToScreen } from "./graph2dCanvasTransforms";
 import { projectWorldTo2dPair } from "./graph2dCanvasProbes";
+import {
+  buildScalarGradientArrows,
+  drawScalarContours,
+  drawScalarGradientField,
+  drawScalarHeatLayer
+} from "./graph2dCanvasScalarViz";
+import { drawStreamlines2D } from "./graph2dCanvasStreamlines";
 import type { AxisPairSpec, DrawContext, Graph2dPaintPalette, MousePosition, RenderableGraph } from "./graph2dCanvasTypes";
 
 export type PaintGraph2dCanvasFrameArgs = {
   canvas: HTMLCanvasElement;
   container: HTMLElement;
   palette: Graph2dPaintPalette;
+  theme: "light" | "dark";
   viewport: { centerX: number; centerY: number; scale: number };
   renderableGraphs: RenderableGraph[];
+  scalarResults: Record<string, ScalarVizResultEntry>;
+  scalarConfigs: Record<string, ScalarVizConfig>;
+  streamlineResults: Record<string, StreamlineResultEntry>;
+  streamlineConfigs: Record<string, StreamlineVizConfig>;
   canvas2dTool: "pan" | "probe" | "draw" | "measureDistance" | "measureAngle" | "addPin";
   mousePos: MousePosition | null;
   isQuadTop: boolean;
@@ -31,8 +45,13 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     canvas,
     container,
     palette,
+    theme,
     viewport,
     renderableGraphs,
+    scalarResults,
+    scalarConfigs,
+    streamlineResults,
+    streamlineConfigs,
     canvas2dTool,
     mousePos,
     isQuadTop,
@@ -49,12 +68,16 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     return;
   }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const rect = container.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  canvas.style.width = `${rect.width}px`;
-  canvas.style.height = `${rect.height}px`;
+  const pixelWidth = Math.floor(rect.width * dpr);
+  const pixelHeight = Math.floor(rect.height * dpr);
+  // Resizing clears the backing buffer and resets context state. Hover and
+  // viewport redraws should reuse it unless its actual dimensions changed.
+  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+  if (canvas.style.width !== `${rect.width}px`) canvas.style.width = `${rect.width}px`;
+  if (canvas.style.height !== `${rect.height}px`) canvas.style.height = `${rect.height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const dc: DrawContext = {
@@ -68,27 +91,23 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
 
   ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, dc.width, dc.height);
+  // S23 heat pass: cached bitmaps blitted under the grid (never above
+  // curves). Pure redraw from cached results — zero resampling.
+  drawScalarHeatPass(renderableGraphs, scalarResults, scalarConfigs, theme, dc);
   drawGraph2dGrid(dc, graph2dMathToScreen, {
     gridMinor: palette.gridMinor,
     gridMajor: palette.gridMajor,
     axis: palette.axis,
     axisLabel: palette.axisLabel
   });
-  const vignette = ctx.createRadialGradient(
-    dc.width / 2,
-    dc.height / 2,
-    Math.min(dc.width, dc.height) * 0.25,
-    dc.width / 2,
-    dc.height / 2,
-    Math.max(dc.width, dc.height) * 0.72
-  );
-  vignette.addColorStop(0, "rgba(2, 6, 23, 0)");
-  vignette.addColorStop(1, "rgba(2, 6, 23, 0.3)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, dc.width, dc.height);
 
   for (const graph of renderableGraphs) {
     drawRenderableGraph2d(graph, dc, graph2dMathToScreen);
+    // S23 derived overlays paint with their source: contours and gradient
+    // glyphs above the source curve, below probes/measurements.
+    drawScalarOverlaysForGraph(graph, scalarResults, scalarConfigs, theme, dc);
+    // S24 streamlines paint with their source field, above glyphs.
+    drawStreamlineOverlaysForGraph(graph, streamlineResults, streamlineConfigs, axisPair, dc);
   }
 
   if (
@@ -146,6 +165,86 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     ctx.stroke();
     ctx.restore();
   }
+}
+
+function drawScalarHeatPass(
+  renderableGraphs: RenderableGraph[],
+  scalarResults: Record<string, ScalarVizResultEntry>,
+  scalarConfigs: Record<string, ScalarVizConfig>,
+  theme: "light" | "dark",
+  dc: DrawContext
+): void {
+  const attachments: {
+    attachment: { sourceId: string; domain: { uMin: number; uMax: number; vMin: number; vMax: number } };
+    signature: string;
+    result: Extract<ScalarVizResultEntry["result"], { status: "ok" }>;
+  }[] = [];
+  for (const graph of renderableGraphs) {
+    if (!graph.scalarField) {
+      continue;
+    }
+    const config = scalarConfigs[graph.scalarField.sourceId];
+    const entry = scalarResults[`scalar:${graph.scalarField.sourceId}`];
+    if (!config?.showHeatmap || !entry || entry.result.status !== "ok") {
+      continue;
+    }
+    attachments.push({ attachment: graph.scalarField, signature: entry.signature, result: entry.result });
+  }
+  if (attachments.length === 0) {
+    return;
+  }
+  drawScalarHeatLayer(attachments, theme, dc, graph2dMathToScreen);
+}
+
+function drawScalarOverlaysForGraph(
+  graph: RenderableGraph,
+  scalarResults: Record<string, ScalarVizResultEntry>,
+  scalarConfigs: Record<string, ScalarVizConfig>,
+  theme: "light" | "dark",
+  dc: DrawContext
+): void {
+  if (!graph.scalarField) {
+    return;
+  }
+  const config = scalarConfigs[graph.scalarField.sourceId];
+  const entry = scalarResults[`scalar:${graph.scalarField.sourceId}`];
+  if (!config || !entry || entry.result.status !== "ok") {
+    return;
+  }
+  const result = entry.result;
+  if (config.showContours && result.contourStatus === "ok" && result.contourSegmentCount > 0) {
+    drawScalarContours(result.contourSegments, result.contourSegmentCount, dc, graph2dMathToScreen, theme);
+  }
+  if (config.showGradient && result.gradientStatus === "ok") {
+    const arrows = buildScalarGradientArrows(
+      result,
+      graph.scalarField.domain,
+      Math.floor(config.gradientDensity),
+      config.gradientScale,
+      config.gradientNormalize
+    );
+    if (arrows) {
+      drawScalarGradientField(arrows, graph.color, dc, graph2dMathToScreen);
+    }
+  }
+}
+
+function drawStreamlineOverlaysForGraph(
+  graph: RenderableGraph,
+  streamlineResults: Record<string, StreamlineResultEntry>,
+  streamlineConfigs: Record<string, StreamlineVizConfig>,
+  axisPair: AxisPairSpec,
+  dc: DrawContext
+): void {
+  if (!graph.streamlines) {
+    return;
+  }
+  const config = streamlineConfigs[graph.streamlines.sourceId];
+  const entry = streamlineResults[`streamline:${graph.streamlines.sourceId}`];
+  if (!config?.enabled || !entry || entry.result.status !== "ok") {
+    return;
+  }
+  drawStreamlines2D(entry.result, graph.color, axisPair, dc, graph2dMathToScreen);
 }
 
 function drawMeasurementOverlays2d(

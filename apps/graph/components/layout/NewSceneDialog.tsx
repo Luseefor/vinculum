@@ -5,11 +5,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 interface NewSceneDialogProps {
   open: boolean;
+  exampleTitle?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
-export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDialogProps) {
+export default function NewSceneDialog({ open, exampleTitle, onConfirm, onCancel }: NewSceneDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onCancel()}>
       <DialogContent
@@ -19,9 +20,9 @@ export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDi
         backdropProps={{ role: "presentation" }}
       >
         <DialogHeader>
-          <DialogTitle>New scene</DialogTitle>
+          <DialogTitle>{exampleTitle ? "Open example" : "New scene"}</DialogTitle>
           <DialogDescription className="leading-relaxed">
-            This clears all objects and resets the view. This cannot be undone.
+            {exampleTitle ? `Replace the current scene with “${exampleTitle}”? Save your work first if you want to keep it. This cannot be undone.` : "This clears all objects and resets the view. This cannot be undone."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -29,7 +30,7 @@ export default function NewSceneDialog({ open, onConfirm, onCancel }: NewSceneDi
             Cancel
           </Button>
           <Button type="button" variant="primary" size="sm" onClick={onConfirm}>
-            Create new scene
+            {exampleTitle ? "Open example" : "Create new scene"}
           </Button>
         </DialogFooter>
       </DialogContent>

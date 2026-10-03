@@ -19,14 +19,15 @@ export function formatPolynomialExpression(coeffs: number[], variable: string): 
 
     const magStr = formatCoefficientMagnitude(c);
     const factor = j === 0 ? "" : j === 1 ? `*${variable}` : `*${variable}^${j}`;
+    const term = j > 0 && magStr === "1" ? factor.slice(1) : `${magStr}${factor}`;
 
     if (first) {
-      expr = c < 0 ? `-${magStr}${factor}` : `${magStr}${factor}`;
+      expr = c < 0 ? `-${term}` : term;
       first = false;
       continue;
     }
 
-    expr += c < 0 ? ` - ${magStr}${factor}` : ` + ${magStr}${factor}`;
+    expr += c < 0 ? ` - ${term}` : ` + ${term}`;
   }
 
   return expr.length > 0 ? expr : "0";
