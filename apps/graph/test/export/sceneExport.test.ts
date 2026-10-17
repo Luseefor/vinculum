@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
-import { createSceneDocument } from "@/lib/scene/sceneSchema";
+import { createParametricCurve } from "@/lib/graph/createParametricCurve";
+import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
+import { createSceneDocument, CURRENT_SCENE_SCHEMA_VERSION } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { registerGraphCanvasCapture } from "@/lib/graph3d/graphCanvasCapture";
 import {
@@ -27,7 +29,7 @@ describe("scene export service", () => {
     expect(result.file?.filename).toMatch(/\.json$/);
 
     const jsonText = await result.file!.blob.text();
-    expect(jsonText).toContain('"schemaVersion": 1');
+    expect(JSON.parse(jsonText).schemaVersion).toBe(CURRENT_SCENE_SCHEMA_VERSION);
     expect(jsonText).toBe(serializeScene(scene));
   });
 
@@ -138,6 +140,19 @@ describe("scene export service", () => {
     const svg = await result.file!.blob.text();
     expect(svg).toContain("<svg");
     expect(svg).toContain('viewBox="0 0 800 600"');
+  });
+
+  it("keeps parametric jumps separate and exports the active light palette and grid labels", async () => {
+    const curve = createParametricCurve({ xExpr: "t", yExpr: "t<0.13 ? 0 : 1", zExpr: "0", tMin: -2, tMax: 2, samples: 100, color: "#123456" });
+    const result = export2dSvg({ sceneName: "step", objects: [curve], axisPair: "xy", theme: "light", viewport: { centerX: 0, centerY: 0, scale: 60 }, viewportFrame: { width: 800, height: 600 } });
+    const svg = new DOMParser().parseFromString(await result.file!.blob.text(), "image/svg+xml");
+    expect(svg.querySelector("parsererror")).toBeNull();
+    expect(svg.querySelector("rect")?.getAttribute("fill")).toBe(getGraphThemeTokens("light").surfaceCanvas);
+    expect(svg.querySelectorAll("text").length).toBeGreaterThan(0);
+    const path = svg.querySelector('path[stroke="#123456"]')!.getAttribute("d")!;
+    expect(path.match(/M /g)?.length).toBe(2);
+    const ids = [...svg.querySelectorAll("[id]")].map(node => node.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("returns safe errors when download creation fails", () => {

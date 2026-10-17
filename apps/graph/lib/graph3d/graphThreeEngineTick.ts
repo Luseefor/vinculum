@@ -4,6 +4,7 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { useGraphStore } from "@/store/graphStore";
+import { useEditorStore } from "@/lib/store/editorStore";
 import { alignCameraToThreeBaseline } from "./graphThreeCameraBaseline";
 import { CAMERA_FAR_PLANE, DEFAULT_CAMERA_POSITION } from "./graphThreeEngineConstants";
 import { readResolvedThemeFromDom } from "./graphThreeEngineTheme";
@@ -41,6 +42,7 @@ import {
 } from "./graphThreePrimitiveDisplay";
 import { updateGeometryAnalysisOverlays } from "./buildGeometryAnalysisOverlays";
 import { updateLinearTransformOverlays } from "./buildLinearTransformOverlays";
+import { planarDisplayDomain2D } from "./surfaceDisplayDomain";
 
 export type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 
@@ -87,6 +89,8 @@ export type GraphThreeEngineTickDeps = {
   isSuspended: () => boolean;
   /** S33 canvas interaction pass (hover/handles/cursor), before render. */
   onFrameEnd?: () => void;
+  updateRenderResolution?: (nowMs: number, frameDeltaMs: number, previousFrameRendered: boolean) => void;
+  shouldRenderFrame?: (dependencies: readonly unknown[]) => boolean;
 };
 
 export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () => void {
@@ -128,6 +132,7 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
 
   const formatProbe = (p: { x: number; y: number; z: number }) =>
     `X ${p.x.toFixed(4)} · Y ${p.y.toFixed(4)} · Z ${p.z.toFixed(4)}`;
+  let previousFrameRendered = false;
 
   const tick = () => {
     if (isSuspended()) {
@@ -142,7 +147,6 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
     const frameDeltaMs = now - runtime.lastFrameTime;
     runtime.lastFrameTime = now;
     runtime.lastFrameDeltaMs = frameDeltaMs;
-    applyGraphThreeTickPerfSampling(now, frameDeltaMs, runtime, perfBadge, runtime.scenePressure);
 
     const storeState = useGraphStore.getState();
     const uiState = storeState.ui;
@@ -209,6 +213,37 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       applyThemeToScene(domTheme);
       runtime.objectsDirty = true;
     }
+    const camVersion = useGraphStore.getState().cameraResetVersion;
+    if (camVersion !== runtime.lastCameraResetVersion) {
+      runtime.lastCameraResetVersion = camVersion;
+      if (multiView.panes) {
+        resetActiveGeometryView(multiView, resetCamera);
+      } else {
+        resetCamera();
+      }
+    }
+
+    // S24-R1: pressure also refreshes when streamline configs change
+    // (ui-only commits never set objectsDirty, but they change render
+    // load). Ref comparison is exact: every config commit replaces the map.
+    deps.refreshSurfaceDisplay?.();
+    const streamlineConfigs = useGraphStore.getState().ui.streamlineVizBySourceId;
+    const configsChanged = streamlineConfigs !== runtime.lastStreamlineConfigs;
+    if (runtime.objectsDirty || configsChanged) {
+      const needsSync = runtime.objectsDirty;
+      runtime.objectsDirty = false;
+      runtime.lastStreamlineConfigs = streamlineConfigs;
+      if (needsSync) {
+        syncObjects(domTheme);
+      }
+      runtime.scenePressure = computeScenePressureFromObjects(
+        useGraphStore.getState().scene.objects,
+        streamlineConfigs
+      );
+    }
+
+    // Derived overlays must see current node visibility/geometry in the same
+    // submitted frame; an idle viewport may not draw a second frame.
     // S21: derived analysis overlays (normal + tangent patch) for picked
     // surface points. Reads transient store records; rebuilds only on
     // input change; never touches object sync or the compute manager.
@@ -239,26 +274,8 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       tokens: getGraphThemeTokens(domTheme),
       clearVectorCalculus: (sourceId) => useGraphStore.getState().clearVectorCalculus(sourceId)
     });
-    // S23: scalar-field jobs (heat/contour/gradient grids + planar slices)
-    // requested signature-tracked, then slice meshes synced from the
-    // result cache into the same shared overlay root. Source geometry
-    // sync below is untouched (0 rebuilds from scalar controls).
-    syncScalarViz(getScalarSyncContext(), storeState.scene.objects, getEditorParameterScope());
-    const scalarOverlayFrame = {
-      configs: uiState.scalarVizBySourceId,
-      objects: storeState.scene.objects,
-      objectNodes,
-      results: useScalarVizResultsStore.getState().entries,
-      overlayRoot: analysisOverlayRoot,
-      cache: analysisOverlayCache,
-      theme: domTheme,
-      params: getEditorParameterScope()
-    };
-    updateScalarSliceOverlays(scalarOverlayFrame);
-    updateScalarSurfaceOverlays(scalarOverlayFrame);
     // S24: streamline jobs (signature-tracked) plus packed-polyline
-    // overlays in the same shared root. Source geometry sync below is
-    // untouched (0 rebuilds from streamline controls).
+    // overlays in the same shared root (0 rebuilds from streamline controls).
     syncStreamlines(getStreamlineSyncContext(), storeState.scene.objects, getEditorParameterScope());
     updateStreamlineOverlays({
       configs: uiState.streamlineVizBySourceId,
@@ -270,42 +287,22 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       params: getEditorParameterScope()
     });
 
-    const camVersion = useGraphStore.getState().cameraResetVersion;
-    if (camVersion !== runtime.lastCameraResetVersion) {
-      runtime.lastCameraResetVersion = camVersion;
-      if (multiView.panes) {
-        resetActiveGeometryView(multiView, resetCamera);
-      } else {
-        resetCamera();
-      }
-    }
-
-    // S24-R1: pressure also refreshes when streamline configs change
-    // (ui-only commits never set objectsDirty, but they change render
-    // load). Ref comparison is exact: every config commit replaces the map.
-    deps.refreshSurfaceDisplay?.();
-    const streamlineConfigs = useGraphStore.getState().ui.streamlineVizBySourceId;
-    const configsChanged = streamlineConfigs !== runtime.lastStreamlineConfigs;
-    if (runtime.objectsDirty || configsChanged) {
-      const needsSync = runtime.objectsDirty;
-      runtime.objectsDirty = false;
-      runtime.lastStreamlineConfigs = streamlineConfigs;
-      if (needsSync) {
-        syncObjects(domTheme);
-      }
-      runtime.scenePressure = computeScenePressureFromObjects(
-        useGraphStore.getState().scene.objects,
-        streamlineConfigs
-      );
-    }
-
-    // Track frame timing + scene pressure (throttled inside the metrics module).
-    recordFrameSample({
-      nowMs: now,
-      frameTimeMs: frameDeltaMs,
-      viewport: "3d-viewport",
-      scenePressure: runtime.scenePressure
-    });
+    // Sync after source geometry so overlays share its quantized display bounds.
+    const scalarContext = getScalarSyncContext();
+    syncScalarViz(scalarContext, storeState.scene.objects, getEditorParameterScope());
+    const scalarOverlayFrame = {
+      configs: uiState.scalarVizBySourceId,
+      objects: storeState.scene.objects,
+      objectNodes,
+      results: useScalarVizResultsStore.getState().entries,
+      overlayRoot: analysisOverlayRoot,
+      cache: analysisOverlayCache,
+      theme: domTheme,
+      displayDomains: scalarContext.displayDomains,
+      params: getEditorParameterScope()
+    };
+    updateScalarSliceOverlays(scalarOverlayFrame);
+    updateScalarSurfaceOverlays(scalarOverlayFrame);
 
     if (multiView.panes) {
       if (multiView.activeView === "perspective") {
@@ -346,6 +343,10 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       cache: analysisOverlayCache,
       params: getEditorParameterScope(),
       halfExtent: primitiveDisplayHalfExtent,
+      planarDomain: planarDisplayDomain2D(
+        uiState.active2dViewport === "quadTop" ? uiState.viewport2dQuadTop : uiState.viewport2d,
+        uiState.active2dViewport === "quadTop" ? uiState.viewport2dQuadTopFrame : uiState.viewport2dFrame
+      ),
       clearAnalysis: (primaryId) => useGraphStore.getState().clearGeometryAnalysis(primaryId)
     });
     // S28: transient linearTransform overlays (transformed-vector
@@ -360,7 +361,18 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
       clearAnalysis: (transformId) => useGraphStore.getState().clearLinearTransformAnalysis(transformId)
     });
 
-    if (multiView.panes) {
+    // Hover/handle mutations must land before the frame they invalidate.
+    onFrameEnd?.();
+    deps.updateRenderResolution?.(now, frameDeltaMs, previousFrameRendered);
+    const didRender = deps.shouldRenderFrame?.([
+      storeState, useEditorStore.getState(), domTheme,
+      useGeometryComputeStore.getState().entries,
+      useScalarVizResultsStore.getState().entries,
+      useStreamlineResultsStore.getState().entries,
+      multiView.panes, multiView.activeView
+    ]) ?? true;
+    previousFrameRendered = didRender;
+    if (didRender && multiView.panes) {
       renderGeometryMultiViewPanes(multiView, {
         renderer,
         labelRenderer,
@@ -369,14 +381,15 @@ export function createGraphThreeEngineTick(deps: GraphThreeEngineTickDeps): () =
         container,
         labelGroup
       });
-    } else {
+    } else if (didRender) {
       renderer.render(scene, camera);
       labelRenderer.render(scene, camera);
     }
-
-    // S33 canvas interaction pass (hover pick, emphasis, handles, cursor)
-    // runs before the frame is scheduled so state stays frame-coherent.
-    onFrameEnd?.();
+    if (didRender) {
+      renderer.domElement.dataset.renderFrame = String(Number(renderer.domElement.dataset.renderFrame ?? 0) + 1);
+      recordFrameSample({ nowMs: now, frameTimeMs: frameDeltaMs, viewport: "3d-viewport", scenePressure: runtime.scenePressure });
+    }
+    applyGraphThreeTickPerfSampling(now, frameDeltaMs, runtime, perfBadge, runtime.scenePressure, didRender);
 
     requestNextFrame(tick);
   };

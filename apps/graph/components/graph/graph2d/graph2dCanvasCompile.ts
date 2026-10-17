@@ -10,7 +10,7 @@ function isCompiledMathExpression(value: unknown): value is CompiledMathExpressi
   return "evaluate" in value && typeof (value as { evaluate?: unknown }).evaluate === "function";
 }
 
-export function tryCompileMathExpression(expr: string): CompiledMathExpression | null {
+export function tryCompileMathExpression(expr: string, params: Record<string, number> = {}): CompiledMathExpression | null {
   const trimmed = expr.trim();
   if (!trimmed) {
     return null;
@@ -19,7 +19,8 @@ export function tryCompileMathExpression(expr: string): CompiledMathExpression |
   try {
     const safety = validateExpressionSafety(trimmed, {
       operation: "compile-2d",
-      expressionLabel: "2D graph expression"
+      expressionLabel: "2D graph expression",
+      allowedSymbols: Object.keys(params)
     });
     if (!safety.ok) {
       return null;
@@ -31,7 +32,7 @@ export function tryCompileMathExpression(expr: string): CompiledMathExpression |
     // A non-finite mathematical result at this arbitrary point is a
     // sampling-domain concern handled per point by the evaluate closures,
     // which return null on throw or non-finite.
-    const scope: Record<string, number> = { x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E };
+    const scope: Record<string, number> = { ...params, x: 0, y: 0, z: 0, t: 0, pi: Math.PI, e: Math.E };
     try {
       node.evaluate(scope);
     } catch {

@@ -54,7 +54,6 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
     streamlineConfigs,
     canvas2dTool,
     mousePos,
-    isQuadTop,
     probePins,
     measurements,
     selectedMeasurementId,
@@ -112,14 +111,13 @@ export function paintGraph2dCanvasFrame(args: PaintGraph2dCanvasFrameArgs): void
 
   if (
     (canvas2dTool === "probe" || canvas2dTool === "measureDistance" || canvas2dTool === "measureAngle" || canvas2dTool === "addPin") &&
-    mousePos &&
-    !isQuadTop
+    mousePos
   ) {
     const cursorScreen = graph2dMathToScreen(mousePos.math.horizontal, mousePos.math.vertical, dc);
     drawScreenCrosshair(ctx, dc.width, dc.height, cursorScreen.x, cursorScreen.y, palette.probe, 1.25, [4, 4]);
   }
 
-  if (!isQuadTop) {
+  {
     drawMeasurementOverlays2d(ctx, dc, measurements, pairForCanvas, selectedMeasurementId);
 
     for (const pin of probePins) {
@@ -213,12 +211,12 @@ function drawScalarOverlaysForGraph(
   }
   const result = entry.result;
   if (config.showContours && result.contourStatus === "ok" && result.contourSegmentCount > 0) {
-    drawScalarContours(result.contourSegments, result.contourSegmentCount, dc, graph2dMathToScreen, theme);
+    drawScalarContours(result.contourSegments, result.contourSegmentCount, dc, graph2dMathToScreen, theme, { levels: result.levels, offsets: result.contourLevelOffsets });
   }
   if (config.showGradient && result.gradientStatus === "ok") {
     const arrows = buildScalarGradientArrows(
       result,
-      graph.scalarField.domain,
+      result.domain,
       Math.floor(config.gradientDensity),
       config.gradientScale,
       config.gradientNormalize

@@ -14,6 +14,7 @@ test("a sketch stays where it was drawn and repeated strokes remain visible", as
   const scales: number[] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     await page.getByRole("combobox", { name: "Tool", exact: true }).selectOption("draw");
+    await expect(page.getByTestId("canvas-empty-state")).toHaveCount(0);
     const currentBox = (await canvas.boundingBox())!;
     const points = Array.from({ length: 41 }, (_, i) => ({ x: Math.round(currentBox.x + currentBox.width * (0.3 + 0.4 * i / 40)) - currentBox.x, y: Math.round(currentBox.y + currentBox.height * (0.7 - 0.3 * i / 40)) - currentBox.y }));
     const viewport = await page.evaluate(() => JSON.parse(sessionStorage.getItem("vinculum-graph-session")!).state.ui.viewport2d);

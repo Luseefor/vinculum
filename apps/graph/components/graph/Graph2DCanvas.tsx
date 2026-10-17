@@ -1,14 +1,18 @@
 "use client";
 
-import { useRef, useMemo, useCallback, useEffect } from "react";
+import { useRef, useMemo, useCallback, useEffect, useState } from "react";
+import { subscribeCanvasFrameRequests } from "@/lib/interaction/canvasFrameRequests";
+import { fitGraph2dViewport } from "./graph2d/graph2dCanvasFit";
 import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
-import { getScalarSyncContext, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { getScalarSyncContext, setScalarVizDisplayDomains, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { planarDisplayDomain2D, surfaceDisplayDomain2D } from "@/lib/graph3d/surfaceDisplayDomain";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import { getStreamlineSyncContext, syncStreamlines } from "@/lib/compute/streamlineSync";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
 import { getAxisPairSpec } from "./graph2d/graph2dCanvasAxis";
-import { buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
+import { buildPlanarIntersectionGraphs, buildRenderableGraphsFromScene } from "./graph2d/buildRenderableGraphsFromScene";
 import { Graph2DCanvasUiChrome } from "./graph2d/Graph2DCanvasUiChrome";
 import { graph2dPaintPalette } from "./graph2d/graph2dPaintPalette";
 import type { RenderableGraph } from "./graph2d/graph2dCanvasTypes";
@@ -47,7 +51,6 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
     viewport,
     viewportFrame,
     pairForCanvas,
-    axis2dPairQuadTop,
     canvas2dTool,
     snapEnabled,
     snapStep,
@@ -69,6 +72,19 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
   const axisPair = useMemo(() => getAxisPairSpec(pairForCanvas), [pairForCanvas]);
 
   const palette = useMemo(() => graph2dPaintPalette(resolvedTheme), [resolvedTheme]);
+  const [fitMessage, setFitMessage] = useState<string | null>(null);
+  useEffect(() => subscribeCanvasFrameRequests(kind => {
+    const state = useGraphStore.getState();
+    if (suspended || state.ui.workspace !== "math" || useEditorStore.getState().viewportMode === "quad" && state.ui.active2dViewport !== variant) return;
+    const result = fitGraph2dViewport(state.scene.objects, pairForCanvas, getEditorParameterScope(), viewport, viewportFrame, kind === "selected" ? state.ui.selectedObjectId ?? undefined : undefined);
+    if (result) patchViewport2D(result.viewport);
+    setFitMessage(result ? result.sampled ? "View fitted. Unbounded equations may continue beyond this range." : "View fitted." : "No geometry found in this plane. Change the plane or reset the view.");
+  }), [suspended, variant, pairForCanvas, viewport, viewportFrame, patchViewport2D]);
+  useEffect(() => {
+    if (!fitMessage) return;
+    const timer = setTimeout(() => setFitMessage(null), 6000);
+    return () => clearTimeout(timer);
+  }, [fitMessage]);
 
   // S20-R9: parameters thread explicitly into the builder (pure data flow,
   // no ambient store reads inside). Viewport-only changes (pan/zoom) never
@@ -78,7 +94,7 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
 
   // S23: scalar-viz configs gate derived heat/contour/gradient attachments;
   // cached worker results paint them. Both subscribe here so results stream
-  // in without resampling on pan/zoom (the builder takes no viewport).
+  // in when a quantized sampling range changes.
   const scalarConfigs = useGraphStore((state) => state.ui.scalarVizBySourceId);
   const scalarResults = useScalarVizResultsStore((state) => state.entries);
   // S24: same pattern for streamline polylines.
@@ -87,16 +103,33 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
   // S28: eigen-toggle liveness for transform layers (build-time only).
   const linearTransformAnalysis = useGraphStore((state) => state.ui.linearTransformAnalysisBySourceId);
 
-  const renderableGraphs = useMemo<RenderableGraph[]>(
+  const geometryConfigs = useGraphStore(state => state.ui.geometryAnalysisBySourceId);
+  const analysisDomain = useMemo(() => planarDisplayDomain2D(viewport, viewportFrame), [viewport, viewportFrame]);
+  const baseGraphs = useMemo<RenderableGraph[]>(
     () => buildRenderableGraphsFromScene(objects, axisPair, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis),
     [axisPair, objects, paramScope, scalarConfigs, streamlineConfigs, linearTransformAnalysis]
   );
 
-  // S23: request desired scalar jobs when sources/configs/params change.
-  // Signature-tracked: viewport-only changes enqueue 0 jobs.
+  const renderableGraphs = useMemo(() => axisPair.horizontal === "x" && axisPair.vertical === "y"
+    ? [...baseGraphs, ...buildPlanarIntersectionGraphs(objects, geometryConfigs, paramScope, analysisDomain)] : baseGraphs,
+    [baseGraphs, objects, geometryConfigs, paramScope, analysisDomain, axisPair]);
+
+  const scalarDomainOwner = useRef({}).current;
   useEffect(() => {
-    syncScalarViz(getScalarSyncContext(), objects, paramScope);
-  }, [objects, paramScope, scalarConfigs]);
+    const context = getScalarSyncContext();
+    const attachedIds = new Set(renderableGraphs.flatMap(graph => graph.scalarField ? [graph.scalarField.sourceId] : []));
+    const domains = Object.fromEntries(objects.flatMap(object =>
+      object.kind === "surface" && attachedIds.has(object.id)
+        ? [[object.id, surfaceDisplayDomain2D(object, viewport, viewportFrame)]] : []));
+    setScalarVizDisplayDomains(context, scalarDomainOwner, suspended ? null : domains);
+    syncScalarViz(context, objects, paramScope);
+  }, [objects, paramScope, renderableGraphs, scalarDomainOwner, suspended, viewport, viewportFrame]);
+
+  useEffect(() => () => {
+    const context = getScalarSyncContext();
+    setScalarVizDisplayDomains(context, scalarDomainOwner, null);
+    syncScalarViz(context, useGraphStore.getState().scene.objects, getEditorParameterScope());
+  }, [scalarDomainOwner]);
 
   // S24: same for streamline jobs (shared signature ledger per context, so
   // the two canvases never double-request).
@@ -112,11 +145,11 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
     canvasHandlers
   } = useGraph2dCanvasInteraction({
     canvasRef,
+    suspended,
     isQuadTop,
     canvas2dTool,
     viewport,
     pairForCanvas,
-    axis2dPairQuadTop,
     snapEnabled,
     snapStep,
     probePins,
@@ -211,23 +244,23 @@ export function Graph2DCanvas({ className = "", variant = "primary", suspended =
         setSketchFitPreview={setSketchFitPreview}
         addSketchedParametricFromStroke={addSketchedParametricFromStroke}
         isQuadTop={isQuadTop}
-        axis2dPairQuadTop={axis2dPairQuadTop}
         probePins={probePins}
         measurements={measurements}
         measurementDraft={measurementDraft}
         pairForCanvas={pairForCanvas}
         viewportRange={viewportRange}
       />
+      {fitMessage ? <div role="status" data-testid="graph2d-fit-status" className="pointer-events-none absolute bottom-12 left-3 z-30 max-w-[calc(100%-5rem)] rounded-sm bg-(--surface-overlay) px-2 py-1 text-[12px] text-(--text-secondary)">{fitMessage}</div> : null}
 
       {(showPerfHud || metrics.warningLevel !== "ok") && (
         <div
           // Bottom-right, left of the zoom stack and clear of the pane label.
-          className={`pointer-events-none absolute bottom-3 right-[3.75rem] z-[22] flex max-w-[min(300px,calc(100%-6rem))] flex-col gap-0.5 rounded-[var(--radius-md)] border bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug shadow-[var(--shadow-control)] ${
+          className={`pointer-events-none absolute bottom-3 right-15 z-22 flex max-w-[min(300px,calc(100%-6rem))] flex-col gap-0.5 rounded-[var(--ui-radius-md)] border bg-(--surface-overlay) px-3 py-2 text-[11px] leading-snug shadow-(--shadow-control) ${
             metrics.warningLevel === "critical"
-              ? "border-[var(--status-error-border)] text-[var(--status-error-fg)]"
+              ? "border-(--status-error-border) text-(--status-error-fg)"
               : metrics.warningLevel === "warning"
-                ? "border-[var(--status-warning-border)] text-[var(--status-warning-fg)]"
-                : "border-[var(--border-subtle)] font-mono text-[var(--text-secondary)]"
+                ? "border-(--status-warning-border) text-(--status-warning-fg)"
+                : "border-(--border-subtle) font-mono text-(--text-secondary)"
           }`}
           role="status"
           aria-live="polite"

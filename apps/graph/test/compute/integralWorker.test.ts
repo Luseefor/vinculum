@@ -71,6 +71,23 @@ describe("integralAnalysis protocol guards (S25 PART 66)", () => {
     expect(isGeometryComputeRequest({ ...base, kind: "integral" })).toBe(false);
   });
 
+  it("validates solid modes and carries both height functions into the worker", () => {
+    const base = circleArcRequest();
+    if (base.kind !== "integralAnalysis") throw new Error("expected integral kind");
+    const request = { ...base, payload: { ...base.payload, mode: "volume" as const, lowerBoundary: "1", target: { kind: "surface" as const, equation: "z=3", orientation: "z" as const, domain: { xMin: 0, xMax: 2, yMin: 0, yMax: 4 } } } };
+    expect(isGeometryComputeRequest(request)).toBe(true);
+    expect(handleGeometryComputeMessage(request)?.response.result).toMatchObject({ status: "ok", value: 16 });
+    const area = { ...request, payload: { ...request.payload, mode: "solidArea" as const } };
+    expect(isGeometryComputeRequest(area)).toBe(true);
+    expect(handleGeometryComputeMessage(area)?.response.result).toMatchObject({ status: "ok", value: 40 });
+    expect(isGeometryComputeRequest({ ...request, payload: { ...request.payload, lowerBoundary: 1 } })).toBe(false);
+    const implicit = { ...request, payload: { ...request.payload, target: { kind: "implicitSurface" as const, equation: "x^2+y^2+z^2=1", domain: { xMin: -2, xMax: 2, yMin: -2, yMax: 2, zMin: -2, zMax: 2 } } } };
+    expect(isGeometryComputeRequest(implicit)).toBe(true);
+    expect(isGeometryComputeRequest({ ...implicit, payload: { ...implicit.payload, mode: "flux" } })).toBe(false);
+    expect(isGeometryComputeRequest({ ...implicit, payload: { ...implicit.payload, mode: "solidArea" } })).toBe(false);
+    expect(isGeometryComputeRequest({ ...implicit, payload: { ...implicit.payload, target: { ...implicit.payload.target, domain: { ...implicit.payload.target.domain, zMax: NaN } } } })).toBe(false);
+  });
+
   it("rejects corrupt integral results", () => {
     const handled = handleGeometryComputeMessage(circleArcRequest());
     const response = handled?.response;

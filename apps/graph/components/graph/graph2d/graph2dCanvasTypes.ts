@@ -42,10 +42,18 @@ export interface AxisPairSpec {
 }
 
 export interface CompiledMathExpression {
+  hasDiscontinuities?: boolean;
   evaluate: (scope: Record<string, number>) => unknown;
 }
 
 export interface RenderableGraph {
+  meshXY?: { points: Float64Array; indices: Uint16Array | Uint32Array; wireframe: boolean };
+  analysisPoints?: Array<{ x: number; y: number }>;
+  /** A follow-view surface coinciding with the complete coordinate plane. */
+  coplanarSurface?: boolean;
+  hasDiscontinuities?: boolean;
+  /** Sideways explicit cases use vertical input and horizontal output. */
+  swapAxes?: boolean;
   id: string;
   color: string;
   verticalLineValue: number | null;

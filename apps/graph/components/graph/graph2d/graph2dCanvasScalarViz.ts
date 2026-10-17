@@ -4,10 +4,48 @@ import type { ScalarVizResultBody } from "@/lib/compute/scalarVizResults";
 import { drawVectorFieldArrows } from "./graph2dCanvasVectorField";
 import type { DrawContext, ScalarFieldAttachment, VectorFieldArrows } from "./graph2dCanvasTypes";
 import type { ViewportTransform } from "./graph2dCanvasProbes";
+import { formatNumber } from "./graph2dCanvasFormat";
+
+export interface ContourValueLabel { text: string; value: number; x: number; y: number; width: number; angle: number }
+
+/** Place actual contour levels on visible segments; omit labels that would collide. */
+export function layoutContourValueLabels(
+  segments: ArrayLike<number>, levels: ArrayLike<number>, offsets: ArrayLike<number>,
+  viewport: ViewportTransform,
+  mathToScreen: (x: number, y: number, viewport: ViewportTransform) => { x: number; y: number }
+): ContourValueLabel[] {
+  const labels: ContourValueLabel[] = [];
+  if (offsets.length !== levels.length + 1) return labels;
+  const targetX = viewport.width * .62, targetY = viewport.height * .38;
+  for (let level = 0; level < Math.min(16, levels.length); level++) {
+    const value = levels[level];
+    if (!Number.isFinite(value)) continue;
+    const text = formatNumber(value), width = text.length * 8 + 12;
+    let best: ContourValueLabel | null = null, score = Infinity;
+    for (let segment = offsets[level]; segment < offsets[level + 1] && segment * 4 + 3 < segments.length; segment++) {
+      const x = (segments[segment * 4] + segments[segment * 4 + 2]) / 2;
+      const y = (segments[segment * 4 + 1] + segments[segment * 4 + 3]) / 2;
+      const point = mathToScreen(x, y, viewport);
+      if (!Number.isFinite(point.x) || !Number.isFinite(point.y) || point.x < width / 2 + 8 || point.x > viewport.width - width / 2 - 8 || point.y < 20 || point.y > viewport.height - 20) continue;
+      if (labels.some(label => Math.abs(label.x - point.x) < (label.width + width) / 2 + 8 && Math.abs(label.y - point.y) < 28)) continue;
+      const distance = (point.x - targetX) ** 2 + (point.y - targetY) ** 2;
+      if (distance < score) {
+        const a = mathToScreen(segments[segment * 4], segments[segment * 4 + 1], viewport);
+        const b = mathToScreen(segments[segment * 4 + 2], segments[segment * 4 + 3], viewport);
+        let angle = Math.atan2(b.y - a.y, b.x - a.x);
+        if (angle > Math.PI / 2) angle -= Math.PI;
+        if (angle < -Math.PI / 2) angle += Math.PI;
+        best = { ...point, text, value, width, angle }; score = distance;
+      }
+    }
+    if (best) labels.push(best);
+  }
+  return labels;
+}
 
 // S23 2D scalar-visualization draw layer (heat bitmaps, contour batches,
 // gradient glyphs). Reads cached worker results; never samples, never
-// requests — pan/zoom/theme changes only redraw. Heat bitmaps are cached
+// requests — theme changes only redraw; sampling is managed by the canvas. Heat bitmaps are cached
 // per (source, signature, theme) offscreen and blitted with drawImage
 // into the transformed domain rect (PART 22 option A: affine redraw, zero
 // resampling). Contours stroke as one batch with a contrasting underlay
@@ -121,8 +159,8 @@ export function drawScalarHeatLayer(
     }
     // Destination rect from the domain corners (axis-aligned in math, so
     // two corners suffice; min/max guards inverted ranges).
-    const topLeft = mathToScreen(attachment.domain.uMin, attachment.domain.vMax, dc);
-    const bottomRight = mathToScreen(attachment.domain.uMax, attachment.domain.vMin, dc);
+    const topLeft = mathToScreen(result.domain.uMin, result.domain.vMax, dc);
+    const bottomRight = mathToScreen(result.domain.uMax, result.domain.vMin, dc);
     const left = Math.min(topLeft.x, bottomRight.x);
     const top = Math.min(topLeft.y, bottomRight.y);
     const width = Math.abs(bottomRight.x - topLeft.x);
@@ -143,7 +181,8 @@ export function drawScalarContours(
   segmentCount: number,
   dc: DrawContext,
   mathToScreen: (mathX: number, mathY: number, viewport: ViewportTransform) => { x: number; y: number },
-  theme: string
+  theme: string,
+  values?: { levels: ArrayLike<number>; offsets?: ArrayLike<number> }
 ): void {
   if (segmentCount <= 0) {
     return;
@@ -155,6 +194,22 @@ export function drawScalarContours(
   ctx.beginPath();
   ctx.rect(0, 0, dc.width, dc.height);
   ctx.clip();
+  const labels = values?.offsets
+    ? layoutContourValueLabels(segments, values.levels, values.offsets, dc, mathToScreen) : [];
+  // Cut real gaps around the text; leave the heatmap and grid beneath intact.
+  ctx.save();
+  if (labels.length) {
+    ctx.beginPath();
+    ctx.rect(0, 0, dc.width, dc.height);
+    for (const label of labels) {
+      ctx.save();
+      ctx.translate(label.x, label.y);
+      ctx.rotate(label.angle);
+      ctx.rect(-label.width / 2, -9, label.width, 18);
+      ctx.restore();
+    }
+    ctx.clip("evenodd");
+  }
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   for (const [strokeStyle, lineWidth] of [
@@ -175,6 +230,21 @@ export function drawScalarContours(
       ctx.lineTo(b.x, b.y);
     }
     ctx.stroke();
+  }
+  ctx.restore();
+  ctx.font = "12px ui-monospace, SFMono-Regular, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const label of labels) {
+    ctx.save();
+    ctx.translate(label.x, label.y);
+    ctx.rotate(label.angle);
+    ctx.strokeStyle = underlay;
+    ctx.lineWidth = 3;
+    ctx.strokeText(label.text, 0, 0);
+    ctx.fillStyle = ink;
+    ctx.fillText(label.text, 0, 0);
+    ctx.restore();
   }
   ctx.restore();
 }

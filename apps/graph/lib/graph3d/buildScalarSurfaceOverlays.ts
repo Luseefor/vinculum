@@ -12,17 +12,17 @@ import {
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
-import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
+import { MAX_CONTOUR_SEGMENTS, MAX_CONTOUR_LEVELS } from "@/lib/math/surfaces/marchingSquares";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/surfaceExpressionOrientation";
+import { buildScalarFieldJob } from "@/lib/compute/scalarVizSync";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { removeCachedSliceOverlay, sliceDataTexture, type ScalarSliceOverlayFrame } from "./buildScalarSliceOverlays";
+import { surfaceHeightClamp } from "./surfaceDisplayDomain";
 import { buildVectorFieldGroup } from "./buildGraphVectorField";
 
-// 3D heat map + contours for explicit surfaces. The worker grid (`scalar:<id>`,
-// shared with the 2D canvas) is lifted onto the graph f(u,v): the heat layer is
-// a lit mesh drawn a hair in front of the source surface (polygon offset), and
-// each contour segment is lifted to its interpolated height. Keyed
-// `scalar-surface:<id>` / `-contour` in the shared overlay root; raycast
-// disabled so overlays never steal surface picks.
+// Scalar textures use a copy of the rendered source geometry. Contours cut
+// that same triangulation at the worker levels, with no world-space lift.
+// Both preserve the source mesh gaps and remain aligned at every resolution.
 
 export const SCALAR_SURFACE_KEY_PREFIX = "scalar-surface:";
 
@@ -40,9 +40,6 @@ export function scalarSurfaceGradientCacheKey(sourceId: string): string {
 
 type OkResult = Extract<ScalarVizResultEntry["result"], { status: "ok" }>;
 type Orientation = NonNullable<SurfaceGraphObject["orientation"]>;
-
-// Must match sampleSurface's clamp so the heat layer tracks the drawn surface.
-const CLAMP_HEIGHT = 10_000;
 
 export function explicitSurfaceMathPoint(
   orientation: Orientation,
@@ -63,8 +60,16 @@ function disableRaycast(object: Object3D): void {
   (object as Mesh).raycast = () => {};
 }
 
-function clampHeight(value: number): number {
-  return Math.max(-CLAMP_HEIGHT, Math.min(CLAMP_HEIGHT, value));
+function clampHeight(value: number, limit: number): number {
+  return Math.max(-limit, Math.min(limit, value));
+}
+
+function findSurfaceGeometry(node: Object3D | undefined): BufferGeometry | null {
+  let geometry: BufferGeometry | null = null;
+  node?.traverse(child => {
+    if (!geometry && child instanceof Mesh && child.geometry.index) geometry = child.geometry;
+  });
+  return geometry;
 }
 
 export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): void {
@@ -82,14 +87,17 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
       continue;
     }
     const entry = frame.results[`scalar:${sourceId}`];
-    const result = entry?.result.status === "ok" ? entry.result : null;
+    const desired = buildScalarFieldJob(source, config, frame.params, frame.displayDomains?.[sourceId]);
+    const result = entry?.signature === desired?.signature && entry?.result.status === "ok" ? entry.result : null;
+    const node = frame.objectNodes.get(sourceId);
+    const surfaceGeometry = findSurfaceGeometry(node);
+    if (!surfaceGeometry) continue;
     const wantMesh = config.showHeatmap && result !== null && result.validCount > 0;
     const wantContours =
       config.showContours && result !== null && result.contourStatus === "ok" && result.contourSegmentCount > 0;
-    const node = frame.objectNodes.get(sourceId);
     const visible = Boolean(node?.visible);
-    const orientation = source.orientation ?? "z";
-    const meshKeyValue = [config.structure, entry?.signature ?? "", orientation].join("|");
+    const { effectiveOrientation: orientation } = getEffectiveSurfaceOrientation(source.equation, source.orientation);
+    const meshKeyValue = [config.structure, entry?.signature ?? "", orientation, surfaceGeometry.uuid].join("|");
     const contourKeyValue = [meshKeyValue, frame.theme].join("|");
 
     if (config.showGradient && result?.gradientStatus === "ok" && result.gradientValidCount > 0) {
@@ -98,7 +106,7 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
       if (frame.cache.get(gradientKey)?.key !== key) {
         removeCachedSliceOverlay(frame, gradientKey);
         const group = buildSurfaceGradient(sourceId, result, orientation, config.gradientDensity,
-          config.gradientScale, config.gradientNormalize, frame.theme);
+          config.gradientScale, config.gradientNormalize, frame.theme, surfaceHeightClamp(source));
         frame.overlayRoot.add(group);
         frame.cache.set(gradientKey, { key, group });
       }
@@ -110,7 +118,7 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
       const cached = frame.cache.get(meshKey);
       if (!cached || cached.key !== meshKeyValue) {
         removeCachedSliceOverlay(frame, meshKey);
-        const mesh = buildSurfaceHeatMesh(sourceId, result, orientation);
+        const mesh = buildSurfaceHeatMesh(sourceId, result, orientation, surfaceGeometry);
         if (mesh) {
           frame.overlayRoot.add(mesh);
           frame.cache.set(meshKey, { key: meshKeyValue, group: mesh });
@@ -126,11 +134,10 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
       const cached = frame.cache.get(contourKey);
       if (!cached || cached.key !== contourKeyValue) {
         removeCachedSliceOverlay(frame, contourKey);
-        const lines = buildSurfaceContours(sourceId, result, orientation, frame.theme);
-        if (lines) {
-          frame.overlayRoot.add(lines);
-          frame.cache.set(contourKey, { key: contourKeyValue, group: lines });
-        }
+        // Cache empty/budget-limited cuts too, rather than retrying every frame.
+        const lines = buildSurfaceContours(sourceId, result, orientation, frame.theme, surfaceGeometry) ?? new Group();
+        frame.overlayRoot.add(lines);
+        frame.cache.set(contourKey, { key: contourKeyValue, group: lines });
       }
       const current = frame.cache.get(contourKey);
       if (current) {
@@ -146,67 +153,32 @@ export function updateScalarSurfaceOverlays(frame: ScalarSliceOverlayFrame): voi
   }
 }
 
-function gridCoord(result: OkResult, i: number, j: number): { u: number; v: number } {
-  const { domain, width, height } = result;
-  return {
-    u: domain.uMin + ((domain.uMax - domain.uMin) * i) / (width - 1),
-    v: domain.vMin + ((domain.vMax - domain.vMin) * j) / (height - 1)
-  };
+function independentWorldAxes(orientation: Orientation): [number, number] {
+  return orientation === "x" ? [2, 1] : orientation === "y" ? [0, 1] : [0, 2];
 }
 
-function buildSurfaceHeatMesh(sourceId: string, result: OkResult, orientation: Orientation): Group | null {
-  const { width, height } = result;
-  if (width < 2 || height < 2) {
-    return null;
-  }
-  const positions = new Float32Array(width * height * 3);
-  const uvs = new Float32Array(width * height * 2);
-  for (let j = 0; j < height; j += 1) {
-    for (let i = 0; i < width; i += 1) {
-      const index = j * width + i;
-      const { u, v } = gridCoord(result, i, j);
-      const f = result.valid[index] === 1 ? clampHeight(result.values[index] as number) : 0;
-      const world = mathToWorld3D(explicitSurfaceMathPoint(orientation, u, v, f));
-      positions[index * 3] = world.x;
-      positions[index * 3 + 1] = world.y;
-      positions[index * 3 + 2] = world.z;
-      uvs[index * 2] = i / (width - 1);
-      uvs[index * 2 + 1] = j / (height - 1);
-    }
-  }
-  const indices: number[] = [];
-  for (let j = 0; j < height - 1; j += 1) {
-    for (let i = 0; i < width - 1; i += 1) {
-      const a = j * width + i;
-      const b = a + 1;
-      const c = a + width;
-      const d = c + 1;
-      if (result.valid[a] && result.valid[b] && result.valid[c] && result.valid[d]) {
-        indices.push(a, c, b, b, c, d);
-      }
-    }
-  }
-  if (indices.length === 0) {
-    return null;
-  }
+function buildSurfaceHeatMesh(sourceId: string, result: OkResult, orientation: Orientation,
+  sourceGeometry: BufferGeometry): Group | null {
   const texture = sliceDataTexture(result);
-  if (!texture) {
-    return null;
+  if (!texture) return null;
+  const geometry = sourceGeometry.clone();
+  const positions = geometry.getAttribute("position");
+  const uvs = new Float32Array(positions.count * 2);
+  const [uAxis, vAxis] = independentWorldAxes(orientation);
+  const { domain } = result;
+  for (let i = 0; i < positions.count; i++) {
+    uvs[i * 2] = (positions.getComponent(i, uAxis) - domain.uMin) / (domain.uMax - domain.uMin);
+    uvs[i * 2 + 1] = (positions.getComponent(i, vAxis) - domain.vMin) / (domain.vMax - domain.vMin);
   }
-  const geometry = new BufferGeometry();
-  geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
   const material = new MeshStandardMaterial({
     map: texture,
     roughness: 0.7,
     metalness: 0,
     side: DoubleSide,
     polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -4
+    polygonOffsetFactor: 0.5,
+    polygonOffsetUnits: 0.5
   });
   const mesh = new Mesh(geometry, material);
   mesh.renderOrder = 2;
@@ -246,7 +218,7 @@ function sampleGrid(result: OkResult, u: number, v: number): number | null {
 /** Function gradient in the independent-coordinate plane, anchored on f(u,v).
  * The dependent component stays zero: these are not surface normals. */
 function buildSurfaceGradient(sourceId: string, result: OkResult, orientation: Orientation,
-  density: number, scale: number, normalize: boolean, theme: ResolvedTheme): Group {
+  density: number, scale: number, normalize: boolean, theme: ResolvedTheme, heightLimit: number): Group {
   const positions = new Float32Array(result.gradientValidCount * 3);
   const vectors = new Float32Array(positions.length);
   const magnitudes = new Float32Array(result.gradientValidCount);
@@ -256,7 +228,7 @@ function buildSurfaceGradient(sourceId: string, result: OkResult, orientation: O
     const v = result.gradientPositions[i * 3 + 1] as number;
     const f = sampleGrid(result, u, v);
     if (f === null) continue;
-    const point = explicitSurfaceMathPoint(orientation, u, v, clampHeight(f));
+    const point = explicitSurfaceMathPoint(orientation, u, v, clampHeight(f, heightLimit));
     const vector = explicitSurfaceMathPoint(orientation, result.gradientVectors[i * 3] as number,
       result.gradientVectors[i * 3 + 1] as number, 0);
     positions.set([point.x, point.y, point.z], count * 3);
@@ -285,47 +257,46 @@ function buildSurfaceContours(
   sourceId: string,
   result: OkResult,
   orientation: Orientation,
-  theme: ResolvedTheme
+  theme: ResolvedTheme,
+  sourceGeometry: BufferGeometry
 ): Group | null {
-  const count = result.contourSegmentCount;
-  if (count <= 0) {
-    return null;
-  }
-  // Lines coincide with the surface, so draw one copy lifted slightly along
-  // each side of the dependent axis: visible from above and below, no z-fight.
-  const span = Math.max(
-    Math.abs(result.domain.uMax - result.domain.uMin),
-    Math.abs(result.domain.vMax - result.domain.vMin),
-    Math.abs(result.max - result.min)
-  );
-  const lift = Math.max(1e-4, span * 0.003);
+  const vertices = sourceGeometry.getAttribute("position");
+  const indices = sourceGeometry.getIndex();
+  if (!indices) return null;
+  const dependentAxis = orientation === "x" ? 0 : orientation === "y" ? 2 : 1;
   const positions: number[] = [];
-  for (let s = 0; s < count; s += 1) {
-    const ua = result.contourSegments[s * 4] as number;
-    const va = result.contourSegments[s * 4 + 1] as number;
-    const ub = result.contourSegments[s * 4 + 2] as number;
-    const vb = result.contourSegments[s * 4 + 3] as number;
-    const fa = sampleGrid(result, ua, va);
-    const fb = sampleGrid(result, ub, vb);
-    if (fa === null || fb === null) {
-      continue;
-    }
-    for (const offset of [lift, -lift]) {
-      const worldA = mathToWorld3D(explicitSurfaceMathPoint(orientation, ua, va, clampHeight(fa) + offset));
-      const worldB = mathToWorld3D(explicitSurfaceMathPoint(orientation, ub, vb, clampHeight(fb) + offset));
-      positions.push(worldA.x, worldA.y, worldA.z, worldB.x, worldB.y, worldB.z);
+  // Intersect only rendered triangles: no bridging invalid cells, no second
+  // displaced copy, and both endpoints and the whole segment lie on the face.
+  for (const level of result.levels.subarray(0, MAX_CONTOUR_LEVELS)) {
+    for (let triangle = 0; triangle < indices.count; triangle += 3) {
+      const aIndex = indices.getX(triangle), bIndex = indices.getX(triangle + 1), cIndex = indices.getX(triangle + 2);
+      const aHeight = vertices.getComponent(aIndex, dependentAxis), bHeight = vertices.getComponent(bIndex, dependentAxis), cHeight = vertices.getComponent(cIndex, dependentAxis);
+      if (level < Math.min(aHeight, bHeight, cHeight) || level >= Math.max(aHeight, bHeight, cHeight)) continue;
+      const ids = [aIndex, bIndex, cIndex];
+      const hits: number[][] = [];
+      for (let edge = 0; edge < 3; edge++) {
+        const a = ids[edge], b = ids[(edge + 1) % 3];
+        const fa = vertices.getComponent(a, dependentAxis), fb = vertices.getComponent(b, dependentAxis);
+        if (!((fa <= level && fb > level) || (fb <= level && fa > level))) continue;
+        const t = (level - fa) / (fb - fa);
+        hits.push([0, 1, 2].map(axis => vertices.getComponent(a, axis) * (1 - t) + vertices.getComponent(b, axis) * t));
+      }
+      if (hits.length === 2 && hits[0].some((value, axis) => Math.abs(value - hits[1][axis]) > 1e-9)) {
+        if (positions.length / 6 >= MAX_CONTOUR_SEGMENTS) return null;
+        positions.push(...hits[0], ...hits[1]);
+      }
     }
   }
-  if (positions.length === 0) {
-    return null;
-  }
+  if (positions.length === 0) return null;
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
   geometry.computeBoundingSphere();
   const material = new LineBasicMaterial({
     color: theme === "dark" ? 0xf1f5f9 : 0x0f172a,
     transparent: true,
-    opacity: 0.8
+    opacity: 0.8,
+    depthTest: true,
+    depthWrite: false
   });
   const lines = new LineSegments(geometry, material);
   lines.renderOrder = 3;

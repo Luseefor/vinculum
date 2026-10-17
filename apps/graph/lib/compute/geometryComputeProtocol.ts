@@ -155,6 +155,8 @@ export type IntegralAnalysisMode =
   | "scalarLine"
   | "work"
   | "surfaceArea"
+  | "solidArea"
+  | "volume"
   | "scalarSurface"
   | "flux";
 
@@ -185,7 +187,8 @@ export interface IntegralParametricSurfaceTargetPayload {
 export type IntegralTargetPayload =
   | IntegralCurveTargetPayload
   | IntegralExplicitSurfaceTargetPayload
-  | IntegralParametricSurfaceTargetPayload;
+  | IntegralParametricSurfaceTargetPayload
+  | { kind: "implicitSurface"; equation: string; domain: { xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number } };
 
 export interface IntegralFieldPayload {
   dimension: "2d" | "3d";
@@ -198,6 +201,7 @@ export interface IntegralAnalysisPayload {
   mode: IntegralAnalysisMode;
   target: IntegralTargetPayload;
   scalarIntegrand: string;
+  lowerBoundary?: string;
   field: IntegralFieldPayload | null;
   quality: "low" | "medium" | "high";
   direction: 1 | -1;
@@ -264,6 +268,7 @@ export interface ScalarFieldComputeOkResult {
   totalSamples: number;
   levels: Float32Array;
   contourSegments: Float32Array;
+  contourLevelOffsets?: Uint32Array;
   contourSegmentCount: number;
   contourStatus: "ok" | "empty" | "degenerate" | "budget-exceeded";
   gradientPositions: Float32Array;
@@ -630,6 +635,11 @@ function isScalarFieldResult(value: Record<string, unknown>): boolean {
   ) {
     return false;
   }
+  if (value.contourLevelOffsets !== undefined) {
+    const offsets = value.contourLevelOffsets;
+    if (!(offsets instanceof Uint32Array) || offsets.length !== value.levels.length + 1 || offsets[0] !== 0 || offsets[offsets.length - 1] !== value.contourSegmentCount) return false;
+    for (let i = 1; i < offsets.length; i++) if (offsets[i] < offsets[i - 1]) return false;
+  }
   if (
     !(value.gradientPositions instanceof Float32Array) ||
     !(value.gradientVectors instanceof Float32Array) ||
@@ -742,6 +752,8 @@ function isIntegralAnalysisPayload(value: unknown): value is IntegralAnalysisPay
     value.mode !== "scalarLine" &&
     value.mode !== "work" &&
     value.mode !== "surfaceArea" &&
+    value.mode !== "solidArea" &&
+    value.mode !== "volume" &&
     value.mode !== "scalarSurface" &&
     value.mode !== "flux"
   ) {
@@ -751,6 +763,10 @@ function isIntegralAnalysisPayload(value: unknown): value is IntegralAnalysisPay
   if (!isRecord(target)) {
     return false;
   }
+  const curveMode = value.mode === "arcLength" || value.mode === "scalarLine" || value.mode === "work";
+  if ((target.kind === "parametricCurve") !== curveMode) return false;
+  if (target.kind === "implicitSurface" && value.mode !== "surfaceArea" && value.mode !== "volume") return false;
+  if (value.mode === "solidArea" && target.kind !== "surface") return false;
   if (target.kind === "parametricCurve") {
     if (
       typeof target.xExpr !== "string" ||
@@ -773,6 +789,9 @@ function isIntegralAnalysisPayload(value: unknown): value is IntegralAnalysisPay
     ) {
       return false;
     }
+  } else if (target.kind === "implicitSurface") {
+    const domain = target.domain;
+    if (typeof target.equation !== "string" || !isRecord(domain) || !["xMin", "xMax", "yMin", "yMax", "zMin", "zMax"].every(key => isFiniteNumber(domain[key]))) return false;
   } else if (target.kind === "parametricSurface") {
     if (
       typeof target.xExpr !== "string" ||
@@ -792,6 +811,7 @@ function isIntegralAnalysisPayload(value: unknown): value is IntegralAnalysisPay
   if (typeof value.scalarIntegrand !== "string") {
     return false;
   }
+  if (value.lowerBoundary !== undefined && typeof value.lowerBoundary !== "string") return false;
   if (value.field !== null) {
     if (!isRecord(value.field)) {
       return false;

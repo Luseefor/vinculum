@@ -88,6 +88,13 @@ describe("scalarField protocol guards (S23 PART 8/24)", () => {
         result: { ...response.result, gradientStatus: "computing" }
       })
     ).toBe(false);
+    const result = response.result as ScalarFieldComputeOkResult;
+    for (const offsets of [new Uint32Array(0), new Uint32Array(result.levels.length + 1), Uint32Array.from([1, ...result.contourLevelOffsets!.slice(1)])]) {
+      expect(isGeometryComputeResponse({ ...response, result: { ...result, contourLevelOffsets: offsets } })).toBe(false);
+    }
+    const descending = result.contourLevelOffsets!.slice();
+    descending[1] = result.contourSegmentCount + 1;
+    expect(isGeometryComputeResponse({ ...response, result: { ...result, contourLevelOffsets: descending } })).toBe(false);
   });
 });
 
@@ -116,6 +123,7 @@ describe("scalarField worker parity (S23)", () => {
     expect(Array.from(result.values)).toEqual(Array.from(sync.values));
     expect(Array.from(result.valid)).toEqual(Array.from(sync.valid));
     expect(Array.from(result.contourSegments)).toEqual(Array.from(sync.contourSegments));
+    expect(Array.from(result.contourLevelOffsets!)).toEqual(Array.from(sync.contourLevelOffsets!));
     expect(Array.from(result.gradientVectors)).toEqual(Array.from(sync.gradientVectors));
     expect(result.min).toBe(sync.min);
     expect(result.max).toBe(sync.max);
@@ -127,8 +135,9 @@ describe("scalarField worker parity (S23)", () => {
     const handled = handleGeometryComputeMessage(scalarRequest());
     expect(handled).not.toBeNull();
     const buffers = handled?.transfer.map((entry) => (entry as ArrayBuffer).byteLength ?? 0) ?? [];
-    // values, valid, levels, contourSegments, gradient x3.
-    expect(handled?.transfer).toHaveLength(7);
+    // values, valid, levels, contourSegments, contourLevelOffsets, gradient x3.
+    expect(handled?.transfer).toHaveLength(8);
+    expect(handled?.transfer).toContain((handled?.response.result as ScalarFieldComputeOkResult).contourLevelOffsets!.buffer);
     expect(buffers.every((length) => length >= 0)).toBe(true);
   });
 

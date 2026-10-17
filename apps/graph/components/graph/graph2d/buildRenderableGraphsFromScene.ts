@@ -1,17 +1,21 @@
-import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
+import { computeGeometryFacts, resolveGeometrySource } from "@/lib/math/geometry/geometryAnalysis";
+import { compileSurfaceExpression, getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
+import { buildGeometrySlice2d } from "./graph2dCanvasGeometrySlice";
 import { compileImplicitSurfaceExpression, type CompiledImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
-import type { GraphObject, LinearTransformObject2D } from "@vinculum/scene/types";
-import type { LinearTransformAnalysisConfig, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
+import type { GraphObject, LinearTransformObject2D, SurfaceDomain } from "@vinculum/scene/types";
+import type { GeometryAnalysisConfig, LinearTransformAnalysisConfig, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import {
   tryAppendExplicitCompiledCurve,
   tryAppendImplicitRenderableGraph,
   tryAppendSurfaceHatchRenderable
 } from "./equationRenderableBranches";
 import { escapeRegExp } from "./graph2dCanvasImplicitParse";
-import { buildParametricPolylineHV } from "./graph2dCanvasParametricPolyline";
+import { compilePlaneEquation, samplePlane } from "@/lib/math/surfaces/samplePlane";
+import { buildParametricPolylineHV, buildParametricSurfaceMeshXY, buildParametricSurfaceSlice } from "./graph2dCanvasParametricPolyline";
 import { buildVectorFieldArrows } from "./graph2dCanvasVectorField";
 import { analyzeEigen } from "@/lib/math/linear-algebra/matrixEigen";
 import { resolveLinearTransform } from "@/lib/math/linear-algebra/linearTransformResolve";
@@ -20,17 +24,33 @@ import type { AxisPairSpec, LinearTransformLayer, RenderableGraph } from "./grap
 // Keep unchanged fields stable across color/visibility/selection updates so
 // the contour renderer can reuse its cached paths instead of resampling.
 const planarFields = new WeakMap<CompiledImplicitSurfaceExpression, Map<string, (x: number, y: number) => number | null>>();
-function getPlanarField(compiled: CompiledImplicitSurfaceExpression, horizontal: "x" | "y" | "z" = "x", vertical: "x" | "y" | "z" = "y") {
+type CoordinateBounds = Partial<Record<"x" | "y" | "z", readonly [number, number]>>;
+function inRange(value: number, range?: readonly [number, number]): boolean {
+  return !range || value >= Math.min(range[0], range[1]) && value <= Math.max(range[0], range[1]);
+}
+function insideBounds(coords: Record<"x" | "y" | "z", number>, bounds: CoordinateBounds): boolean {
+  return inRange(coords.x, bounds.x) && inRange(coords.y, bounds.y) && inRange(coords.z, bounds.z);
+}
+function getPlanarField(compiled: CompiledImplicitSurfaceExpression, horizontal: "x" | "y" | "z" = "x", vertical: "x" | "y" | "z" = "y", bounds: CoordinateBounds = {}) {
   let fields = planarFields.get(compiled);
   if (!fields) { fields = new Map(); planarFields.set(compiled, fields); }
-  const key = horizontal + vertical;
+  const key = horizontal + vertical + JSON.stringify(bounds);
   let field = fields.get(key);
   if (!field) {
     field = Object.assign((h: number, v: number) => {
       const coords = { x: 0, y: 0, z: 0, [horizontal]: h, [vertical]: v };
+      if (!insideBounds(coords, bounds)) return null;
       const value = compiled.evaluator(coords.x, coords.y, coords.z);
       return Number.isFinite(value) ? value : null;
-    }, { sampleXYGrid: compiled.samplePlaneGrid ? (hMin: number, hMax: number, columns: number, vMin: number, vMax: number, rows: number) => compiled.samplePlaneGrid!(horizontal, vertical, hMin, hMax, columns, vMin, vMax, rows) : undefined });
+    }, { sampleXYGrid: compiled.samplePlaneGrid ? (hMin: number, hMax: number, columns: number, vMin: number, vMax: number, rows: number) => {
+      const values = compiled.samplePlaneGrid!(horizontal, vertical, hMin, hMax, columns, vMin, vMax, rows);
+      if (Object.keys(bounds).length) for (let row = 0; row < rows; row++) for (let col = 0; col < columns; col++) {
+        const fixedAxis = horizontal !== "x" && vertical !== "x" ? "x" : horizontal !== "y" && vertical !== "y" ? "y" : "z";
+        if (!inRange(0, bounds[fixedAxis]) || !inRange(hMin + (hMax - hMin) * col / (columns - 1), bounds[horizontal]) || !inRange(vMin + (vMax - vMin) * row / (rows - 1), bounds[vertical])) values[row * columns + col] = NaN;
+      }
+      return values;
+    } : undefined });
+    if (fields.size >= 16) fields.delete(fields.keys().next().value!);
     fields.set(key, field);
   }
   return field;
@@ -52,7 +72,7 @@ export function buildRenderableGraphsFromScene(
     }
 
     if (obj.kind === "parametricCurve") {
-      const polylineHV = buildParametricPolylineHV(obj, axisPair.horizontal, axisPair.vertical);
+      const polylineHV = buildParametricPolylineHV(obj, axisPair.horizontal, axisPair.vertical, params);
       if (polylineHV) {
         graphs.push({
           id: obj.id,
@@ -74,12 +94,53 @@ export function buildRenderableGraphsFromScene(
       if (!obj.equation.trim()) continue;
       const compiled = compileImplicitSurfaceExpression(obj.equation, params);
       if (compiled.error) continue;
+      const d = obj.domain;
       graphs.push({ id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null,
-        evaluate: null, implicitEvaluate: getPlanarField(compiled, axisPair.horizontal, axisPair.vertical), hatchDomain: null, polylineHV: null });
+        evaluate: null, implicitEvaluate: getPlanarField(compiled, axisPair.horizontal, axisPair.vertical, { x: [d.xMin, d.xMax], y: [d.yMin, d.yMax], z: [d.zMin, d.zMax] }), hatchDomain: null, polylineHV: null });
       continue;
     }
-    // Parametric surfaces have no canonical coordinate-plane intersection yet.
-    if (obj.kind === "parametricSurface") continue;
+    if (obj.kind === "parametricSurface") {
+      if (obj.dimension === "2d" && axisPair.horizontal === "x" && axisPair.vertical === "y") {
+        const meshXY = buildParametricSurfaceMeshXY(obj, params);
+        if (meshXY) graphs.push({ id: obj.id, color: obj.color, meshXY,
+          verticalLineValue: null, horizontalLineValue: null, evaluate: null,
+          implicitEvaluate: null, hatchDomain: null, polylineHV: null });
+      } else if (obj.dimension !== "2d") {
+        const slice = buildParametricSurfaceSlice(obj, axisPair.horizontal, axisPair.vertical, params);
+        const base = { id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null, evaluate: null, implicitEvaluate: null, hatchDomain: null, polylineHV: null };
+        if (slice?.points.length) graphs.push({ ...base, polylineHV: { points: slice.points, connectedSegments: slice.connectedSegments } });
+        if (slice?.areaIndices.length) graphs.push({ ...base, meshXY: { points: slice.areaPoints, indices: slice.areaIndices, wireframe: obj.appearance.wireframe } });
+        if (slice?.contacts.length) graphs.push({ ...base, analysisPoints: slice.contacts });
+      }
+      continue;
+    }
+
+    if (obj.kind === "plane") {
+      const compiled = compilePlaneEquation(obj.equation, params);
+      if (!compiled.coefficients) continue;
+      const { positions } = samplePlane(compiled.coefficients, obj.size);
+      const indexFor = (axis: "x" | "y" | "z") => axis === "x" ? 0 : axis === "y" ? 1 : 2;
+      const hi = indexFor(axisPair.horizontal), vi = indexFor(axisPair.vertical);
+      const fixed = 3 - hi - vi;
+      const epsilon = 1e-6 * Math.max(1, ...positions.map(Math.abs));
+      const points: number[][] = [];
+      const add = (h: number, v: number) => { if (!points.some(point => Math.hypot(point[0] - h, point[1] - v) <= epsilon)) points.push([h, v]); };
+      const coplanar = [0, 1, 2, 3].every(i => Math.abs(positions[i * 3 + fixed]) <= epsilon);
+      for (let i = 0; i < 4; i++) {
+        const a = i * 3, b = ((i + 1) % 4) * 3;
+        const start = positions[a + fixed], end = positions[b + fixed];
+        if (Math.abs(start) <= epsilon) add(positions[a + hi], positions[a + vi]);
+        if (start * end < 0) {
+          const t = start / (start - end);
+          add(positions[a + hi] + t * (positions[b + hi] - positions[a + hi]), positions[a + vi] + t * (positions[b + vi] - positions[a + vi]));
+        }
+      }
+      if (coplanar && points.length) points.push(points[0]);
+      if (points.length < 2) continue;
+      graphs.push({ id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null, evaluate: null, implicitEvaluate: null, hatchDomain: null,
+        polylineHV: { points: Float64Array.from(points.flat()), connectedSegments: new Uint8Array(points.length - 1).fill(1) } });
+      continue;
+    }
 
     // S20: 2D vector fields sample synchronously (bounded, microseconds)
     // and draw as Canvas2D glyphs. 3D fields skip here (PART 10): they
@@ -142,10 +203,7 @@ export function buildRenderableGraphsFromScene(
       }
     }
 
-    // S26 2D-canvas decision (PART 50): spatial primitives render in the
-    // shared Three Geometry system only — no ambiguous 2D projection is
-    // invented for Canvas2D. The Math Lab object list still
-    // contains/selects/edits them; they simply produce no 2D renderable.
+    // Spatial primitives use true coordinate-plane intersections, not flattened coordinates.
     if (
       obj.kind === "point" ||
       obj.kind === "vector" ||
@@ -153,6 +211,8 @@ export function buildRenderableGraphsFromScene(
       obj.kind === "ray" ||
       obj.kind === "segment"
     ) {
+      const slice = buildGeometrySlice2d(obj, axisPair, params);
+      if (slice) graphs.push(slice);
       continue;
     }
 
@@ -191,9 +251,40 @@ export function buildRenderableGraphsFromScene(
       // Ordinary y=f(x) graphs reuse the explicit curve sampler, including
       // its discontinuity handling. General relations remain zero contours.
       const explicitY = inferred.explicitAxis === "y";
+      const sidewaysCases = inferred.explicitAxis === "x";
       graphs.push({ id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null,
-        evaluate: explicitY ? (x) => { const value = field(x, 0); return value === null ? null : -value; } : null,
-        implicitEvaluate: explicitY ? null : field, hatchDomain: null, polylineHV: null });
+        hasDiscontinuities: compiled.evaluator.hasDiscontinuities,
+        swapAxes: sidewaysCases,
+        evaluate: explicitY || sidewaysCases ? (t) => { const value = sidewaysCases ? field(0, t) : field(t, 0); return value === null ? null : -value; } : null,
+        implicitEvaluate: explicitY || sidewaysCases ? null : field, hatchDomain: null, polylineHV: null });
+      continue;
+    }
+
+    if (obj.kind === "surface" && (getEffectiveSurfaceOrientation(obj.equation, obj.orientation).body !== obj.equation.trim() || !splitSingleMathEquality(obj.equation))) {
+      const compiled = compileSurfaceExpression(obj.equation, obj.orientation, params);
+      if (compiled.error) continue;
+      const dependent = compiled.effectiveOrientation;
+      const inputs = dependent === "x" ? ["y", "z"] as const : dependent === "y" ? ["x", "z"] as const : ["x", "y"] as const;
+      const followsView = obj.autoDomain ?? Boolean(obj.autoExpression);
+      const bounds: CoordinateBounds = followsView ? {} : { [inputs[0]]: [obj.domain.xMin, obj.domain.xMax], [inputs[1]]: [obj.domain.yMin, obj.domain.yMax] };
+      const base = { id: obj.id, color: obj.color, verticalLineValue: null, horizontalLineValue: null, hatchDomain: null, polylineHV: null, hasDiscontinuities: compiled.evaluator.hasDiscontinuities };
+      if (dependent === axisPair.horizontal || dependent === axisPair.vertical) {
+        const inputAxis = dependent === axisPair.horizontal ? axisPair.vertical : axisPair.horizontal;
+        graphs.push({ ...base, swapAxes: dependent === axisPair.horizontal, implicitEvaluate: null, evaluate: (t) => {
+          const coords = { x: 0, y: 0, z: 0, [inputAxis]: t };
+          if (!insideBounds(coords, bounds)) return null;
+          const value = compiled.evaluator(coords[inputs[0]], coords[inputs[1]]);
+          return Number.isFinite(value) ? value : null;
+        } });
+      } else {
+        const body = getEffectiveSurfaceOrientation(obj.equation, obj.orientation).body;
+        if (compiled.evaluator.isConstant && compiled.evaluator(0, 0) === 0) {
+          graphs.push({ ...base, evaluate: null, implicitEvaluate: null, coplanarSurface: followsView, hatchDomain: followsView ? null : { hMin: Math.min(obj.domain.xMin, obj.domain.xMax), hMax: Math.max(obj.domain.xMin, obj.domain.xMax), vMin: Math.min(obj.domain.yMin, obj.domain.yMax), vMax: Math.max(obj.domain.yMin, obj.domain.yMax) } });
+          continue;
+        }
+        const relation = compileImplicitSurfaceExpression(`${dependent}=(${body})`, params);
+        if (!relation.error) graphs.push({ ...base, evaluate: null, implicitEvaluate: getPlanarField(relation, axisPair.horizontal, axisPair.vertical, bounds) });
+      }
       continue;
     }
 
@@ -293,7 +384,7 @@ export function buildRenderableGraphsFromScene(
       continue;
     }
 
-    if (tryAppendImplicitRenderableGraph(graphs, obj, axisPair, numericSource)) {
+    if (tryAppendImplicitRenderableGraph(graphs, obj, axisPair, numericSource, params)) {
       continue;
     }
 
@@ -301,7 +392,7 @@ export function buildRenderableGraphsFromScene(
       continue;
     }
 
-    tryAppendExplicitCompiledCurve(graphs, obj, axisPair, effectiveDependent, numericSource);
+    tryAppendExplicitCompiledCurve(graphs, obj, axisPair, effectiveDependent, numericSource, params);
   }
 
   return graphs;
@@ -341,7 +432,7 @@ function scalarAttachmentFor(
   if (scalarVizMathIdentity(obj, Object.keys(params)) !== config.structure) {
     return null;
   }
-  const orientation = obj.orientation ?? "z";
+  const orientation = getEffectiveSurfaceOrientation(obj.equation, obj.orientation).effectiveOrientation;
   const pairMatches =
     orientation === "x"
       ? axisPair.horizontal === "y" && axisPair.vertical === "z"
@@ -395,4 +486,19 @@ function linearTransformAttachmentFor(
     eigenDirections,
     showEigen
   };
+}
+
+
+/** XY analysis markers share the exact cached solution used by the Inspector. */
+export function buildPlanarIntersectionGraphs(objects: GraphObject[], configs: Record<string, GeometryAnalysisConfig>, params: Record<string, number>, domain: SurfaceDomain): RenderableGraph[] {
+  const graphs: RenderableGraph[] = [];
+  for (const [id, config] of Object.entries(configs)) {
+    const a = objects.find(object => object.id === id), b = objects.find(object => object.id === config.secondaryId);
+    if (!config.showOverlay || a?.kind !== "implicitCurve" || b?.kind !== "implicitCurve" || a.extendTo3D || b.extendTo3D || !a.visible || !b.visible) continue;
+    const facts = computeGeometryFacts(resolveGeometrySource(a, params, domain), resolveGeometrySource(b, params, domain));
+    if (facts.pair !== "curve-curve" || facts.intersection.status !== "points") continue;
+    graphs.push({ id: `intersection:${id}`, color: "#f59e0b", analysisPoints: facts.intersection.points,
+      verticalLineValue: null, horizontalLineValue: null, evaluate: null, implicitEvaluate: null, hatchDomain: null, polylineHV: null });
+  }
+  return graphs;
 }

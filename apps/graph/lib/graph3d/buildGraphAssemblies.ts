@@ -83,5 +83,10 @@ function buildOne(
   if (object.kind === "linearTransform") {
     return buildLinearTransform3D(object);
   }
-  return null;
+  if (object.kind === "vectorField") {
+    // Field glyphs are built from worker results by geometryComputeSync.
+    return null;
+  }
+  const unhandled: never = object;
+  throw new Error(`Unsupported graph object: ${String(unhandled)}`);
 }

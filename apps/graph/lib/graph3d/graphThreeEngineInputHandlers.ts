@@ -1,4 +1,3 @@
-import { clearThreeSketch } from "./graphThreeSketchStroke";
 import type { GraphThreeEngineInputHandlersDeps, GraphThreeEngineInputMutableState } from "./graphThreeEngineInputTypes";
 import { createGraphThreeKeyboardAndContextHandlers } from "./graphThreeEngineInputKeysContext";
 import { createGraphThreePointerInputHandlers } from "./graphThreeEngineInputPointer";
@@ -6,10 +5,6 @@ import { createGraphThreePointerInputHandlers } from "./graphThreeEngineInputPoi
 export type { GraphThreeEngineInputHandlersDeps, GraphThreeEngineInputMutableState } from "./graphThreeEngineInputTypes";
 
 export function createGraphThreeEngineInputHandlers(deps: GraphThreeEngineInputHandlersDeps) {
-  const clearSketch = () => {
-    deps.mutable.sketchPoints = clearThreeSketch(deps.sketchGeometry, deps.sketchLine);
-  };
-
   const pointer = createGraphThreePointerInputHandlers(deps);
   const keys = createGraphThreeKeyboardAndContextHandlers({
     tickRuntime: deps.tickRuntime,
@@ -18,7 +13,7 @@ export function createGraphThreeEngineInputHandlers(deps: GraphThreeEngineInputH
     raycaster: deps.raycaster,
     camera: deps.camera,
     probeMarkerMeshes: deps.probeMarkerMeshes,
-    clearSketch
+    clearSketch: pointer.handlePointerCancel
   });
 
   return {

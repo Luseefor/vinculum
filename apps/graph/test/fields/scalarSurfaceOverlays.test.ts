@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { Group, Raycaster, Vector3, type LineSegments, type Mesh, type Object3D } from "three";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BufferGeometry, Float32BufferAttribute, Group, Mesh as ThreeMesh, MeshBasicMaterial, Raycaster, Vector3, type LineSegments, type Mesh, type Object3D } from "three";
 import type { GraphObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { buildScalarFieldJob } from "@/lib/compute/scalarVizSync";
+import { buildSurface } from "@/lib/graph3d/buildGraphSurface";
+import { surfaceDisplayDomain } from "@/lib/graph3d/surfaceDisplayDomain";
 import { computeScalarFieldData } from "@/lib/math/fields/computeScalarFieldData";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
 import type { ScalarSliceOverlayFrame } from "@/lib/graph3d/buildScalarSliceOverlays";
@@ -63,7 +66,7 @@ function seedResult(id: string, gradientDensity = 0) {
   }
   const { status: _status, ...rest } = computed;
   useScalarVizResultsStore.getState().setResult(`scalar:${id}`, {
-    signature: "sig",
+    signature: buildScalarFieldJob(source, useGraphStore.getState().ui.scalarVizBySourceId[id], getEditorParameterScope())!.signature,
     result: { status: "ok", ...rest } as ScalarFieldComputeOkResult
   });
 }
@@ -72,7 +75,7 @@ function makeFrame(objects: GraphObject[]): ScalarSliceOverlayFrame {
   return {
     configs: useGraphStore.getState().ui.scalarVizBySourceId,
     objects,
-    objectNodes: new Map<string, Object3D>(objects.map((o) => [o.id, new Group()])),
+    objectNodes: new Map<string, Object3D>(objects.map((o) => [o.id, o.kind === "surface" ? buildSurface(o, "light", getGraphThemeTokens("light"))! : new Group()])),
     results: useScalarVizResultsStore.getState().entries,
     overlayRoot: new Group(),
     cache: new Map(),
@@ -127,6 +130,23 @@ describe("explicit surface 3D heat map and contours", () => {
     expect(frame.cache.has(key)).toBe(false);
   });
 
+  it.each([true, false])("uses the source height clamp for gradient anchors with Follow View %s", follow => {
+    const id = addSurface();
+    useGraphStore.getState().updateSurfaceEquation(id, "z=20000+x+y");
+    useGraphStore.getState().setSurfaceAutoDomain(id, follow);
+    enable(id, { showGradient: true, gradientDensity: 4 });
+    seedResult(id, 4);
+    const frame = makeFrame([liveObject(id)]);
+    updateScalarSurfaceOverlays(frame);
+    const samples = frame.cache.get(scalarSurfaceGradientCacheKey(id))!.group.userData.vectorFieldSamples;
+    expect(samples.validCount).toBe(16);
+    for (let i = 0; i < samples.validCount; i++) {
+      const height = samples.positions[i * 3 + 2] as number;
+      if (follow) expect(height).toBeGreaterThan(19000);
+      else expect(height).toBe(10000);
+    }
+  });
+
   it("drapes the heat mesh on z = f(x, y) and reuses it across frames", () => {
     const id = addSurface();
     enable(id, { showHeatmap: true });
@@ -150,7 +170,7 @@ describe("explicit surface 3D heat map and contours", () => {
     expect(frame.cache.get(scalarSurfaceCacheKey(id))!.group).toBe(group);
   });
 
-  it("lifts contour segments onto their level height", () => {
+  it("cuts contour segments at their level height", () => {
     const id = addSurface();
     enable(id, { showContours: true, contourCount: 4 });
     seedResult(id);
@@ -160,11 +180,98 @@ describe("explicit surface 3D heat map and contours", () => {
     const lines = frame.cache.get(scalarSurfaceContourCacheKey(id))!.group.children[0] as LineSegments;
     const positions = lines.geometry.getAttribute("position");
     expect(positions.count).toBeGreaterThan(0);
+    expect(lines.material).toMatchObject({ depthTest: true, depthWrite: false });
     for (let i = 0; i < positions.count; i += 11) {
       const x = positions.getX(i);
       const worldZ = positions.getZ(i);
       expect(Math.abs(positions.getY(i) - (x * x + worldZ * worldZ))).toBeLessThan(0.15);
     }
+  });
+
+  it.each(["x", "y", "z"] as const)("keeps %s contours within the actual coarse source triangles and preserves mesh holes", orientation => {
+    const id = addSurface();
+    const vars = orientation === "x" ? ["y", "z"] : orientation === "y" ? ["x", "z"] : ["x", "y"];
+    // The explicit equation is authoritative even when the stored fallback differs.
+    useGraphStore.getState().updateSurfaceEquation(id, `${orientation} = ${vars[0]}^2 + ${vars[1]}^2`);
+    enable(id, { showHeatmap: true, showContours: true });
+    seedResult(id);
+    const frame = makeFrame([liveObject(id)]);
+    const vertices = [[0, 0, 0], [2, 0, 4], [0, 2, 4]].flatMap(([u, v, f]) => {
+      const math = explicitSurfaceMathPoint(orientation, u, v, f);
+      return [math.x, math.z, math.y];
+    });
+    const geometry = new BufferGeometry();
+    geometry.setAttribute("position", new Float32BufferAttribute(vertices, 3));
+    // Only this triangle is rendered. The other half of the cell is a hole.
+    geometry.setIndex([0, 2, 1]);
+    const source = new ThreeMesh(geometry, new MeshBasicMaterial());
+    frame.objectNodes.set(id, source);
+    updateScalarSurfaceOverlays(frame);
+    const heat = frame.cache.get(scalarSurfaceCacheKey(id))!.group.children[0] as Mesh;
+    expect(heat.geometry).not.toBe(geometry);
+    expect(heat.geometry.getAttribute("position").array).toEqual(geometry.getAttribute("position").array);
+    expect(heat.geometry.index!.array).toEqual(geometry.index!.array);
+    const contours = frame.cache.get(scalarSurfaceContourCacheKey(id))!.group.children[0] as LineSegments;
+    const points = contours.geometry.getAttribute("position");
+    expect(points.count).toBeGreaterThan(0);
+    const dependent = orientation === "x" ? 0 : orientation === "y" ? 2 : 1;
+    const independent = [0, 1, 2].filter(axis => axis !== dependent);
+    for (let i = 0; i < points.count; i++) {
+      const u = points.getComponent(i, independent[0]), v = points.getComponent(i, independent[1]);
+      expect(points.getComponent(i, dependent)).toBeCloseTo(2 * (u + v), 5);
+      expect(u).toBeGreaterThanOrEqual(0);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(u + v).toBeLessThanOrEqual(2.000001);
+    }
+    const disposeSource = vi.spyOn(geometry, "dispose");
+    enable(id, { showHeatmap: false, showContours: false });
+    updateScalarSurfaceOverlays({ ...frame, configs: useGraphStore.getState().ui.scalarVizBySourceId });
+    expect(disposeSource).not.toHaveBeenCalled();
+  });
+
+  it("retains an empty contour cut when a coarse surface has no crossing, without rebuilding each frame", () => {
+    const id = addSurface();
+    enable(id, { showContours: true });
+    seedResult(id);
+    const frame = makeFrame([liveObject(id)]);
+    const sourceMesh = frame.objectNodes.get(id)!.children[0] as Mesh;
+    const positions = sourceMesh.geometry.getAttribute("position");
+    for (let i = 0; i < positions.count; i++) positions.setY(i, 100);
+    updateScalarSurfaceOverlays(frame);
+    const cut = frame.cache.get(scalarSurfaceContourCacheKey(id))!.group;
+    expect(cut.children).toHaveLength(0);
+    updateScalarSurfaceOverlays(frame);
+    expect(frame.cache.get(scalarSurfaceContourCacheKey(id))!.group).toBe(cut);
+  });
+
+  it("removes pending old-domain overlays and rebuilds after the displayed source mesh changes", () => {
+    const id = addSurface();
+    enable(id, { showHeatmap: true, showContours: true });
+    seedResult(id);
+    const source = liveObject(id);
+    if (source.kind !== "surface") throw new Error("expected surface");
+    const frame = makeFrame([source]);
+    updateScalarSurfaceOverlays(frame);
+    const oldHeat = frame.cache.get(scalarSurfaceCacheKey(id))!.group.children[0] as Mesh;
+    const dispose = vi.spyOn(oldHeat.geometry, "dispose");
+    const domain = surfaceDisplayDomain({ ...source, autoDomain: true }, {
+      target: { x: 32, y: 0, z: 0 }, distance: 40, aspect: 1, fov: 45
+    });
+    frame.displayDomains = { [id]: domain };
+    frame.objectNodes.set(id, buildSurface({ ...source, domain }, "light", getGraphThemeTokens("light"))!);
+    updateScalarSurfaceOverlays(frame);
+    expect(frame.cache.size).toBe(0);
+    expect(dispose).toHaveBeenCalledOnce();
+    const job = buildScalarFieldJob(source, frame.configs[id], frame.params, domain)!;
+    const result = computeScalarFieldData({ ...job.payload, params: frame.params });
+    if (result.status !== "ok") throw new Error("expected scalar grid");
+    frame.results = { [`scalar:${id}`]: { signature: job.signature, result } };
+    updateScalarSurfaceOverlays(frame);
+    const heat = frame.cache.get(scalarSurfaceCacheKey(id))!.group.children[0] as Mesh;
+    heat.geometry.computeBoundingBox();
+    expect(heat.geometry.boundingBox!.min.x).toBe(domain.xMin);
+    expect(heat.geometry.boundingBox!.max.x).toBe(domain.xMax);
+    expect(frame.cache.has(scalarSurfaceContourCacheKey(id))).toBe(true);
   });
 
   it("hides with the source, drops on toggle-off, and survives the analysis pass", () => {

@@ -24,16 +24,19 @@ describe("vector field export and pressure (S20 Slice 7)", () => {
     });
     const result = exportInput(scene.objects);
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.join(" ")).toMatch(/not yet represented in SVG/);
+    expect(result.file?.warnings?.join(" ")).toMatch(/no geometry in the selected 2D plane/);
   });
 
-  it("warns for 2D field arrows (not yet represented), never silently", () => {
+  it("exports 2D field arrows through the canvas painter", async () => {
     const scene = createSceneDocument({
       objects: [createVectorFieldGraph({ dimension: "2d" })]
     });
     const result = exportInput(scene.objects);
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.join(" ")).toMatch(/not yet represented in SVG/);
+    expect(result.file?.warnings).toEqual([]);
+    const svg = new DOMParser().parseFromString(await result.file!.blob.text(), "image/svg+xml");
+    const arrows = [...svg.querySelectorAll(`path[stroke="${scene.objects[0].color}"]`)];
+    expect(arrows.reduce((count, path) => count + (path.getAttribute("d")?.match(/L /g)?.length ?? 0), 0)).toBeGreaterThan(100);
   });
 
   it("estimates glyph-count pressure instead of point cost", () => {

@@ -85,6 +85,7 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       mode: request.payload.mode,
       target: request.payload.target,
       scalarIntegrand: request.payload.scalarIntegrand,
+      lowerBoundary: request.payload.lowerBoundary,
       field: request.payload.field,
       quality: request.payload.quality,
       direction: request.payload.direction,
@@ -164,6 +165,7 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       totalSamples: computed.totalSamples,
       levels: computed.levels,
       contourSegments: computed.contourSegments,
+      contourLevelOffsets: computed.contourLevelOffsets,
       contourSegmentCount: computed.contourSegmentCount,
       contourStatus: computed.contourStatus,
       gradientPositions: computed.gradientPositions,
@@ -285,6 +287,7 @@ function collectTransferBuffers(
       result.valid.buffer as Transferable,
       result.levels.buffer as Transferable,
       result.contourSegments.buffer as Transferable,
+      ...(result.contourLevelOffsets ? [result.contourLevelOffsets.buffer as Transferable] : []),
       result.gradientPositions.buffer as Transferable,
       result.gradientVectors.buffer as Transferable,
       result.gradientMagnitudes.buffer as Transferable

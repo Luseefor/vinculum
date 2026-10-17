@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRenderableGraphsFromScene } from "@/components/graph/graph2d/buildRenderableGraphsFromScene";
 import type { AxisPairSpec } from "@/components/graph/graph2d/graph2dCanvasTypes";
 import {
@@ -6,6 +6,7 @@ import {
   clearScalarBitmapCacheForTests,
   drawScalarContours,
   drawScalarHeatLayer,
+  layoutContourValueLabels,
   scalarBitmapCacheSizeForTests,
   scalarHeatBitmap
 } from "@/components/graph/graph2d/graph2dCanvasScalarViz";
@@ -14,6 +15,8 @@ import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
+import { sampleScalarGrid } from "@/lib/math/fields/scalarFieldSample";
+import { extractContours } from "@/lib/math/surfaces/marchingSquares";
 
 const XY: AxisPairSpec = { horizontal: "x", vertical: "y", horizontalLabel: "X", verticalLabel: "Y" };
 const XZ: AxisPairSpec = { horizontal: "x", vertical: "z", horizontalLabel: "X", verticalLabel: "Z" };
@@ -124,6 +127,26 @@ describe("scalar heat bitmaps (S23 PART 22)", () => {
     clearScalarBitmapCacheForTests();
   });
 
+  it("keeps a shared Follow View bitmap aligned to its sampled coordinates in 2D", () => {
+    const bitmapContext = {
+      createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4) }),
+      putImageData: vi.fn()
+    };
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(bitmapContext as unknown as CanvasRenderingContext2D);
+    try {
+      const result = { ...okResult(), domain: { uMin: 10, uMax: 30, vMin: -20, vMax: 20 } };
+      const { ctx, calls } = mockContext();
+      drawScalarHeatLayer([{
+        attachment: { sourceId: "s", domain: { uMin: -5, uMax: 5, vMin: -5, vMax: 5 } },
+        signature: "follow", result
+      }], "light", { ctx, width: 800, height: 600, centerX: 0, centerY: 0, scale: 1 },
+      (x, y) => ({ x, y: -y }));
+      expect(calls.find(call => call.name === "drawImage")?.args.slice(1)).toEqual([10, -20, 20, 40]);
+    } finally {
+      getContext.mockRestore();
+    }
+  });
+
   it("degrades gracefully without a 2D context (jsdom)", () => {
     // jsdom canvases have no 2D context: the builder returns null instead
     // of throwing, and the layer draws nothing.
@@ -147,6 +170,56 @@ describe("scalar heat bitmaps (S23 PART 22)", () => {
 });
 
 describe("scalar contour batches (S23 PART 27)", () => {
+  function rings() {
+    const domain = { uMin: -2, uMax: 2, vMin: -2, vMax: 2 };
+    const levels = new Float32Array([.25, 1, 2.25]);
+    const contours = extractContours(sampleScalarGrid((x, y) => x * x + y * y, domain, 64), domain, levels);
+    return { ...contours, levels };
+  }
+
+  it("labels circular contours with their actual values at points on each ring", () => {
+    const result = rings();
+    const dc = { width: 600, height: 600, centerX: 0, centerY: 0, scale: 100 };
+    const labels = layoutContourValueLabels(result.segments, result.levels, result.levelOffsets!, dc, (x, y) => ({ x: 300 + x * 100, y: 300 - y * 100 }));
+    expect(labels.map(label => label.text)).toEqual(["0.25", "1", "2.25"]);
+    for (const label of labels) {
+      const x = (label.x - 300) / 100, y = (300 - label.y) / 100;
+      expect(x * x + y * y).toBeCloseTo(label.value, 2);
+      // Screen-space tangent is perpendicular to the screen-space radius.
+      expect(Math.abs(x * Math.cos(label.angle) - y * Math.sin(label.angle))).toBeLessThan(.03);
+      expect(Math.abs(label.angle)).toBeLessThanOrEqual(Math.PI / 2);
+    }
+    expect(result.levelOffsets![0]).toBe(0);
+    expect(result.levelOffsets!.at(-1)).toBe(result.segmentCount);
+  });
+
+  it("does not label empty or offscreen contours and avoids overlapping labels", () => {
+    const dc = { width: 200, height: 200, centerX: 0, centerY: 0, scale: 10 };
+    const segments = new Float32Array([40, 40, 41, 40, 40, 41, 41, 41, 400, 400, 401, 400]);
+    const labels = layoutContourValueLabels(segments, [1, 2, 3, 4], [0, 1, 2, 3, 3], dc, (x, y) => ({ x, y }));
+    expect(labels.map(label => label.text)).toEqual(["1"]);
+    expect(layoutContourValueLabels(segments, [1], [0], dc, (x, y) => ({ x, y }))).toEqual([]);
+  });
+
+  it.each(["light", "dark"])("draws inline values in %s with real line gaps and no opaque label boxes", theme => {
+    const result = rings();
+    const { ctx, calls } = mockContext();
+    drawScalarContours(result.segments, result.segmentCount, { ctx, width: 600, height: 600, centerX: 0, centerY: 0, scale: 100 }, (x, y) => ({ x: 300 + x * 100, y: 300 - y * 100 }), theme, { levels: result.levels, offsets: result.levelOffsets });
+    expect(calls.filter(call => call.name === "fillText").map(call => call.args[0])).toEqual(["0.25", "1", "2.25"]);
+    expect(calls.filter(call => call.name === "stroke")).toHaveLength(2);
+    expect(calls.some(call => call.name === "fillRect")).toBe(false);
+    const gapClip = calls.findIndex(call => call.name === "clip" && call.args[0] === "evenodd");
+    expect(gapClip).toBeGreaterThan(0);
+    expect(gapClip).toBeLessThan(calls.findIndex(call => call.name === "stroke"));
+    const labels = layoutContourValueLabels(result.segments, result.levels, result.levelOffsets!,
+      { width: 600, height: 600, centerX: 0, centerY: 0, scale: 100 }, (x, y) => ({ x: 300 + x * 100, y: 300 - y * 100 }));
+    expect(calls.filter(call => call.name === "rotate").map(call => call.args[0])).toEqual([
+      ...labels.map(label => label.angle), ...labels.map(label => label.angle)
+    ]);
+    expect(calls.filter(call => call.name === "rect" && call.args[0] !== 0).map(call => call.args))
+      .toEqual(labels.map(label => [-label.width / 2, -9, label.width, 18]));
+  });
+
   it("strokes every segment exactly once per pass with save/restore balance", () => {
     const result = okResult();
     const { ctx, calls } = mockContext();

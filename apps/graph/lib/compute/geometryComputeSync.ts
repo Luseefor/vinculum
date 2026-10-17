@@ -32,6 +32,7 @@ export interface GeometryComputeSyncContext {
   objectStructureSignatures: Map<string, string>;
   getTheme: () => ResolvedTheme;
   manager: GeometryComputeManager;
+  getObjectForCompute?: (object: GraphObject) => GraphObject;
 }
 
 export function isWorkerizedComputeKind(
@@ -204,7 +205,7 @@ export function applyGeometryComputeResult(
   ctx: GeometryComputeSyncContext
 ): void {
   const source = useGraphStore.getState().scene.objects.find((candidate) => candidate.id === response.objectId);
-  const live = source ? getGraphObjectFor3D(source) : undefined;
+  const live = source ? (ctx.getObjectForCompute?.(source) ?? getGraphObjectFor3D(source)) : undefined;
   if (
     !live ||
     (live.kind !== "implicitSurface" && live.kind !== "parametricSurface" && live.kind !== "vectorField")

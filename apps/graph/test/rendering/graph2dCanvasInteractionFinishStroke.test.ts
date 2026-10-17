@@ -8,8 +8,7 @@ describe("finalizeGraph2dSketchStroke", () => {
     finalizeGraph2dSketchStroke({
       stroke: [{ horizontal: 0, vertical: 0 }],
       sketchAutoCreate: false,
-      isQuadTop: false,
-      axis2dPairQuadTop: "xz",
+      pairForCanvas: "xy",
       addSketchedParametricFromStroke: add,
       setSketchFitPreview: setPreview
     });

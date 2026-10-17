@@ -16,6 +16,9 @@ import type { GeometryComputeRequest } from "@/lib/compute/geometryComputeProtoc
 import { createSceneDocument } from "@/lib/scene/sceneSchema";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
+import { getGraphObjectFor3D } from "@/lib/graph3d/graphObject3dGuards";
+import { syncComputedSurfaceObject } from "@/lib/compute/geometryComputeSync";
+import { getParameterSignature } from "@/lib/graph3d/graphThreeEngineDom";
 
 interface FakeTransport extends GeometryWorkerTransport {
   posted: GeometryComputeRequest[];
@@ -134,7 +137,7 @@ describe("workerized sync integration (PART 32 job matrix)", () => {
   let ctx: GeometryComputeSyncContext;
 
   const sync = (objects: GraphObject[]) => {
-    useGraphStore.getState().replaceSceneDocument(createSceneDocument({ objects }));
+    useGraphStore.getState().replaceSceneDocument(createSceneDocument({ objects, parameters: useEditorStore.getState().parameters }));
     syncThreeSceneObjects(
       "dark",
       objects,
@@ -151,6 +154,7 @@ describe("workerized sync integration (PART 32 job matrix)", () => {
 
   beforeEach(() => {
     useGraphStore.getState().resetScene();
+    useEditorStore.setState({ parameters: [{ id: "r", value: 2.5, min: 0.1, max: 12 }] });
     useGeometryComputeStore.getState().clearAll();
     fake = createFakeTransport();
     root = new Group();
@@ -487,6 +491,29 @@ describe("workerized sync integration (PART 32 job matrix)", () => {
     applyGeometryComputeResult(okResultFor(fake.posted[0]!), ctx);
     expect(nodes.get(curve.id)).toBe(planarNode);
     expect(manager.getTrackedObjectIds()).not.toContain(curve.id);
+  });
+
+  it("accepts camera-domain curve meshes with custom Z bounds and rejects stale ranges before the next frame", () => {
+    const curve: GraphObject = { id: "extruded", kind: "implicitCurve", equation: "cos(x)", visible: true, color: "#3080ef", extendTo3D: true, extensionRange: { zMin: 2, zMax: 8 } };
+    useGraphStore.getState().replaceSceneDocument(createSceneDocument({ objects: [curve] }));
+    const displayDomain = { xMin: 24, xMax: 56, yMin: -16, yMax: 16 };
+    ctx.getObjectForCompute = source => { const displayObject = { ...source, displayDomain }; return getGraphObjectFor3D(displayObject); };
+    const displayed = ctx.getObjectForCompute(curve);
+    if (displayed.kind !== "implicitSurface") throw new Error("Expected an extruded surface");
+    syncComputedSurfaceObject(displayed, "dark", getParameterSignature(), ctx);
+    expect(fake.posted[0]).toMatchObject({ payload: { equation: "y = cos(x)", domain: { ...displayDomain, zMin: 2, zMax: 8 } } });
+    fake.respond(okResultFor(fake.posted[0]));
+    expect(nodes.has(curve.id)).toBe(true);
+    const accepted = nodes.get(curve.id);
+    useGraphStore.getState().updateCurveExtensionRange(curve.id, { zMax: 12 });
+    applyGeometryComputeResult(okResultFor(fake.posted[0]), ctx);
+    expect(nodes.get(curve.id)).toBe(accepted);
+    const updated = ctx.getObjectForCompute(useGraphStore.getState().scene.objects[0]);
+    if (updated.kind !== "implicitSurface") throw new Error("Expected an extruded surface");
+    syncComputedSurfaceObject(updated, "dark", getParameterSignature(), ctx);
+    expect(fake.posted.at(-1)).toMatchObject({ payload: { domain: { zMin: 2, zMax: 12 } } });
+    fake.respond(okResultFor(fake.posted.at(-1)!));
+    expect(nodes.get(curve.id)).not.toBe(accepted);
   });
 
 });

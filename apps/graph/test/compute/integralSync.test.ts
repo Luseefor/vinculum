@@ -137,6 +137,44 @@ describe("mode-segmented signatures (S25-R1 BLOCKER)", () => {
     useIntegralResultsStore.getState().clearAll();
   });
 
+  it("invalidates solid results after boundary edits and keeps those inputs transient", () => {
+    const store = useGraphStore.getState();
+    const id = store.addSurfaceObject();
+    store.updateSurfaceEquation(id, "z=3");
+    store.updateSurfaceDomain(id, { xMin: 0, xMax: 2, yMin: 0, yMax: 4 });
+    const objects = () => useGraphStore.getState().scene.objects;
+    const depth = useHistoryStore.getState().past.length;
+    const first = buildIntegralJob(objects(), setMode(id, { mode: "volume", lowerBoundary: "1" }), {});
+    expect(first?.payload.lowerBoundary).toBe("1");
+    const responses: GeometryComputeResponse[] = [];
+    const context = createIntegralSyncTestContext(response => responses.push(response));
+    pumpIntegralJobs(context, [first], {}, new Set([`integral:${id}`]));
+    const response = responses[0];
+    expect(response?.result).toMatchObject({ status: "ok", value: 16 });
+    const next = buildIntegralJob(objects(), setMode(id, { lowerBoundary: "2" }), {});
+    expect(next?.signature).not.toBe(first?.signature);
+    expect(applyIntegralResponse(response!, objects(), useGraphStore.getState().ui.integralAnalysisBySourceId, {})).toBe(false);
+    pumpIntegralJobs(context, [next], {}, new Set([`integral:${id}`]));
+    expect(context.requests).toHaveLength(2);
+    expect(useHistoryStore.getState().past.length).toBe(depth);
+    expect(serializeScene(useGraphStore.getState().scene)).not.toContain("lowerBoundary");
+    const area = { ...useGraphStore.getState().ui.integralAnalysisBySourceId[id], mode: "surfaceArea" as const };
+    expect(buildIntegralJob(objects(), area, {})?.signature).toBe(buildIntegralJob(objects(), { ...area, lowerBoundary: "99" }, {})?.signature);
+  });
+
+  it("builds bounded implicit area/volume jobs independently of display resolution", () => {
+    const store = useGraphStore.getState();
+    const id = store.addImplicitSurface();
+    const config = setMode(id, { mode: "volume" });
+    const object = liveObject(id);
+    const first = buildIntegralJob([object], config, {});
+    expect(first?.payload.target.kind).toBe("implicitSurface");
+    expect(buildIntegralJob([{ ...object, resolution: 80 } as GraphObject], config, {})?.signature).toBe(first?.signature);
+    expect(buildIntegralJob([object], { ...config, mode: "flux" }, {})).toBeNull();
+    expect(buildIntegralJob([object], { ...config, mode: "solidArea" }, {})).toBeNull();
+    expect(buildIntegralJob([object], { ...config, mode: "surfaceArea" }, {})).not.toBeNull();
+  });
+
   it("separates arcLength from scalarLine with identical integrand text", () => {
     const id = addCircle();
     const params = getEditorParameterScope();

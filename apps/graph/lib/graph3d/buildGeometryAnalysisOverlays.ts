@@ -5,11 +5,12 @@
 // namespace (PART 23) — never colliding with analysis:/curl:/scalar-
 // slice:/streamline: keys (PART 46 sweeps only our prefix). All children
 // disable raycast (PART 44) so overlays never block source selection or
-// probing. O(1) resources per analysis (PART 45), no workers, no sampling.
+// probing. O(1) resources per curve analysis; bounded contact markers.
 //
 // Facts come from the SAME computeGeometryFacts the Inspector uses, so
 // numbers and pictures agree by construction. Groups rebuild only when
-// the facts signature changes; visibility toggles and source hiding flip
+// the facts signature changes; surface results share the math-layer cache.
+// Visibility toggles and source hiding flip
 // a flag with zero recomputation (PART 32).
 
 import {
@@ -25,14 +26,15 @@ import {
   Vector3,
   type Object3D
 } from "three";
-import type { GraphObject } from "@vinculum/scene/types";
+import type { GraphObject, SurfaceDomain } from "@vinculum/scene/types";
 import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 import { BASE_AXIS_EXTENT } from "./graphThreeEngineConstants";
 import { refreshLineDisplayNode } from "./buildGraphGeometryPrimitives";
+import { createWideStroke } from "./graphWideStroke";
 import {
   computeGeometryFacts,
-  geometryPairSupported,
+  geometryObjectsPairSupported,
   resolveGeometrySource,
   type GeometryAnalysisFacts
 } from "@/lib/math/geometry/geometryAnalysis";
@@ -49,6 +51,7 @@ export interface GeometryAnalysisOverlayFrame {
   cache: Map<string, { key: string; group: Group }>;
   params: Record<string, number>;
   halfExtent: number;
+  planarDomain?: SurfaceDomain;
   clearAnalysis: (primaryId: string) => void;
 }
 
@@ -93,6 +96,17 @@ function buildOverlayChildren(
   queryWorld: Vector3 | null
 ): Object3D[] | null {
   switch (facts.pair) {
+    case "curve-curve":
+    case "surface-surface": {
+      if (facts.intersection.status === "curve") {
+        const positions = facts.intersection.segments.flatMap(segment => segment.flatMap(p => { const w = mathToWorld3D(p); return [w.x,w.y,w.z]; }));
+        const stroke = createWideStroke(positions, OVERLAY_ACCENT, 4);
+        stroke.renderOrder = 10;
+        stroke.material.depthTest = false;
+        return [stroke];
+      }
+      return facts.intersection.status === "points" ? facts.intersection.points.slice(0,16).map(p => buildMarker(toWorld(p))) : null;
+    }
     case "point-linear": {
       const children: Object3D[] = [buildMarker(toWorld(facts.projection.point))];
       if (queryWorld) {
@@ -155,19 +169,19 @@ export function updateGeometryAnalysisOverlays(frame: GeometryAnalysisOverlayFra
     liveKeys.add(key);
     const primary = frame.objects.find((object) => object.id === primaryId);
     const secondary = frame.objects.find((object) => object.id === config.secondaryId);
-    if (!primary || !secondary || !geometryPairSupported(primary.kind, secondary.kind)) {
+    if (!primary || !secondary || !geometryObjectsPairSupported(primary, secondary)) {
       removeGeometryOverlay(frame, key);
       frame.clearAnalysis(primaryId);
       continue;
     }
-    const resolvedPrimary = resolveGeometrySource(primary, frame.params);
-    const resolvedSecondary = resolveGeometrySource(secondary, frame.params);
+    const resolvedPrimary = resolveGeometrySource(primary, frame.params, frame.planarDomain);
+    const resolvedSecondary = resolveGeometrySource(secondary, frame.params, frame.planarDomain);
     const facts = computeGeometryFacts(resolvedPrimary, resolvedSecondary);
-    const signature = JSON.stringify(facts);
+    const signature = facts.pair === "surface-surface" || facts.pair === "curve-curve" ? facts.intersection : JSON.stringify(facts);
     const cached = frame.cache.get(key);
     const wantVisible =
       config.showOverlay && primary.visible && secondary.visible && overlayBuildable(facts);
-    if (cached && (cached.group.userData.factsSignature as string | undefined) === signature) {
+    if (cached && cached.group.userData.factsSignature === signature) {
       // Math unchanged: visibility only. Display lines (plane-plane,
       // ray overlaps) still track the camera through the shared in-place
       // refresh; allocations there re-enable raycast, so disarm again.
@@ -221,6 +235,9 @@ export function updateGeometryAnalysisOverlays(frame: GeometryAnalysisOverlayFra
  *  per-frame churn occurs for non-visualizable outcomes. */
 function overlayBuildable(facts: GeometryAnalysisFacts): boolean {
   switch (facts.pair) {
+    case "curve-curve":
+    case "surface-surface":
+      return facts.intersection.status === "curve" || facts.intersection.status === "points";
     case "point-linear":
     case "point-plane":
       return true;

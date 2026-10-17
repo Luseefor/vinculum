@@ -143,6 +143,15 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     clearSketch();
   };
 
+  const handlePointerCancel = () => {
+    mutable.isSketching = false;
+    mutable.hoverProbePoint = null;
+    mutable.analysisPickDown = null;
+    mutable.primitivePickDown = null;
+    clearSketch();
+    deps.setHoverProbeBadge(null, 0, 0);
+  };
+
   const handlePointerLeave = () => {
     mutable.hoverProbePoint = null;
     mutable.analysisPickDown = null;
@@ -154,6 +163,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     handlePointerMove,
     handlePointerDown,
     handlePointerUp,
+    handlePointerCancel,
     handlePointerLeave
   };
 }

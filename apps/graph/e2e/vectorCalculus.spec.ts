@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput } from "./helpers/mathInput";
 import { screenshotPixels } from "./helpers/canvasPixels";
@@ -474,7 +475,7 @@ test.describe("S22 vector calculus", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByTestId("vector-calculus-section")).toBeVisible();

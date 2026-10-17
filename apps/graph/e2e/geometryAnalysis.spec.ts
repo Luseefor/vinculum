@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -706,7 +707,9 @@ test.describe("S27 geometry relations", () => {
     await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await addObject(page, "Infinite Line");
-    await page.keyboard.press("Escape");
+    // Creation focuses MathLive; Escape may first dismiss its editing UI.
+    // Close the actual Objects sheet before opening the Inspector sheet.
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByLabel("Second object for geometry analysis")).toBeVisible();

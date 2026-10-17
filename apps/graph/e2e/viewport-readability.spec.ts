@@ -70,15 +70,18 @@ test("differentiation previews surface coordinates before committing and clears 
   const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
   const bounds = (await canvas.boundingBox())!;
   const hover = page.locator('[data-graph3d-probe-hover="true"]');
-  await page.mouse.move(bounds.x + bounds.width * .5, bounds.y + bounds.height * .5);
+  await canvas.hover({ position: { x: bounds.width * .5, y: bounds.height * .5 } });
+  await expect(hover).toBeVisible();
   await expect(hover).toContainText(/Pick X -?\d+\.\d+ · Y -?\d+\.\d+ · Z -?\d+\.\d+/);
   await expect(page.getByRole("button", { name: "Cancel picking analysis point" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(hover).toBeHidden();
   await page.getByRole("button", { name: "Pick analysis point on surface", exact: true }).click();
-  await page.mouse.move(bounds.x + bounds.width * .5 + 2, bounds.y + bounds.height * .5);
+  await canvas.hover({ position: { x: bounds.width * .5 + 2, y: bounds.height * .5 } });
+  // A hidden preview retains its previous text; wait for the rearmed preview.
+  await expect(hover).toBeVisible();
   await expect(hover).toContainText("Pick X");
-  await page.mouse.click(bounds.x + bounds.width * .5 + 2, bounds.y + bounds.height * .5);
+  await canvas.click({ position: { x: bounds.width * .5 + 2, y: bounds.height * .5 } });
   await expect(page.getByRole("button", { name: "Cancel picking analysis point" })).toHaveCount(0);
   await expect(page.getByRole("math", { name: /^P =/ })).toBeVisible();
   await expect(hover).toBeHidden();

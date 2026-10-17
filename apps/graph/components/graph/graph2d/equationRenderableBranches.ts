@@ -7,14 +7,15 @@ export function tryAppendImplicitRenderableGraph(
   graphs: RenderableGraph[],
   obj: GraphObject,
   axisPair: AxisPairSpec,
-  numericSource: string
+  numericSource: string,
+  params: Record<string, number> = {}
 ): boolean {
   const implicitParts = splitImplicitEquation(numericSource);
   if (!implicitParts) {
     return false;
   }
-  const lhs = tryCompileMathExpression(implicitParts.lhs);
-  const rhs = tryCompileMathExpression(implicitParts.rhs);
+  const lhs = tryCompileMathExpression(implicitParts.lhs, params);
+  const rhs = tryCompileMathExpression(implicitParts.rhs, params);
   if (!lhs || !rhs) {
     return false;
   }
@@ -27,6 +28,7 @@ export function tryAppendImplicitRenderableGraph(
     implicitEvaluate: (horizontalValue: number, verticalValue: number) => {
       try {
         const scope: Record<string, number> = {
+          ...params,
           x: 0,
           y: 0,
           z: 0,
@@ -86,13 +88,14 @@ export function tryAppendExplicitCompiledCurve(
   obj: GraphObject,
   axisPair: AxisPairSpec,
   effectiveDependent: string | null,
-  numericSource: string
+  numericSource: string,
+  params: Record<string, number> = {}
 ): boolean {
   const dependentVar =
     obj.kind === "surface" && effectiveDependent ? effectiveDependent : axisPair.vertical;
   const dependentPattern = new RegExp(`^${escapeRegExp(dependentVar)}\\s*=\\s*`, "i");
   const cleanExpr = numericSource.replace(dependentPattern, "").trim();
-  const compiled = tryCompileMathExpression(cleanExpr);
+  const compiled = tryCompileMathExpression(cleanExpr, params);
   if (!compiled) {
     return false;
   }
@@ -104,9 +107,11 @@ export function tryAppendExplicitCompiledCurve(
     polylineHV: null,
     implicitEvaluate: null,
     hatchDomain: null,
+    hasDiscontinuities: compiled.hasDiscontinuities,
     evaluate: (horizontalValue: number) => {
       try {
         const scope: Record<string, number> = {
+          ...params,
           x: 0,
           y: 0,
           z: 0,

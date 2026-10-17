@@ -86,7 +86,7 @@ describe("vector field sync integration (S20 Slice 4b)", () => {
   let ctx: GeometryComputeSyncContext;
 
   const sync = (objects: GraphObject[]) => {
-    useGraphStore.getState().replaceSceneDocument(createSceneDocument({ objects }));
+    useGraphStore.getState().replaceSceneDocument(createSceneDocument({ objects, parameters: useEditorStore.getState().parameters }));
     syncThreeSceneObjects(
       "dark",
       objects,
@@ -113,6 +113,7 @@ describe("vector field sync integration (S20 Slice 4b)", () => {
 
   beforeEach(() => {
     useGraphStore.getState().resetScene();
+    useEditorStore.setState({ parameters: [{ id: "r", value: 2.5, min: 0.1, max: 12 }] });
     useGeometryComputeStore.getState().clearAll();
     fake = createFakeTransport();
     root = new Group();
