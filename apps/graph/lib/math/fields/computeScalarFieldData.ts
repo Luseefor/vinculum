@@ -61,6 +61,7 @@ export type ScalarFieldComputeResult =
       totalSamples: number;
       levels: Float32Array;
       contourSegments: Float32Array;
+      contourLevelOffsets?: Uint32Array;
       contourSegmentCount: number;
       contourStatus: "ok" | "empty" | "degenerate" | "budget-exceeded";
       gradientPositions: Float32Array;
@@ -102,18 +103,21 @@ export function computeScalarFieldData(input: ScalarFieldComputeInput): ScalarFi
   const contourCount = Math.floor(input.contourCount);
   let levels: Float32Array = new Float32Array(0);
   let contourSegments: Float32Array = new Float32Array(0);
+  let contourLevelOffsets: Uint32Array | undefined;
   let contourSegmentCount = 0;
   let contourStatus: "ok" | "empty" | "degenerate" | "budget-exceeded" = "empty";
   if (contourCount > 0) {
     levels = computeContourLevels(grid.min, grid.max, contourCount);
     const extracted = extractContours(grid, domain, levels);
     contourSegments = extracted.segments;
+    contourLevelOffsets = extracted.levelOffsets;
     contourSegmentCount = extracted.segmentCount;
     contourStatus = extracted.status;
     if (contourStatus === "budget-exceeded") {
       levels = new Float32Array(0);
       contourSegments = new Float32Array(0);
       contourSegmentCount = 0;
+      contourLevelOffsets = undefined;
     }
   }
 
@@ -136,6 +140,7 @@ export function computeScalarFieldData(input: ScalarFieldComputeInput): ScalarFi
     totalSamples: grid.totalSamples,
     levels,
     contourSegments,
+    contourLevelOffsets,
     contourSegmentCount,
     contourStatus,
     gradientPositions: gradient.positions,

@@ -17,6 +17,7 @@ export interface ImplicitSurfaceDataInput {
   domain: ImplicitSurfaceDomain;
   resolution: number;
   params: Record<string, number>;
+  maxTriangles?: number;
 }
 
 export type ImplicitSurfaceDataResult =
@@ -57,7 +58,7 @@ export function computeImplicitSurfaceData(input: ImplicitSurfaceDataInput): Imp
 
   let extracted;
   try {
-    extracted = extractImplicitSurfaceMesh({ field: sampled, evaluate: compiled.evaluator });
+    extracted = extractImplicitSurfaceMesh({ field: sampled, evaluate: compiled.evaluator, maxTriangles: input.maxTriangles });
   } catch (error) {
     return {
       status: "error",

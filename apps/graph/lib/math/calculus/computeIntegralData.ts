@@ -6,6 +6,7 @@ import {
 } from "../surfaces/surfaceGeometry";
 import { fluxIntegral, scalarSurfaceIntegral, surfaceArea } from "./surfaceIntegrals";
 import type { QuadratureQuality } from "./simpsonQuadrature";
+import { computeBoundedSolid } from "../geometry/boundedSolid";
 
 // S25 pure integral orchestrator: one entry per analysis mode over
 // canonical snapshots. No React/Three/stores/DOM — the same function runs
@@ -24,6 +25,8 @@ export type IntegralAnalysisMode =
   | "scalarLine"
   | "work"
   | "surfaceArea"
+  | "solidArea"
+  | "volume"
   | "scalarSurface"
   | "flux";
 
@@ -54,7 +57,14 @@ export interface IntegralParametricSurfaceTarget {
 export type IntegralTarget =
   | IntegralCurveTarget
   | IntegralExplicitSurfaceTarget
-  | IntegralParametricSurfaceTarget;
+  | IntegralParametricSurfaceTarget
+  | IntegralImplicitSurfaceTarget;
+
+export interface IntegralImplicitSurfaceTarget {
+  kind: "implicitSurface";
+  equation: string;
+  domain: { xMin: number; xMax: number; yMin: number; yMax: number; zMin: number; zMax: number };
+}
 
 export interface IntegralFieldSnapshot {
   dimension: "2d" | "3d";
@@ -68,6 +78,7 @@ export interface IntegralComputeInput {
   target: IntegralTarget;
   /** Scalar integrand g(x,y,z); required for scalarLine/scalarSurface. */
   scalarIntegrand: string;
+  lowerBoundary?: string;
   /** Canonical field snapshot; required for work/flux. */
   field: IntegralFieldSnapshot | null;
   quality: QuadratureQuality;
@@ -124,6 +135,7 @@ function toComputeResult(
 
 export function computeIntegralData(input: IntegralComputeInput): IntegralComputeResult {
   const { mode, target, quality, params } = input;
+  if (mode === "volume" || mode === "solidArea" || (target.kind === "implicitSurface" && mode === "surfaceArea")) return computeBoundedSolid(input);
   if (target.kind === "parametricCurve") {
     if (mode !== "arcLength" && mode !== "scalarLine" && mode !== "work") {
       return { ...NAN_RESULT, status: "error", reason: "Integral mode is incompatible with curves." };

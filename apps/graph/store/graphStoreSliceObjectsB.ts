@@ -91,52 +91,33 @@ export function buildObjectsSliceB(set: GraphStoreSet): Pick<
     },
 
     removeObject: (id) => {
-      // S23: drop cached scalar grids beside the config (no orphan heat).
-      // S24: same for cached streamlines (no orphan lines).
-      // S25: same for integral results; configs referencing the deleted
-      // field are handled inside the updater (needs live ui).
-      useScalarVizResultsStore.getState().removeForSource(id);
-      useStreamlineResultsStore.getState().removeForSource(id);
-      useIntegralResultsStore.getState().removeForSource(id);
       set((state) => {
-        const removeIndex = state.scene.objects.findIndex((object) => object.id === id);
-        if (removeIndex === -1) {
-          return state;
-        }
-
-        const fallbackObject =
-          state.scene.objects[removeIndex + 1] ?? state.scene.objects[removeIndex - 1] ?? null;
-
-        const nextScene = applySceneCommand(state.scene, {
-          type: "REMOVE_OBJECT",
-          payload: {
-            id
+        const removeIndex = state.scene.objects.findIndex(object => object.id === id);
+        if (removeIndex === -1) return state;
+        const nextScene = applySceneCommand(state.scene, { type: "REMOVE_OBJECT", payload: { id } });
+        const surviving = new Set(nextScene.objects.map(object => object.id));
+        const removed = state.scene.objects.filter(object => !surviving.has(object.id));
+        const fallback = state.scene.objects.slice(removeIndex + 1).find(object => surviving.has(object.id))
+          ?? state.scene.objects.slice(0, removeIndex).reverse().find(object => surviving.has(object.id));
+        let ui = state.ui;
+        for (const object of removed) {
+          useScalarVizResultsStore.getState().removeForSource(object.id);
+          useStreamlineResultsStore.getState().removeForSource(object.id);
+          useIntegralResultsStore.getState().removeForSource(object.id);
+          for (const sourceId of integralSourcesReferencingField(ui, object.id)) {
+            useIntegralResultsStore.getState().removeForSource(sourceId);
           }
-        });
-
-        const nextSelectedObjectId =
-          state.ui.selectedObjectId === id
-            ? fallbackObject?.id ?? null
-            : resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects);
-
-        // S25 PART 41: work/flux configs referencing the deleted field
-        // lose their selection (no stale numbers); their cached results
-        // drop alongside.
-        for (const sourceId of integralSourcesReferencingField(state.ui, id)) {
-          useIntegralResultsStore.getState().removeForSource(sourceId);
+          ui = clearIntegralFieldSelection(clearAllDerivedForSource(
+            pruneLinearTransformAnalysisForSourceId(pruneGeometryAnalysisForSourceId(ui, object.id), object.id), object.id), object.id);
         }
-        // S27 PART 32: drop the deleted source's own analysis and any
-        // analysis referencing it as secondary (overlays GC in tick).
-        // S28: same for linearTransform analysis (transform or vector).
-        const uiWithoutGeometry = pruneGeometryAnalysisForSourceId(state.ui, id);
-        const uiWithoutLinear = pruneLinearTransformAnalysisForSourceId(uiWithoutGeometry, id);
         return {
           scene: nextScene,
           ui: {
-            ...clearIntegralFieldSelection(clearAllDerivedForSource(uiWithoutLinear, id), id),
-            selectedObjectId: nextSelectedObjectId,
-            focusEquationForObjectId:
-              state.ui.focusEquationForObjectId === id ? null : state.ui.focusEquationForObjectId
+            ...ui,
+            selectedObjectId: state.ui.selectedObjectId && !surviving.has(state.ui.selectedObjectId)
+              ? fallback?.id ?? null : resolveSelectedObjectId(state.ui.selectedObjectId, nextScene.objects),
+            focusEquationForObjectId: state.ui.focusEquationForObjectId && surviving.has(state.ui.focusEquationForObjectId)
+              ? state.ui.focusEquationForObjectId : null
           }
         };
       });

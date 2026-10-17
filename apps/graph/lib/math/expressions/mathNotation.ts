@@ -1,10 +1,12 @@
 import { parse, type MathNode, type OperatorNode, type FunctionNode } from "mathjs";
 import { MAX_EXPRESSION_LENGTH } from "@/lib/math/expressions/expressionSafety";
+import { normalizePiecewiseExpression } from "./piecewiseExpression";
 
 /** Accept familiar trig-power notation at the editing boundary, without changing scene storage. */
 export function normalizeMathInput(source: string): string {
   if (source.length > MAX_EXPRESSION_LENGTH) return source;
-  let result = source.replaceAll("−", "-").replaceAll("×", "*").replaceAll("÷", "/").replaceAll("π", "pi").replaceAll("θ", "theta").replaceAll("²", "^2").replaceAll("³", "^3");
+  let result = source.replaceAll("−", "-").replaceAll("×", "*").replaceAll("÷", "/").replaceAll("π", "pi").replaceAll("θ", "theta").replaceAll("²", "^2").replaceAll("³", "^3").replaceAll("≤", "<=").replaceAll("≥", ">=").replaceAll("≠", "!=");
+  try { result = normalizePiecewiseExpression(result); } catch { return source; }
   result = result.replace(/\b(?:xy|yx|xz|zx|yz|zy|xyz|xzy|yxz|yzx|zxy|zyx)\b/g, word => word.split("").join("*"));
   const pattern = /\b(sin|cos|tan|sec|csc|cot|sinh|cosh|tanh)\s*\^\s*(\d+(?:\.\d+)?|\([^()]*\))\s*\(/g;
   // Rewrite from the innermost call outward, retaining the argument's parentheses.
@@ -45,6 +47,18 @@ function splitTopLevel(source: string, separator: string): string[] {
 
 const texOptions = { parenthesis: "auto" as const, implicit: "hide" as const, handler: trigPower };
 function trigPower(node: MathNode): string | undefined {
+  if (node.type === "ConditionalNode") {
+    const rows: string[] = [];
+    let branch = node;
+    const unwrap = (value: MathNode): MathNode => value.type === "ParenthesisNode" ? unwrap((value as MathNode & { content: MathNode }).content) : value;
+    while (branch.type === "ConditionalNode") {
+      const conditional = branch as MathNode & { condition: MathNode; trueExpr: MathNode; falseExpr: MathNode };
+      rows.push(`${unwrap(conditional.trueExpr).toTex(texOptions)} & ${unwrap(conditional.condition).toTex(texOptions)}`);
+      branch = unwrap(conditional.falseExpr);
+    }
+    if (branch.toString() !== "0 / 0") rows.push(`${branch.toTex(texOptions)} & \\text{otherwise}`);
+    return `\\begin{cases}${rows.join(" \\\\ ")}\\end{cases}`;
+  }
   if (node.type === "SymbolNode") {
     const name = (node as MathNode & { name: string }).name;
     if (/^[A-Za-z][A-Za-z0-9_]+$/.test(name) && !["pi", "theta", "alpha", "beta", "gamma", "delta", "epsilon", "lambda", "mu", "sigma", "phi", "omega"].includes(name)) return `\\mathrm{${name.replaceAll("_", "\\_")}}`;
@@ -89,7 +103,8 @@ export function expressionToLatex(source: string): string | null {
     const components = splitTopLevel(text.slice(1, -1), ",").map(expressionToLatex);
     return components.every(Boolean) ? `\\left\\langle ${components.join(",\\,")} \\right\\rangle` : null;
   }
-  const sides = splitTopLevel(text, "=");
+  const normalized = normalizeMathInput(text);
+  const sides = splitTopLevel(normalized, "=");
   if (sides.length > 1) {
     const rendered = sides.map(expressionToLatex);
     return rendered.every(Boolean) ? rendered.join(" = ") : null;

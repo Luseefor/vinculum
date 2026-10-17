@@ -13,6 +13,8 @@ export type { CompiledSurfaceExpression, SurfaceEvaluator } from "./compileExpre
 export { getEffectiveSurfaceOrientation } from "./surfaceExpressionOrientation";
 
 interface CompiledMathExpression {
+  variables?: readonly string[];
+  hasDiscontinuities?: boolean;
   evaluate: (scope: Record<string, number>) => unknown;
 }
 
@@ -123,13 +125,13 @@ export function compileSurfaceExpression(
 
   const getScope = (u: number, v: number) => {
     const scope: Record<string, number> = {
+      ...scopeSnapshot,
       x: 0,
       y: 0,
       z: 0,
       t: 0,
       pi: Math.PI,
-      e: Math.E,
-      ...(params ?? getEditorParameterScope())
+      e: Math.E
     };
 
     if (effectiveOrientation === "x") {
@@ -182,6 +184,9 @@ export function compileSurfaceExpression(
     error: null,
     effectiveOrientation
   };
+  evaluator.hasDiscontinuities = compiledExpression.hasDiscontinuities;
+  const inputAxes = effectiveOrientation === "x" ? ["y", "z"] : effectiveOrientation === "y" ? ["x", "z"] : ["x", "y"];
+  evaluator.isConstant = compiledExpression.variables?.every(name => !inputAxes.includes(name));
   setCachedSurfaceCompile(cacheKey, successResult);
   return successResult;
 }

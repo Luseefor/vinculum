@@ -29,6 +29,8 @@ const unary: Record<string, number> = { sin: 9, cos: 10, tan: 11, asin: 12, acos
  * including in workers and tests; no JavaScript evaluator or fallback exists. */
 export interface RustGridAxis { symbol: string; min: number; max: number; count: number }
 export interface CompiledRustExpression {
+  readonly variables?: readonly string[];
+  readonly hasDiscontinuities: boolean;
   evaluate(scope: Record<string, number>): number;
   evaluateGrid(axes: [RustGridAxis, RustGridAxis, RustGridAxis], scope: Record<string, number>): Float64Array;
   readonly backend: "rust-wasm";
@@ -39,9 +41,11 @@ export function compileRustExpression(expression: string | MathNode): CompiledRu
   const program: number[] = [];
   const emit = (opcode: number, operand = 0) => program.push(opcode, operand);
   let count = 0;
+  let hasDiscontinuities = false;
   const walk = (node: MathNode, depth = 0): void => {
     if (++count > 2500 || depth > 128) throw new Error("Expression exceeds Rust execution limits.");
     const ast = node as Ast;
+    if (ast.type === "ConditionalNode" || (ast.type === "FunctionNode" && ["floor", "ceil", "round", "sign"].includes((ast.fn as Ast)?.name ?? ""))) hasDiscontinuities = true;
     if (ast.type === "ConstantNode") {
       if (typeof ast.value !== "number" && typeof ast.value !== "boolean") throw new Error("Only real numeric constants are supported.");
       emit(0, Number(ast.value)); return;
@@ -105,6 +109,8 @@ export function compileRustExpression(expression: string | MathNode): CompiledRu
   new Float64Array(wasm.memory.buffer, programPointer, program.length).set(program);
   const allocation = { program: programPointer, programLength: program.length, scope: scopePointer, scopeLength: symbols.length };
   const compiled = {
+    variables: Object.freeze([...symbols]),
+    hasDiscontinuities,
     backend: "rust-wasm" as const,
     evaluate(scope: Record<string, number>): number {
       // WASM memory may grow when another expression is compiled. Refresh the

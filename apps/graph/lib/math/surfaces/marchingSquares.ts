@@ -67,6 +67,8 @@ export function computeContourLevels(min: number, max: number, count: number): F
 export type ContourStatus = "ok" | "empty" | "degenerate" | "budget-exceeded";
 
 export interface ExtractedContours {
+  /** Segment ranges for each requested level, including the final end offset. */
+  levelOffsets?: Uint32Array;
   /** Flat [x0,y0,x1,y1]* in grid-math (u,v) coordinates. */
   segments: Float32Array;
   segmentCount: number;
@@ -76,7 +78,8 @@ export interface ExtractedContours {
 export function extractContours(
   grid: SampledScalarGrid,
   domain: ScalarGridDomain,
-  levels: ArrayLike<number>
+  levels: ArrayLike<number>,
+  evaluate?: (x: number, y: number) => number | null
 ): ExtractedContours {
   if (grid.validCount === 0 || levels.length === 0) {
     return { segments: new Float32Array(0), segmentCount: 0, status: "empty" };
@@ -104,6 +107,7 @@ export function extractContours(
   }
   const out = new Float32Array(MAX_CONTOUR_SEGMENTS * 4);
   let segmentCount = 0;
+  const levelOffsets = new Uint32Array(levels.length + 1);
   const pushSegment = (x0: number, y0: number, x1: number, y1: number): boolean => {
     if (segmentCount >= MAX_CONTOUR_SEGMENTS) {
       return false;
@@ -124,6 +128,7 @@ export function extractContours(
   };
 
   for (let levelIndex = 0; levelIndex < levels.length; levelIndex += 1) {
+    levelOffsets[levelIndex] = segmentCount;
     const level = levels[levelIndex] as number;
     if (!Number.isFinite(level)) {
       continue;
@@ -159,20 +164,24 @@ export function extractContours(
         // Edge crossing points (only computed when the case needs them).
         // B: bottom a→b at v0; R: right b→c at u1; T: top d→c at v1;
         // L: left a→d at u0.
-        const pointB = () => edgePoint(u0, v0, a, u1, v0, b, level);
-        const pointR = () => edgePoint(u1, v0, b, u1, v1, c, level);
-        const pointT = () => edgePoint(u0, v1, d, u1, v1, c, level);
-        const pointL = () => edgePoint(u0, v0, a, u0, v1, d, level);
+        const edge = (x0: number, y0: number, a: number, x1: number, y1: number, b: number) => evaluate
+          ? refineContourEdge(x0, y0, a - level, x1, y1, b - level, (x, y) => { const value = evaluate(x, y); return value === null ? null : value - level; })
+          : edgePoint(x0, y0, a, x1, y1, b, level);
+        const pointB = () => edge(u0, v0, a, u1, v0, b);
+        const pointR = () => edge(u1, v0, b, u1, v1, c);
+        const pointT = () => edge(u0, v1, d, u1, v1, c);
+        const pointL = () => edge(u0, v0, a, u0, v1, d);
         let complete = true;
         const connect = (
-          p: () => { x: number; y: number },
-          q: () => { x: number; y: number }
+          p: () => { x: number; y: number } | null,
+          q: () => { x: number; y: number } | null
         ): void => {
           if (!complete) {
             return;
           }
           const p0 = p();
           const p1 = q();
+          if (!p0 || !p1) return;
           complete = pushSegment(p0.x, p0.y, p1.x, p1.y);
         };
         switch (caseIndex) {
@@ -206,7 +215,9 @@ export function extractContours(
             // Center inside joins through the middle; otherwise the two
             // inside corners keep separate contours. Deterministic for a
             // given grid (no arbitrary diagonals, no cracks).
-            const centerInside = (a + b + c + d) / 4 >= level;
+            const center = evaluate ? evaluate((u0 + u1) / 2, (v0 + v1) / 2) : (a + b + c + d) / 4;
+            if (center === null || !Number.isFinite(center)) break;
+            const centerInside = center >= level;
             const throughMiddle = centerInside === (caseIndex === 5);
             if (throughMiddle) {
               connect(pointB, pointR);
@@ -226,11 +237,35 @@ export function extractContours(
       }
     }
   }
+  levelOffsets[levels.length] = segmentCount;
   return {
+    levelOffsets,
     segments: out.slice(0, segmentCount * 4),
     segmentCount,
     status: segmentCount > 0 ? "ok" : "empty"
   };
+}
+
+/** Bounded residual refinement shared by 2D and 3D implicit equation contours. */
+export function refineContourEdge(x1: number, y1: number, v1: number, x2: number, y2: number, v2: number,
+  evaluate: (x: number, y: number) => number | null): { x: number; y: number } | null {
+  if (![v1, v2].every(Number.isFinite)) return null;
+  if (v1 === 0) return { x: x1, y: y1 };
+  if (v2 === 0) return { x: x2, y: y2 };
+  if ((v1 > 0) === (v2 > 0)) return null;
+  const magnitude = Math.max(Math.abs(v1), Math.abs(v2));
+  const t = (v1 / magnitude) / (v1 / magnitude - v2 / magnitude);
+  let point = { x: x1 + (x2 - x1) * t, y: y1 + (y2 - y1) * t };
+  let lo = { x: x1, y: y1, value: v1 }, hi = { x: x2, y: y2 };
+  const tolerance = Math.max(Number.MIN_VALUE, magnitude * .02);
+  for (let attempt = 0; attempt < 9; attempt++) {
+    const value = evaluate(point.x, point.y);
+    if (value === null || !Number.isFinite(value)) return null;
+    if (Math.abs(value) <= tolerance) return point;
+    if ((value > 0) === (lo.value > 0)) lo = { ...point, value }; else hi = point;
+    point = { x: (lo.x + hi.x) / 2, y: (lo.y + hi.y) / 2 };
+  }
+  return null; // A sign change at a pole or finite jump is not a zero contour.
 }
 
 function edgePoint(

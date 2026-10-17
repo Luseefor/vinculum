@@ -3,7 +3,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { useHistoryStore } from "@/lib/store/historyStore";
 import { buildIntegralJob } from "@/lib/compute/integralSync";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { cloneGraphObject } from "@/lib/scene/sceneSchema";
+import { cloneGraphObject, CURRENT_SCENE_SCHEMA_VERSION } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { export2dSvg } from "@/lib/export/sceneExport";
@@ -116,7 +116,7 @@ describe("primitive persistence (S26 PART 32)", () => {
     expect(line?.kind === "line" && line.dxExpr).toBe("2*pi");
   });
 
-  it("rejects unknown symbols and spatial locals at import, loads legacy scenes", () => {
+  it("requires a scope in current scenes, rejects spatial locals, and migrates legacy scalar symbols", () => {
     const envelope = {
       version: "1.0",
       metadata: { name: "s26", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
@@ -124,13 +124,21 @@ describe("primitive persistence (S26 PART 32)", () => {
     const bad = deserializeScene(
       JSON.stringify({
         ...envelope,
-        schemaVersion: 1,
+        schemaVersion: CURRENT_SCENE_SCHEMA_VERSION,
+        parameters: [],
         objects: [
           { id: "v1", kind: "vector", color: "#3b82f6", visible: true, oxExpr: "0", oyExpr: "0", ozExpr: "0", vxExpr: "zzz", vyExpr: "0", vzExpr: "0" }
         ]
       })
     );
     expect(bad.valid).toBe(false);
+    const legacySymbols = deserializeScene(JSON.stringify({
+      ...envelope, schemaVersion: 1, objects: [
+        { id: "v1", kind: "vector", color: "#3b82f6", visible: true, oxExpr: "0", oyExpr: "0", ozExpr: "0", vxExpr: "a", vyExpr: "0", vzExpr: "0" }
+      ]
+    }));
+    expect(legacySymbols.valid).toBe(true);
+    expect(legacySymbols.normalizedScene?.parameters).toEqual([{ id: "a", value: 1, min: -10, max: 10 }]);
     const spatial = deserializeScene(
       JSON.stringify({
         ...envelope,
@@ -156,7 +164,7 @@ describe("primitive persistence (S26 PART 32)", () => {
     expect(JSON.stringify(cloned)).not.toContain("resolved");
   });
 
-  it("warns (never silently drops) primitives in SVG export", () => {
+  it("exports primitive intersections in SVG", async () => {
     const store = useGraphStore.getState();
     store.addVectorObject();
     store.addLineObject();
@@ -168,7 +176,8 @@ describe("primitive persistence (S26 PART 32)", () => {
       viewportFrame: { width: 800, height: 600 }
     });
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.length).toBeGreaterThanOrEqual(2);
+    expect(result.file?.warnings).toEqual([expect.stringContaining("no geometry in the selected 2D plane")]);
+    expect(await result.file!.blob.text()).toContain("<path");
   });
 
   it("keeps new primitives out of integral analysis targets (S26 S25-regression)", () => {

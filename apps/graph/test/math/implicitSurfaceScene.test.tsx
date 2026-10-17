@@ -144,7 +144,7 @@ describe("parseImplicitSurfaceObject", () => {
     expect(unknownKind.valid).toBe(false);
   });
 
-  it("allows empty equations (editable-but-unrendered, like curves)", () => {
+  it("rejects empty equations in portable documents while authoring stays separate", () => {
     const result = deserializeScene(
       withEnvelope([
         {
@@ -159,16 +159,18 @@ describe("parseImplicitSurfaceObject", () => {
         }
       ])
     );
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.normalizedScene).toBeUndefined();
+    expect(result.errors.join(" ")).toContain("incomplete definition");
   });
 
-  it("still loads legacy v1 scenes without the new kind (no version bump)", () => {
+  it("migrates legacy v1 scenes without the new kind", () => {
     const result = deserializeScene(
       withEnvelope([createSurfaceGraph({ equation: "z - x^2" })])
     );
     expect(result.valid).toBe(true);
     expect(result.normalizedScene?.schemaVersion).toBe(CURRENT_SCENE_SCHEMA_VERSION);
-    expect(CURRENT_SCENE_SCHEMA_VERSION).toBe(1);
+    expect(result.normalizedScene?.parameters).toEqual([]);
   });
 });
 
@@ -461,7 +463,7 @@ describe("implicit surface store semantics", () => {
     render(<GraphTypeSelector value="surface" onChange={() => undefined} />);
     const select = screen.getByLabelText("Graph type") as HTMLSelectElement;
     const values = Array.from(select.options).map((option) => option.value);
-    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
+    expect(values).toEqual(["surface", "parametricCurve:2d", "parametricCurve", "parametricSurface:2d", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
   });
 
   it("keeps Implicit Surface reachable in both workspaces (quick in Math, More in Geometry)", () => {

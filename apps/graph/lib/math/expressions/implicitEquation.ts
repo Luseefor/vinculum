@@ -3,7 +3,8 @@
 // supported single mathematical equality (lhs = rhs). Renderer-independent,
 // no mathjs, no store.
 //
-// Grammar: exactly one `=` with non-empty trimmed sides. Rejects chained
+// Grammar: exactly one standalone `=` with non-empty trimmed sides. Comparison
+// operators inside conditional expressions are not equation separators. Rejects chained
 // equality (`x = y = z`), comparisons (`x == 1`), and missing sides. Never
 // decides whether the equation is a plane, an implicit field, or an
 // explicit surface; callers apply their own safety/normalization.
@@ -14,10 +15,13 @@
 // this one serves true-field validation/compilation (strict non-empty
 // sides). Keep both; do not "deduplicate" them into one grammar.
 export function splitSingleMathEquality(equation: string): { lhs: string; rhs: string } | null {
-  const firstSeparator = equation.indexOf("=");
-  if (firstSeparator < 0 || equation.indexOf("=", firstSeparator + 1) !== -1) {
-    return null;
+  let firstSeparator = -1;
+  for (let i = 0; i < equation.length; i++) {
+    if (equation[i] !== "=" || /[<>=!]/.test(equation[i - 1] ?? " ") || equation[i + 1] === "=") continue;
+    if (firstSeparator >= 0) return null;
+    firstSeparator = i;
   }
+  if (firstSeparator < 0) return null;
   const lhs = equation.slice(0, firstSeparator).trim();
   const rhs = equation.slice(firstSeparator + 1).trim();
   if (!lhs || !rhs) {

@@ -1,5 +1,6 @@
 import type { ParametricEvaluator } from "../expressions/compileParametric";
 import { MAX_PARAMETRIC_CURVE_SAMPLES } from "../expressions/expressionSafety";
+import { isContinuousSampleEdge } from "./sampleContinuity";
 
 interface SampleCurveOptions {
   tMin: number;
@@ -45,8 +46,9 @@ export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveO
   const positions = new Float32Array(samples * 3);
   const validSamples = new Uint8Array(samples);
   // Transient raw math-frame coordinates for continuity classification only.
-  // Max cost at the sample cap: 8192 * 3 * 4 bytes (~98KB), freed per call.
-  const rawMath = new Float32Array(samples * 3);
+  // Keep double precision so rounded rendering buffers cannot look like jumps.
+  // Max cost at the sample cap: 8192 * 3 * 8 bytes (~192KB), freed per call.
+  const rawMath = new Float64Array(samples * 3);
   let previousPoint: [number, number, number] = [0, 0, 0];
 
   for (let index = 0; index < samples; index += 1) {
@@ -67,10 +69,24 @@ export function sampleCurve(evaluate: ParametricEvaluator, options: SampleCurveO
     previousPoint = point;
   }
 
+  const connectedSegments = classifyCurveSegments(rawMath, validSamples, samples);
+  if (evaluate.hasDiscontinuities) {
+    for (let segment = 0; segment < connectedSegments.length; segment++) {
+      if (!connectedSegments[segment]) continue;
+      const left = lerp(tMin, tMax, segment / (samples - 1));
+      const right = lerp(tMin, tMax, (segment + 1) / (samples - 1));
+      for (let component = 0; component < 3; component++) {
+        if (!isContinuousSampleEdge(t => evaluate(t)[component], left, right, rawMath[segment * 3 + component], rawMath[(segment + 1) * 3 + component])) {
+          connectedSegments[segment] = 0;
+          break;
+        }
+      }
+    }
+  }
   return {
     positions,
     validSamples,
-    connectedSegments: classifyCurveSegments(rawMath, validSamples, samples)
+    connectedSegments
   };
 }
 
@@ -112,7 +128,7 @@ function jumpSign(value: number): number {
 // NaN unless both endpoints are raw-valid and the jump is finite, so
 // sanitized fallback coordinates can never participate in classification.
 function componentJump(
-  rawMath: Float32Array,
+  rawMath: Float64Array,
   validSamples: Uint8Array,
   samples: number,
   component: number,
@@ -131,7 +147,7 @@ function componentJump(
 }
 
 function isDiscontinuousComponent(
-  rawMath: Float32Array,
+  rawMath: Float64Array,
   validSamples: Uint8Array,
   samples: number,
   component: number,
@@ -172,7 +188,7 @@ function isDiscontinuousComponent(
 // endpoints are raw-valid (F3-A) and no math component independently proves a
 // pole straddle (F3-B). Scalar-only, O(samples), no per-sample allocation.
 function classifyCurveSegments(
-  rawMath: Float32Array,
+  rawMath: Float64Array,
   validSamples: Uint8Array,
   samples: number
 ): Uint8Array {

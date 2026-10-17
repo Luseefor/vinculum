@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { isGraphObjectRenderable3D } from "@/lib/graph3d/graphObject3dGuards";
@@ -22,6 +22,7 @@ it("keeps exact grid-edge roots and omits nonfinite contour cells", () => {
   expect(segments).toEqual([]);
 });
 it("plots the reported equation in 2D when entered directly or in a legacy surface", () => {
+  useEditorStore.getState().setViewportMode("3d");
   expect(normalizeMathInput(equation)).toContain("x*y");
   const result = useGraphStore.getState().commitAutoEquation(equation);
   expect(result).toMatchObject({ error: null, dimension: "2d" });
@@ -66,8 +67,21 @@ it("reuses contour paths for hover redraws and recomputes after zooming", () => 
   const first = samples;
   drawImplicitContour(field, context, viewport, 123, 123);
   expect(samples).toBe(first);
+  drawImplicitContour(field, context, { ...viewport, centerX: .05 }, 123, 123);
+  expect(samples).toBe(first);
   drawImplicitContour(field, context, { ...viewport, scale: 50 }, 123, 123);
   expect(samples).toBeGreaterThan(first);
+});
+
+it("does not turn a finite sign jump or a pole into a zero contour", () => {
+  const context = { moveTo: () => {}, lineTo: vi.fn() };
+  const viewport = { width: 123, height: 123, centerX: 0, centerY: 0, scale: 30 };
+  drawImplicitContour(x => 1 / (x - .013), context, viewport, 123, 123);
+  expect(context.lineTo).not.toHaveBeenCalled();
+  drawImplicitContour(x => x < .013 ? -1 : 1, context, viewport, 123, 123);
+  expect(context.lineTo).not.toHaveBeenCalled();
+  drawImplicitContour(x => 1e-20 / (x - .013), context, viewport, 123, 123);
+  expect(context.lineTo).not.toHaveBeenCalled();
 });
 
 

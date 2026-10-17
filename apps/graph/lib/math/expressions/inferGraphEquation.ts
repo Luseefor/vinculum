@@ -1,5 +1,7 @@
 import { getEquationParameterNames } from "@/lib/store/editorParameters";
-import { parse, type MathNode } from "mathjs";
+import { parse, SymbolNode, type MathNode } from "mathjs";
+import { normalizeMathInput } from "./mathNotation";
+import { normalizePiecewiseExpression } from "./piecewiseExpression";
 import { splitSingleMathEquality } from "./implicitEquation";
 import { validateExpressionSafety } from "./expressionSafety";
 import { compileImplicitSurfaceExpression } from "./compileImplicitSurface";
@@ -12,11 +14,20 @@ type EquationInference =
 
 /** Classify mathematical relations from parsed symbols, never substring matches. */
 export function inferGraphEquation(source: string, params: Record<string, number> = {}): EquationInference {
-  params = { ...Object.fromEntries(getEquationParameterNames(source).map(name => [name, 1])), ...params };
-  const raw = source.trim();
+  let raw: string;
+  try { raw = normalizePiecewiseExpression(normalizeMathInput(source)).trim(); }
+  catch (error) { return { ok: false, error: (error as Error).message }; }
+  params = { ...Object.fromEntries(getEquationParameterNames(raw).map(name => [name, 1])), ...params };
   if (!raw) return { ok: false, error: "Enter an equation." };
   const equality = splitSingleMathEquality(raw);
-  if (raw.includes("=") && !equality) return { ok: false, error: "Use one '=' with an expression on each side." };
+  if (raw.includes("=") && !equality && !raw.includes("?")) return { ok: false, error: "Use one '=' with an expression on each side." };
+  const timeFunction = equality?.lhs.match(/^[a-zA-Z]\(\s*t\s*\)$/);
+  if (timeFunction && equality) {
+    try {
+      raw = `y = ${parse(equality.rhs).transform((node, path) => path !== "fn" && node.type === "SymbolNode" && (node as MathNode & { name: string }).name === "t" ? new SymbolNode("x") : node).toString()}`;
+    } catch { return { ok: false, error: "Check the function's conditions and values." }; }
+    return inferGraphEquation(raw, params);
+  }
   const functionDefinition = equality?.lhs.match(/^[a-zA-Z]\(\s*([xyz](?:\s*,\s*[xyz])*)\s*\)$/);
   const sources = functionDefinition ? [equality!.rhs] : equality ? [equality.lhs, equality.rhs] : [raw];
   const variables = new Set<string>(functionDefinition?.[1]?.split(/\s*,\s*/) ?? []);

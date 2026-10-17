@@ -48,6 +48,7 @@ export function defaultIntegralConfig(sourceId: string): IntegralAnalysisConfig 
     sourceId,
     mode: "arcLength",
     scalarIntegrand: "",
+    lowerBoundary: "0",
     vectorFieldId: null,
     quality: "medium",
     direction: 1,
@@ -118,6 +119,7 @@ export function buildIntegralSlice(set: GraphStoreSet): Pick<
           sourceId,
           mode: patch.mode ?? current.mode,
           scalarIntegrand: patch.scalarIntegrand ?? current.scalarIntegrand,
+          lowerBoundary: patch.lowerBoundary ?? current.lowerBoundary ?? "0",
           vectorFieldId: patch.vectorFieldId !== undefined ? patch.vectorFieldId : current.vectorFieldId,
           quality: patch.quality ?? current.quality,
           direction: patch.direction ?? current.direction,
@@ -128,6 +130,7 @@ export function buildIntegralSlice(set: GraphStoreSet): Pick<
           prev &&
           prev.mode === next.mode &&
           prev.scalarIntegrand === next.scalarIntegrand &&
+          prev.lowerBoundary === next.lowerBoundary &&
           prev.vectorFieldId === next.vectorFieldId &&
           prev.quality === next.quality &&
           prev.direction === next.direction &&

@@ -33,6 +33,7 @@ function serialize(value: unknown, depth = 0): string {
     if (fn) return `${fn}(${next(args[1])})`;
   }
   if (head === "Delimiter") return `(${next(args[0])})`;
+  if (head === "__unit__" && args.length === 1 && args[0] === "t") return "t";
   if (head === "Sequence" || head === "Tuple" || head === "List") return args.map(next).join(",");
   if (head === "InvisibleOperator" || head === "Multiply") {
     // Mathjs functions typeset as operator names parse as a symbol + argument delimiter.
@@ -49,6 +50,8 @@ function serialize(value: unknown, depth = 0): string {
   if (head === "Square") return `(${next(args[0])})^2`;
   if (head === "Root") return `(${next(args[0])})^(1/(${next(args[1])}))`;
   if (head === "Equal") return args.map(next).join("=");
+  const comparison: Record<string, string> = { Less: "<", LessEqual: "<=", Greater: ">", GreaterEqual: ">=", NotEqual: "!=", And: "and", Or: "or" };
+  if (typeof head === "string" && comparison[head]) return args.map(arg => `(${next(arg)})`).join(` ${comparison[head]} `);
   if (head === "Lb") return `log(${next(args[0])},2)`;
   if (head === "Log") return `log(${args.map(next).join(",")})`;
   if (head === "Factorial") return `(${next(args[0])})!`;
@@ -61,6 +64,38 @@ export function latexToExpression(latex: string): string | null {
   if (!latex.trim()) return "";
   if (latex.length > MAX_EXPRESSION_LENGTH * 8) return null;
   try {
+    if (latex.includes("\\begin{cases}")) {
+      const match = latex.match(/^(.*?)\\begin\{cases\}([\s\S]*?)\\end\{cases\}(.*?)$/);
+      if (!match || match[2]!.includes("\\begin")) return null;
+      const rows = match[2]!.split(/\\\\/).map(row => row.trim()).filter(Boolean);
+      if (!rows.length || rows.length > 16) return null;
+      let body = "(0/0)";
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const columns = rows[i]!.split("&");
+        if (columns.length !== 2) return null;
+        const value = latexToExpression(columns[0]!);
+        if (!value) return null;
+        if (/^\\text\{otherwise\}$/.test(columns[1]!.trim())) {
+          if (i !== rows.length - 1) return null;
+          body = `(${value})`;
+        } else {
+          const condition = latexToExpression(columns[1]!);
+          if (!condition) return null;
+          body = `((${condition.replace(/(?<![<>=!])=(?!=)/g, "==")}) ? (${value}) : ${body})`;
+        }
+      }
+      // Cases may be surrounded by Mathjs's optional parenthesis delimiters.
+      const prefix = match[1]!.replace(/\\left\($/, "");
+      const suffix = match[3]!.replace(/^\\right\)/, "");
+      const label = prefix.trim().replace(/=$/, "").trim();
+      const functionLabel = label.match(/^(?:\\mathrm\{)?([A-Za-z])\}?\\left\((.*?)\\right\)$/);
+      const functionArguments = functionLabel ? latexToExpression(functionLabel[2]!) : null;
+      if (functionLabel && functionArguments === null) return null;
+      const before = functionLabel ? `${functionLabel[1]}(${functionArguments!.replace(/^\((.*)\)$/, "$1")})` : label ? latexToExpression(label) : "";
+      if (before === null || suffix.trim()) return null;
+      const result = `${before ? `${before}=` : ""}${body}`;
+      return result.length <= MAX_EXPRESSION_LENGTH ? result : null;
+    }
     const result = serialize(engine.parse(latex, { form: "raw" }).json);
     return result.length <= MAX_EXPRESSION_LENGTH ? result : null;
   } catch { return null; }

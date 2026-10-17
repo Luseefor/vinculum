@@ -1,10 +1,12 @@
 // S27 geometry-analysis facts: the single pure bridge from canonical
 // scene objects to relation results, shared by the Inspector section and
 // the derived-overlay updater so numbers and pictures can never disagree.
-// Synchronous, Three-free, math coordinates only, zero workers. Facts are
-// recomputed from LIVE sources on every use — never cached, never stored.
+// Three-free, math coordinates only. Primitive facts recompute live;
+// sampled surface intersections use a bounded definition/parameter cache.
 
-import type { GraphObject } from "@vinculum/scene/types";
+import type { GraphObject, ImplicitCurveObject, SurfaceDomain } from "@vinculum/scene/types";
+import { computeCurveIntersection } from "./curveIntersection";
+import { extendCurveToSurface } from "../curves/curveExtension";
 import {
   resolveLineGeometry,
   resolvePlaneGeometry,
@@ -47,25 +49,36 @@ import {
   type PointProjection
 } from "./geometryRelations";
 import { vectorsParallel, vectorsPerpendicular } from "./geometryTolerance";
+import { computeSurfaceIntersection, isIntersectionSurface, type IntersectionSurface, type SurfaceIntersectionResult } from "./surfaceIntersection";
 
-export type GeometrySourceKind = "point" | "vector" | "line" | "ray" | "segment" | "plane";
+export type GeometrySourceKind = "implicitCurve" | "point" | "vector" | "line" | "ray" | "segment" | "plane" | "surface" | "parametricSurface" | "implicitSurface";
 
 export type ResolvedGeometrySource =
+  | { kind: "curve"; object: ImplicitCurveObject; params: Record<string, number>; domain?: SurfaceDomain }
   | { kind: "point"; point: MathPoint3 }
   | { kind: "vector"; anchored: ResolvedAnchoredVector }
   | { kind: "line"; line: { point: MathPoint3; direction: MathVector3 } }
   | { kind: "ray"; ray: { origin: MathPoint3; direction: MathVector3 } }
   | { kind: "segment"; segment: { start: MathPoint3; end: MathPoint3 } }
-  | { kind: "plane"; plane: ResolvedPlane3 }
+  | { kind: "plane"; plane: ResolvedPlane3; object?: Extract<GraphObject, { kind: "plane" }>; params?: Record<string, number> }
+  | { kind: "surface"; object: IntersectionSurface; params: Record<string, number> }
   | { kind: "unresolved"; reason: string }
   | { kind: "unsupported" };
 
 /** Resolve a canonical scene object for relation math (explicit params). */
 export function resolveGeometrySource(
   object: GraphObject,
-  params: Record<string, number>
+  params: Record<string, number>,
+  planarDomain?: SurfaceDomain
 ): ResolvedGeometrySource {
   switch (object.kind) {
+    case "implicitCurve":
+      return object.extendTo3D ? { kind: "surface", object: extendCurveToSurface(object, planarDomain, params), params }
+        : { kind: "curve", object, params, domain: planarDomain };
+    case "surface":
+    case "implicitSurface":
+    case "parametricSurface":
+      return { kind: "surface", object, params };
     case "point": {
       const resolved = resolvePointGeometry([object.xExpr, object.yExpr, object.zExpr], params);
       return resolved.status === "ok"
@@ -115,11 +128,11 @@ export function resolveGeometrySource(
     case "plane": {
       const resolved = resolvePlaneGeometry(object.equation, params);
       return resolved.status === "ok"
-        ? { kind: "plane", plane: resolved.value }
+        ? { kind: "plane", plane: resolved.value, object, params }
         : { kind: "unresolved", reason: resolved.reason };
     }
     default:
-      // Non-geometric scene kinds (surfaces, curves, fields): pair-level
+      // Unsupported scene kinds (curves, fields): pair-level
       // incompatible, distinct from unresolvable geometry (PART 49 keeps
       // both states precise).
       return { kind: "unsupported" };
@@ -172,6 +185,8 @@ function linearDirectionOf(
 }
 
 export type GeometryAnalysisFacts =
+  | { pair: "curve-curve"; intersection: SurfaceIntersectionResult }
+  | { pair: "surface-surface"; intersection: SurfaceIntersectionResult }
   | { pair: "point-point"; distance: number }
   | { pair: "point-linear"; linearKind: "line" | "ray" | "segment"; projection: PointProjection }
   | { pair: "point-plane"; projection: PointPlaneProjection }
@@ -203,6 +218,8 @@ export type GeometryAnalysisFacts =
  * linear-linear relations, plane-plane relations).
  */
 export function geometryPairSupported(kindA: string, kindB: string): boolean {
+  const surfaces = new Set(["surface", "parametricSurface", "implicitSurface", "plane", "implicitCurve"]);
+  if (surfaces.has(kindA) && surfaces.has(kindB)) return true;
   const linear = new Set(["line", "ray", "segment"]);
   if (kindA === kindB) {
     return kindA === "point" || kindA === "vector" || linear.has(kindA) || kindA === "plane";
@@ -220,6 +237,15 @@ export function geometryPairSupported(kindA: string, kindB: string): boolean {
   return false;
 }
 
+export function geometryObjectsPairSupported(a: GraphObject, b: GraphObject): boolean {
+  if (a.kind === "implicitCurve" || b.kind === "implicitCurve") {
+    const aPlanar = a.kind === "implicitCurve" && !a.extendTo3D;
+    const bPlanar = b.kind === "implicitCurve" && !b.extendTo3D;
+    if (aPlanar || bPlanar) return aPlanar && bPlanar;
+  }
+  return geometryPairSupported(a.kind, b.kind);
+}
+
 /** Compute every cheap fact for a resolved pair (PART 22 preferred UX). */
 export function computeGeometryFacts(
   primary: ResolvedGeometrySource,
@@ -233,6 +259,19 @@ export function computeGeometryFacts(
   }
   if (secondary.kind === "unresolved") {
     return { pair: "unresolved", reason: secondary.reason };
+  }
+  if (primary.kind === "curve" || secondary.kind === "curve") {
+    return primary.kind === "curve" && secondary.kind === "curve"
+      ? { pair: "curve-curve", intersection: computeCurveIntersection(primary.object, secondary.object, primary.params, primary.domain) }
+      : { pair: "incompatible" };
+  }
+  if (primary.kind === "surface" || secondary.kind === "surface") {
+    const a = primary.kind === "surface" || primary.kind === "plane" ? primary.object : null;
+    const b = secondary.kind === "surface" || secondary.kind === "plane" ? secondary.object : null;
+    const params = primary.kind === "surface" ? primary.params : secondary.kind === "surface" ? secondary.params : {};
+    return a && b && isIntersectionSurface(a) && isIntersectionSurface(b)
+      ? { pair: "surface-surface", intersection: computeSurfaceIntersection(a, b, params) }
+      : { pair: "incompatible" };
   }
   if (primary.kind === "point" && secondary.kind === "point") {
     const distance = distancePointPoint(primary.point, secondary.point);

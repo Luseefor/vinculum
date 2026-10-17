@@ -8,6 +8,9 @@ import { serializeScene } from "@/lib/scene/serializeScene";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
 import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { exportSceneJson } from "@/lib/export/sceneExport";
+import { buildShareSceneUrl, readSharedSceneFromSearch } from "@/lib/share/shareSceneLink";
+import { LocalProjectRepository } from "@/lib/projects/localProjectRepository";
 
 beforeEach(() => useGraphStore.getState().resetScene());
 
@@ -32,7 +35,38 @@ describe("automatic equation classification", () => {
 });
 
 describe("automatic scene equations", () => {
-  it("renders the sideways parabola as a zero contour and a planar 3D curve", () => {
+  it("retains follow-view behavior when overriding a legacy automatic surface without autoDomain", () => {
+    const id = useGraphStore.getState().commitAutoEquation("z=x^2+y^2").id!;
+    const scene = useGraphStore.getState().scene;
+    const object = scene.objects[0]!;
+    if (object.kind !== "surface") throw new Error("Expected surface");
+    const { autoDomain: _autoDomain, ...legacy } = object;
+    useGraphStore.getState().replaceSceneDocument({ ...scene, objects: [legacy] });
+    useGraphStore.getState().updateSurfaceOrientation(id, "x");
+    expect(useGraphStore.getState().scene.objects[0]).toMatchObject({ autoExpression: false, autoDomain: true });
+    expect(deserializeScene(serializeScene(useGraphStore.getState().scene)).valid).toBe(true);
+  });
+
+  it.each(["x", "y", "z"] as const)("keeps an explicit surface valid after overriding its output axis to %s", output => {
+    const id = useGraphStore.getState().commitAutoEquation("z=x^2+y^2").id!;
+    useGraphStore.getState().updateObjectColor(id, "#ff0000");
+    useGraphStore.getState().toggleObjectVisibility(id);
+    useGraphStore.getState().updateSurfaceOrientation(id, output);
+    const scene = useGraphStore.getState().scene;
+    const object = scene.objects[0]!;
+    expect(object).toMatchObject({ id, kind: "surface", orientation: output, equation: `${output} = x^2+y^2`, autoExpression: false, color: "#ff0000", visible: false });
+    const restored = deserializeScene(serializeScene(scene));
+    expect(restored.valid).toBe(true);
+    expect(restored.normalizedScene?.objects[0]).toEqual(object);
+    expect(exportSceneJson(scene).ok).toBe(true);
+    const link = buildShareSceneUrl({ scene, baseUrl: "https://example.com/editor" });
+    expect(link.ok).toBe(true);
+    expect(readSharedSceneFromSearch(new URL(link.url!).search)?.scene?.objects[0]).toEqual(object);
+    const repository = new LocalProjectRepository();
+    const project = repository.saveProject({ name: `Axis ${output}`, scene });
+    expect(repository.loadProjectScene(project.id)?.objects[0]).toEqual(object);
+  });
+  it("renders the sideways parabola as an explicit planar curve in both views", () => {
     const result = useGraphStore.getState().commitAutoEquation("x=y^2");
     expect(result.error).toBeNull();
     const object = useGraphStore.getState().scene.objects[0]!;
@@ -41,8 +75,9 @@ describe("automatic scene equations", () => {
     const graphs = buildRenderableGraphsFromScene([object], { horizontal: "x", vertical: "y", horizontalLabel: "X", verticalLabel: "Y" }, {});
     expect(graphs).toHaveLength(1);
     expect(graphs[0]!.hatchDomain).toBeNull();
-    expect(graphs[0]!.implicitEvaluate?.(4, 2)).toBe(0);
-    expect(graphs[0]!.implicitEvaluate?.(3, 2)).toBe(-1);
+    expect(graphs[0]!.swapAxes).toBe(true);
+    expect(graphs[0]!.evaluate?.(2)).toBe(4);
+    expect(graphs[0]!.evaluate?.(-2)).toBe(4);
     expect(buildRenderableGraphsFromScene([object], { horizontal: "x", vertical: "z", horizontalLabel: "X", verticalLabel: "Z" }, {})).toHaveLength(0);
   });
   it("infers bare functions and circles without losing their definitions", () => {

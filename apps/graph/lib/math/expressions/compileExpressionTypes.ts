@@ -1,4 +1,4 @@
-export type SurfaceEvaluator = (u: number, v: number) => number;
+export type SurfaceEvaluator = ((u: number, v: number) => number) & { hasDiscontinuities?: boolean; isConstant?: boolean };
 
 export interface CompiledSurfaceExpression {
   evaluator: SurfaceEvaluator;

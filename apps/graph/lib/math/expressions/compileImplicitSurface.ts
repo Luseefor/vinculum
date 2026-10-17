@@ -8,6 +8,7 @@ import { splitSingleMathEquality } from "./implicitEquation";
 import { getParamScopeSignature } from "./paramScope";
 
 export type ImplicitSurfaceEvaluator = ((x: number, y: number, z: number) => number) & {
+  hasDiscontinuities?: boolean;
   sampleGrid?: (domain: ImplicitSurfaceDomain, resolution: number) => Float64Array;
 };
 
@@ -108,6 +109,7 @@ export function compileImplicitSurfaceExpression(
     return Number.isFinite(difference) ? difference : Number.NaN;
   };
 
+  evaluator.hasDiscontinuities = lhsCompiled.expression?.hasDiscontinuities || rhsCompiled.expression?.hasDiscontinuities;
   evaluator.sampleGrid = (domain, resolution) => {
     if (!Number.isInteger(resolution) || resolution < 2 || resolution > MAX_IMPLICIT_SURFACE_RESOLUTION) throw new Error("Invalid implicit sample resolution.");
     return sampleRustGrid(lhsCompiled.expression!, rhsCompiled.expression!, params, [

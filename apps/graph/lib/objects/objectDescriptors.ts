@@ -27,7 +27,7 @@ export interface ObjectDescriptor {
   /** Command-palette label, e.g. "Add Parametric Curve". */
   commandLabel: string;
   /** Extra palette search terms (mathematical synonyms). */
-  aliases: string[];
+  aliases: readonly string[];
   /** Creation catalog category. */
   category: ObjectDescriptorCategory;
   /** Add Object menu section (Graphs/Primitives). Templates/Analysis items stay bespoke. */
@@ -38,7 +38,7 @@ export interface ObjectDescriptor {
   mathQuickRank: number | null;
 }
 
-export const OBJECT_DESCRIPTORS: readonly ObjectDescriptor[] = [
+const OBJECT_CATALOG = [
   {
     key: "surface",
     kind: "surface",
@@ -52,16 +52,42 @@ export const OBJECT_DESCRIPTORS: readonly ObjectDescriptor[] = [
     mathQuickRank: 0
   },
   {
+    key: "parametricCurve-2d",
+    kind: "parametricCurve",
+    dimension: "2d",
+    label: "2D Parametric Curve",
+    commandId: "add-2d-curve",
+    commandLabel: "Add 2D Parametric Curve",
+    aliases: ["parametric", "curve", "2d", "planar", "x(t), y(t)"],
+    category: "graphs",
+    menuSection: "Graphs",
+    geometryQuickRank: null,
+    mathQuickRank: null
+  },
+  {
     key: "parametricCurve",
     kind: "parametricCurve",
     label: "Parametric Curve",
     commandId: "add-curve",
     commandLabel: "Add Parametric Curve",
-    aliases: ["curve", "parametric", "line", "path"],
+    aliases: ["curve", "parametric", "line", "path", "3d", "x(t)", "y(t)", "z(t)"],
     category: "graphs",
     menuSection: "Graphs",
     geometryQuickRank: null,
     mathQuickRank: 1
+  },
+  {
+    key: "parametricSurface-2d",
+    kind: "parametricSurface",
+    dimension: "2d",
+    label: "2D Parametric Surface",
+    commandId: "add-2d-parametric-surface",
+    commandLabel: "Add 2D Parametric Surface",
+    aliases: ["parametric", "surface", "2d", "planar", "x(u,v), y(u,v)"],
+    category: "graphs",
+    menuSection: "Graphs",
+    geometryQuickRank: null,
+    mathQuickRank: null
   },
   {
     key: "parametricSurface",
@@ -69,7 +95,7 @@ export const OBJECT_DESCRIPTORS: readonly ObjectDescriptor[] = [
     label: "Parametric Surface",
     commandId: "add-parametric-surface",
     commandLabel: "Add Parametric Surface",
-    aliases: ["parametric", "surface", "uv"],
+    aliases: ["parametric", "surface", "uv", "3d", "x(u,v)", "y(u,v)", "z(u,v)"],
     category: "graphs",
     menuSection: "Graphs",
     geometryQuickRank: null,
@@ -211,7 +237,11 @@ export const OBJECT_DESCRIPTORS: readonly ObjectDescriptor[] = [
     geometryQuickRank: null,
     mathQuickRank: null
   }
-];
+] as const satisfies readonly ObjectDescriptor[];
+
+export type ObjectCreationKey = (typeof OBJECT_CATALOG)[number]["key"];
+
+export const OBJECT_DESCRIPTORS: readonly ObjectDescriptor[] = OBJECT_CATALOG;
 
 /** Quick Add entries for a workspace, ordered (exactly 6 per S30 Part 7). */
 export function quickAddDescriptors(workspace: "geometry" | "math"): ObjectDescriptor[] {

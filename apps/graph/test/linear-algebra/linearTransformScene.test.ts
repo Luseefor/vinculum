@@ -94,7 +94,7 @@ describe("linearTransform scene lifecycle (S28 PART 38/39/68/69)", () => {
     }
   });
 
-  it("rejects bad payloads and warns explicitly in SVG", () => {
+  it("rejects bad payloads and exports the 2D transform in SVG", async () => {
     const envelope = {
       version: "1.0",
       metadata: { name: "s28", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
@@ -133,7 +133,10 @@ describe("linearTransform scene lifecycle (S28 PART 38/39/68/69)", () => {
       viewportFrame: { width: 800, height: 600 }
     });
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.length).toBeGreaterThanOrEqual(1);
+    expect(result.file?.warnings).toEqual([]);
+    const svg = new DOMParser().parseFromString(await result.file!.blob.text(), "image/svg+xml");
+    const color = useGraphStore.getState().scene.objects[0].color;
+    expect(svg.querySelectorAll(`path[stroke="${color}"]`).length).toBeGreaterThan(0);
   });
 
   it("never appears as an Integral Analysis target (S28 S25-regression)", () => {

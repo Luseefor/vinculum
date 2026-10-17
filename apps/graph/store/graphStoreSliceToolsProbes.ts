@@ -142,12 +142,12 @@ export function buildToolsProbesSlice(set: GraphStoreSet): Pick<
       }));
     },
 
-    setProbePinnedMath: (point) => {
+    setProbePinnedMath: (point, axisPair) => {
       set((state) => {
         if (!point) {
           return state;
         }
-        const worldPoint = project2dPairToWorld(point, state.ui.axis2dPair);
+        const worldPoint = project2dPairToWorld(point, axisPair ?? state.ui.axis2dPair);
         return applyMeasurementPoint(state, worldPoint, state.ui.canvas2dTool);
       });
     },

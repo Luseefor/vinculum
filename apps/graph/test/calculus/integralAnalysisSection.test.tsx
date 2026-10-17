@@ -180,4 +180,28 @@ describe("IntegralAnalysisSection surfaces (S25 PART 28)", () => {
     fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "flux" } });
     expect(screen.getByLabelText("Surface orientation").textContent).toMatch(/\+x/);
   });
+
+  it("commits a second boundary for solid modes and hides it for surface area", () => {
+    const id = addPlaneSurface();
+    render(<IntegralAnalysisSection object={liveSurface(id)} />);
+    fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "volume" } });
+    expect(screen.getByTestId("solid-analysis-bounds").textContent).toContain("xMin=-1");
+    const boundary = screen.getByLabelText("Other boundary g(x,y)");
+    fireEvent.change(boundary, { target: { value: "-2" } });
+    expect(useGraphStore.getState().ui.integralAnalysisBySourceId[id]?.lowerBoundary).toBe("0");
+    fireEvent.keyDown(boundary, { key: "Enter" });
+    expect(useGraphStore.getState().ui.integralAnalysisBySourceId[id]?.lowerBoundary).toBe("-2");
+    fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "solidArea" } });
+    expect(screen.getByLabelText("Other boundary g(x,y)")).toHaveValue("-2");
+    fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "surfaceArea" } });
+    expect(screen.queryByLabelText("Other boundary g(x,y)")).toBeNull();
+  });
+
+  it("labels the other boundary using the equation's effective output axis", () => {
+    const id = addPlaneSurface();
+    const object = { ...liveSurface(id), equation: "x=3", orientation: "z" as const };
+    render(<IntegralAnalysisSection object={object} />);
+    fireEvent.change(screen.getByLabelText("Integral mode"), { target: { value: "volume" } });
+    expect(screen.getByLabelText("Other boundary g(y,z)")).toBeDefined();
+  });
 });

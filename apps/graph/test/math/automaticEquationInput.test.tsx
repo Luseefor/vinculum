@@ -8,7 +8,12 @@ vi.mock("@/components/math/MathInput", async () => {
   const { forwardRef } = await import("react");
   return { MathInput: forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => <input {...props} ref={ref} />) };
 });
-beforeEach(() => { vi.useFakeTimers(); useGraphStore.getState().resetScene(); });
+beforeEach(() => {
+  vi.useFakeTimers();
+  useGraphStore.getState().resetScene();
+  useGraphStore.getState().setWorkspace("math");
+  useEditorStore.getState().setViewportMode("3d");
+});
 afterEach(() => vi.useRealTimers());
 
 it("keeps one focused editor and one object while adding or removing z", () => {
@@ -41,4 +46,44 @@ it("keeps invalid drafts visible without overwriting the last valid equation", (
   expect(input).toHaveAttribute("aria-invalid", "true");
   expect(screen.getByRole("status")).toBeVisible();
   expect(useGraphStore.getState().scene.objects).toMatchObject([{ equation: "x=y^2" }]);
+});
+
+it.each(["split", "quad"] as const)("keeps %s open when an equation changes dimension", layout => {
+  useEditorStore.getState().setViewportMode(layout);
+  render(<AutomaticEquationInput label="New equation" />);
+  const input = screen.getByLabelText("New equation");
+  for (const equation of ["x=y^2", "x=y^2+z^2", "x=y^2"]) {
+    fireEvent.change(input, { target: { value: equation } });
+    act(() => vi.advanceTimersByTime(350));
+    expect(useEditorStore.getState().viewportMode).toBe(layout);
+    expect(useGraphStore.getState().scene.objects).toHaveLength(1);
+  }
+});
+
+it.each([
+  ["x=y^2", "3d", "2d"],
+  ["x=y^2+z^2", "2d", "3d"]
+] as const)("reveals the first %s equation in an Add-created empty row from %s", (equation, initialView, expectedView) => {
+  useEditorStore.getState().setViewportMode(initialView);
+  const id = useGraphStore.getState().addEmptyObject();
+  render(<AutomaticEquationInput objectId={id} value="" />);
+  const input = screen.getByLabelText("Equation");
+  input.focus();
+  fireEvent.change(input, { target: { value: equation } });
+  act(() => vi.advanceTimersByTime(350));
+  expect(useGraphStore.getState().scene.objects).toMatchObject([{ id, equation }]);
+  expect(useEditorStore.getState().viewportMode).toBe(expectedView);
+  expect(input).toHaveFocus();
+});
+
+it("does not duplicate a direct equation when Enter is followed by blur", () => {
+  render(<AutomaticEquationInput label="New equation" />);
+  const input = screen.getByLabelText("New equation");
+  fireEvent.change(input, { target: { value: "y=x^2" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.blur(input);
+  act(() => vi.advanceTimersByTime(350));
+  expect(useGraphStore.getState().scene.objects).toMatchObject([{ equation: "y=x^2" }]);
+  expect(useGraphStore.getState().scene.objects).toHaveLength(1);
+  expect(input).toHaveValue("");
 });

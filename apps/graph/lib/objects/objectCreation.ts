@@ -11,10 +11,36 @@
 
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
+import type { ObjectCreationKey } from "./objectDescriptors";
+
+/** Reveal an object through the existing workspace/view controls. Scene data stays intact. */
+export function revealObjectInViewport(id: string): void {
+  const store = useGraphStore.getState();
+  const object = store.scene.objects.find(entry => entry.id === id);
+  if (!object) return;
+  if ("equation" in object && !object.equation.trim()) return;
+  const editor = useEditorStore.getState();
+  const planar = (object.kind === "implicitCurve" && !object.extendTo3D) ||
+    ((object.kind === "parametricCurve" || object.kind === "parametricSurface") && object.dimension === "2d") ||
+    ((object.kind === "vectorField" || object.kind === "linearTransform") && object.dimension === "2d");
+  if (planar) {
+    store.setWorkspace("math");
+    store.setActive2dViewport("primary");
+    store.setAxis2DPair("xy");
+  } else if (store.ui.workspace === "geometry") {
+    return;
+  }
+  const mode = planar ? "2d" : "3d";
+  store.setGraphMode(mode);
+  if (editor.viewportMode !== "split" && editor.viewportMode !== "quad") {
+    editor.setViewportMode(mode);
+  }
+}
 
 export function createAndFocus(create: () => string): string {
   const id = create();
   if (id) {
+    revealObjectInViewport(id);
     useGraphStore.getState().requestEquationFocus(id);
   }
   return id;
@@ -24,42 +50,30 @@ function notify(message: string): void {
   useEditorStore.getState().addConsoleEvent(message);
 }
 
-/** Create one canonical object by descriptor key (14 kind entries). */
+// Adding a catalog key requires a matching canonical store action here.
+const objectCreators = {
+  surface: () => useGraphStore.getState().addSurfaceObject(),
+  "parametricCurve-2d": () => useGraphStore.getState().addParametricCurve("2d"),
+  "parametricSurface-2d": () => useGraphStore.getState().addParametricSurface("2d"),
+  parametricCurve: () => useGraphStore.getState().addParametricCurve(),
+  parametricSurface: () => useGraphStore.getState().addParametricSurface(),
+  implicitSurface: () => useGraphStore.getState().addImplicitSurface(),
+  "vectorField-2d": () => useGraphStore.getState().addVectorFieldObject("2d"),
+  "vectorField-3d": () => useGraphStore.getState().addVectorFieldObject("3d"),
+  plane: () => useGraphStore.getState().addPlaneObject(),
+  point: () => useGraphStore.getState().addPointObject(),
+  vector: () => useGraphStore.getState().addVectorObject(),
+  line: () => useGraphStore.getState().addLineObject(),
+  ray: () => useGraphStore.getState().addRayObject(),
+  segment: () => useGraphStore.getState().addSegmentObject(),
+  "linearTransform-2d": () => useGraphStore.getState().addLinearTransformObject("2d"),
+  "linearTransform-3d": () => useGraphStore.getState().addLinearTransformObject("3d")
+} satisfies Record<ObjectCreationKey, () => string>;
+
+/** Unknown external keys stay inert; every catalog entry has a typed creator. */
 export function createObjectByKey(key: string): string {
-  const store = useGraphStore.getState();
-  switch (key) {
-    case "surface":
-      return createAndFocus(() => store.addSurfaceObject());
-    case "parametricCurve":
-      return createAndFocus(() => store.addParametricCurve());
-    case "parametricSurface":
-      return createAndFocus(() => store.addParametricSurface());
-    case "implicitSurface":
-      return createAndFocus(() => store.addImplicitSurface());
-    case "vectorField-2d":
-      return createAndFocus(() => store.addVectorFieldObject("2d"));
-    case "vectorField-3d":
-      return createAndFocus(() => store.addVectorFieldObject("3d"));
-    case "plane":
-      return createAndFocus(() => store.addPlaneObject());
-    case "point":
-      // S27: Quick Add Point creates the real canonical point kind.
-      return createAndFocus(() => store.addPointObject());
-    case "vector":
-      return createAndFocus(() => store.addVectorObject());
-    case "line":
-      return createAndFocus(() => store.addLineObject());
-    case "ray":
-      return createAndFocus(() => store.addRayObject());
-    case "segment":
-      return createAndFocus(() => store.addSegmentObject());
-    case "linearTransform-2d":
-      return createAndFocus(() => store.addLinearTransformObject("2d"));
-    case "linearTransform-3d":
-      return createAndFocus(() => store.addLinearTransformObject("3d"));
-    default:
-      return "";
-  }
+  if (!Object.hasOwn(objectCreators, key)) return "";
+  return createAndFocus(objectCreators[key as ObjectCreationKey]);
 }
 
 function createSurfaceTemplate(
@@ -68,7 +82,7 @@ function createSurfaceTemplate(
   domain?: { xMin: number; xMax: number; yMin: number; yMax: number }
 ): string {
   const store = useGraphStore.getState();
-  const id = store.addSurfaceObject();
+  const id = createAndFocus(() => store.addSurfaceObject());
   store.updateSurfaceEquation(id, equation);
   if (domain) {
     store.updateSurfaceDomain(id, domain);
@@ -84,7 +98,7 @@ function createParametricSurfaceTemplate(
   message: string
 ): string {
   const store = useGraphStore.getState();
-  const id = store.addParametricSurface();
+  const id = createAndFocus(() => store.addParametricSurface());
   store.updateParametricSurfaceExpression(id, "xExpr", expressions.xExpr);
   store.updateParametricSurfaceExpression(id, "yExpr", expressions.yExpr);
   store.updateParametricSurfaceExpression(id, "zExpr", expressions.zExpr);
@@ -103,7 +117,7 @@ function createImplicitSurfaceTemplate(
   message: string
 ): string {
   const store = useGraphStore.getState();
-  const id = store.addImplicitSurface();
+  const id = createAndFocus(() => store.addImplicitSurface());
   store.updateImplicitSurfaceExpression(id, "equation", equation);
   store.updateImplicitSurfaceExpression(id, "xMin", domain.xMin);
   store.updateImplicitSurfaceExpression(id, "xMax", domain.xMax);
@@ -189,7 +203,7 @@ export function createImplicitTorusPreset(): string {
 
 export function createSlicePlanePreset(): string {
   const store = useGraphStore.getState();
-  const id = store.addPlaneObject();
+  const id = createAndFocus(() => store.addPlaneObject());
   store.updatePlaneEquation(id, "z = 0");
   store.requestEquationFocus(id);
   notify("Created slice plane at z=0");
@@ -204,7 +218,7 @@ export function createProjectionPreset(): string | null {
     notify("Projection requires a selected parametric curve");
     return null;
   }
-  const id = store.addParametricCurve();
+  const id = createAndFocus(() => store.addParametricCurve());
   store.updateParametricExpression(id, "xExpr", selected.xExpr);
   store.updateParametricExpression(id, "yExpr", selected.yExpr);
   store.updateParametricExpression(id, "zExpr", "0");

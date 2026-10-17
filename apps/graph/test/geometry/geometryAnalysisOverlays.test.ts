@@ -47,6 +47,17 @@ describe("geometry analysis overlay sync (S27 PART 23/46)", () => {
     useHistoryStore.getState().clear();
   });
 
+  it("uses the same planar view bounds for 3D point markers as the 2D analysis", () => {
+    const a = makeObject("implicitCurve", { equation: "x=30" }), b = makeObject("implicitCurve", { equation: "y=40" });
+    addDirect(a); addDirect(b);
+    const frame = { ...frameFor({ [a.id]: { secondaryId: b.id, showOverlay: true } }), planarDomain: { xMin: 25, xMax: 35, yMin: 35, yMax: 45 } };
+    updateGeometryAnalysisOverlays(frame);
+    const marker = frame.cache.get(`${GEOMETRY_ANALYSIS_OVERLAY_PREFIX}${a.id}`)!.group.children[0];
+    expect(marker.position.toArray()).toEqual([30, 0, 40]);
+    updateGeometryAnalysisOverlays({ ...frame, planarDomain: { xMin: -5, xMax: 5, yMin: -5, yMax: 5 } });
+    expect(frame.overlayRoot.children).toHaveLength(0);
+  });
+
   it("builds projection markers plus connectors with raycast disabled", () => {
     const point = POINT("3", "4", "0");
     const line = LINE(["0", "0", "0"], ["2", "0", "0"]);
@@ -218,4 +229,22 @@ describe("geometry analysis lifecycle (S27 PART 32)", () => {
     store.resetScene();
     expect(useGraphStore.getState().ui.geometryAnalysisBySourceId).toEqual({});
   });
+});
+
+it("renders surface intersection strokes and disposes stale curves after edits or removal", () => {
+  useGraphStore.getState().resetScene();
+  const store=useGraphStore.getState();
+  const a=store.addSurfaceObject(); store.updateSurfaceEquation(a,"x");
+  const b=store.addPlaneObject(); store.updatePlaneEquation(b,"z=0");
+  const frame=frameFor({[a]:{secondaryId:b,showOverlay:true}});
+  updateGeometryAnalysisOverlays(frame);
+  const key=`${GEOMETRY_ANALYSIS_OVERLAY_PREFIX}${a}`;
+  const built=frame.cache.get(key)!;
+  expect(built.group.children[0].userData.wideStroke).toBe(true);
+  updateGeometryAnalysisOverlays(frame);
+  expect(frame.cache.get(key)).toBe(built);
+  frame.objects=frame.objects.map(o => o.id===a && o.kind==="surface" ? {...o,equation:"100"} : o);
+  updateGeometryAnalysisOverlays(frame);
+  expect(frame.cache.has(key)).toBe(false);
+  expect(frame.overlayRoot.children).toHaveLength(0);
 });

@@ -1,6 +1,7 @@
 import type { SurfaceDomain } from "@vinculum/scene/types";
 import { normalizeSurfaceResolution } from "@vinculum/scene/defaults";
 import type { SurfaceEvaluator } from "../expressions/compileExpression";
+import { isContinuousSampleEdge } from "../curves/sampleContinuity";
 
 interface SampleSurfaceOptions {
   domain: SurfaceDomain;
@@ -50,7 +51,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
   }
   const positions = new Float32Array(vertexCount * 3);
   const validVertices = new Uint8Array(vertexCount);
-  const heights = new Float32Array(vertexCount);
+  const heights = new Float64Array(vertexCount);
 
   let vertexOffset = 0;
   for (let yStep = 0; yStep <= resolution; yStep += 1) {
@@ -89,13 +90,27 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
       }
 
       validVertices[vertexIndex] = isFinite ? 1 : 0;
-      heights[vertexIndex] = h;
+      heights[vertexIndex] = sampledHeight;
       vertexOffset += 3;
     }
   }
 
   const uDiscontinuity = flagDiscontinuousEdges(heights, validVertices, stride, resolution, true);
   const vDiscontinuity = flagDiscontinuousEdges(heights, validVertices, stride, resolution, false);
+  const diagonalDiscontinuity = new Uint8Array(resolution * resolution);
+  if (evaluate.hasDiscontinuities) {
+    const continuous = (a: number, b: number) => {
+      const u0 = lerp(xMin, xMax, (a % stride) / resolution), v0 = lerp(yMin, yMax, Math.floor(a / stride) / resolution);
+      const u1 = lerp(xMin, xMax, (b % stride) / resolution), v1 = lerp(yMin, yMax, Math.floor(b / stride) / resolution);
+      return isContinuousSampleEdge(t => evaluate(lerp(u0, u1, t), lerp(v0, v1, t)), 0, 1, heights[a], heights[b]);
+    };
+    for (let y = 0; y < stride; y++) for (let x = 0; x < stride; x++) {
+      const a = y * stride + x;
+      if (x < resolution && validVertices[a] && validVertices[a + 1] && !continuous(a, a + 1)) uDiscontinuity[y * resolution + x] = 1;
+      if (y < resolution && validVertices[a] && validVertices[a + stride] && !continuous(a, a + stride)) vDiscontinuity[x * resolution + y] = 1;
+      if (x < resolution && y < resolution && validVertices[a + 1] && validVertices[a + stride] && !continuous(a + 1, a + stride)) diagonalDiscontinuity[y * resolution + x] = 1;
+    }
+  }
 
   const indices: number[] = [];
   let rejectedTriangles = 0;
@@ -108,7 +123,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
       // Triangle (a, c, b) spans u-edge (yStep, xStep) and v-edge (xStep, yStep).
       if (validVertices[a] && validVertices[c] && validVertices[b]) {
-        if (uDiscontinuity[yStep * resolution + xStep] === 1 || vDiscontinuity[xStep * resolution + yStep] === 1) {
+        if (uDiscontinuity[yStep * resolution + xStep] === 1 || vDiscontinuity[xStep * resolution + yStep] === 1 || diagonalDiscontinuity[yStep * resolution + xStep]) {
           rejectedTriangles += 1;
         } else {
           indices.push(a, c, b);
@@ -117,7 +132,7 @@ export function sampleSurface(evaluate: SurfaceEvaluator, options: SampleSurface
 
       // Triangle (b, c, d) spans u-edge (yStep + 1, xStep) and v-edge (xStep + 1, yStep).
       if (validVertices[b] && validVertices[c] && validVertices[d]) {
-        if (uDiscontinuity[(yStep + 1) * resolution + xStep] === 1 || vDiscontinuity[(xStep + 1) * resolution + yStep] === 1) {
+        if (uDiscontinuity[(yStep + 1) * resolution + xStep] === 1 || vDiscontinuity[(xStep + 1) * resolution + yStep] === 1 || diagonalDiscontinuity[yStep * resolution + xStep]) {
           rejectedTriangles += 1;
         } else {
           indices.push(b, c, d);
@@ -148,7 +163,7 @@ function jumpSign(value: number): number {
 }
 
 function gridJump(
-  heights: Float32Array,
+  heights: Float64Array,
   validVertices: Uint8Array,
   stride: number,
   x0: number,
@@ -178,7 +193,7 @@ function gridJump(
 // The flag arrays are allocated once per call; inner loops use scalars only
 // (no closures, objects, or per-edge allocation).
 function flagDiscontinuousEdges(
-  heights: Float32Array,
+  heights: Float64Array,
   validVertices: Uint8Array,
   stride: number,
   resolution: number,

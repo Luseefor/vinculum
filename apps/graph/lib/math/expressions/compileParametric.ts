@@ -3,7 +3,7 @@ import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getParamScopeSignature } from "./paramScope";
 import { validateExpressionSafety } from "./expressionSafety";
 
-export type ParametricEvaluator = (t: number) => [number, number, number];
+export type ParametricEvaluator = ((t: number) => [number, number, number]) & { hasDiscontinuities?: boolean };
 
 export interface CompiledParametricExpression {
   evaluator: ParametricEvaluator;
@@ -11,6 +11,7 @@ export interface CompiledParametricExpression {
 }
 
 interface CompiledMathExpression {
+  hasDiscontinuities?: boolean;
   evaluate: (scope: Record<string, number>) => unknown;
 }
 
@@ -18,18 +19,6 @@ const NAN_EVALUATOR: ParametricEvaluator = () => [Number.NaN, Number.NaN, Number
 const MAX_ERROR_LENGTH = 92;
 const PARAMETRIC_COMPILE_CACHE_LIMIT = 128;
 const parametricCompileCache = new Map<string, CompiledParametricExpression>();
-
-function makeParametricCacheKey(
-  xExpr: string,
-  yExpr: string,
-  zExpr: string,
-  params: Record<string, number>
-): string {
-  // S29-R6: legacy key omitted the parameter snapshot, so param add/remove
-  // served stale accept/reject. Include the snapshot signature like the
-  // S25 explicit-params variant.
-  return [xExpr, yExpr, zExpr, getParamScopeSignature(params)].join("\u0000");
-}
 
 function getCachedParametricCompile(key: string): CompiledParametricExpression | null {
   const cached = parametricCompileCache.get(key);
@@ -57,46 +46,7 @@ export function compileParametricExpressions(
   yExpr: string,
   zExpr: string
 ): CompiledParametricExpression {
-  const scopeSnapshot = getEditorParameterScope();
-  const cacheKey = makeParametricCacheKey(xExpr, yExpr, zExpr, scopeSnapshot);
-  const cached = getCachedParametricCompile(cacheKey);
-  if (cached) {
-    return cached;
-  }
-  const xCompiled = compileAxisExpression(xExpr, "x(t)");
-  if (xCompiled.error) {
-    const errorResult = { evaluator: NAN_EVALUATOR, error: xCompiled.error };
-    setCachedParametricCompile(cacheKey, errorResult);
-    return errorResult;
-  }
-
-  const yCompiled = compileAxisExpression(yExpr, "y(t)");
-  if (yCompiled.error) {
-    const errorResult = { evaluator: NAN_EVALUATOR, error: yCompiled.error };
-    setCachedParametricCompile(cacheKey, errorResult);
-    return errorResult;
-  }
-
-  const zCompiled = compileAxisExpression(zExpr, "z(t)");
-  if (zCompiled.error) {
-    const errorResult = { evaluator: NAN_EVALUATOR, error: zCompiled.error };
-    setCachedParametricCompile(cacheKey, errorResult);
-    return errorResult;
-  }
-
-  const evaluator: ParametricEvaluator = (t) => {
-    const x = evaluateAxis(xCompiled.expression, t);
-    const y = evaluateAxis(yCompiled.expression, t);
-    const z = evaluateAxis(zCompiled.expression, t);
-    return [x, y, z];
-  };
-
-  const successResult = {
-    evaluator,
-    error: null
-  };
-  setCachedParametricCompile(cacheKey, successResult);
-  return successResult;
+  return compileParametricCurveExpressions(xExpr, yExpr, zExpr, getEditorParameterScope());
 }
 
 function compileAxisExpression(
@@ -168,10 +118,8 @@ function evaluateAxis(
 }
 
 // S25 explicit-params variant for worker-safe integral geometry. Same
-// axis validation and evaluator semantics as the legacy entry, but the
-// parameter snapshot travels explicitly (S19 rule) and the cache key
-// carries the snapshot signature (the legacy key omits params and is left
-// untouched for existing callers).
+// axis validation and evaluator semantics as the renderer entry. Both
+// paths share an immutable parameter snapshot and its cache identity.
 export function compileParametricCurveExpressions(
   xExpr: string,
   yExpr: string,
@@ -211,6 +159,7 @@ export function compileParametricCurveExpressions(
     evaluateAxis(zCompiled, t, params)
   ];
   const successResult = { evaluator, error: null };
+  evaluator.hasDiscontinuities = compiledAxes.some(axis => axis.hasDiscontinuities);
   setCachedParametricCompile(cacheKey, successResult);
   return successResult;
 }

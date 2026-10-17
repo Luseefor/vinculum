@@ -6,6 +6,7 @@ export function updateParametricCurveField(
   field: ParametricExpressionField,
   value: string | number
 ): ParametricCurveObject | null {
+  if (field === "zExpr" && object.dimension === "2d") return null;
   if (field === "xExpr" || field === "yExpr" || field === "zExpr") {
     return {
       ...object,
