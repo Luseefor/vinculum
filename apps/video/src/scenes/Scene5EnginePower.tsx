@@ -73,7 +73,7 @@ export const Scene5EnginePower: React.FC<SceneProps> = ({ isVertical = false }) 
                   COMPUTE ARCHITECTURE
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-xs font-mono">
+              <span className="px-2 py-0.5 rounded-sm bg-emerald-500/20 text-emerald-300 text-xs font-mono">
                 vinculum-math-core
               </span>
             </div>

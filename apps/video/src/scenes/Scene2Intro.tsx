@@ -66,14 +66,14 @@ export const Scene2Intro: React.FC<SceneProps> = ({ isVertical = false }) => {
 
       {/* 3D Perspective App Interface Showcase */}
       <div
-        className="relative z-10 mt-6 w-full max-w-5xl flex justify-center perspective-[1200px]"
+        className="relative z-10 mt-6 w-full max-w-5xl flex justify-center perspective-distant"
         style={{
           opacity: mockupEntrance,
           transform: `translateY(${(1 - mockupEntrance) * 60}px)`,
         }}
       >
         <div
-          className="relative rounded-2xl p-2 bg-gradient-to-b from-slate-700/50 to-slate-900/90 shadow-[0_25px_70px_rgba(0,0,0,0.8)] border border-white/20 transition-all"
+          className="relative rounded-2xl p-2 bg-linear-to-b from-slate-700/50 to-slate-900/90 shadow-[0_25px_70px_rgba(0,0,0,0.8)] border border-white/20 transition-all"
           style={{
             transform: isVertical
               ? `scale(0.85)`
@@ -102,7 +102,7 @@ export const Scene2Intro: React.FC<SceneProps> = ({ isVertical = false }) => {
               className="w-full h-auto object-cover max-h-[500px]"
             />
             {/* Gloss reflection overlay */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-white/10 pointer-events-none" />
           </div>
 
           {/* Floating UI feature badges hovering in 3D */}
