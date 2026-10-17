@@ -18,8 +18,8 @@ import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import type { ScalarVizConfig } from "@/types/graphUi";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
-import { mathToWorld3D } from "@/lib/math/coordinates";
-import { resolveScalarRange, scalarColorForValue } from "@/lib/math/scalarColorPolicy";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
+import { resolveScalarRange, scalarColorForValue } from "@/lib/math/fields/scalarColorPolicy";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 

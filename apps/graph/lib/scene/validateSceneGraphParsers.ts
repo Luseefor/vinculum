@@ -1,4 +1,4 @@
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 import type { GraphObject, ImplicitSurfaceObject, LinearTransformObject, LineObject, ParametricCurveObject, ParametricSurfaceObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorFieldObject, VectorObject } from "@vinculum/scene/types";
 import {
   MAX_IMPLICIT_SURFACE_RESOLUTION,
@@ -28,13 +28,13 @@ import {
   requireNonEmptyString,
   requireString
 } from "./validateScenePrimitives";
-import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/math/expressionSafety";
-import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
-import { compilePlaneEquation } from "@/lib/math/samplePlane";
-import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { MAX_PARAMETRIC_CURVE_SAMPLES, validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
+import { compilePlaneEquation } from "@/lib/math/surfaces/samplePlane";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 import { getEquationParameterNames, getEditorParameterScope } from "@/lib/store/editorParameters";
 
 export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {

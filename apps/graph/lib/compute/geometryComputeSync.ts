@@ -4,10 +4,10 @@ import type { GraphObject, ImplicitSurfaceObject, ParametricSurfaceObject, Vecto
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { useGraphStore } from "@/store/graphStore";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
-import { vectorFieldCellSize } from "@/lib/math/vectorFieldGlyphs";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileParametricSurfaceExpressions } from "@/lib/math/expressions/compileParametricSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
+import { vectorFieldCellSize } from "@/lib/math/fields/vectorFieldGlyphs";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import { applyObjectColorToNode, disposeObject3D } from "@/lib/graph3d/buildGraphObjectDisposal";
 import { buildIndexedSurfaceMeshGroup } from "@/lib/graph3d/buildIndexedSurfaceMesh";

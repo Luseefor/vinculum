@@ -17,17 +17,17 @@ import {
 import type { GraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import type { DifferentialAnalysisState, VectorCalculusState } from "@/types/graphUi";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
 import {
   computeSurfaceAnalysis
-} from "@/lib/math/surfaceDifferential";
+} from "@/lib/math/calculus/surfaceDifferential";
 import {
   CURL_ZERO_EPS,
   compileVectorFieldDifferential,
   evaluateVectorDifferential,
   isFieldPointInDomain,
   vectorCurl3D
-} from "@/lib/math/vectorCalculus";
+} from "@/lib/math/calculus/vectorCalculus";
 import { analysisSourceIdentity, vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { SCALAR_SLICE_KEY_PREFIX } from "./buildScalarSliceOverlays";
 import { SCALAR_SURFACE_KEY_PREFIX } from "./buildScalarSurfaceOverlays";

@@ -12,7 +12,7 @@ import {
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { removeCachedSliceOverlay, sliceDataTexture, type ScalarSliceOverlayFrame } from "./buildScalarSliceOverlays";
 import { buildVectorFieldGroup } from "./buildGraphVectorField";

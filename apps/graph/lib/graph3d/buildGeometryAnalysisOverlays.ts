@@ -26,7 +26,7 @@ import {
   type Object3D
 } from "three";
 import type { GraphObject } from "@vinculum/scene/types";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 import { BASE_AXIS_EXTENT } from "./graphThreeEngineConstants";
 import { refreshLineDisplayNode } from "./buildGraphGeometryPrimitives";
@@ -35,7 +35,7 @@ import {
   geometryPairSupported,
   resolveGeometrySource,
   type GeometryAnalysisFacts
-} from "@/lib/math/geometryAnalysis";
+} from "@/lib/math/geometry/geometryAnalysis";
 import type { GeometryAnalysisConfig } from "@/types/graphUi";
 
 export const GEOMETRY_ANALYSIS_OVERLAY_PREFIX = "geometry-analysis:";

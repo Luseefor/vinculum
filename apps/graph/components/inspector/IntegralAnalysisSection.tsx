@@ -18,7 +18,7 @@ import { useIntegralResultsStore } from "@/lib/compute/integralResults";
 import { buildIntegralJob, getIntegralSyncContext, syncIntegralAnalysis } from "@/lib/compute/integralSync";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import FieldSolutionView from "./FieldSolutionView";
-import { buildIntegralSolution } from "@/lib/math/integralSolution";
+import { buildIntegralSolution } from "@/lib/math/calculus/integralSolution";
 import { StatusCallout } from "@/components/ui/StatusCallout";
 import type { IntegralAnalysisConfig, IntegralAnalysisMode } from "@/types/graphUi";
 

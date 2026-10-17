@@ -1,9 +1,9 @@
-import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
-import { computeIntegralData } from "@/lib/math/computeIntegralData";
-import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
-import { computeScalarFieldData } from "@/lib/math/computeScalarFieldData";
-import { computeStreamlineData } from "@/lib/math/computeStreamlineData";
-import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
+import { computeImplicitSurfaceData } from "@/lib/math/surfaces/computeImplicitSurfaceData";
+import { computeIntegralData } from "@/lib/math/calculus/computeIntegralData";
+import { computeParametricSurfaceData } from "@/lib/math/surfaces/computeParametricSurfaceData";
+import { computeScalarFieldData } from "@/lib/math/fields/computeScalarFieldData";
+import { computeStreamlineData } from "@/lib/math/fields/computeStreamlineData";
+import { computeVectorFieldData } from "@/lib/math/fields/computeVectorFieldData";
 import {
   isGeometryComputeRequest,
   type GeometryComputeRequest,

@@ -1,5 +1,5 @@
-import { resolveScalarRange, scalarColorForValue } from "@/lib/math/scalarColorPolicy";
-import { vectorFieldCellSize } from "@/lib/math/vectorFieldGlyphs";
+import { resolveScalarRange, scalarColorForValue } from "@/lib/math/fields/scalarColorPolicy";
+import { vectorFieldCellSize } from "@/lib/math/fields/vectorFieldGlyphs";
 import type { ScalarVizResultBody } from "@/lib/compute/scalarVizResults";
 import { drawVectorFieldArrows } from "./graph2dCanvasVectorField";
 import type { DrawContext, ScalarFieldAttachment, VectorFieldArrows } from "./graph2dCanvasTypes";

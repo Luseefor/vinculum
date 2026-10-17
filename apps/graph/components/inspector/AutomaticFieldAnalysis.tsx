@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
-import { normalizeSurfaceLevelSet } from "@/lib/math/surfaceDifferential";
-import { solveComplexField } from "@/lib/math/complexFieldAnalysis";
-import { solveFieldProblem, type FieldSolution } from "@/lib/math/fieldSolutions";
+import { normalizeSurfaceLevelSet } from "@/lib/math/calculus/surfaceDifferential";
+import { solveComplexField } from "@/lib/math/fields/complexFieldAnalysis";
+import { solveFieldProblem, type FieldSolution } from "@/lib/math/fields/fieldSolutions";
 import FieldSolutionView from "./FieldSolutionView";
 
 export default function AutomaticFieldAnalysis({ object }: { object: VectorFieldObject | SurfaceGraphObject | ImplicitSurfaceObject }) {

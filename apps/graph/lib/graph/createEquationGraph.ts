@@ -1,7 +1,7 @@
 import type { GraphObject, ImplicitCurveObject } from "@vinculum/scene/types";
 import { createSurfaceGraph } from "./createSurfaceGraph";
 import { createImplicitSurfaceGraph } from "./createImplicitSurfaceGraph";
-import type { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import type { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 
 type Inference = Extract<ReturnType<typeof inferGraphEquation>, { ok: true }>;
 

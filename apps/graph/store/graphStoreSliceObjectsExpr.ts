@@ -1,4 +1,4 @@
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 import { createEquationGraph } from "@/lib/graph/createEquationGraph";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { useEditorStore } from "@/lib/store/editorStore";

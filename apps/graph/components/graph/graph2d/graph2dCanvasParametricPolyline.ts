@@ -1,6 +1,6 @@
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
-import { worldIndexForMathAxis } from "@/lib/math/coordinates";
-import { sampleCurve } from "@/lib/math/sampleCurve";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
+import { worldIndexForMathAxis } from "@/lib/math/geometry/coordinates";
+import { sampleCurve } from "@/lib/math/curves/sampleCurve";
 import type { ParametricCurveObject } from "@vinculum/scene/types";
 import type { AxisVariable, ParametricPolyline2D } from "./graph2dCanvasTypes";
 

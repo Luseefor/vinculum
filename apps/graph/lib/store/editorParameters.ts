@@ -1,6 +1,6 @@
 import { parse } from "mathjs";
-import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
-import { validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
+import { validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
 import { useEditorStore } from "@/lib/store/editorStore";
 
 export interface ParameterScopeEntry {

@@ -1,4 +1,4 @@
-import type { FitParametricSketchResult } from "@/lib/math/fitParametricSketchTypes";
+import type { FitParametricSketchResult } from "@/lib/math/sketch/fitParametricSketchTypes";
 
 /** Theme-derived colors for {@link paintGraph2dCanvasFrame}. */
 export type Graph2dPaintPalette = {

@@ -11,8 +11,8 @@
 // never see these numbers.
 
 import type { Object3D, PerspectiveCamera } from "three";
-import { mathToWorld3D } from "@/lib/math/coordinates";
-import { clipLineToAabb, type Line3 } from "@/lib/math/geometryPrimitives";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
+import { clipLineToAabb, type Line3 } from "@/lib/math/geometry/geometryPrimitives";
 import { refreshLineDisplayNode } from "./buildGraphGeometryPrimitives";
 import type { GeometryMultiViewState } from "./graphThreeGeometryMultiView";
 

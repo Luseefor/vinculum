@@ -33,7 +33,7 @@ import {
   getParametricSurfaceAxisDiagnostics,
   getSurfaceEquationDiagnostics,
   getVectorFieldComponentDiagnostics
-} from "@/lib/math/expressionDiagnostics";
+} from "@/lib/math/expressions/expressionDiagnostics";
 
 function useCommittedText(committed: string, active: boolean): [string, (next: string) => void] {
   const [draft, setDraft] = useState(committed);

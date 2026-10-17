@@ -8,7 +8,7 @@ import { cx } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionRowProps } from "@/types/graphUi";
 import GraphTypeSelector from "./GraphTypeSelector";
-import type { ExpressionDiagnostic } from "@/lib/math/expressionDiagnostics";
+import type { ExpressionDiagnostic } from "@/lib/math/expressions/expressionDiagnostics";
 import {
   getImplicitSurfaceEquationDiagnostics,
   getParametricAxisDiagnostics,
@@ -16,13 +16,13 @@ import {
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics,
   getVectorFieldComponentDiagnostics
-} from "@/lib/math/expressionDiagnostics";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
-import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
-import { compilePlaneEquation } from "@/lib/math/samplePlane";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+} from "@/lib/math/expressions/expressionDiagnostics";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/expressions/compileParametricSurface";
+import { compilePlaneEquation } from "@/lib/math/surfaces/samplePlane";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 const PARAMETRIC_CURVE_FIELDS = [

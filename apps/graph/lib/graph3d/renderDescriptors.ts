@@ -1,5 +1,5 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 
 export interface GraphObjectRenderDescriptor {
   id: string;

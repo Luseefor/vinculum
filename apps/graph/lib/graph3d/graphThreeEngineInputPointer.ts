@@ -8,7 +8,7 @@ import { pickGeometryPrimitiveAtPointer, pickHitsAnyVisibleObject } from "./grap
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStroke";
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 
 function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: number; clientY: number }) {
   const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;

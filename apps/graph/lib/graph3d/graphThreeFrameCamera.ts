@@ -9,7 +9,7 @@
 import type { OrthographicCamera, PerspectiveCamera } from "three";
 import type { Vector3 } from "three";
 import type { GraphObject } from "@vinculum/scene/types";
-import { mathToWorld3D, worldToMath3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, worldToMath3D } from "@/lib/math/geometry/coordinates";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import {
   resolveLineGeometry,
@@ -18,7 +18,7 @@ import {
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
-} from "@/lib/math/geometryResolve";
+} from "@/lib/math/geometry/geometryResolve";
 import {
   frameBoundsFromPoints,
   frameBoundsLinePoint,

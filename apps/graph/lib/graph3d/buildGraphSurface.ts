@@ -1,7 +1,7 @@
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { sampleSurface } from "@/lib/math/sampleSurface";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { sampleSurface } from "@/lib/math/surfaces/sampleSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { buildIndexedSurfaceMeshGroup } from "./buildIndexedSurfaceMesh";

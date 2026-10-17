@@ -1,7 +1,7 @@
-import { worldToMath3D } from "@/lib/math/coordinates";
+import { worldToMath3D } from "@/lib/math/geometry/coordinates";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
-import { fitParametricSketch, fitParametricSketch3d, formatPolynomialExpression } from "@/lib/math/fitParametricSketch";
+import { fitParametricSketch, fitParametricSketch3d, formatPolynomialExpression } from "@/lib/math/sketch/fitParametricSketch";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 export function buildSketchStrokesSlice(set: GraphStoreSet): Pick<

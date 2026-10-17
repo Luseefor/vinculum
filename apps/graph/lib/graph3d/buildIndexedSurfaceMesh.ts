@@ -8,8 +8,8 @@ import {
   Vector3
 } from "three";
 import { mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
-import { computeIndexedBoundingSphereData } from "@/lib/math/indexedBounds";
-import { repairZeroVertexNormals } from "@/lib/math/sampleParametricSurface";
+import { computeIndexedBoundingSphereData } from "@/lib/math/surfaces/indexedBounds";
+import { repairZeroVertexNormals } from "@/lib/math/surfaces/sampleParametricSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { updateFloat32Attribute, updateIndexAttribute } from "./bufferGeometryAttributes";

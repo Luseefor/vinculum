@@ -1,6 +1,6 @@
-import { compileRustExpression as compile } from "@/lib/math/rustMath";
+import { compileRustExpression as compile } from "@/lib/math/runtime/rustMath";
 import type { CompiledMathExpression } from "./graph2dCanvasTypes";
-import { validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
 
 function isCompiledMathExpression(value: unknown): value is CompiledMathExpression {
   if (typeof value !== "object" || value === null) {

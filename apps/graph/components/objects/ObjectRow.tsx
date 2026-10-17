@@ -19,7 +19,7 @@ import {
   getSurfaceEquationDiagnostics,
   getVectorFieldComponentDiagnostics,
   type ExpressionDiagnostic
-} from "@/lib/math/expressionDiagnostics";
+} from "@/lib/math/expressions/expressionDiagnostics";
 import { ObjectRowContextMenu } from "./ObjectRowContextMenu";
 import GeometryCoordinateFields from "./GeometryCoordinateFields";
 import MatrixEntryEditor from "./MatrixEntryEditor";

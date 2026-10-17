@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { fitParametricSketch } from "@/lib/math/fitParametricSketch";
+import { fitParametricSketch } from "@/lib/math/sketch/fitParametricSketch";
 import type { Axis2DPair } from "@/types/graphUi";
 import { SKETCH_MIN_POINTS_TO_FIT } from "./graph2dCanvasConstants";
 import type { SketchFitPreview } from "./graph2dCanvasTypes";

@@ -6,13 +6,13 @@ import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
 import {
   MAX_STREAMLINE_SEED_DENSITY_2D,
   MAX_STREAMLINE_SEED_DENSITY_3D,
   MIN_STREAMLINE_SEED_DENSITY_2D,
   MIN_STREAMLINE_SEED_DENSITY_3D
-} from "@/lib/math/streamlineSeeds";
+} from "@/lib/math/fields/streamlineSeeds";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 

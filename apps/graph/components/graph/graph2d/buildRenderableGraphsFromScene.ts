@@ -1,8 +1,8 @@
-import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
-import { compileImplicitSurfaceExpression, type CompiledImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
+import { compileImplicitSurfaceExpression, type CompiledImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
 import type { GraphObject, LinearTransformObject2D } from "@vinculum/scene/types";
 import type { LinearTransformAnalysisConfig, ScalarVizConfig, StreamlineVizConfig } from "@/types/graphUi";
 import {
@@ -13,8 +13,8 @@ import {
 import { escapeRegExp } from "./graph2dCanvasImplicitParse";
 import { buildParametricPolylineHV } from "./graph2dCanvasParametricPolyline";
 import { buildVectorFieldArrows } from "./graph2dCanvasVectorField";
-import { analyzeEigen } from "@/lib/math/matrixEigen";
-import { resolveLinearTransform } from "@/lib/math/linearTransformResolve";
+import { analyzeEigen } from "@/lib/math/linear-algebra/matrixEigen";
+import { resolveLinearTransform } from "@/lib/math/linear-algebra/linearTransformResolve";
 import type { AxisPairSpec, LinearTransformLayer, RenderableGraph } from "./graph2dCanvasTypes";
 
 // Keep unchanged fields stable across color/visibility/selection updates so

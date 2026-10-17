@@ -12,15 +12,15 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
-import { MAX_CONTOUR_LEVELS, MIN_CONTOUR_LEVELS } from "@/lib/math/marchingSquares";
+import { MAX_CONTOUR_LEVELS, MIN_CONTOUR_LEVELS } from "@/lib/math/surfaces/marchingSquares";
 import {
   MAX_SCALAR_GRADIENT_DENSITY,
   MIN_SCALAR_GRADIENT_DENSITY
-} from "@/lib/math/computeScalarFieldData";
+} from "@/lib/math/fields/computeScalarFieldData";
 import { MAX_VECTOR_FIELD_SCALE, MIN_VECTOR_FIELD_SCALE } from "@vinculum/scene/defaults";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 
 interface ScalarVisualizationSectionProps {

@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useId, useRef, useState } from "react";
 import { MathInput } from "@/components/math/MathInput";
 import { useGraphStore } from "@/store/graphStore";
-import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
 import { isParameterName } from "@/lib/store/editorParameters";
 import { useEditorStore } from "@/lib/store/editorStore";
 

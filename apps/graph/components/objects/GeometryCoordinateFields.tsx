@@ -16,16 +16,16 @@ import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } 
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope, parametersToScope } from "@/lib/store/editorParameters";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
 import {
   resolveLineGeometry,
   resolvePointGeometry,
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
-} from "@/lib/math/geometryResolve";
+} from "@/lib/math/geometry/geometryResolve";
 import type { GeometryPrimitiveField } from "@/store/graphStoreTypes";
-import { distanceVec3 } from "@/lib/math/geometryPrimitives";
+import { distanceVec3 } from "@/lib/math/geometry/geometryPrimitives";
 
 type PrimitiveObject = PointObject | VectorObject | LineObject | RayObject | SegmentObject;
 

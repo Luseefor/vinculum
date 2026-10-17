@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import katex from "katex";
-import { expressionToLatex } from "@/lib/math/mathNotation";
+import { expressionToLatex } from "@/lib/math/expressions/mathNotation";
 import { cn } from "@/components/ui/styles";
 
 interface MathExpressionProps extends HTMLAttributes<HTMLSpanElement> {

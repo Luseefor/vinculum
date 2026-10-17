@@ -1,5 +1,5 @@
 import type { SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
-import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 
 export interface SurfaceDisplayView {
   distance: number;

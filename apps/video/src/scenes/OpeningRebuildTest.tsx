@@ -2,7 +2,7 @@ import React from "react";
 import { useCurrentFrame } from "remotion";
 import { WorldCanvas } from "../motion/WorldCanvas";
 import { getShowcaseCamera } from "../motion/camera";
-import { OpeningSequence } from "../scenes/OpeningSequence";
+import { OpeningSequence } from "./OpeningSequence";
 import { ParticleBackground } from "../components/ParticleBackground";
 
 export const OpeningRebuildTest: React.FC = () => {

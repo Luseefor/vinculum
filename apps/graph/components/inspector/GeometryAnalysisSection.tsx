@@ -24,7 +24,7 @@ import {
   radiansToDegrees,
   resolveGeometrySource,
   type GeometryAnalysisFacts
-} from "@/lib/math/geometryAnalysis";
+} from "@/lib/math/geometry/geometryAnalysis";
 
 function formatPoint(point: { x: number; y: number; z: number }): string {
   return `(${formatNumber(point.x)}, ${formatNumber(point.y)}, ${formatNumber(point.z)})`;

@@ -6,9 +6,9 @@ import { MathInput } from "@/components/math/MathInput";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
-import { solveFieldProblem, type FieldSolution } from "@/lib/math/fieldSolutions";
-import { solveComplexField, solveHarmonicConjugate, splitComplexExpression } from "@/lib/math/complexFieldAnalysis";
-import { solvePolarCurve } from "@/lib/math/polarFieldExpressions";
+import { solveFieldProblem, type FieldSolution } from "@/lib/math/fields/fieldSolutions";
+import { solveComplexField, solveHarmonicConjugate, splitComplexExpression } from "@/lib/math/fields/complexFieldAnalysis";
+import { solvePolarCurve } from "@/lib/math/fields/polarFieldExpressions";
 import { plotFieldProblem } from "@/lib/objects/plotFieldProblem";
 import FieldSolutionView from "./FieldSolutionView";
 

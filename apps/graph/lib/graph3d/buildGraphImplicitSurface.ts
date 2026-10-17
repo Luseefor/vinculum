@@ -1,6 +1,6 @@
 import type { ImplicitSurfaceObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
+import { computeImplicitSurfaceData } from "@/lib/math/surfaces/computeImplicitSurfaceData";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";

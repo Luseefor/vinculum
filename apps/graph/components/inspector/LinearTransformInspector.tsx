@@ -16,12 +16,12 @@ import { parametersToScope } from "@/lib/store/editorParameters";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import { Switch } from "@/components/ui/switch";
 import MatrixEntryEditor from "@/components/objects/MatrixEntryEditor";
-import { resolveVectorGeometry } from "@/lib/math/geometryResolve";
+import { resolveVectorGeometry } from "@/lib/math/geometry/geometryResolve";
 import {
   orientationOfDeterminant,
   resolveLinearTransform,
   type ResolvedTransform
-} from "@/lib/math/linearTransformResolve";
+} from "@/lib/math/linear-algebra/linearTransformResolve";
 import {
   determinant2,
   determinant3,
@@ -33,10 +33,10 @@ import {
   matrixVectorMultiply3,
   trace2,
   trace3
-} from "@/lib/math/matrix";
+} from "@/lib/math/linear-algebra/matrix";
 import { FactRow } from "@/components/inspector/FactRow";
 import { StatusCallout } from "@/components/ui/StatusCallout";
-import { analyzeEigen, formatComplexValue } from "@/lib/math/matrixEigen";
+import { analyzeEigen, formatComplexValue } from "@/lib/math/linear-algebra/matrixEigen";
 
 function formatTuple(values: number[]): string {
   return `<${values.map((value) => formatNumber(value)).join(", ")}>`;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MathExpression, MathText } from "@/components/math/MathExpression";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { FieldSolution, SymbolicAnswer } from "@/lib/math/fieldSolutions";
+import type { FieldSolution, SymbolicAnswer } from "@/lib/math/fields/fieldSolutions";
 
 const FORMULA_LATEX: Record<string, string> = {
   "L = ∫ |r′(t)| dt": String.raw`L = \int \lvert r'(t)\rvert\,dt`,

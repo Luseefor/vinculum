@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react";
 import type { MathfieldElement } from "mathlive";
-import { expressionToLatex, normalizeMathInput, placeholderToLatex } from "@/lib/math/mathNotation";
+import { expressionToLatex, normalizeMathInput, placeholderToLatex } from "@/lib/math/expressions/mathNotation";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEquationParameterNames } from "@/lib/store/editorParameters";
 import { MathExpression } from "./MathExpression";
@@ -65,7 +65,7 @@ export const MathInput = forwardRef<HTMLInputElement, Props>(function MathInput(
     let disposed = false;
     let field: MathfieldElement | null = null;
     const cleanups: Array<() => void> = [];
-    Promise.all([import("mathlive"), import("@/lib/math/mathInputConversion")]).then(([{ MathfieldElement }, { latexToExpression }]) => {
+    Promise.all([import("mathlive"), import("@/lib/math/expressions/mathInputConversion")]).then(([{ MathfieldElement }, { latexToExpression }]) => {
       if (disposed || !hostRef.current) return;
       MathfieldElement.fontsDirectory = "/mathlive/fonts";
       MathfieldElement.soundsDirectory = null;

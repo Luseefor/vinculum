@@ -1,8 +1,8 @@
 import type { GraphObject, ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
-import { DEFAULT_SCALAR_GRID_RESOLUTION, DEFAULT_SLICE_GRID_RESOLUTION } from "@/lib/math/scalarFieldSample";
-import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/marchingSquares";
+import { DEFAULT_SCALAR_GRID_RESOLUTION, DEFAULT_SLICE_GRID_RESOLUTION } from "@/lib/math/fields/scalarFieldSample";
+import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/surfaces/marchingSquares";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { getParamScopeSignature } from "@/lib/math/paramScope";
+import { getParamScopeSignature } from "@/lib/math/expressions/paramScope";
 import { useGraphStore } from "@/store/graphStore";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { handleGeometryComputeMessage } from "@/workers/geometryComputeWorker";

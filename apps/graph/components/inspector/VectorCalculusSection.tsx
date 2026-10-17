@@ -10,7 +10,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
 import type { VectorCalculusState } from "@/types/graphUi";
 import {
   compileVectorFieldDifferential,
@@ -22,7 +22,7 @@ import {
   vectorCurlScalar2D,
   vectorDivergence,
   type EvaluatedJacobian
-} from "@/lib/math/vectorCalculus";
+} from "@/lib/math/calculus/vectorCalculus";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 
 // S22 Vector Calculus section (Props tab, vector fields only). Pointwise

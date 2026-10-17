@@ -1,11 +1,11 @@
 import type { ImplicitCurveObject } from "@vinculum/scene/types";
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
-import { sampleCurve } from "@/lib/math/sampleCurve";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
+import { sampleCurve } from "@/lib/math/curves/sampleCurve";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { extractContours } from "@/lib/math/marchingSquares";
-import type { SampledScalarGrid } from "@/lib/math/scalarFieldSample";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { extractContours } from "@/lib/math/surfaces/marchingSquares";
+import type { SampledScalarGrid } from "@/lib/math/fields/scalarFieldSample";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 import { createWideStroke } from "./graphWideStroke";
 
 /** Keep a 2D relation on math z=0, using the canonical bounded contour extractor. */

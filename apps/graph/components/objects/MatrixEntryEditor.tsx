@@ -14,7 +14,7 @@ import type { LinearTransformObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
 import type { LinearTransformEntryField } from "@/store/graphStoreTypes";
 
 function entryFieldsFor(dimension: "2d" | "3d"): LinearTransformEntryField[] {

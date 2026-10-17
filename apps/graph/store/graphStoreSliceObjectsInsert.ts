@@ -1,9 +1,9 @@
-import { normalizeMathInput } from "@/lib/math/mathNotation";
+import { normalizeMathInput } from "@/lib/math/expressions/mathNotation";
 import { useEditorStore } from "@/lib/store/editorStore";
-import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
-import { validateExpressionSafety } from "@/lib/math/expressionSafety";
-import { compileRustExpression } from "@/lib/math/rustMath";
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
+import { validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
+import { compileRustExpression } from "@/lib/math/runtime/rustMath";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 import { getEquationParameterNames, isParameterName, getEditorParameterScope } from "@/lib/store/editorParameters";
 import { parseGraphObject } from "@/lib/scene/validateSceneGraphParsers";
 import { createEquationGraph } from "@/lib/graph/createEquationGraph";

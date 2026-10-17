@@ -1,7 +1,7 @@
 "use client";
 
 import { MathExpression } from "@/components/math/MathExpression";
-import { expressionToLatex } from "@/lib/math/mathNotation";
+import { expressionToLatex } from "@/lib/math/expressions/mathNotation";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
@@ -11,7 +11,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGeometryComputeStore, type GeometryComputeStatus } from "@/lib/compute/geometryComputeStatus";import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
 import { resolveAnalysisSectionModel } from "./differentialAnalysisSectionModel";
-import { computeDirectionalDerivative, type SurfaceGradient } from "@/lib/math/surfaceDifferential";
+import { computeDirectionalDerivative, type SurfaceGradient } from "@/lib/math/calculus/surfaceDifferential";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 interface DifferentialAnalysisSectionProps {
