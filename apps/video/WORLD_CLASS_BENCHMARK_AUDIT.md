@@ -3,7 +3,7 @@
 ## Metadata & Executive Specification
 
 - **Title**: Vinculum Showcase Film — *Where Notation Becomes Space*
-- **Target Deliverable**: `/Users/lucifer/Programming/vinculum/apps/video/WORLD_CLASS_BENCHMARK_AUDIT.md`
+- **Target Deliverable**: `apps/video/WORLD_CLASS_BENCHMARK_AUDIT.md`
 - **Total Master Runtime**: Exactly 34.00 seconds (2,040 frames @ 60 fps; 1,020 frames @ 30 fps)
 - **Target Resolution**: 4K UHD ($3840 \times 2160$), 16:9 Landscape master with safe margins for 9:16 Vertical crop
 - **Render Engine Baseline**: Three.js 0.186.1 `WebGPURenderer` (with automated WebGL2 fallback), Three.js Shading Language (TSL) adaptive infinite grid, screen-space wide strokes (`Line2NodeMaterial`), ACES Filmic tone mapping
@@ -323,19 +323,19 @@ Every frame of application interaction is grounded in Vinculum's verified codeba
 
 1. **Hero Moment 1: Schön Gyroid Implicit Level-Set via Conforming Marching Tetrahedra**
    - *Expression*: $\sin(x)\cos(y) + \sin(y)\cos(z) + \sin(z)\cos(x) = a$
-   - *Engine Files*: `apps/graph/lib/math/marchingTetrahedra.ts`, `apps/graph/lib/math/rustMath.ts`
+   - *Engine Files*: `apps/graph/lib/math/surfaces/marchingTetrahedra.ts`, `apps/graph/lib/math/runtime/rustMath.ts`
    - *Action*: User types equation; Rust WASM VM executes 6-tetrahedra cube decomposition across a $48^3$ voxel grid. Slider $a$ scrubs from $0.0 \to 0.8$, demonstrating live topological dilation and aperture bifurcation at 60 fps.
 2. **Hero Moment 2: Differential Surface Probing & Tangent Space**
    - *Expression*: Hyperbolic paraboloid $z = (x^2 - y^2)/2$
-   - *Engine Files*: `apps/graph/lib/math/surfaceDifferential.ts`, `DifferentialAnalysisSection.tsx`
+   - *Engine Files*: `apps/graph/lib/math/calculus/surfaceDifferential.ts`, `DifferentialAnalysisSection.tsx`
    - *Action*: User engages **Armed Pick**. Hovering over $(1.5, 1.0, 0.625)$ snaps an illuminated tangent plane quad patch flush to curvature. Cyan normal arrow $\hat{\mathbf{n}}$ projects outward along $\nabla z$; height contour isolines drape across geometry; Inspector displays exact analytical partial derivatives $\partial z/\partial x = 1.500, \partial z/\partial y = -1.000$.
 3. **Hero Moment 3: Autonomous Runge-Kutta 4 (RK4) Vector Field Streamlines**
    - *Expression*: Volumetric vortex field $\mathbf{F}(x,y,z) = \langle -y, x, z(1 - x^2 - y^2) \rangle$
-   - *Engine Files*: `apps/graph/lib/math/streamlineIntegrate.ts`, `StreamlineSection.tsx`
+   - *Engine Files*: `apps/graph/lib/math/fields/streamlineIntegrate.ts`, `StreamlineSection.tsx`
    - *Action*: User toggles Streamlines. 4th-order Runge-Kutta integration with per-stage normalization evaluates 24 continuous integral trajectories with instanced directional cone arrowheads, spiraling inward toward limit cycle cylinder $x^2 + y^2 = 1$. Constant 3px screen-width wide strokes (`Line2NodeMaterial`).
 4. **Hero Moment 4: 3D Linear Operator, Eigenspaces & Synchronized Quad Studio**
    - *Expression*: $3\times 3$ transformation matrix $A \in \mathbb{R}^{3\times 3}$
-   - *Engine Files*: `apps/graph/lib/math/matrixEigen.ts`, `graphThreeGeometryMultiView.ts`
+   - *Engine Files*: `apps/graph/lib/math/linear-algebra/matrixEigen.ts`, `graphThreeGeometryMultiView.ts`
    - *Action*: Hardware scissor testing (`renderer.setScissorTest(true)`) partitions canvas into Perspective, Top (XY), Front (XZ), and Right (YZ) panes. Unit cube deforms into skewed parallelepiped ($\det A = 1.360$); invariant amber eigenvalue rays shoot along real eigenvectors $A\mathbf{v} = \lambda \mathbf{v}$. Manipulating handle in Top pane updates 3D view in lockstep.
 
 ---

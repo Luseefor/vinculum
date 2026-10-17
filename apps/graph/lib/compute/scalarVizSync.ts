@@ -1,8 +1,8 @@
-import type { GraphObject, ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/types";
-import { DEFAULT_SCALAR_GRID_RESOLUTION, DEFAULT_SLICE_GRID_RESOLUTION } from "@/lib/math/scalarFieldSample";
-import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/marchingSquares";
+import type { GraphObject, ImplicitSurfaceObject, SurfaceDomain, SurfaceGraphObject } from "@vinculum/scene/types";
+import { DEFAULT_SCALAR_GRID_RESOLUTION, DEFAULT_SLICE_GRID_RESOLUTION } from "@/lib/math/fields/scalarFieldSample";
+import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/surfaces/marchingSquares";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { getParamScopeSignature } from "@/lib/math/paramScope";
+import { getParamScopeSignature } from "@/lib/math/expressions/paramScope";
 import { useGraphStore } from "@/store/graphStore";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { handleGeometryComputeMessage } from "@/workers/geometryComputeWorker";
@@ -78,11 +78,12 @@ export function scalarSliceDomainOf(source: ImplicitSurfaceObject, plane: Scalar
 // Desired 2D-field job for a source+config, or null when no computation
 // is needed (visualization disabled) or the source cannot supply one.
 // Pure: safe to call every frame; the caller requests only on signature
-// change, so camera/view/layout/theme changes enqueue 0 jobs.
+// change. Only a new quantized display domain resamples on navigation.
 export function buildScalarFieldJob(
   source: GraphObject,
   config: ScalarVizConfig | undefined,
-  params: Record<string, number>
+  params: Record<string, number>,
+  displayDomain?: SurfaceDomain
 ): ScalarVizJob | null {
   if (!config || source.kind !== "surface" || source.id !== config.sourceId) {
     return null;
@@ -96,7 +97,7 @@ export function buildScalarFieldJob(
   }
   const contourCount = Math.floor(config.contourCount);
   const gradientDensity = config.showGradient ? Math.floor(config.gradientDensity) : 0;
-  const fieldDomain = scalarFieldDomainOf(source);
+  const fieldDomain = scalarFieldDomainOf(displayDomain ? { ...source, domain: displayDomain } : source);
   if (
     !Number.isFinite(fieldDomain.uMin) ||
     !Number.isFinite(fieldDomain.uMax) ||
@@ -118,6 +119,7 @@ export function buildScalarFieldJob(
   const signature = [
     config.structure,
     getParamScopeSignature(params),
+    `domain:${JSON.stringify(fieldDomain)}`,
     `contours:${config.showContours ? contourCount : 0}`,
     `gradient:${gradientDensity}`
   ].join("|");
@@ -187,12 +189,37 @@ export function buildScalarSliceJob(
 export interface ScalarVizSyncContext {
   manager: GeometryComputeManager;
   lastRequested: Map<string, string>;
+  /** Quantized renderer bounds; never written to scene/config identity. */
+  displayDomains?: Record<string, SurfaceDomain>;
+  displayDomainsByViewport?: Map<object, Record<string, SurfaceDomain>>;
+}
+
+/** Share one scalar grid across visible panes without one camera overwriting another. */
+export function setScalarVizDisplayDomains(
+  context: ScalarVizSyncContext,
+  owner: object,
+  domains: Record<string, SurfaceDomain> | null
+): void {
+  const views = context.displayDomainsByViewport ??= new Map<object, Record<string, SurfaceDomain>>();
+  if (domains) views.set(owner, domains);
+  else views.delete(owner);
+  const combined: Record<string, SurfaceDomain> = {};
+  for (const view of views.values()) {
+    for (const [id, domain] of Object.entries(view)) {
+      const previous = combined[id];
+      combined[id] = previous ? {
+        xMin: Math.min(previous.xMin, domain.xMin), xMax: Math.max(previous.xMax, domain.xMax),
+        yMin: Math.min(previous.yMin, domain.yMin), yMax: Math.max(previous.yMax, domain.yMax)
+      } : { ...domain };
+    }
+  }
+  context.displayDomains = combined;
 }
 
 // Pure request pump over desired jobs: requests only when the signature
 // differs from the last request for that namespaced id. Theme, color,
-// visibility, workspace, camera, view, and layout never enter signatures
-// (PART 35: 0 jobs). Stale signatures are forgotten so deleted-source
+// visibility, workspace and layout never enter signatures. Quantized
+// display-domain changes do. Stale signatures are forgotten so deleted-source
 // entries cannot accumulate.
 export function pumpScalarVizJobs(
   context: ScalarVizSyncContext,
@@ -233,7 +260,8 @@ export function applyScalarVizResponse(
   response: GeometryComputeResponse,
   objects: readonly GraphObject[],
   configs: Record<string, ScalarVizConfig>,
-  params: Record<string, number>
+  params: Record<string, number>,
+  displayDomains: Record<string, SurfaceDomain> = {}
 ): boolean {
   if (response.kind !== "scalarField") {
     return false;
@@ -253,7 +281,7 @@ export function applyScalarVizResponse(
   if (!source || !config) {
     return false;
   }
-  const desired = isSlice ? buildScalarSliceJob(source, config, params) : buildScalarFieldJob(source, config, params);
+  const desired = isSlice ? buildScalarSliceJob(source, config, params) : buildScalarFieldJob(source, config, params, displayDomains[sourceId]);
   if (!desired || desired.signature !== response.structure) {
     return false;
   }
@@ -334,14 +362,15 @@ function defaultApplyScalarResponse(response: GeometryComputeResponse): void {
     response,
     graph.scene.objects,
     graph.ui.scalarVizBySourceId,
-    getEditorParameterScope()
+    getEditorParameterScope(),
+    sharedSyncContext?.displayDomains
   );
 }
 
 // Shell entry point: housekeeping (stale-config clears, dead-result
 // pruning, dead-job notification) plus desired-job pumping. Pure-safe to
 // call every frame and from canvas effects: signature tracking makes
-// camera/view/layout/theme/workspace changes enqueue 0 jobs.
+// only math, config, parameters or quantized domain changes enqueue jobs.
 export function syncScalarViz(
   context: ScalarVizSyncContext,
   objects: readonly GraphObject[],
@@ -365,7 +394,7 @@ export function syncScalarViz(
       context.lastRequested.delete(scalarVizSliceKey(sourceId));
       continue;
     }
-    const fieldJob = buildScalarFieldJob(source, config, params);
+    const fieldJob = buildScalarFieldJob(source, config, params, context.displayDomains?.[sourceId]);
     const sliceJob = buildScalarSliceJob(source, config, params);
     if (fieldJob) {
       liveJobIds.add(fieldJob.jobId);

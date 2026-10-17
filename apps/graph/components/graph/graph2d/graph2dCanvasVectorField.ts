@@ -1,6 +1,6 @@
-import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
-import { computeGlyphLength, vectorFieldCellSize } from "@/lib/math/vectorFieldGlyphs";
-import { projectMathToPair2D } from "@/lib/math/coordinates";
+import { computeVectorFieldData } from "@/lib/math/fields/computeVectorFieldData";
+import { computeGlyphLength, vectorFieldCellSize } from "@/lib/math/fields/vectorFieldGlyphs";
+import { projectMathToPair2D } from "@/lib/math/geometry/coordinates";
 import type { VectorFieldObject2D } from "@vinculum/scene/types";
 import type { AxisPairSpec, DrawContext, VectorFieldArrows } from "./graph2dCanvasTypes";
 import type { ViewportTransform } from "./graph2dCanvasProbes";

@@ -49,6 +49,12 @@ async function assertExportPixels(page: Page) {
   expect(result.colors).toBeGreaterThan(20);
   expect(result.opaque).toBeGreaterThan(result.width * result.height * 0.95);
   const active = page.locator('canvas[data-graph3d-canvas="true"]:visible');
+  const fullSize = await active.evaluate((canvas: HTMLCanvasElement) => ({
+    width: Math.floor(canvas.clientWidth * Math.min(devicePixelRatio, 2)),
+    height: Math.floor(canvas.clientHeight * Math.min(devicePixelRatio, 2))
+  }));
+  expect(result.width).toBe(fullSize.width);
+  expect(result.height).toBe(fullSize.height);
   expect(result.width).toBe(await active.evaluate((canvas: HTMLCanvasElement) => canvas.width));
   expect(result.height).toBe(await active.evaluate((canvas: HTMLCanvasElement) => canvas.height));
 }

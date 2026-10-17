@@ -25,7 +25,7 @@ import {
   Vector3,
   type Object3D
 } from "three";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { BASE_AXIS_EXTENT } from "./graphThreeEngineConstants";
 import {
@@ -34,8 +34,8 @@ import {
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
-} from "@/lib/math/geometryResolve";
-import { clipLineToAabb, clipRayToAabb, type Line3, type Ray3 } from "@/lib/math/geometryPrimitives";
+} from "@/lib/math/geometry/geometryResolve";
+import { clipLineToAabb, clipRayToAabb, type Line3, type Ray3 } from "@/lib/math/geometry/geometryPrimitives";
 
 import { createWideStroke, updateWideStrokePositions } from "./graphWideStroke";
 import type { LineSegments2 } from "three/addons/lines/webgpu/LineSegments2.js";

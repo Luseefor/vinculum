@@ -14,7 +14,7 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Appearance</h3>
+      <h3 className="text-[13px] font-semibold text-(--text-primary)">Appearance</h3>
       
       <div className="flex flex-col gap-3">
         <div>
@@ -26,18 +26,18 @@ export default function AppearanceSection({ object }: AppearanceSectionProps) {
                 aria-label="Surface color"
                 value={object.color}
                 onChange={(event) => updateObjectColor(object.id, event.target.value)}
-                className="h-8 w-8 cursor-pointer rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-0.5"
+                className="h-8 w-8 cursor-pointer rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) p-0.5"
               />
               <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-[var(--text-primary)]">Color</p>
-                <p className="font-mono text-[11px] text-[var(--text-tertiary)]">{object.color}</p>
+                <p className="text-[12px] font-semibold text-(--text-primary)">Color</p>
+                <p className="font-mono text-[11px] text-(--text-tertiary)">{object.color}</p>
               </div>
             </div>
 
             <div className="flex items-center justify-between py-1">
               <div>
-                <p className="text-[12px] font-semibold text-[var(--text-primary)]">Wireframe</p>
-                <p className="text-[11px] text-[var(--text-tertiary)]">Show only the surface edges</p>
+                <p className="text-[12px] font-semibold text-(--text-primary)">Wireframe</p>
+                <p className="text-[11px] text-(--text-tertiary)">Show only the surface edges</p>
               </div>
               <Switch
                 checked={object.appearance.wireframe}

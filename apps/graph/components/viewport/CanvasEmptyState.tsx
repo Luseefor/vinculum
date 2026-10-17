@@ -1,26 +1,60 @@
-// S30 canvas-first empty state (Part 18). A minimal center prompt over an
-// empty workspace — never a dashboard or tutorial wall. Quick actions create
-// through the same central creation path as Quick Add. Rendered only while
-// the canonical scene has zero objects; purely presentational otherwise.
-
 "use client";
 
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowRightIcon, CloseIcon, PlusIcon } from "@/components/layout/icons";
+import { AnimatedGroup } from "@/components/ui/animated-group";
 import { createObjectByKey } from "@/lib/objects/objectCreation";
 import { descriptorByKey } from "@/lib/objects/objectDescriptors";
 import { WORKSPACE_CONTENT } from "@/lib/workspace/workspaceContent";
 import { useGraphStore } from "@/store/graphStore";
 import type { WorkspaceId } from "@/types/graphUi";
 
-// workspaceId: the workspace this canvas host belongs to. Both workspace
-// hosts stay mounted (visited workspaces are hidden, not unmounted), so the
-// prompt must render only for the ACTIVE workspace — never in a hidden host.
-export default function CanvasEmptyState({ workspaceId, onOpenGuide, onOpenExamples }: { workspaceId: WorkspaceId; onOpenGuide?: () => void; onOpenExamples?: () => void }) {
+export interface CanvasEmptyStateProps {
+  workspaceId: WorkspaceId;
+  dimension?: "2d" | "3d";
+  onOpenGuide?: () => void;
+  onOpenExamples?: () => void;
+  onStart?: () => void;
+  gettingStarted?: ReactNode;
+  /** Keep all four panes clear until the user explicitly opens the launcher. */
+  startMinimized?: boolean;
+}
+
+// One launcher per workspace, outside individual split/quad panes. Creation
+// still uses the canonical object actions; hiding this panel is local UI only.
+export default function CanvasEmptyState({ workspaceId, dimension, onOpenGuide, onOpenExamples, onStart, gettingStarted, startMinimized = false }: CanvasEmptyStateProps) {
   const objectCount = useGraphStore((state) => state.scene.objects.length);
   const workspace = useGraphStore((state) => state.ui.workspace);
+  const interacting = useGraphStore((state) => {
+    const mode = dimension ?? (workspaceId === "geometry" ? "3d" : state.ui.graphMode);
+    return (mode === "2d" ? state.ui.canvas2dTool : state.ui.canvas3dTool) !== "pan";
+  });
+  const [collapsed, setCollapsed] = useState(false);
+  const [expandedInQuad, setExpandedInQuad] = useState(false);
+  const minimized = collapsed || (startMinimized && !expandedInQuad);
+  const reopenRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
+  useEffect(() => { setExpandedInQuad(false); }, [startMinimized]);
+  useEffect(() => {
+    if (!restoreFocus.current) return;
+    (minimized ? reopenRef : closeRef).current?.focus();
+    restoreFocus.current = false;
+  }, [minimized]);
 
-  if (workspace !== workspaceId || objectCount > 0) {
-    return null;
-  }
+  if (workspace !== workspaceId || objectCount > 0 || interacting) return null;
+
+  const togglePanel = (next: boolean) => {
+    restoreFocus.current = true;
+    setCollapsed(next);
+    if (startMinimized) setExpandedInQuad(!next);
+    if (next) onStart?.();
+  };
+  if (minimized) return (
+    <button ref={reopenRef} type="button" onClick={() => togglePanel(false)} className="canvas-start-reopen" aria-label="Show start panel">
+      <PlusIcon className="h-4 w-4" /> Start
+    </button>
+  );
 
   const starters = workspaceId === "geometry"
     ? [{ key: "point", hint: "Coordinates" }, { key: "line", hint: "Point + direction" }, { key: "surface", hint: "z = f(x, y)" }]
@@ -29,36 +63,46 @@ export default function CanvasEmptyState({ workspaceId, onOpenGuide, onOpenExamp
     const entry = descriptorByKey(starter.key);
     return entry ? [{ ...entry, hint: starter.hint }] : [];
   });
-  const hint = WORKSPACE_CONTENT[workspaceId].emptyHint;
 
   return (
-    // S30/S35: bottom-center, clear of the primary interaction zone and of
-    // first-run tips (top). Scene chip stays bottom-left; zoom stays right.
-    // Stacks above the 2D pane overlays (z-[24]) so the actions stay clickable
-    // in narrow split panes.
-    <div className="pointer-events-none absolute inset-0 z-[25] flex items-end justify-center p-3 pb-8 pr-16">
-      <div data-testid="canvas-empty-state" className="pointer-events-auto flex max-h-[45%] w-full max-w-[420px] overflow-y-auto flex-col items-center gap-3 rounded-[var(--radius-xl)] bg-[var(--surface-overlay)] px-4 py-4 text-center shadow-[var(--shadow-floating)]">
-        <p className="text-[14px] font-medium text-[var(--text-primary)]">{hint}</p>
-        <div className="flex w-full flex-wrap items-stretch justify-center gap-2">
-          {actions.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              aria-label={`Create ${entry.label}`}
-              onClick={() => createObjectByKey(entry.key)}
-              className="flex min-h-12 flex-1 flex-col items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-2 py-2 text-[12px] font-medium text-[var(--text-primary)] outline-none transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-ink)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-            >
-              {entry.label}
-              <span className="mt-1 text-[11px] font-normal text-[var(--text-secondary)]">{entry.hint}</span>
+    <div className="canvas-start-overlay">
+      <section
+        data-testid="canvas-empty-state"
+        aria-label="Start panel"
+        className="canvas-start-panel"
+        onKeyDown={event => {
+          if (event.key === "Escape") { event.stopPropagation(); togglePanel(true); }
+        }}
+      >
+        <AnimatedGroup className="canvas-start-content">
+          <div className="canvas-start-header">
+            <h2>{workspaceId === "geometry" ? "Start with geometry" : "Start a graph"}</h2>
+            <p>{WORKSPACE_CONTENT[workspaceId].emptyHint}</p>
+            <button ref={closeRef} type="button" aria-label="Hide start panel" onClick={() => togglePanel(true)} className="canvas-start-close">
+              <CloseIcon className="h-4 w-4" />
             </button>
-          ))}
-        </div>
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]">{workspaceId === "math" ? "Type any Cartesian equation in the blank input in Objects, or choose a starter below. Use Inspector for analysis." : "Choose a starter, then edit its row in Objects. Use Inspector for properties and analysis."}</p>
-        {onOpenGuide || onOpenExamples ? <div className="flex flex-wrap justify-center gap-2">
-          {onOpenGuide ? <button type="button" onClick={(event) => { event.currentTarget.focus(); onOpenGuide(); }} className="rounded-full px-3 py-2 text-[12px] font-medium text-[var(--accent-ink)] outline-none hover:bg-[var(--accent-soft)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Where are the tools?</button> : null}
-          {onOpenExamples ? <button type="button" onClick={onOpenExamples} className="rounded-full px-3 py-2 text-[12px] font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Browse examples</button> : null}
-        </div> : null}
-      </div>
+          </div>
+          {onOpenExamples ? (
+            <button type="button" onClick={event => { event.currentTarget.focus(); onOpenExamples(); }} className="canvas-start-example" data-start-primary>
+              Open example <ArrowRightIcon className="h-4 w-4" />
+            </button>
+          ) : null}
+          <div className="canvas-start-choices">
+            <p className="canvas-start-label">{onOpenExamples ? "Or create an object" : "Create an object"}</p>
+            {actions.map(entry => (
+              <button key={entry.key} type="button" aria-label={`Create ${entry.label}`} onClick={() => { onStart?.(); createObjectByKey(entry.key); }} className="canvas-start-choice">
+                <span className="canvas-start-choice-name"><PlusIcon className="canvas-start-plus h-3.5 w-3.5 shrink-0" />{entry.label}</span>
+                <span className="canvas-start-choice-hint">{entry.hint}</span>
+              </button>
+            ))}
+          </div>
+          <div className="canvas-start-footer">
+            <p>{workspaceId === "math" ? "Edit equations in Objects. Analyze in Inspector." : "Edit coordinates in Objects. Analyze in Inspector."}</p>
+            {onOpenGuide ? <button type="button" onClick={event => { event.currentTarget.focus(); onOpenGuide(); }}>Where are the tools? <ArrowRightIcon className="h-3.5 w-3.5" /></button> : null}
+          </div>
+          {gettingStarted}
+        </AnimatedGroup>
+      </section>
     </div>
   );
 }

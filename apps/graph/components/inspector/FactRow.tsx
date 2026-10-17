@@ -17,10 +17,10 @@ export function FactRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="shrink-0 text-[11px] text-[var(--text-secondary)]"><MathText text={label} /></span>
+      <span className="shrink-0 text-[11px] text-(--text-secondary)"><MathText text={label} /></span>
       <span
         data-testid={testId}
-        className="min-w-0 break-words text-right text-[12px] text-[var(--text-primary)]"
+        className="min-w-0 wrap-break-word text-right text-[12px] text-(--text-primary)"
       >
         {typeof value === "string" ? <MathText text={value} /> : value}
       </span>

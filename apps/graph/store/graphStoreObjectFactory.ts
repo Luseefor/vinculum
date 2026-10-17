@@ -57,7 +57,7 @@ export function isGraphObjectWithoutExpressions(object: GraphObject): boolean {
         : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
     return !entries.some((expr) => expr.trim());
   }
-  return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+  return ![object.xExpr, object.yExpr, ...(object.dimension === "2d" ? [] : [object.zExpr])].some((expr) => expr.trim());
 }
 
 export function createEmptyGraphObject(
@@ -77,6 +77,7 @@ export function createEmptyGraphObject(
 
   if (kind === "parametricCurve") {
     return createParametricCurve({
+      dimension: options.dimension,
       colorIndex,
       id: options.id,
       color: options.color,
@@ -92,6 +93,7 @@ export function createEmptyGraphObject(
 
   if (kind === "parametricSurface") {
     return createParametricSurfaceGraph({
+      dimension: options.dimension,
       colorIndex,
       id: options.id,
       color: options.color,
@@ -239,13 +241,17 @@ export function createEmptyGraphObject(
     });
   }
 
-  return createSurfaceGraph({
-    colorIndex,
-    id: options.id,
-    color: options.color,
-    visible: options.visible,
-    equation: ""
-  });
+  if (kind === "surface") {
+    return createSurfaceGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible,
+      equation: ""
+    });
+  }
+  const unhandled: never = kind;
+  throw new Error(`Unsupported graph object kind: ${unhandled}`);
 }
 
 export function createGraphObject(
@@ -265,6 +271,7 @@ export function createGraphObject(
 
   if (kind === "parametricCurve") {
     return createParametricCurve({
+      dimension: options.dimension,
       colorIndex,
       id: options.id,
       color: options.color,
@@ -274,6 +281,7 @@ export function createGraphObject(
 
   if (kind === "parametricSurface") {
     return createParametricSurfaceGraph({
+      dimension: options.dimension,
       colorIndex,
       id: options.id,
       color: options.color,
@@ -339,12 +347,16 @@ export function createGraphObject(
     return createSegmentGraph({ colorIndex, id: options.id, color: options.color, visible: options.visible });
   }
 
-  return createSurfaceGraph({
-    colorIndex,
-    id: options.id,
-    color: options.color,
-    visible: options.visible
-  });
+  if (kind === "surface") {
+    return createSurfaceGraph({
+      colorIndex,
+      id: options.id,
+      color: options.color,
+      visible: options.visible
+    });
+  }
+  const unhandled: never = kind;
+  throw new Error(`Unsupported graph object kind: ${unhandled}`);
 }
 
 export function createInitialSceneDocument(): SceneDocument {

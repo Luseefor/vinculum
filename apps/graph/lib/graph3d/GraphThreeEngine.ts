@@ -50,12 +50,16 @@ import { createGraphGridMaterial } from "./graphThreeGridMaterial";
 import { disposeGraphThreeEngineThreeResources } from "./graphThreeEngineDisposeResources";
 import { createGraphThreeEngineInputHandlers } from "./graphThreeEngineInputHandlers";
 import { createGraphThreeEngineTick } from "./graphThreeEngineTick";
+import { createGraphThreeRenderGate, createGraphThreeRenderResolution } from "./graphThreeRenderGate";
 import type { GraphThreeEngineTickRuntime } from "./graphThreeEngineTickTypes";
 import { snapWorldPoint } from "./graphThreeSnapWorld";
 import { createCanvasInteraction } from "./graphThreeCanvasInteraction";
-import { surfaceDisplayDomain } from "./surfaceDisplayDomain";
+import { planarCurveDisplayDomain, surfaceDisplayDomain } from "./surfaceDisplayDomain";
 import { activeOrthoSpansForDisplay } from "./graphThreePrimitiveDisplay";
 import { syncThreeSceneObjects } from "./graphThreeSyncSceneObjects";
+import { getScalarSyncContext, setScalarVizDisplayDomains, syncScalarViz } from "@/lib/compute/scalarVizSync";
+import { getEditorParameterScope } from "@/lib/store/editorParameters";
+import { getGraphObjectFor3D } from "./graphObject3dGuards";
 import { applyGeometryComputeResult } from "@/lib/compute/geometryComputeSync";
 import {
   createGeometryComputeManager,
@@ -85,6 +89,8 @@ export type { GraphThreeEngine } from "./graphThreeEngineTypes";
 export { snapWorldPoint } from "./graphThreeSnapWorld";
 
 export function createGraphThreeEngine(container: HTMLElement, onError?: (message: string) => void): GraphThreeEngine {
+  const renderGate = createGraphThreeRenderGate();
+  const renderResolution = createGraphThreeRenderResolution();
   const scene = new Scene();
   const camera = new PerspectiveCamera(48, 1, 0.1, CAMERA_FAR_PLANE);
   camera.position.copy(DEFAULT_CAMERA_POSITION);
@@ -94,7 +100,13 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     alpha: false,
     powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const setRenderPixelRatio = (pixelRatio: number) => {
+    if (renderer.getPixelRatio() === pixelRatio) return;
+    renderer.setPixelRatio(pixelRatio);
+    renderGate.invalidate();
+  };
+  setRenderPixelRatio(renderResolution.fullResolution(window.devicePixelRatio));
+  renderer.domElement.dataset.renderPixelRatio = String(renderer.getPixelRatio());
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = false;
@@ -116,7 +128,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
 
   const perfBadge = document.createElement("div");
   perfBadge.className =
-    "pointer-events-none absolute right-3 top-14 z-[18] rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]";
+    "pointer-events-none absolute right-3 top-14 z-18 rounded-[var(--ui-radius-sm)] border border-(--border-subtle) bg-(--surface-overlay) px-2 py-1 font-mono text-[10px] text-(--text-secondary)";
   perfBadge.style.display = shouldShowPerfBadge() ? "block" : "none";
   perfBadge.textContent = "FPS -- · Frame --ms";
   perfBadge.setAttribute("data-graph3d-perf", "true");
@@ -126,7 +138,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   // S30: bottom-right like the 2D badge — clear of the Scene chip
   // (bottom-left) and probe badges.
   warningBadge.className =
-    "pointer-events-none absolute right-3 bottom-3 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded-[var(--radius-md)] border border-[var(--status-warning-border)] bg-[var(--surface-overlay)] px-3 py-2 text-[11px] leading-snug text-[var(--text-secondary)] shadow-[var(--shadow-control)] whitespace-pre-line";
+    "pointer-events-none absolute right-3 bottom-3 z-18 max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded-[var(--ui-radius-md)] border border-(--status-warning-border) bg-(--surface-overlay) px-3 py-2 text-[11px] leading-snug text-(--text-secondary) shadow-(--shadow-control) whitespace-pre-line";
   warningBadge.style.display = "none";
   warningBadge.setAttribute("data-graph3d-performance-warning", "true");
   warningBadge.setAttribute("role", "status");
@@ -135,13 +147,13 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
 
   const probeBadge = document.createElement("div");
   probeBadge.className =
-    "pointer-events-none absolute left-3 bottom-16 z-[18] max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/88 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
+    "pointer-events-none absolute left-3 bottom-16 z-18 max-w-[min(280px,calc(100%-1.5rem))] min-w-0 rounded-sm border border-(--border-subtle)/70 bg-(--surface-overlay)/88 px-2 py-1 font-mono text-[10px] text-(--text-primary) shadow-xs backdrop-blur-xs";
   probeBadge.style.display = "none";
   probeBadge.setAttribute("data-graph3d-probe", "true");
   container.appendChild(probeBadge);
   const hoverProbeBadge = document.createElement("div");
   hoverProbeBadge.className =
-    "pointer-events-none absolute z-[19] max-w-[min(240px,calc(100vw-2rem))] rounded border border-[var(--border-subtle)]/70 bg-[var(--surface-overlay)]/92 px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-sm backdrop-blur-sm";
+    "pointer-events-none absolute z-19 max-w-[min(240px,calc(100vw-2rem))] rounded-sm border border-(--border-subtle)/70 bg-(--surface-overlay)/92 px-2 py-1 font-mono text-[10px] text-(--text-primary) shadow-xs backdrop-blur-xs";
   hoverProbeBadge.style.display = "none";
   hoverProbeBadge.setAttribute("data-graph3d-probe-hover", "true");
   container.appendChild(hoverProbeBadge);
@@ -156,9 +168,14 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   controls.target.set(0, 0, 0);
 
   const markInteraction = () => {
+    renderGate.invalidate();
     dispatchGraphInteractionEvent();
   };
-  controls.addEventListener("start", markInteraction);
+  const markNavigation = () => {
+    renderResolution.markInteraction(performance.now());
+    markInteraction();
+  };
+  controls.addEventListener("start", markNavigation);
   controls.addEventListener("change", markInteraction);
 
   const ambient = new AmbientLight(0xffffff, 0.4);
@@ -233,13 +250,15 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
         })
       ),
     onResult: (response) => {
+      renderGate.invalidate();
       applyGeometryComputeResult(response, {
         objectsRoot,
         objectNodes,
         objectSignatures,
         objectStructureSignatures,
         getTheme: () => tickRuntime.lastDomTheme,
-        manager: computeManager
+        manager: computeManager,
+        getObjectForCompute: source => getGraphObjectFor3D(displayObjects().find(object => object.id === source.id) ?? source)
       });
     }
   });
@@ -448,15 +467,17 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     rebuildAxesGeometry(theme);
   };
 
+  const scalarDomainOwner = {};
   let lastSurfaceDisplayKey = "";
   let lastSurfaceDisplayCheck = 0;
   const displayObjects = () => {
     const view = { distance: camera.position.distanceTo(controls.target), fov: camera.fov, aspect: camera.aspect,
       target: controls.target, orthoSpans: activeOrthoSpansForDisplay(multiView) };
     return useGraphStore.getState().scene.objects.map((object) => object.kind === "surface"
-      ? { ...object, domain: surfaceDisplayDomain(object, view) } : object);
+      ? { ...object, domain: surfaceDisplayDomain(object, view) }
+      : object.kind === "implicitCurve" ? { ...object, displayDomain: planarCurveDisplayDomain(view) } : object);
   };
-  const displayKey = (objects: ReturnType<typeof displayObjects>) => JSON.stringify(objects.flatMap((object) => object.kind === "surface" && object.visible ? [[object.id, object.domain]] : []));
+  const displayKey = (objects: ReturnType<typeof displayObjects>) => JSON.stringify(objects.flatMap((object) => object.visible && object.kind === "surface" ? [[object.id, object.domain]] : object.visible && object.kind === "implicitCurve" && "displayDomain" in object ? [[object.id, object.displayDomain]] : []));
   const refreshSurfaceDisplay = () => {
     const now = performance.now();
     if (now - lastSurfaceDisplayCheck < 250) return;
@@ -464,8 +485,11 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     if (displayKey(displayObjects()) !== lastSurfaceDisplayKey) tickRuntime.objectsDirty = true;
   };
   const syncObjects = (theme: ResolvedTheme) => {
+    renderGate.invalidate();
     const objects = displayObjects();
     lastSurfaceDisplayKey = displayKey(objects);
+    setScalarVizDisplayDomains(getScalarSyncContext(), scalarDomainOwner, Object.fromEntries(objects.flatMap(object =>
+      object.kind === "surface" ? [[object.id, object.domain]] : [])));
     syncThreeSceneObjects(
       theme,
       objects,
@@ -563,6 +587,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     handlePointerMove: basePointerMove,
     handlePointerDown: basePointerDown,
     handlePointerUp: basePointerUp,
+    handlePointerCancel: basePointerCancel,
     handlePointerLeave: basePointerLeave,
     handleKeyDown: baseKeyDown,
     handleKeyUp,
@@ -618,6 +643,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   };
 
   const handlePointerMove = (event: PointerEvent) => {
+    if (event.buttons !== 0 || multiView.drag || multiView.pinch) renderResolution.markInteraction(performance.now());
     // An active handle drag consumes the gesture (no camera pan alongside).
     if (interaction.handlePointerMove(event)) {
       return;
@@ -695,6 +721,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   };
 
   const handleEnginePointerCancel = (event: PointerEvent) => {
+    basePointerCancel();
     // S34-R18: OS-cancelled touches must not leak pinch/pointer/capture
     // state into the next gesture (the interaction module commits or clears
     // the object drag itself via its own listener).
@@ -715,6 +742,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   // domElement listeners, so the first gesture over an orthographic pane
   // never leaks into the perspective camera. No-ops entirely in legacy mode.
   const handleContainerPointerDownCapture = (event: PointerEvent) => {
+    renderGate.invalidate();
     if (!multiView.panes) {
       return;
     }
@@ -723,6 +751,8 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   };
 
   const handleContainerWheelCapture = (event: WheelEvent) => {
+    renderGate.invalidate();
+    renderResolution.markInteraction(performance.now());
     if (!multiView.panes) {
       return;
     }
@@ -767,12 +797,18 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     container,
     multiView,
     isSuspended: () => suspended,
-    onFrameEnd: () => interaction.tick()
+    onFrameEnd: () => interaction.tick(),
+    updateRenderResolution: (nowMs, frameDeltaMs, previousFrameRendered) => {
+      setRenderPixelRatio(renderResolution.pixelRatio(nowMs, frameDeltaMs, previousFrameRendered, window.devicePixelRatio));
+      renderer.domElement.dataset.renderPixelRatio = String(renderer.getPixelRatio());
+    },
+    shouldRenderFrame: renderGate.shouldRender
   });
 
   let previousWidth = 0;
   let previousHeight = 0;
   const resize = () => {
+    renderGate.invalidate();
     const width = container.clientWidth;
     const height = container.clientHeight;
     if (width <= 0 || height <= 0) {
@@ -821,6 +857,10 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   renderer.domElement.addEventListener("webglcontextlost", handleContextLost, false);
   renderer.domElement.addEventListener("webglcontextrestored", handleContextRestored, false);
 
+  const renderEvents = ["pointermove", "pointerdown", "pointerup", "pointerleave", "pointercancel", "wheel"] as const;
+  for (const event of renderEvents) renderer.domElement.addEventListener(event, renderGate.invalidate, true);
+  window.addEventListener("keydown", renderGate.invalidate, true);
+  window.addEventListener("keyup", renderGate.invalidate, true);
   renderer.domElement.addEventListener("pointermove", handlePointerMove);
   renderer.domElement.addEventListener("pointerdown", handlePointerDown);
   renderer.domElement.addEventListener("pointerup", handlePointerUp);
@@ -859,17 +899,21 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
   const unregisterCapture = registerGraphCanvasCapture(renderer.domElement, async () => {
     await ready;
     if (disposed || tickRuntime.isContextLost) return null;
+    setRenderPixelRatio(renderResolution.fullResolution(window.devicePixelRatio));
+    renderer.domElement.dataset.renderPixelRatio = String(renderer.getPixelRatio());
     if (multiView.panes) {
       renderGeometryMultiViewPanes(multiView, { renderer, labelRenderer, scene, perspectiveCamera: camera, container, labelGroup });
     } else {
       renderer.render(scene, camera);
     }
+    renderer.domElement.dataset.renderFrame = String(Number(renderer.domElement.dataset.renderFrame ?? 0) + 1);
     return new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, "image/png"));
   });
 
   return {
     ready,
     setGeometryPanes: (panes) => {
+      renderGate.invalidate();
       // S33 PART 76: a layout/view switch ends an active drag with restore
       // before the pane semantics change (no axis corruption).
       interaction.endForViewSwitch();
@@ -889,22 +933,28 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     },
     getActiveGeometryView: () => getActiveGeometryView(multiView),
     setActiveGeometryView: (view: GeometryView) => {
+      renderGate.invalidate();
       setActiveGeometryView(multiView, view);
     },
     resetActiveGeometryPane: () => {
+      renderGate.invalidate();
       resetActiveGeometryView(multiView, resetCamera);
     },
-    frameSelectedObject: () => interaction.frameSelected(),
-    fitSceneToView: () => interaction.fitScene(),
+    frameSelectedObject: () => { renderGate.invalidate(); return interaction.frameSelected(); },
+    fitSceneToView: () => { renderGate.invalidate(); return interaction.fitScene(); },
     setSuspended: (value: boolean) => {
       if (value === suspended) {
         return;
       }
       suspended = value;
       if (suspended) {
+        const context = getScalarSyncContext();
+        setScalarVizDisplayDomains(context, scalarDomainOwner, null);
+        syncScalarViz(context, useGraphStore.getState().scene.objects, getEditorParameterScope());
         // Workspace switch hides the canvas: commit current drag work
         // (preserve math) rather than restoring it away.
         interaction.endForSuspend();
+        basePointerCancel();
         releaseOrthoPointerCapture();
         cancelGeometryMultiViewDrag(multiView);
         window.cancelAnimationFrame(animationHandle);
@@ -914,6 +964,7 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
         resizeObserver?.disconnect();
         resizeObserver = null;
       } else {
+        tickRuntime.objectsDirty = true;
         resizeObserver = new ResizeObserver(scheduleResize);
         resizeObserver.observe(container);
         resize();
@@ -923,6 +974,9 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
     dispose: () => {
       if (disposed) return;
       disposed = true;
+      const scalarContext = getScalarSyncContext();
+      setScalarVizDisplayDomains(scalarContext, scalarDomainOwner, null);
+      syncScalarViz(scalarContext, useGraphStore.getState().scene.objects, getEditorParameterScope());
       unregisterCapture();
       window.cancelAnimationFrame(animationHandle);
       window.cancelAnimationFrame(resizeHandle);
@@ -935,9 +989,12 @@ export function createGraphThreeEngine(container: HTMLElement, onError?: (messag
       unsubPerformanceMetrics();
       resizeObserver?.disconnect();
       resizeObserver = null;
-      controls.removeEventListener("start", markInteraction);
+      controls.removeEventListener("start", markNavigation);
       controls.removeEventListener("change", markInteraction);
       controls.dispose();
+      for (const event of renderEvents) renderer.domElement.removeEventListener(event, renderGate.invalidate, true);
+      window.removeEventListener("keydown", renderGate.invalidate, true);
+      window.removeEventListener("keyup", renderGate.invalidate, true);
       renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
       renderer.domElement.removeEventListener("webglcontextrestored", handleContextRestored);
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);

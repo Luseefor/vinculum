@@ -9,6 +9,7 @@ interface ObjectTreeProps {
   filterQuery?: string;
   visibleOnly?: boolean;
   excludeId?: string | null;
+  showEmptyState?: boolean;
 }
 
 function isTextEditingTarget(target: EventTarget | null): boolean {
@@ -20,11 +21,12 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
     tag === "INPUT" ||
     tag === "TEXTAREA" ||
     tag === "SELECT" ||
+    tag === "MATH-FIELD" ||
     target.isContentEditable
   );
 }
 
-export default function ObjectTree({ filterQuery = "", visibleOnly = false, excludeId = null }: ObjectTreeProps) {
+export default function ObjectTree({ filterQuery = "", visibleOnly = false, excludeId = null, showEmptyState = true }: ObjectTreeProps) {
   const objects = useGraphStore((state) => state.scene.objects);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectObject = useGraphStore((state) => state.selectObject);
@@ -74,10 +76,11 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false, excl
   }, [selectedObjectId]);
 
   if (objects.length === 0) {
+    if (!showEmptyState) return null;
     return (
-      <div className="mx-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-3 text-center">
-        <p className="text-[12px] font-medium text-[var(--text-secondary)]">No objects in scene.</p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{WORKSPACE_CONTENT[workspace].emptyHint}</p>
+      <div className="mx-1 rounded-[var(--ui-radius-md)] bg-(--surface-muted) px-3 py-3 text-center">
+        <p className="text-[12px] font-medium text-(--text-secondary)">No objects in scene.</p>
+        <p className="mt-0.5 text-[11px] text-(--text-tertiary)">{WORKSPACE_CONTENT[workspace].emptyHint}</p>
       </div>
     );
   }
@@ -144,8 +147,8 @@ export default function ObjectTree({ filterQuery = "", visibleOnly = false, excl
           );
         })}
         {filtered.length === 0 && !excludeId ? (
-          <div className="mx-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2 text-center">
-            <p className="text-[11px] text-[var(--text-tertiary)]">No matching objects.</p>
+          <div className="mx-1 rounded-[var(--ui-radius-md)] bg-(--surface-muted) px-3 py-2 text-center">
+            <p className="text-[11px] text-(--text-tertiary)">No matching objects.</p>
           </div>
         ) : null}
       </div>

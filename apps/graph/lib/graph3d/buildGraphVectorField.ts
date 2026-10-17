@@ -9,8 +9,8 @@ import {
   Vector3,
   type Object3D
 } from "three";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
-import { computeGlyphLength } from "@/lib/math/vectorFieldGlyphs";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
+import { computeGlyphLength } from "@/lib/math/fields/vectorFieldGlyphs";
 
 // S20 instanced vector-field glyphs. One field owns exactly one Group with
 // two InstancedMeshes (shaft cylinder + head cone) sharing one material —

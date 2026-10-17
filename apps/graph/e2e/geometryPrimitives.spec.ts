@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -394,7 +395,7 @@ test.describe("S26 geometry primitives", () => {
     await showMoreAdd(page);
     await addObject(page, "Vector");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expect(page.getByLabel("Vector origin x").first()).toBeVisible();
     await page.keyboard.press("Escape");

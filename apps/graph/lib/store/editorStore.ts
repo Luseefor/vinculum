@@ -5,26 +5,9 @@ import { persist } from "zustand/middleware";
 import type { BottomPanelTab, GeometryLayout, GeometryView, ViewportMode } from "@/lib/types/ui";
 import type { ResponsiveComposition } from "@/lib/responsive/composition";
 
-interface EditorParameter {
-  defined?: boolean;
-  id: string;
-  value: number;
-  min: number;
-  max: number;
-}
+import type { SceneParameter } from "@/lib/scene/sceneSchema";
 
-export type EditorConstraintType = "attach" | "align" | "offset";
-export type ConstraintAxis = "x" | "y" | "z";
-export type ConstraintAxisLocks = Record<ConstraintAxis, boolean>;
-
-const DEFAULT_AXIS_LOCKS: ConstraintAxisLocks = {
-  x: true,
-  y: true,
-  z: true
-};
-const MIN_CONSTRAINT_OFFSET = -255;
-const MAX_CONSTRAINT_OFFSET = 255;
-const DEFAULT_OFFSET_VALUE = 28;
+type EditorParameter = SceneParameter;
 
 const GEOMETRY_LAYOUTS: readonly GeometryLayout[] = ["single", "split", "quad"];
 const GEOMETRY_VIEWS: readonly GeometryView[] = ["perspective", "xy", "xz", "yz"];
@@ -39,15 +22,6 @@ function sanitizeGeometryView(value: unknown, fallback: GeometryView): GeometryV
   return typeof value === "string" && (GEOMETRY_VIEWS as readonly string[]).includes(value)
     ? (value as GeometryView)
     : fallback;
-}
-
-export interface EditorConstraint {
-  id: string;
-  type: EditorConstraintType;
-  objectIds: string[];
-  enabled: boolean;
-  axisLocks: ConstraintAxisLocks;
-  offsetValue: number;
 }
 
 interface EditorAnimationState {
@@ -93,7 +67,6 @@ interface EditorStoreState {
   ensureParameters: (ids: string[]) => void;
   setParameterDefinition: (id: string, value: number) => void;
   consoleEvents: string[];
-  constraints: EditorConstraint[];
   animation: EditorAnimationState;
   setViewportMode: (mode: ViewportMode) => void;
   setGeometryLayout: (layout: GeometryLayout) => void;
@@ -120,11 +93,6 @@ interface EditorStoreState {
   setBottomPanelTab: (tab: BottomPanelTab) => void;
   setParameterValue: (id: string, value: number) => void;
   addConsoleEvent: (message: string) => void;
-  addConstraint: (type: EditorConstraintType, objectIds: string[]) => void;
-  updateConstraintAxisLocks: (id: string, axisLocks: Partial<ConstraintAxisLocks>) => void;
-  updateConstraintOffsetValue: (id: string, offsetValue: number) => void;
-  toggleConstraint: (id: string) => void;
-  removeConstraint: (id: string) => void;
   setAnimationParameterId: (id: string | null) => void;
   setAnimationRange: (min: number, max: number) => void;
   setAnimationSpeed: (speed: number) => void;
@@ -195,7 +163,6 @@ export const useEditorStore = create<EditorStoreState>()(
         { id: "h", value: 3.0, min: 0.1, max: 20 }
       ],
       consoleEvents: [],
-      constraints: [],
       animation: {
         parameterId: "r",
         min: 0.1,
@@ -287,75 +254,6 @@ export const useEditorStore = create<EditorStoreState>()(
         set((state) => ({
           consoleEvents: [message, ...state.consoleEvents].slice(0, 80)
         })),
-      addConstraint: (type, objectIds) =>
-        set((state) => {
-          const [sourceId, targetId] = objectIds;
-          if (!sourceId || !targetId || sourceId === targetId) {
-            return state;
-          }
-          const exists = state.constraints.some(
-            (constraint) =>
-              constraint.type === type &&
-              ((constraint.objectIds[0] === sourceId && constraint.objectIds[1] === targetId) ||
-                (constraint.objectIds[0] === targetId && constraint.objectIds[1] === sourceId))
-          );
-          if (exists) {
-            return state;
-          }
-          return {
-            constraints: [
-              ...state.constraints,
-              {
-                id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-                type,
-                objectIds: [sourceId, targetId],
-                enabled: true,
-                axisLocks: { ...DEFAULT_AXIS_LOCKS },
-                offsetValue: DEFAULT_OFFSET_VALUE
-              }
-            ]
-          };
-        }),
-      updateConstraintAxisLocks: (id, axisLocks) =>
-        set((state) => ({
-          constraints: state.constraints.map((constraint) =>
-            constraint.id !== id
-              ? constraint
-              : {
-                  ...constraint,
-                  axisLocks: sanitizeAxisLocks({
-                    ...constraint.axisLocks,
-                    ...axisLocks
-                  })
-                }
-          )
-        })),
-      updateConstraintOffsetValue: (id, offsetValue) => {
-        const safeOffset = sanitizeConstraintOffset(offsetValue);
-        if (safeOffset === null) {
-          return;
-        }
-        set((state) => ({
-          constraints: state.constraints.map((constraint) =>
-            constraint.id === id
-              ? {
-                  ...constraint,
-                  offsetValue: safeOffset
-                }
-              : constraint
-          )
-        }));
-      },
-      toggleConstraint: (id) =>
-        set((state) => ({
-          constraints: state.constraints.map((constraint) =>
-            constraint.id === id ? { ...constraint, enabled: !constraint.enabled } : constraint
-          )
-        })),
-      removeConstraint: (id) =>
-        set((state) => ({
-          constraints: state.constraints.filter((constraint) => constraint.id !== id)
-        })),
       setAnimationParameterId: (id) =>
         set((state) => {
           if (!id) {
@@ -441,11 +339,10 @@ export const useEditorStore = create<EditorStoreState>()(
         if (!persistedState || typeof persistedState !== "object") {
           return currentState;
         }
-        const incoming = persistedState as Partial<EditorStoreState>;
-        const incomingConstraints = Array.isArray(incoming.constraints) ? incoming.constraints : [];
-        const normalizedConstraints = incomingConstraints.map((constraint) =>
-          sanitizeConstraintRecord(constraint)
-        );
+        // Retired appearance links must not survive as hidden geometry behavior.
+        const { constraints: _legacyLinks, ...preferences } = persistedState as Record<string, unknown>;
+        const incoming = preferences as Partial<EditorStoreState>;
+        void _legacyLinks;
         // S16-R6: corrupted persisted geometry values reach the ortho camera
         // orientation table inside the frame loop and would throw before the
         // next frame is requested. Reject anything outside the whitelists.
@@ -460,8 +357,7 @@ export const useEditorStore = create<EditorStoreState>()(
           ...incoming,
           geometryLayout,
           geometryView: geometryLayout === "split" && geometryView !== "perspective" ? geometrySplitView : geometryView,
-          geometrySplitView,
-          constraints: normalizedConstraints
+          geometrySplitView
         };
       }
     }
@@ -473,38 +369,4 @@ function clamp(value: number, min: number, max: number): number {
     return min;
   }
   return Math.min(max, Math.max(min, value));
-}
-
-function sanitizeAxisLocks(value: unknown): ConstraintAxisLocks {
-  if (!value || typeof value !== "object") {
-    return { ...DEFAULT_AXIS_LOCKS };
-  }
-  const input = value as Partial<Record<ConstraintAxis, unknown>>;
-  return {
-    x: input.x !== false,
-    y: input.y !== false,
-    z: input.z !== false
-  };
-}
-
-function sanitizeConstraintOffset(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  return clamp(Math.round(value), MIN_CONSTRAINT_OFFSET, MAX_CONSTRAINT_OFFSET);
-}
-
-function sanitizeConstraintRecord(value: unknown): EditorConstraint {
-  const input = (value && typeof value === "object" ? value : {}) as Partial<EditorConstraint>;
-  const safeOffset = sanitizeConstraintOffset(input.offsetValue);
-  return {
-    id: typeof input.id === "string" ? input.id : `c_${Date.now().toString(36)}_legacy`,
-    type: input.type === "attach" || input.type === "align" || input.type === "offset" ? input.type : "attach",
-    objectIds: Array.isArray(input.objectIds)
-      ? input.objectIds.filter((candidate): candidate is string => typeof candidate === "string").slice(0, 2)
-      : [],
-    enabled: input.enabled !== false,
-    axisLocks: sanitizeAxisLocks(input.axisLocks),
-    offsetValue: safeOffset ?? DEFAULT_OFFSET_VALUE
-  };
 }

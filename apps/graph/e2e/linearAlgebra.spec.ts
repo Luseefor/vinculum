@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputValue, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -65,7 +66,7 @@ async function toMathLab(page: Page) {
 }
 
 function graph3dCanvas(page: Page) {
-  return page.locator('canvas[data-graph3d-canvas="true"]').first();
+  return page.locator('canvas[data-graph3d-canvas="true"]:visible').first();
 }
 
 function inspector(page: Page) {
@@ -403,6 +404,7 @@ test.describe("S28 linear algebra", () => {
     await openAnalyze(page);
     await page.getByRole("switch", { name: "Show eigendirections" }).click();
     await settleScene(page);
+    await page.getByRole("button", { name: "3D only", exact: true }).click();
     await expect(graph3dCanvas(page)).toBeVisible();
 
     expect(pageErrors).toEqual([]);
@@ -530,7 +532,7 @@ test.describe("S28 linear algebra", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "2D Linear Transformation");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputVisible(page.getByLabel("Row 1 column 1"));
     await openAnalyze(page);

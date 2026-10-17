@@ -5,4 +5,6 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const destination = resolve(root, "apps/graph/public/mathlive/fonts");
 await mkdir(destination, { recursive: true });
 await cp(resolve(root, "apps/graph/node_modules/mathlive/fonts"), destination, { recursive: true });
+await cp(resolve(root, "apps/graph/node_modules/mathlive/LICENSE.txt"), resolve(destination, "../MATHLIVE-LICENSE.txt"));
+await cp(resolve(root, "apps/graph/node_modules/katex/LICENSE"), resolve(destination, "../KATEX-LICENSE.txt"));
 console.log("Prepared local math editor fonts.");

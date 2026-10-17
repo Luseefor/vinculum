@@ -6,8 +6,8 @@ import {
 } from "./graphStoreSliceAnalysis";
 import { clearAllIntegralAnalysis, pruneIntegralForSourceId } from "./graphStoreSliceIntegral";
 import { clearAllStreamlines, pruneStreamlineForSourceId } from "./graphStoreSliceStreamline";
-import { DEFAULT_SCALAR_GRADIENT_DENSITY } from "@/lib/math/computeScalarFieldData";
-import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/marchingSquares";
+import { DEFAULT_SCALAR_GRADIENT_DENSITY } from "@/lib/math/fields/computeScalarFieldData";
+import { DEFAULT_CONTOUR_COUNT } from "@/lib/math/surfaces/marchingSquares";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
 // S23 scalar-visualization config state: transient, source-attached,

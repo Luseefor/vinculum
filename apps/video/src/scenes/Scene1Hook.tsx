@@ -78,7 +78,7 @@ export const Scene1Hook: React.FC<SceneProps> = ({ isVertical = false }) => {
           }}
         >
           Mathematics was never meant to be{" "}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-300 to-indigo-400 drop-shadow-[0_0_35px_rgba(6,182,212,0.6)]">
+          <span className="text-transparent bg-clip-text bg-linear-to-r from-sky-400 via-cyan-300 to-indigo-400 drop-shadow-[0_0_35px_rgba(6,182,212,0.6)]">
             flat and static.
           </span>
         </h1>

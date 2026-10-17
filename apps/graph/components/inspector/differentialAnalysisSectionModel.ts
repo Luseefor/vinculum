@@ -2,12 +2,12 @@ import type { ImplicitSurfaceObject, SurfaceGraphObject } from "@vinculum/scene/
 import type { DifferentialAnalysisState } from "@/types/graphUi";
 import { analysisSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
 import {
   computeSurfaceAnalysis,
   type SurfaceGradient
-} from "@/lib/math/surfaceDifferential";
+} from "@/lib/math/calculus/surfaceDifferential";
 
 // Pure view-model for the Differential Analysis inspector section (and its
 // unit tests). Source identity is the shared math-only helper (S21-R1), so

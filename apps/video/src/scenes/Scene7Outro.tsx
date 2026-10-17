@@ -49,7 +49,7 @@ export const Scene7Outro: React.FC<SceneProps> = ({ isVertical = false }) => {
           VINCULUM
         </h1>
 
-        <p className="mt-4 text-2xl md:text-3xl font-light text-transparent bg-clip-text bg-gradient-to-r from-sky-300 via-cyan-200 to-indigo-300">
+        <p className="mt-4 text-2xl md:text-3xl font-light text-transparent bg-clip-text bg-linear-to-r from-sky-300 via-cyan-200 to-indigo-300">
           See the beauty in every equation.
         </p>
 
@@ -67,7 +67,7 @@ export const Scene7Outro: React.FC<SceneProps> = ({ isVertical = false }) => {
         }}
       >
         <div className="flex flex-wrap items-center justify-center gap-4">
-          <div className="px-6 py-3 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold text-base shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-2 border border-white/20">
+          <div className="px-6 py-3 rounded-full bg-linear-to-r from-blue-600 to-cyan-500 text-white font-semibold text-base shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-2 border border-white/20">
             <span>Explore the Canvas</span>
             <ArrowRight className="w-4 h-4" />
           </div>

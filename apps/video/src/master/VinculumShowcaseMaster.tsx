@@ -286,7 +286,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
                 </svg>
 
                 {/* Telemetry Badge */}
-                <div className="absolute bottom-8 left-8 bg-[#0b0f19]/80 backdrop-blur border border-slate-800 rounded px-3 py-2 text-[10px] font-mono text-slate-400">
+                <div className="absolute bottom-8 left-8 bg-[#0b0f19]/80 backdrop-blur-sm border border-slate-800 rounded-sm px-3 py-2 text-[10px] font-mono text-slate-400">
                   <span>VOXELS: 110,592 // TETRAHEDRA: 663,552 // EVAL: 0.82ms</span>
                 </div>
               </div>
@@ -320,7 +320,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
 
                   {/* Equation Display */}
                   <div
-                    className="p-4 bg-[#0d121f] rounded border border-slate-800 text-xs text-slate-300"
+                    className="p-4 bg-[#0d121f] rounded-sm border border-slate-800 text-xs text-slate-300"
                     dangerouslySetInnerHTML={{
                       __html: renderLatex(
                         `\\sin x\\cos y + \\sin y\\cos z + \\sin z\\cos x = ${gyroidPhase.toFixed(2)}`
@@ -458,7 +458,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
               </svg>
 
               {/* Streamline HUD tag */}
-              <div className="absolute bottom-10 right-10 bg-[#0d121f]/90 border border-slate-700/80 rounded px-4 py-2 font-mono text-xs text-slate-300">
+              <div className="absolute bottom-10 right-10 bg-[#0d121f]/90 border border-slate-700/80 rounded-sm px-4 py-2 font-mono text-xs text-slate-300">
                 <span className="text-cyan-400 font-semibold">RUNGE-KUTTA 4 (RK4)</span>
                 <span className="ml-2 text-slate-500">// ADAPTIVE ODE INTEGRATION</span>
               </div>
@@ -505,7 +505,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
                 </text>
               </svg>
 
-              <div className="absolute top-12 left-12 bg-[#0d121f] border border-slate-700/80 rounded p-4 font-mono text-xs text-slate-300">
+              <div className="absolute top-12 left-12 bg-[#0d121f] border border-slate-700/80 rounded-sm p-4 font-mono text-xs text-slate-300">
                 <div className="text-amber-400 font-semibold mb-1">LINEAR TRANSFORMATION STUDIO</div>
                 <div>Matrix A: [[1.2, 0.4, 0.0], [0.3, 1.1, 0.0], [0.0, 0.0, 1.0]]</div>
                 <div>det(A) = 1.360 // Invariant Eigenspace</div>
@@ -515,7 +515,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
             // Quad Orthographic Viewport Studio (660 - 795 frames)
             <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-1 p-2 bg-slate-900/60">
               {/* Perspective Pane */}
-              <div className="relative bg-[#070a14] border border-slate-800 rounded flex items-center justify-center">
+              <div className="relative bg-[#070a14] border border-slate-800 rounded-sm flex items-center justify-center">
                 <span className="absolute top-3 left-3 text-[11px] font-mono text-slate-400 uppercase">
                   Perspective
                 </span>
@@ -523,7 +523,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
               </div>
 
               {/* Top (XY) Pane - With Direct Handle Drag */}
-              <div className="relative bg-[#070a14] border border-cyan-500/40 rounded flex items-center justify-center">
+              <div className="relative bg-[#070a14] border border-cyan-500/40 rounded-sm flex items-center justify-center">
                 <span className="absolute top-3 left-3 text-[11px] font-mono text-cyan-400 uppercase">
                   Top (XY) // Active Handle
                 </span>
@@ -535,7 +535,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
               </div>
 
               {/* Front (XZ) Pane */}
-              <div className="relative bg-[#070a14] border border-slate-800 rounded flex items-center justify-center">
+              <div className="relative bg-[#070a14] border border-slate-800 rounded-sm flex items-center justify-center">
                 <span className="absolute top-3 left-3 text-[11px] font-mono text-slate-400 uppercase">
                   Front (XZ)
                 </span>
@@ -543,7 +543,7 @@ export const VinculumShowcaseMaster: React.FC = () => {
               </div>
 
               {/* Right (YZ) Pane */}
-              <div className="relative bg-[#070a14] border border-slate-800 rounded flex items-center justify-center">
+              <div className="relative bg-[#070a14] border border-slate-800 rounded-sm flex items-center justify-center">
                 <span className="absolute top-3 left-3 text-[11px] font-mono text-slate-400 uppercase">
                   Right (YZ)
                 </span>

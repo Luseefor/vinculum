@@ -5,6 +5,7 @@ import {
 } from "@/lib/scene/importPayloadLimits";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
+import { encodeSceneText, decodeSceneText } from "@/lib/scene/sceneCompression";
 
 export const SCENE_SHARE_QUERY_PARAM = "scene";
 export const DEFAULT_MAX_SHARE_URL_LENGTH = 6000;
@@ -26,7 +27,14 @@ export function buildShareSceneUrl(options: {
   baseUrl: string;
   maxUrlLength?: number;
 }): ShareLinkResult {
-  const payload = encodeSceneToPayload(options.scene);
+  let payload: string;
+  try {
+    const json = serializeScene(options.scene);
+    const validation = deserializeScene(json);
+    if (!validation.valid) return { ok: false, error: `Cannot share this scene: ${validation.errors.join(" ")}` };
+    payload = encodeSceneText(json);
+  }
+  catch { return { ok: false, error: "This scene is too large or invalid for a share link. Use JSON export instead." }; }
   const url = new URL(options.baseUrl);
   url.searchParams.set(SCENE_SHARE_QUERY_PARAM, payload);
   const nextUrl = url.toString();
@@ -62,7 +70,7 @@ export function decodeSharedScenePayload(payload: string): SharedSceneDecodeResu
 
   let jsonText: string;
   try {
-    jsonText = decodePayloadToJson(payload);
+    jsonText = decodeSceneText(payload);
   } catch {
     return {
       ok: false,
@@ -98,51 +106,4 @@ export function readSharedSceneFromSearch(search: string): SharedSceneDecodeResu
     return null;
   }
   return decodeSharedScenePayload(payload);
-}
-
-function encodeSceneToPayload(scene: SceneDocument): string {
-  const jsonText = serializeScene(scene);
-  const utf8Bytes = new TextEncoder().encode(jsonText);
-  return base64UrlEncode(utf8Bytes);
-}
-
-function decodePayloadToJson(payload: string): string {
-  const bytes = base64UrlDecode(payload);
-  return new TextDecoder().decode(bytes);
-}
-
-function base64UrlEncode(bytes: Uint8Array): string {
-  const base64 = bytesToBase64(bytes);
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function base64UrlDecode(value: string): Uint8Array {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  return base64ToBytes(padded);
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(bytes).toString("base64");
-  }
-
-  let binary = "";
-  bytes.forEach((value) => {
-    binary += String.fromCharCode(value);
-  });
-  return btoa(binary);
-}
-
-function base64ToBytes(base64: string): Uint8Array {
-  if (typeof Buffer !== "undefined") {
-    return new Uint8Array(Buffer.from(base64, "base64"));
-  }
-
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
 }

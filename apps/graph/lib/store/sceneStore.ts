@@ -50,6 +50,7 @@ export function getCurrentSceneSnapshot() {
   return {
     objects: state.scene.objects,
     measurements: state.scene.measurements,
+    parameters: state.scene.parameters,
     selection: {
       selectedObjectId: state.ui.selectedObjectId
     }

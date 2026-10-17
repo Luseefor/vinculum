@@ -22,7 +22,7 @@ import {
   type Object3D
 } from "three";
 import type { GraphObject } from "@vinculum/scene/types";
-import { mathToWorld3D, type MathPoint3 } from "@/lib/math/coordinates";
+import { mathToWorld3D, type MathPoint3 } from "@/lib/math/geometry/coordinates";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import {
   resolveLineGeometry,
@@ -30,7 +30,7 @@ import {
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
-} from "@/lib/math/geometryResolve";
+} from "@/lib/math/geometry/geometryResolve";
 import type { InteractionHandleKind } from "@/lib/interaction/dragEligibility";
 
 export interface InteractionHandleHit {

@@ -26,11 +26,11 @@ export const KineticTitle: React.FC<KineticTitleProps> = ({
   const words = title.split(" ");
 
   const colorClassMap = {
-    cyan: "text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-cyan-300 to-teal-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]",
+    cyan: "text-transparent bg-clip-text bg-linear-to-r from-sky-400 via-cyan-300 to-teal-400 drop-shadow-[0_0_20px_rgba(6,182,212,0.6)]",
     purple:
-      "text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-fuchsia-300 to-indigo-400 drop-shadow-[0_0_20px_rgba(168,85,247,0.6)]",
-    blue: "text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-400 drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]",
-    gold: "text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-orange-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.6)]",
+      "text-transparent bg-clip-text bg-linear-to-r from-purple-400 via-fuchsia-300 to-indigo-400 drop-shadow-[0_0_20px_rgba(168,85,247,0.6)]",
+    blue: "text-transparent bg-clip-text bg-linear-to-r from-blue-400 via-sky-300 to-indigo-400 drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]",
+    gold: "text-transparent bg-clip-text bg-linear-to-r from-amber-300 via-yellow-200 to-orange-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.6)]",
   };
 
   const alignClass =

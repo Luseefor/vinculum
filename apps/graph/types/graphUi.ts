@@ -183,6 +183,8 @@ export type IntegralAnalysisMode =
   | "scalarLine"
   | "work"
   | "surfaceArea"
+  | "solidArea"
+  | "volume"
   | "scalarSurface"
   | "flux";
 
@@ -191,6 +193,8 @@ export interface IntegralAnalysisConfig {
   mode: IntegralAnalysisMode;
   /** Committed scalar integrand text ("" when the mode needs none). */
   scalarIntegrand: string;
+  /** Other height function for solids bounded by two graphs; transient analysis input. */
+  lowerBoundary?: string;
   /** Referenced canonical vector-field id (null when mode needs none). */
   vectorFieldId: string | null;
   quality: "low" | "medium" | "high";

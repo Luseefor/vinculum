@@ -40,6 +40,8 @@ export const defaultSurfaceDomain: SurfaceDomain = {
   yMax: 5
 };
 
+export const defaultCurveExtensionRange = { zMin: -5, zMax: 5 };
+
 export const MIN_SURFACE_RESOLUTION = 2;
 export const MAX_SURFACE_RESOLUTION = 128;
 export const defaultSurfaceResolution = 80;
@@ -641,4 +643,14 @@ export function createDefaultLinearTransformGraph(
     visible,
     color
   };
+}
+
+/** Switch authoring dimension without losing the inactive spatial definition. */
+export function withParametricDimension<T extends { dimension?: "2d" | "3d"; zExpr: string; spatialZExpr?: string }>(
+  object: T, dimension: "2d" | "3d"
+): T {
+  if ((object.dimension ?? "3d") === dimension) return object;
+  if (dimension === "2d") return { ...object, dimension, spatialZExpr: object.zExpr, zExpr: "0" };
+  const { spatialZExpr, ...rest } = object;
+  return { ...rest, dimension, zExpr: spatialZExpr ?? object.zExpr } as T;
 }

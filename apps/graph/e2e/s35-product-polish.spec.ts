@@ -106,10 +106,11 @@ test.describe("S35 final product polish", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await startFresh(page);
     await toGeometry(page);
+    await page.getByRole("button", { name: "Got it" }).click();
+    await expect(page.getByTestId("scene-object-count")).toHaveText("0");
     await page.getByRole("button", { name: "Create Point" }).click();
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.getByRole("button", { name: "Got it" }).click();
-    await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    await expect(page.getByTestId("first-run-hint")).toHaveCount(0);
   });
 
   test("E: light Geometry shell remains axe clean with selection", async ({ page }) => {
@@ -142,7 +143,7 @@ test.describe("S35 final product polish", () => {
     const box = await hint.boundingBox();
     expect(box).toBeTruthy();
     expect((box?.height ?? 0) / 844).toBeLessThan(0.45);
-    await expect(page.getByRole("button", { name: "Dismiss getting started tips" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Got it" })).toBeVisible();
   });
 
   test("J: tablet composition keeps polished shell", async ({ page }) => {

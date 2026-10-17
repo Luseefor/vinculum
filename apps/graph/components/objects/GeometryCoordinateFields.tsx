@@ -16,16 +16,16 @@ import type { LineObject, PointObject, RayObject, SegmentObject, VectorObject } 
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope, parametersToScope } from "@/lib/store/editorParameters";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
 import {
   resolveLineGeometry,
   resolvePointGeometry,
   resolveRayGeometry,
   resolveSegmentGeometry,
   resolveVectorGeometry
-} from "@/lib/math/geometryResolve";
+} from "@/lib/math/geometry/geometryResolve";
 import type { GeometryPrimitiveField } from "@/store/graphStoreTypes";
-import { distanceVec3 } from "@/lib/math/geometryPrimitives";
+import { distanceVec3 } from "@/lib/math/geometry/geometryPrimitives";
 
 type PrimitiveObject = PointObject | VectorObject | LineObject | RayObject | SegmentObject;
 
@@ -230,16 +230,16 @@ export default function GeometryCoordinateFields({
     <div className="flex flex-col gap-1.5">
       {groups.map((group) => (
         <div key={group.name}>
-          <p className="mb-1 text-[11px] font-medium text-[var(--text-secondary)]">
+          <p className="mb-1 text-[11px] font-medium text-(--text-secondary)">
             {group.name}
           </p>
           <div className="grid grid-cols-3 gap-1.5">
             {group.fields.map((def, index) => (
               <div
                 key={def.field}
-                className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+                className="flex items-center gap-1 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-1.5 py-1 focus-within:ring-1 focus-within:ring-(--accent) transition-colors"
               >
-                <span className="text-[10px] font-mono font-bold text-[var(--text-tertiary)] shrink-0">
+                <span className="text-[10px] font-mono font-bold text-(--text-tertiary) shrink-0">
                   {def.coord}
                 </span>
                 <MathInput
@@ -263,13 +263,13 @@ export default function GeometryCoordinateFields({
                   onKeyDown={onEnterKey}
                   spellCheck={false}
                   autoComplete="off"
-                  className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[10px] font-bold text-[var(--accent-ink)] outline-none"
+                  className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[10px] font-bold text-(--accent-ink) outline-hidden"
                 />
               </div>
             ))}
           </div>
           {group.fields.some((def) => diagnostics[def.field]) && (
-            <p className="mt-1 text-[10px] font-medium text-red-700 dark:text-red-300" role="alert">
+            <p className="mt-1 text-[10px] font-medium text-(--status-error-fg)" role="alert">
               {group.fields.map((def) => diagnostics[def.field]).find(Boolean)}
             </p>
           )}
@@ -277,7 +277,7 @@ export default function GeometryCoordinateFields({
       ))}
       {status && (
         <p
-          className={`text-[10px] ${status.isError ? "font-medium text-red-700 dark:text-red-300" : "text-[var(--text-tertiary)]"}`}
+          className={`text-[10px] ${status.isError ? "font-medium text-(--status-error-fg)" : "text-(--text-tertiary)"}`}
           role="status"
         >
           {status.text}

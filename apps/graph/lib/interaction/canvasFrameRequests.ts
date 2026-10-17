@@ -1,8 +1,8 @@
 // S33 Frame Selected / Fit Scene request bus (UI-only).
 //
 // EditorShell (palette, shortcuts, context menu) publishes camera-only
-// framing requests; viewport owners (GeometryViewport, Math Lab Viewport3D
-// where supported) subscribe and drive their engine. No React state, no
+// framing requests; viewport owners (GeometryViewport, Math Lab Viewport3D,
+// and the active Canvas2D pane) subscribe and frame their own view. No React state, no
 // history, no serialization — framing is transient camera presentation.
 
 export type CanvasFrameRequestKind = "selected" | "scene";

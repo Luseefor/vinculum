@@ -23,7 +23,9 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
       return;
     }
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[role="dialog"]') !== asideRef.current) return;
+      if (event.key === "Escape" && !event.defaultPrevented) {
         onOpenChange(false);
       }
     };
@@ -72,6 +74,7 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
       if (event.key !== "Tab" || event.defaultPrevented) {
         return;
       }
+      if (event.target instanceof Element && event.target.closest('[role="dialog"]') !== aside) return;
       const focusables = items();
       if (focusables.length === 0) {
         return;
@@ -119,7 +122,7 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
     <div className={cn("sheet-viewport fixed inset-0 z-50 block")}>
       <button
         type="button"
-        className="absolute inset-0 bg-[var(--surface-backdrop)]"
+        className="absolute inset-0 bg-(--surface-backdrop)"
         onClick={() => onOpenChange(false)}
         aria-label={`Close ${title} panel`}
         tabIndex={-1}
@@ -136,10 +139,10 @@ export function Sheet({ open, onOpenChange, title, children }: SheetProps) {
             onOpenChange(false);
           }
         }}
-        className="absolute right-0 top-0 flex h-full w-[24rem] max-w-[calc(100vw-16px)] flex-col rounded-l-[var(--radius-xl)] bg-[var(--editor-chrome)] shadow-[var(--shadow-floating)]"
+        className="absolute right-0 top-0 flex h-full w-[24rem] max-w-[calc(100vw-16px)] flex-col rounded-l-xl bg-(--editor-chrome) shadow-(--shadow-floating)"
       >
         <div className="flex shrink-0 items-center justify-between px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-[var(--text-secondary)]">{title}</h2>
+          <h2 className="text-[14px] font-semibold text-(--text-secondary)">{title}</h2>
           <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>

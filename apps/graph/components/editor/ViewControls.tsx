@@ -25,16 +25,16 @@ export interface ViewControlsProps {
 }
 
 const GROUP =
-  "flex h-8 shrink-0 items-center gap-0.5 rounded-[var(--radius-md)] bg-[var(--surface-muted)] p-0.5";
+  "flex h-8 shrink-0 items-center gap-0.5 rounded-[var(--ui-radius-md)] bg-(--surface-muted) p-0.5";
 
 function segmentClass(active: boolean, emphasis: "primary" | "secondary" = "primary"): string {
   return cn(
-    "h-7 rounded-[var(--radius-sm)] px-2.5 text-[12px] font-medium outline-none transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+    "ui-control h-7 rounded-[var(--ui-radius-sm)] px-2.5 text-[12px] font-medium outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)",
     active
       ? emphasis === "primary"
-        ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-        : "bg-[var(--surface-muted)] text-[var(--text-primary)]"
-      : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+        ? "bg-(--accent-soft) text-(--accent-ink)"
+        : "bg-(--surface-muted) text-(--text-primary)"
+      : "text-(--text-secondary) hover:bg-(--surface-muted) hover:text-(--text-primary)"
   );
 }
 
@@ -44,11 +44,11 @@ function PillSelect({
   ...props
 }: { label: string; children: ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-[var(--radius-md)] bg-[var(--surface-muted)] pl-2.5 pr-1 text-[12px] text-[var(--text-tertiary)] transition-colors focus-within:ring-2 focus-within:ring-[var(--accent)] hover:bg-[var(--surface-inset)]">
+    <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-[var(--ui-radius-md)] bg-(--surface-muted) pl-2.5 pr-1 text-[12px] text-(--text-tertiary) transition-colors focus-within:ring-2 focus-within:ring-(--accent) hover:bg-(--surface-inset)">
       {label}
       <select
         {...props}
-        className="h-7 cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent pl-0.5 pr-1 text-[12px] font-medium text-[var(--text-primary)] outline-none"
+        className="h-7 cursor-pointer rounded-[var(--ui-radius-sm)] border-0 bg-transparent pl-0.5 pr-1 text-[12px] font-medium text-(--text-primary) outline-hidden"
       >
         {children}
       </select>
@@ -220,8 +220,8 @@ function ViewOptions({ children }: { children: ReactNode }) {
             onClick={props.onClick}
             onKeyDown={props.onKeyDown}
             className={cn(
-              "flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-secondary)] outline-none transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-              open && "bg-[var(--surface-muted)] text-[var(--text-primary)]"
+              "ui-control flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ui-radius-md)] text-(--text-secondary) outline-hidden hover:bg-(--surface-muted) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-(--accent)",
+              open && "bg-(--surface-muted) text-(--text-primary)"
             )}
           >
             <SlidersIcon className="h-4 w-4" />

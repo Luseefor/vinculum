@@ -12,15 +12,15 @@ import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useScalarVizResultsStore } from "@/lib/compute/scalarVizResults";
-import { MAX_CONTOUR_LEVELS, MIN_CONTOUR_LEVELS } from "@/lib/math/marchingSquares";
+import { MAX_CONTOUR_LEVELS, MIN_CONTOUR_LEVELS } from "@/lib/math/surfaces/marchingSquares";
 import {
   MAX_SCALAR_GRADIENT_DENSITY,
   MIN_SCALAR_GRADIENT_DENSITY
-} from "@/lib/math/computeScalarFieldData";
+} from "@/lib/math/fields/computeScalarFieldData";
 import { MAX_VECTOR_FIELD_SCALE, MIN_VECTOR_FIELD_SCALE } from "@vinculum/scene/defaults";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 
 interface ScalarVisualizationSectionProps {
@@ -78,13 +78,13 @@ export default function ScalarVisualizationSection({ object }: ScalarVisualizati
   return (
     <section
       data-testid="scalar-visualization-section"
-      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
+      className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Scalar Visualization</h3>
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Scalar Visualization</h3>
       </header>
       {sourceError && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Fix the source equation to enable scalar visualization.
         </p>
       )}
@@ -120,7 +120,7 @@ function ToggleRow({
 }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-[12px] text-[var(--text-secondary)]">{label}</span>
+      <span className="text-[12px] text-(--text-secondary)">{label}</span>
       <Switch
         checked={checked}
         onCheckedChange={onChange}
@@ -163,7 +163,7 @@ function ExplicitScalarControls({
       <ToggleRow label="Contours" checked={showContours} onChange={(checked) => onCommit({ showContours: checked })} />
       {showContours && (
         <label className="block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
             Contour count
           </span>
           <Input
@@ -181,7 +181,7 @@ function ExplicitScalarControls({
                 });
               }
             }}
-            className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+            className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
           />
         </label>
       )}
@@ -191,7 +191,7 @@ function ExplicitScalarControls({
         onChange={(checked) => onCommit({ showGradient: checked })}
       />
       {showGradient && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+        <p className="text-[12px] leading-relaxed text-(--text-tertiary)">
           Visible in 2D and 3D. Arrows show the function gradient in the input plane;
           in 3D they sit on the surface. Use Differential Analysis for the surface normal.
         </p>
@@ -199,7 +199,7 @@ function ExplicitScalarControls({
       {showGradient && (
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               Gradient density
             </span>
             <Input
@@ -220,11 +220,11 @@ function ExplicitScalarControls({
                   });
                 }
               }}
-              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               Gradient scale
             </span>
             <Input
@@ -242,7 +242,7 @@ function ExplicitScalarControls({
                   });
                 }
               }}
-              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
             />
           </label>
         </div>
@@ -255,41 +255,41 @@ function ExplicitScalarControls({
         />
       )}
       {fieldStatus === "pending" && (
-        <p className="text-[11px] text-[var(--text-tertiary)]" role="status">
+        <p className="text-[11px] text-(--text-tertiary)" role="status">
           Computing scalar field…
         </p>
       )}
       {legend && (
-        <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-[var(--text-secondary)]" role="status">
+        <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-(--text-secondary)" role="status">
           Range [<MathExpression expression={formatNumber(legend.min)} />, <MathExpression expression={formatNumber(legend.max)} />]
           {showContours && legend.levels.includes(0) ? <span className="block font-sans">Includes the <MathExpression expression="f = 0" /> contour.</span> : null}
         </p>
       )}
       {result?.status === "empty" && (showHeatmap || showContours || showGradient) && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           No finite values on this grid — nothing to show.
         </p>
       )}
       {result?.status === "ok" && result.contourStatus === "budget-exceeded" && showContours && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Contour result too complex; reduce the contour count.
         </p>
       )}
       {result?.status === "ok" && result.gradientStatus === "unavailable" && showGradient && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Gradient unavailable for this expression. Heat and contours still apply.
         </p>
       )}
       {result?.status === "ok" && result.gradientStatus === "empty" && showGradient && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           No finite gradients on this grid.
         </p>
       )}
       {result?.status === "ok" && result.gradientStatus === "ok" && result.gradientMaxMagnitude === 0 && showGradient && (
-        <p className="text-[12px] text-[var(--text-secondary)]" role="status">The gradient is zero on this grid, so there are no arrows.</p>
+        <p className="text-[12px] text-(--text-secondary)" role="status">The gradient is zero on this grid, so there are no arrows.</p>
       )}
       {fieldStatus === "error" && (showHeatmap || showContours || showGradient) && (
-        <p className="text-[12px] text-[var(--text-secondary)]" role="status">Could not compute the field. Check the expression and plot range, then try again.</p>
+        <p className="text-[12px] text-(--text-secondary)" role="status">Could not compute the field. Check the expression and plot range, then try again.</p>
       )}
     </div>
   );
@@ -330,7 +330,7 @@ function ImplicitSliceControls({
       {sliceEnabled && (
         <div className="grid grid-cols-2 gap-2">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               Slice plane
             </span>
             <select
@@ -342,7 +342,7 @@ function ImplicitSliceControls({
                   onCommit({ slicePlane: plane });
                 }
               }}
-              className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+              className="h-8 w-full rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2.5 text-[13px] text-(--text-primary)"
             >
               <option value="xy">XY</option>
               <option value="xz">XZ</option>
@@ -350,7 +350,7 @@ function ImplicitSliceControls({
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               Slice value
             </span>
             <Input
@@ -364,13 +364,13 @@ function ImplicitSliceControls({
                   onCommit({ sliceValue: value });
                 }
               }}
-              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
             />
           </label>
         </div>
       )}
       {sliceEnabled && sliceDomainHint && (
-        <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
+        <p className="text-[11px] leading-snug text-(--text-tertiary)">
           Slice value must lie in {sliceDomainHint}.
         </p>
       )}
@@ -389,23 +389,23 @@ function ImplicitSliceControls({
         />
       )}
       {sliceStatus === "pending" && sliceEnabled && (
-        <p className="text-[11px] text-[var(--text-tertiary)]" role="status">
+        <p className="text-[11px] text-(--text-tertiary)" role="status">
           Computing scalar slice…
         </p>
       )}
       {legend && (
-        <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-[var(--text-secondary)]" role="status">
+        <p data-testid="scalar-viz-legend" className="font-mono text-[12px] text-(--text-secondary)" role="status">
           Range [<MathExpression expression={formatNumber(legend.min)} />, <MathExpression expression={formatNumber(legend.max)} />]
           {sliceEnabled && (config?.showSliceContours ?? true) && legend.levels.includes(0) ? <span className="block font-sans">Includes the <MathExpression expression="f = 0" /> contour.</span> : null}
         </p>
       )}
       {result?.status === "empty" && sliceEnabled && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           No finite values on this slice — nothing to show.
         </p>
       )}
       {result?.status === "ok" && result.contourStatus === "budget-exceeded" && config?.showSliceContours && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Contour result too complex; slice a smaller domain.
         </p>
       )}

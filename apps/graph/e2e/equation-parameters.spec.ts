@@ -22,6 +22,7 @@ test("named variables create accessible sliders that update and survive reload",
 });
 
 test("the reported oscillating relation is a 2D curve and never a 3D surface", async ({ page }) => {
+  await page.getByRole("button", { name: "3D only", exact: true }).click();
   await fillInput(page.getByLabel("New equation"), "cos(xy+cos(4y))^2+sin(y)=0.4x+0.1y^2");
   await page.getByRole("textbox", { name: "New equation", exact: true }).press("Enter");
   await expect(page.getByRole("button", { name: "2D only", exact: true })).toHaveAttribute("aria-pressed", "true");

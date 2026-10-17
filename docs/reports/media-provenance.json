@@ -1,0 +1,202 @@
+{
+  "ownershipConfirmed": "2026-10-16",
+  "confirmation": "Owner confirmed ownership and approved MIT redistribution of bundled logos, screenshots, recordings, and soundtracks. Third-party dependencies and fonts retain their own notices.",
+  "assets": [
+    {
+      "path": "apps/graph/public/brand/logo.png",
+      "sha256": "bd7a1fc013f1c94b7d3ce84930d54fba25ce57502ed7ef736fd50056bd06e8d2",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/brand/logo_horizontal.png",
+      "sha256": "601fd40cdb1994ded2a90f67adf1a7012ee8afc820b05f5df19698c509c274df",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/brand/logo_light.png",
+      "sha256": "48f44ed9c11cf327a7fef19e68638bdb989964bea1ccefc232ccb822635ef5af",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/brand/logo_only.png",
+      "sha256": "17d73dbc2f3cf2ec811d48b11c7f25fb3fd28d5df86d4fc9c84cbefb857325a6",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/landing/editor-dark.jpg",
+      "sha256": "274dc2f0185e8cd61becef1126cb2db044725cf9e9bfe3a1e0909d4b8b8ce07c",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/landing/editor-light.jpg",
+      "sha256": "9d86280504ba530eda646336922410e244f9ee295ed0e51729a165d75c194b1d",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/graph/public/og-image.png",
+      "sha256": "5252321d68e288bc04875cff1b42cdc4a9b7b6fa0bdc1c696456e694c753f059",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/audio/master-soundtrack.wav",
+      "sha256": "4cc9e56cba9f1e03e8fa866e38bc198ef01b64b9f9d048652d75718384b0e319",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project-owned soundtrack; owner confirmed redistribution rights. Procedural generation scripts are in apps/video/scripts/."
+    },
+    {
+      "path": "apps/video/public/audio/soundtrack.mp3",
+      "sha256": "ea8444931d28554f856d1c2c937b0b3c41d478f9f24ce6aabd6f25ca2ad870f9",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project-owned soundtrack; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/audio/soundtrack.wav",
+      "sha256": "a1e4a2e93691a922dba902b8216b340faec8360a45a5e7eea97a704c32bd8e31",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project-owned soundtrack; owner confirmed redistribution rights. Procedural generation scripts are in apps/video/scripts/."
+    },
+    {
+      "path": "apps/video/public/brand/logo.png",
+      "sha256": "bd7a1fc013f1c94b7d3ce84930d54fba25ce57502ed7ef736fd50056bd06e8d2",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/brand/logo_horizontal.png",
+      "sha256": "601fd40cdb1994ded2a90f67adf1a7012ee8afc820b05f5df19698c509c274df",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/brand/logo_light.png",
+      "sha256": "48f44ed9c11cf327a7fef19e68638bdb989964bea1ccefc232ccb822635ef5af",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/brand/logo_only.png",
+      "sha256": "17d73dbc2f3cf2ec811d48b11c7f25fb3fd28d5df86d4fc9c84cbefb857325a6",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/landing/editor-dark.jpg",
+      "sha256": "274dc2f0185e8cd61becef1126cb2db044725cf9e9bfe3a1e0909d4b8b8ce07c",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/landing/editor-light.jpg",
+      "sha256": "9d86280504ba530eda646336922410e244f9ee295ed0e51729a165d75c194b1d",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/og-image.png",
+      "sha256": "5252321d68e288bc04875cff1b42cdc4a9b7b6fa0bdc1c696456e694c753f059",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project brand/social artwork; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/canvas-helix-pure.png",
+      "sha256": "e0e181853ed7b604c83aa34558b31ef852be48a432c5a583fa149adf49ee8c66",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/canvas-saddle-pure.png",
+      "sha256": "771d6e6ffc4a9ba4331abfd2e0b0874df3d1e28895fcbd3ef02d2c4346c3b4f6",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/editor-helix-3d-only.png",
+      "sha256": "d800cc9c147eae440d89afbe8f685f737e135903b5939d699211a0d49b2e1c5f",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/editor-helix-full.png",
+      "sha256": "a54ad3a8dfc702b914a6042fdf0af18a68c7c6d67fdb1c4551596e2f209a1677",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/editor-initial-split.png",
+      "sha256": "57d381c7809109860df6c7a38663576c859f04718f15c7bdba6a8e33abb81d42",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/product/editor-saddle-full.png",
+      "sha256": "0b670c0376bce2526c914d68a208850380ccbbd028637d4d802cdf516e5fb829",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor screenshots; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/recorded/clip-editor-interaction.mp4",
+      "sha256": "18716b47cf653cb4cd8dd4ae3dc8a98bebab981a5365fbc047a2537ee8c12317",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor recordings; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/recorded/clip-helix-orbit.mp4",
+      "sha256": "f232abf951aa70b706576fed59972b500c10a5ce1a24b2b2622c30e35ebcdfe3",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor recordings; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/recorded/clip-saddle-orbit.mp4",
+      "sha256": "aea30caf0652e179e73fa7f09c220f854550aad90d5978597a1b615e99d5807d",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor recordings; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/recorded/vinculum-real-session.mp4",
+      "sha256": "5e4216949cba2007858077769724cb923abd5970928ecf5c88bb367872feeba5",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor recordings; owner confirmed redistribution rights."
+    },
+    {
+      "path": "apps/video/public/recorded/vinculum-real-session.webm",
+      "sha256": "b07fbbeca965935d7d6edc5a92fcbd886b34fc0f10558cbd7c831277ed9fb399",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Project editor recordings; owner confirmed redistribution rights."
+    }
+  ]
+}

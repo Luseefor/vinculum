@@ -61,7 +61,7 @@ export const Shot3Editor: React.FC<Shot3Props> = ({ frame }) => {
         </div>
 
         {/* Real Product Video Footage: Exact Interaction */}
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-[#070b16]">
+        <div className="relative aspect-video w-full overflow-hidden bg-[#070b16]">
           <Video
             src={staticFile("recorded/clip-editor-interaction.mp4")}
             className="w-full h-full object-cover object-center"

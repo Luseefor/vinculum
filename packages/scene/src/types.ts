@@ -1,17 +1,10 @@
-export type GraphObjectKind =
-  | "surface"
-  | "implicitCurve"
-  | "parametricCurve"
-  | "plane"
-  | "parametricSurface"
-  | "implicitSurface"
-  | "vectorField"
-  | "point"
-  | "vector"
-  | "line"
-  | "ray"
-  | "segment"
-  | "linearTransform";
+export const GRAPH_OBJECT_KINDS = [
+  "surface", "implicitCurve", "parametricCurve", "plane", "parametricSurface",
+  "implicitSurface", "vectorField", "point", "vector", "line", "ray", "segment",
+  "linearTransform"
+] as const;
+
+export type GraphObjectKind = (typeof GRAPH_OBJECT_KINDS)[number];
 
 export interface GraphObjectBase {
   id: string;
@@ -20,6 +13,14 @@ export interface GraphObjectBase {
   visible: boolean;
   /** Equation-first authoring: edits infer the graph kind automatically. */
   autoExpression?: boolean;
+  /** A live geometric result. Definitions are derived from these scene objects. */
+  combination?: ObjectCombination;
+}
+
+export type ObjectOperation = "union" | "intersection" | "subtract";
+export interface ObjectCombination {
+  operation: ObjectOperation;
+  operands: [string, string];
 }
 
 export interface ImplicitCurveObject extends GraphObjectBase {
@@ -27,6 +28,7 @@ export interface ImplicitCurveObject extends GraphObjectBase {
   equation: string;
   /** Opt-in extrusion along z; the equation remains a 2D curve. */
   extendTo3D?: boolean;
+  extensionRange?: { zMin: number; zMax: number };
 }
 
 export interface SurfaceDomain {
@@ -55,6 +57,10 @@ export interface SurfaceGraphObject extends GraphObjectBase {
 
 export interface ParametricCurveObject extends GraphObjectBase {
   kind: "parametricCurve";
+  /** Missing dimension retains legacy 3D authoring. 2D uses zExpr = "0". */
+  dimension?: "2d" | "3d";
+  /** Inactive Z definition retained during reversible 2D authoring. */
+  spatialZExpr?: string;
   xExpr: string;
   yExpr: string;
   zExpr: string;
@@ -72,6 +78,10 @@ export interface ParametricSurfaceDomain {
 
 export interface ParametricSurfaceObject extends GraphObjectBase {
   kind: "parametricSurface";
+  /** Missing dimension retains legacy 3D authoring. 2D uses zExpr = "0". */
+  dimension?: "2d" | "3d";
+  /** Inactive Z definition retained during reversible 2D authoring. */
+  spatialZExpr?: string;
   xExpr: string;
   yExpr: string;
   zExpr: string;

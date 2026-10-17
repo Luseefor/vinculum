@@ -14,7 +14,7 @@ export default function ThemeSync() {
 
   useEffect(() => {
     void (async () => {
-      await Promise.resolve(useGraphStore.persist.rehydrate());
+      await Promise.resolve(useGraphStore.persist?.rehydrate());
       hydrateThemeMode();
       hydrateAccentPreset();
       hydrateDensity();

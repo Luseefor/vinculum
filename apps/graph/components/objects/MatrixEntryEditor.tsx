@@ -14,7 +14,7 @@ import type { LinearTransformObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
 import type { LinearTransformEntryField } from "@/store/graphStoreTypes";
 
 function entryFieldsFor(dimension: "2d" | "3d"): LinearTransformEntryField[] {
@@ -89,7 +89,7 @@ export default function MatrixEntryEditor({
       {fields.map((field, index) => (
           <div
             key={field}
-            className="flex min-w-0 items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 py-1 focus-within:ring-1 focus-within:ring-[var(--accent)] transition-colors"
+            className="flex min-w-0 items-center gap-1 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-1.5 py-1 focus-within:ring-1 focus-within:ring-(--accent) transition-colors"
           >
           <MathInput
             ref={index === 0 ? firstCellRef : undefined}
@@ -113,13 +113,13 @@ export default function MatrixEntryEditor({
             spellCheck={false}
             autoComplete="off"
             inputMode="text"
-            className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[12px] text-[var(--accent-ink)] outline-none"
+            className="math-input-compact w-full min-w-0 bg-transparent font-mono text-[12px] text-(--accent-ink) outline-hidden"
           />
         </div>
       ))}
       </div>
       {fields.some((field) => diagnostics[field]) && (
-        <p className="mt-1 text-[10px] font-medium text-red-700 dark:text-red-300" role="alert">
+        <p className="mt-1 text-[10px] font-medium text-(--status-error-fg)" role="alert">
           {fields.map((field) => diagnostics[field]).find(Boolean)}
         </p>
       )}

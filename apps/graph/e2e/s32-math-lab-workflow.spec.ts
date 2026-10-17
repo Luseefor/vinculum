@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputValue, expectInputFocused, pressInput, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -319,7 +320,7 @@ test.describe("S32 Math Lab workflow", () => {
     const labels = await mode.evaluate((element) =>
       Array.from((element as HTMLSelectElement).options).map((option) => option.label)
     );
-    expect(labels).toEqual(["Surface area", "Scalar surface integral", "Flux"]);
+    expect(labels).toEqual(["Surface area", "Scalar surface integral", "Flux", "Solid boundary area", "Volume between functions"]);
     await mode.selectOption("flux");
     const orientation = page.getByLabel("Surface orientation");
     const orientationLabels = await orientation.evaluate((element) =>
@@ -525,7 +526,7 @@ test.describe("S32 Math Lab workflow", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2");
     await fillInput(inspector(page).getByLabel("x min"), "-3");
@@ -535,7 +536,7 @@ test.describe("S32 Math Lab workflow", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByTestId("streamline-section")).toBeVisible();

@@ -10,7 +10,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
 import { formatNumber } from "@/components/graph/graph2d/graph2dCanvasFormat";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
 import type { VectorCalculusState } from "@/types/graphUi";
 import {
   compileVectorFieldDifferential,
@@ -22,7 +22,7 @@ import {
   vectorCurlScalar2D,
   vectorDivergence,
   type EvaluatedJacobian
-} from "@/lib/math/vectorCalculus";
+} from "@/lib/math/calculus/vectorCalculus";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 
 // S22 Vector Calculus section (Props tab, vector fields only). Pointwise
@@ -81,30 +81,30 @@ export default function VectorCalculusSection({ object }: { object: VectorFieldO
   return (
     <section
       data-testid="vector-calculus-section"
-      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
+      className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Vector Calculus</h3>
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Vector Calculus</h3>
       </header>
       <PointInputs key={object.id} object={object} recordPoint={record?.point} onCommit={setPoint} />
       {model.status === "empty" && (
-        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+        <p className="mt-2 text-[12px] leading-relaxed text-(--text-tertiary)" role="status">
           Enter a point in the field domain to inspect the Jacobian, divergence, and{" "}
           {is2D ? "scalar curl" : "curl"}.
         </p>
       )}
       {model.status === "invalid-field" && (
-        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="mt-2 text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Field has errors — fix the component expressions to enable calculus.
         </p>
       )}
       {model.status === "stale" && (
-        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="mt-2 text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Source changed — set the point again to refresh.
         </p>
       )}
       {model.status === "outside" && (
-        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="mt-2 text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Point is outside the field domain.
         </p>
       )}
@@ -162,7 +162,7 @@ function PointInputs({
       <div className={axes.length === 2 ? "grid grid-cols-2 gap-2" : "grid grid-cols-3 gap-2"}>
         {axes.map((axis) => (
           <label key={axis} className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               {axis}
             </span>
             <Input
@@ -178,12 +178,12 @@ function PointInputs({
                 }
               }}
               onBlur={() => setDrafts((prev) => ({ ...prev, [axis]: undefined }))}
-              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
             />
           </label>
         ))}
       </div>
-      <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-tertiary)]">Point must lie in {hint}.</p>
+      <p className="mt-1.5 text-[11px] leading-snug text-(--text-tertiary)">Point must lie in {hint}.</p>
     </div>
   );
 }
@@ -221,7 +221,7 @@ function ValuesBody({
 
   return (
     <div className="mt-2 flex flex-col gap-2.5" role="status" aria-label="Vector calculus results">
-      <div className="space-y-1 text-[12px] text-[var(--text-secondary)]">
+      <div className="space-y-1 text-[12px] text-(--text-secondary)">
         <p>Field value = {finiteField ? <MathExpression expression={`<${finiteField.map(formatNumber).join(", ")}>`} /> : "unavailable"}</p>
         <p>Magnitude = {magnitude === null ? "unavailable" : <MathExpression expression={formatNumber(magnitude)} />}</p>
         <p data-testid="field-point-direction">Unit direction = {direction ? <MathExpression expression={`<${direction.map(formatNumber).join(", ")}>`} /> : magnitude === 0 ? "undefined (zero field)" : "unavailable"}</p>
@@ -229,7 +229,7 @@ function ValuesBody({
         <p data-testid="field-point-laplacian">Vector Laplacian = <MathExpression expression={`<${laplacian.map((value) => value === null ? "unavailable" : formatNumber(value)).join(", ")}>`} /></p>
       </div>
       <table data-testid="vector-calculus-jacobian" className="w-full border-collapse text-[12px]">
-        <caption className="pb-1 text-left text-[11px] font-medium text-[var(--text-tertiary)]">
+        <caption className="pb-1 text-left text-[11px] font-medium text-(--text-tertiary)">
           Jacobian
         </caption>
         <thead>
@@ -238,7 +238,7 @@ function ValuesBody({
               <span aria-hidden="true"> </span>
             </th>
             {colLabels.map((label) => (
-              <th key={label} scope="col" className="px-1 py-0.5 text-center font-semibold text-[var(--text-tertiary)]">
+              <th key={label} scope="col" className="px-1 py-0.5 text-center font-semibold text-(--text-tertiary)">
                 <MathExpression expression={`∂/∂${label}`} latex={`\\frac{\\partial}{\\partial ${label}}`} />
               </th>
             ))}
@@ -247,13 +247,13 @@ function ValuesBody({
         <tbody>
           {rowLabels.map((row, i) => (
             <tr key={row}>
-              <th scope="row" className="px-1 py-0.5 text-left font-semibold text-[var(--text-tertiary)]">
+              <th scope="row" className="px-1 py-0.5 text-left font-semibold text-(--text-tertiary)">
                 <MathExpression expression={row} />
               </th>
               {colLabels.map((_, j) => {
                 const value = jacobian.values[i]?.[j];
                 return (
-                  <td key={j} className="px-1 py-0.5 text-right text-[var(--text-secondary)]">
+                  <td key={j} className="px-1 py-0.5 text-right text-(--text-secondary)">
                     {typeof value === "number" ? <MathExpression expression={formatNumber(value)} /> : <span className="italic">unavailable</span>}
                   </td>
                 );
@@ -262,20 +262,20 @@ function ValuesBody({
           ))}
         </tbody>
       </table>
-      <p data-testid="vector-calculus-divergence" className="text-[12px] text-[var(--text-secondary)]">
+      <p data-testid="vector-calculus-divergence" className="text-[12px] text-(--text-secondary)">
         Divergence = {divergence === null ? <span className="italic">unavailable</span> : <MathExpression expression={formatNumber(divergence)} />}
         {divergence === null && missingDiagonal.length > 0 && (
-          <span className="ml-1 font-sans text-[11px] text-[var(--text-tertiary)]">
+          <span className="ml-1 font-sans text-[11px] text-(--text-tertiary)">
             (needs {missingDiagonal.join(", ")})
           </span>
         )}
       </p>
       {is2D ? (
-        <p data-testid="vector-calculus-curl" className="text-[12px] text-[var(--text-secondary)]">
+        <p data-testid="vector-calculus-curl" className="text-[12px] text-(--text-secondary)">
           Scalar curl = {curlScalar === null ? <span className="italic">unavailable</span> : <MathExpression expression={formatNumber(curlScalar)} />}
         </p>
       ) : (
-        <p data-testid="vector-calculus-curl" className="text-[12px] text-[var(--text-secondary)]">
+        <p data-testid="vector-calculus-curl" className="text-[12px] text-(--text-secondary)">
           Curl ={" "}
           {curl3D === null || curl3D.x === null || curl3D.y === null || curl3D.z === null ? (
             <span className="italic">unavailable</span>
@@ -286,7 +286,7 @@ function ValuesBody({
       )}
       {!is2D && (
         <div className="flex items-center justify-between py-1">
-          <span className="text-[12px] text-[var(--text-secondary)]">Show curl vector</span>
+          <span className="text-[12px] text-(--text-secondary)">Show curl vector</span>
           <Switch
             checked={record.showCurl}
             onCheckedChange={onToggleCurl}
@@ -299,7 +299,7 @@ function ValuesBody({
           type="button"
           onClick={onClear}
           aria-label="Clear vector calculus analysis"
-          className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+          className="h-8 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-3 text-[12px] font-semibold text-(--text-secondary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
         >
           Clear
         </button>

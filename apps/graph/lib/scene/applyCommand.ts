@@ -1,10 +1,11 @@
 import type { GraphObject } from "@vinculum/scene/types";
 import type { SceneCommand } from "./commands";
+import { objectCombinationReferences, resolveObjectCombinations } from "@/lib/math/geometry/objectOperations";
+import { getSceneParameterNames } from "./sceneParameters";
 import {
   cloneGraphObject,
   cloneSceneDocument,
   cloneSceneMeasurement,
-  createSceneDocument,
   type SceneDocument
 } from "./sceneSchema";
 
@@ -58,6 +59,12 @@ function applyUpdateObject(scene: SceneDocument, object: GraphObject): SceneDocu
     return scene;
   }
 
+  const previous = scene.objects[index];
+  if (previous.combination && object.combination && "equation" in object && "equation" in previous && object.equation !== previous.equation) {
+    // Editing a generated definition explicitly makes it independent.
+    const { combination: _combination, ...independent } = object;
+    object = independent;
+  }
   const nextObjects = scene.objects.map((existingObject, objectIndex) =>
     objectIndex === index ? cloneGraphObject(object) : existingObject
   );
@@ -71,7 +78,8 @@ function applyRemoveObject(scene: SceneDocument, id: string): SceneDocument {
     return scene;
   }
 
-  const nextObjects = scene.objects.filter((object) => object.id !== id);
+  const removed = objectCombinationReferences(scene.objects, id);
+  const nextObjects = scene.objects.filter((object) => !removed.has(object.id));
   return touchScene(scene, nextObjects);
 }
 
@@ -98,29 +106,29 @@ function applyToggleVisibility(scene: SceneDocument, id: string): SceneDocument 
 }
 
 function touchScene(scene: SceneDocument, objects: GraphObject[]): SceneDocument {
-  return createSceneDocument({
-    version: scene.version,
+  const params = Object.fromEntries(getSceneParameterNames(objects).map(id => [id, 1]));
+  for (const parameter of scene.parameters) params[parameter.id] = parameter.value;
+  return {
+    ...scene,
     metadata: {
       name: scene.metadata.name,
       createdAt: scene.metadata.createdAt,
       updatedAt: new Date().toISOString()
     },
-    objects,
-    measurements: scene.measurements
-  });
+    objects: resolveObjectCombinations(objects, params)
+  };
 }
 
 function touchSceneMeasurements(scene: SceneDocument, measurements: SceneDocument["measurements"]): SceneDocument {
-  return createSceneDocument({
-    version: scene.version,
+  return {
+    ...scene,
     metadata: {
       name: scene.metadata.name,
       createdAt: scene.metadata.createdAt,
       updatedAt: new Date().toISOString()
     },
-    objects: scene.objects,
     measurements
-  });
+  };
 }
 
 function applyAddMeasurement(scene: SceneDocument, measurement: SceneDocument["measurements"][number]): SceneDocument {

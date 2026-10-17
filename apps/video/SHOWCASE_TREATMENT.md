@@ -38,7 +38,7 @@ Every visual moment specified in this document is backed by existing, verified c
 The Vinculum client runtime is built on Next.js 14 App Router (`apps/graph/app/page.tsx`), React 18, and Bun workspaces. It unites three computational layers into a synchronized reactive loop:
 
 1. **Symbolic & Numerical Core**:
-   Mathematical expressions are authored via MathLive's virtual keyboard and MathJSON AST parser (`apps/graph/components/inspector/MathDefinitionEditors.tsx`). Symbolic derivatives, validation, and algebraic manipulations execute through `mathjs` (`apps/graph/package.json`). For high-throughput evaluation—such as generating 3D Marching Tetrahedra voxel grids, calculating streamline ODEs, and sampling dense surfaces—Vinculum compiles expressions to postfix bytecode executed inside a bounded Rust WebAssembly VM (`apps/graph/lib/math/rustMath.ts`, `apps/graph/lib/math/rustMathArtifact.ts`).
+   Mathematical expressions are authored via MathLive's virtual keyboard and MathJSON AST parser (`apps/graph/components/inspector/MathDefinitionEditors.tsx`). Symbolic derivatives, validation, and algebraic manipulations execute through `mathjs` (`apps/graph/package.json`). For high-throughput evaluation—such as generating 3D Marching Tetrahedra voxel grids, calculating streamline ODEs, and sampling dense surfaces—Vinculum compiles expressions to postfix bytecode executed inside a bounded Rust WebAssembly VM (`apps/graph/lib/math/runtime/rustMath.ts`, `apps/graph/lib/math/runtime/rustMathArtifact.ts`).
 2. **WebGPU Graphics Engine with WebGL2 Fallback**:
    The primary 3D viewport (`apps/graph/lib/graph3d/GraphThreeEngine.ts`) instantiates Three.js 0.186.1 `WebGPURenderer` (`three/webgpu`). During initialization, the engine probes the hardware backend via `renderer.init()`. If native WebGPU is available, it binds the Metal/Vulkan/D3D12 pipeline; if unavailable, it seamlessly engages the `WebGLBackend` fallback without any application-level branch divergence. Tone mapping is locked to `ACESFilmicToneMapping` with exposure 1.0.
 3. **Three.js Shading Language (TSL) Adaptive Infinite Grid**:
@@ -82,9 +82,9 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/objects/AddObjectMenu.tsx`
    - `apps/graph/components/inspector/MathDefinitionEditors.tsx`
-   - `apps/graph/lib/math/sampleParametricSurface.ts`
+   - `apps/graph/lib/math/surfaces/sampleParametricSurface.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
-   - Geometry generator `apps/graph/lib/math/computeParametricSurfaceData.ts` funnels into `buildIndexedSurfaceMesh.ts`.
+   - Geometry generator `apps/graph/lib/math/surfaces/computeParametricSurfaceData.ts` funnels into `buildIndexedSurfaceMesh.ts`.
    - `MeshStandardMaterial` (`DoubleSide: true`, roughness 0.4, metalness 0.1).
 5. **Direct Capture Feasibility vs. Remotion Reuse Viability**:
    - Direct Capture: **Flawless**.
@@ -94,7 +94,7 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
    - Torus: $x = (R + r\cos(v))\cos(u), y = (R + r\cos(v))\sin(u), z = r\sin(v)$.
    - Sphere: $x = r\sin(u)\cos(v), y = r\sin(u)\sin(v), z = r\cos(u)$.
    - Enneper minimal surface, Möbius strip, and custom trigonometric embeddings.
-8. **Interactive Responsiveness and State Handling**: Evaluated in background web workers (`apps/graph/lib/math/computeParametricSurfaceData.ts`) and streamed to the GPU without UI thread blocking.
+8. **Interactive Responsiveness and State Handling**: Evaluated in background web workers (`apps/graph/lib/math/surfaces/computeParametricSurfaceData.ts`) and streamed to the GPU without UI thread blocking.
 
 #### Capability 3: Implicit 3D Surfaces ($f(x,y,z) = 0$ via Marching Tetrahedra)
 1. **Exact User Action / Input**: User selects **Add (+) -> Graphs -> Implicit Surface** or loads "Implicit Gyroid" from the examples registry. Enters a 3D level-set equation: $\sin(x)\cos(y) + \sin(y)\cos(z) + \sin(z)\cos(x) = 0$ or $x^2 + y^2 + z^2 - 9 = 0$.
@@ -102,8 +102,8 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/objects/AddObjectMenu.tsx`
    - `apps/graph/components/inspector/MathDefinitionEditors.tsx`
-   - `apps/graph/lib/math/marchingTetrahedra.ts`
-   - `apps/graph/lib/math/computeImplicitSurfaceData.ts`
+   - `apps/graph/lib/math/surfaces/marchingTetrahedra.ts`
+   - `apps/graph/lib/math/surfaces/computeImplicitSurfaceData.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - Tetrahedral grid decomposition (`marchingTetrahedra.ts`) running across $N^3$ grid points.
    - Rendered via `apps/graph/lib/graph3d/buildGraphImplicitSurface.ts` and `buildIndexedSurfaceMesh.ts`.
@@ -151,7 +151,7 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
    - Direct Capture: **Flawless**.
    - Remotion Reuse: Very high viability (matrix math is compact).
 6. **Production Readiness for Launch Marketing**: **100% Production Ready** (Hero Moment #3).
-7. **Exact Mathematical Formulas and Parameters Supported**: Arbitrary linear operators $\mathbf{y} = A\mathbf{x}$ for $A \in \mathbb{R}^{3\times 3}$. Real cubic characteristic polynomial solver $\det(A - \lambda I) = 0$ via Cardano formulas (`apps/graph/lib/math/matrixEigen.ts`). Real eigenspace calculation and determinant readout.
+7. **Exact Mathematical Formulas and Parameters Supported**: Arbitrary linear operators $\mathbf{y} = A\mathbf{x}$ for $A \in \mathbb{R}^{3\times 3}$. Real cubic characteristic polynomial solver $\det(A - \lambda I) = 0$ via Cardano formulas (`apps/graph/lib/math/linear-algebra/matrixEigen.ts`). Real eigenspace calculation and determinant readout.
 8. **Interactive Responsiveness and State Handling**: Matrix changes compute determinants and eigenspaces synchronously in $<0.1\text{ms}$, updating visual arrows and Inspector readouts in real time.
 
 #### Capability 6: 2D & 3D Vector Fields ($\mathbf{F} = \langle P, Q, R \rangle$ Instanced Arrows)
@@ -177,7 +177,7 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/inspector/StreamlineSection.tsx`
    - `apps/graph/lib/graph3d/buildStreamlineOverlays.ts`
-   - `apps/graph/lib/math/streamlineIntegrate.ts`
+   - `apps/graph/lib/math/fields/streamlineIntegrate.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - Numerical Integrator: Classical 4th-Order Runge-Kutta (RK4) with adaptive step size and stagnation threshold guards (`streamlineIntegrate.ts`).
    - Visual: `LineSegments` polylines + `InstancedMesh` cone arrowheads rendered into `analysisOverlayRoot`.
@@ -197,7 +197,7 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
    - `apps/graph/components/inspector/ScalarVisualizationSection.tsx`
    - `apps/graph/lib/graph3d/buildAnalysisOverlays.ts`
    - `apps/graph/lib/graph3d/buildScalarSurfaceOverlays.ts`
-   - `apps/graph/lib/math/surfaceDifferential.ts`
+   - `apps/graph/lib/math/calculus/surfaceDifferential.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - Tangent Patch: `MeshStandardMaterial` (`DoubleSide: true`, `polygonOffset: true`) + `EdgesGeometry` sharp border.
    - Normal Vector: Cylinder shaft + cone arrowhead.
@@ -247,11 +247,11 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 
 #### Capability 11: 2D Mathematical Plotting & Implicit Curves (Marching Squares)
 1. **Exact User Action / Input**: In Math Lab, user toggles to 2D view (`graphMode = "2d"`). Enters an explicit function $y = f(x)$ or an implicit curve equation $f(x,y) = 0$ (such as $x^2 + y^2 = 25$ or Cassini ovals).
-2. **Exact Rendered Mathematical Visual**: Antialiased 2D Cartesian grid with adaptive numbered tick marks. Smooth continuous curve plots and algebraic isocontours extracted via 2D Marching Squares (`apps/graph/lib/math/marchingSquares.ts`).
+2. **Exact Rendered Mathematical Visual**: Antialiased 2D Cartesian grid with adaptive numbered tick marks. Smooth continuous curve plots and algebraic isocontours extracted via 2D Marching Squares (`apps/graph/lib/math/surfaces/marchingSquares.ts`).
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/graph/Graph2DCanvas.tsx`
    - `apps/graph/components/graph/graph2d/graph2dCanvasImplicitDraw.ts`
-   - `apps/graph/lib/math/marchingSquares.ts`
+   - `apps/graph/lib/math/surfaces/marchingSquares.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - Canvas2D context with device pixel ratio scaling (`Math.min(window.devicePixelRatio, 2)`).
 5. **Direct Capture Feasibility vs. Remotion Reuse Viability**:
@@ -266,8 +266,8 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 2. **Exact Rendered Mathematical Visual**: A live sky-blue stroke preview (`#38bdf8`) follows the cursor. On release, the freehand gesture converts into a smooth parametric polynomial curve, and its fitted mathematical equation is typeset in the Inspector.
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/editor/ViewControls.tsx` (Tool -> Draw)
-   - `apps/graph/lib/math/fitParametricSketch.ts`
-   - `apps/graph/lib/math/fitParametricSketchPolyCore.ts`
+   - `apps/graph/lib/math/sketch/fitParametricSketch.ts`
+   - `apps/graph/lib/math/sketch/fitParametricSketchPolyCore.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - Solves via a least-squares Vandermonde matrix with Tikhonov ridge regularization.
    - Emits a `ParametricCurveObject` rendered with screen-space wide strokes.
@@ -283,8 +283,8 @@ Every visual capability supported by Vinculum is audited below across all 8 mand
 2. **Exact Rendered Mathematical Visual**: Step-by-step worked solutions typeset in KaTeX. The resulting vector field, potential surface, or harmonic conjugate plots directly into the viewport.
 3. **Active UI Controls and Component Paths**:
    - `apps/graph/components/inspector/FieldSolverDialog.tsx`
-   - `apps/graph/lib/math/complexFieldAnalysis.ts`
-   - `apps/graph/lib/math/fieldSolutions.ts`
+   - `apps/graph/lib/math/fields/complexFieldAnalysis.ts`
+   - `apps/graph/lib/math/fields/fieldSolutions.ts`
 4. **Responsible Renderer, Material & Camera Configurations**:
    - KaTeX typeset overlay paired with 3D/2D viewport synchronization.
 5. **Direct Capture Feasibility vs. Remotion Reuse Viability**:
@@ -353,7 +353,7 @@ To preserve absolute technical fidelity, the following concepts and tropes are p
 | **Cyber Particle Glow & Neon Sci-Fi HUDs** | `apps/video/src/components/*` | Floating particle clouds, neon dropshadows, pulsing badge rings, and sci-fi HUD frames violate Vinculum's design system (`docs/agent/03-ui-ux-rules.md`), which mandates quiet, neutral, high-density scientific instrument chrome. |
 | **Mechanical CAD Booleans / Fillets / CSG** | Hypothetical feature | Vinculum's architectural contract (`docs/agent/01-architecture-contract.md`) establishes that the repo is a mathematical graphing instrument, not a mechanical CAD suite. No B-rep, CSG, or solid modeling kernels exist in the codebase. |
 | **Multiplayer Collaboration / Cloud Cursors** | Hypothetical feature | Vinculum is strictly local-first (`project-description.md:36`). All scenes are stored locally in `graphStore` (`sessionStorage`/IndexedDB). Simulating live cloud cursors would be deceptive. |
-| **Particle Physics Simulation / Game Physics** | `apps/video` prototypes | Streamlines in Vinculum are deterministic numerical solutions to autonomous ODEs ($\frac{d\mathbf{X}}{ds} = \frac{\mathbf{F}}{\|\mathbf{F}\|}$ via RK4). Code comments explicitly mandate: *"user-facing copy must say 'Streamlines', never 'particle paths' or 'simulation'"* (`apps/graph/lib/math/streamlineIntegrate.ts:11-12`). |
+| **Particle Physics Simulation / Game Physics** | `apps/video` prototypes | Streamlines in Vinculum are deterministic numerical solutions to autonomous ODEs ($\frac{d\mathbf{X}}{ds} = \frac{\mathbf{F}}{\|\mathbf{F}\|}$ via RK4). Code comments explicitly mandate: *"user-facing copy must say 'Streamlines', never 'particle paths' or 'simulation'"* (`apps/graph/lib/math/fields/streamlineIntegrate.ts:11-12`). |
 | **Corporate Audio Booms & Risers** | `generate-soundtrack.ts` | Pitch-dropping sub-bass booms, white noise sweeps, and corporate synth pads belong to generic SaaS marketing videos, contradicting the acoustic minimalism of a precision instrument. |
 
 ---
@@ -723,7 +723,7 @@ The table below catalogs every file in `apps/video` (60 files total), detailing 
 |---|---|---|---|---|---|---|
 | 1 | `apps/video/package.json` | Dependency Manifest | **Refactor** | Outdated scripts pointing to obsolete compositions | Remotion CLI, media-utils, tailwind, katex dependencies | Retain clean dependencies; update build scripts |
 | 2 | `apps/video/remotion.config.ts` | Remotion Config | **Refactor** | `Config.setVideoImageFormat("jpeg")` (lossy) | Webpack tailwind configuration, overwrite flags | Switch intermediate video format to `"png"` for zero compression artifacts |
-| 3 | `apps/video/postcss.config.js` | Tailwind PostCSS | **Retain** | None | Standard PostCSS plugins (Tailwind, Autoprefixer) | Functional build requirement |
+| 3 | `apps/video/postcss.config.js` | Previous Tailwind PostCSS config | **Removed in Tailwind 4 migration** | Superseded | Theme and source rules now live in `src/style.css` | Official `@remotion/tailwind-v4` Webpack integration replaces this config |
 | 4 | `apps/video/README.md` | Video Documentation | **Refactor** | References to 50s 7-scene structure & obsolete scripts | Setup instructions and render CLI commands | Must document the new 30.00s showcase structure |
 | 5 | `apps/video/scripts/generate-soundtrack.ts` | Audio Generator | **Abandon** | Entire file: synthetic sub-bass booms, white noise risers, ping-pong delay arpeggios, chord pads | None | Embodies corporate audio tropes explicitly barred by R5 |
 | 6 | `apps/video/src/index.ts` | Remotion Entrypoint | **Refactor** | Imports of obsolete compositions | Root registration pattern (`registerRoot(Root)`) | Standard Remotion entrypoint |

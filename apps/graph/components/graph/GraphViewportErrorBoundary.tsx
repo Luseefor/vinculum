@@ -54,7 +54,7 @@ export default class GraphViewportErrorBoundary extends Component<Props, State> 
     if (this.state.hasError) {
       return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center">
-          <p className="max-w-sm text-sm font-semibold text-[var(--text-primary)]">
+          <p className="max-w-sm text-sm font-semibold text-(--text-primary)">
             Something went wrong
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">

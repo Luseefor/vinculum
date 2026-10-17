@@ -69,7 +69,7 @@ export const ProductShowcaseVertical: React.FC = () => {
       {/* Bottom Progress Bar */}
       <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10 z-50 pointer-events-none">
         <div
-          className="h-full bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 shadow-[0_0_12px_rgba(6,182,212,0.8)]"
+          className="h-full bg-linear-to-r from-blue-500 via-cyan-400 to-indigo-500 shadow-[0_0_12px_rgba(6,182,212,0.8)]"
           style={{ width: `${progress}%` }}
         />
       </div>

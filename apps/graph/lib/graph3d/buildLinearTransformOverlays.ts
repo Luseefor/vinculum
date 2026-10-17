@@ -25,12 +25,12 @@ import {
   Vector3,
   type Object3D
 } from "three";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
-import { analyzeEigen } from "@/lib/math/matrixEigen";
-import { resolveLinearTransform } from "@/lib/math/linearTransformResolve";
-import { resolveVectorGeometry } from "@/lib/math/geometryResolve";
-import { matrixVectorMultiply3 } from "@/lib/math/matrix";
+import { analyzeEigen } from "@/lib/math/linear-algebra/matrixEigen";
+import { resolveLinearTransform } from "@/lib/math/linear-algebra/linearTransformResolve";
+import { resolveVectorGeometry } from "@/lib/math/geometry/geometryResolve";
+import { matrixVectorMultiply3 } from "@/lib/math/linear-algebra/matrix";
 import type { LinearTransformAnalysisConfig } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
 import {

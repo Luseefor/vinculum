@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputVisible } from "./helpers/mathInput";
 import { screenshotPixels } from "./helpers/canvasPixels";
@@ -379,7 +380,7 @@ test.describe("S20 vector fields", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "2D Vector Field");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     // S32: definition first (P component visible), sampling disclosed.
     await expectInputVisible(page.locator("#graph-inspector").getByLabel("Vector field P component"));

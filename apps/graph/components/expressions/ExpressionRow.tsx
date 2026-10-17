@@ -8,7 +8,7 @@ import { cx } from "@/components/ui/styles";
 import { useGraphStore } from "@/store/graphStore";
 import type { ExpressionRowProps } from "@/types/graphUi";
 import GraphTypeSelector from "./GraphTypeSelector";
-import type { ExpressionDiagnostic } from "@/lib/math/expressionDiagnostics";
+import type { ExpressionDiagnostic } from "@/lib/math/expressions/expressionDiagnostics";
 import {
   getImplicitSurfaceEquationDiagnostics,
   getParametricAxisDiagnostics,
@@ -16,13 +16,13 @@ import {
   getPlaneEquationDiagnostics,
   getSurfaceEquationDiagnostics,
   getVectorFieldComponentDiagnostics
-} from "@/lib/math/expressionDiagnostics";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
-import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
-import { compilePlaneEquation } from "@/lib/math/samplePlane";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
+} from "@/lib/math/expressions/expressionDiagnostics";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/expressions/compileParametricSurface";
+import { compilePlaneEquation } from "@/lib/math/surfaces/samplePlane";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
 const PARAMETRIC_CURVE_FIELDS = [
@@ -572,7 +572,7 @@ export default function ExpressionRow({
         "group px-3 py-2.5 transition-colors",
         isSelected && "expr-row--selected shadow-[inset_2px_0_0_var(--accent)]",
         !isSelected && "expr-row--hoverable",
-        rowDraftDiag.status === "error" && "shadow-[inset_2px_0_0_rgb(245_158_11_/_0.65)]"
+        rowDraftDiag.status === "error" && "shadow-[inset_2px_0_0_rgb(245_158_11/0.65)]"
       )}
       onClick={handleRowClick}
       aria-label={`${object.kind} expression row`}
@@ -583,12 +583,12 @@ export default function ExpressionRow({
           aria-label="Expression color"
           value={object.color}
           onChange={(event) => updateObjectColor(object.id, event.target.value)}
-          className="color-swatch h-6 w-6 shrink-0 rounded-[var(--radius-sm)]"
+          className="color-swatch h-6 w-6 shrink-0 rounded-[var(--ui-radius-sm)]"
         />
 
         <GraphTypeSelector
           value={object.kind}
-          dimension={object.kind === "vectorField" ? object.dimension : undefined}
+          dimension={"dimension" in object ? object.dimension : undefined}
           onChange={(nextKind, nextDimension) => setObjectKind(object.id, nextKind, nextDimension)}
         />
 
@@ -600,10 +600,10 @@ export default function ExpressionRow({
               toggleObjectVisibility(object.id);
             }}
             className={cx(
-              "flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent transition-colors",
+              "flex h-7 w-7 items-center justify-center rounded-[var(--ui-radius-sm)] border border-transparent transition-colors",
               object.visible
-                ? "text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
-                : "text-[var(--text-tertiary)] opacity-40 hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]"
+                ? "text-(--text-secondary) hover:border-(--border-subtle) hover:bg-(--surface-muted) hover:text-(--text-primary)"
+                : "text-(--text-tertiary) opacity-40 hover:border-(--border-subtle) hover:bg-(--surface-muted)"
             )}
             title={object.visible ? "Hide" : "Show"}
             aria-label={object.visible ? "Hide expression from graph" : "Show expression on graph"}
@@ -626,7 +626,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onOpenInspector(object.id);
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--ui-radius-sm)] border border-transparent text-(--text-tertiary) transition-colors hover:border-(--border-subtle) hover:bg-(--surface-muted) hover:text-(--text-primary)"
             title="Inspect"
             aria-label="Open inspector for this expression"
           >
@@ -642,7 +642,7 @@ export default function ExpressionRow({
               event.stopPropagation();
               onRemove(object.id, "button");
             }}
-            className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] border border-transparent text-[var(--text-tertiary)] transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
+            className="flex h-7 w-7 items-center justify-center rounded-[var(--ui-radius-sm)] border border-transparent text-(--text-tertiary) transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400"
             title="Remove"
             aria-label="Remove expression"
           >
@@ -681,13 +681,13 @@ export default function ExpressionRow({
           aria-invalid={surfaceDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder={graphMode === "2d" ? placeholder2d : "z = sin(x) * cos(y)"}
-          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
         />
       )}
 
       {(object.kind === "parametricCurve" || object.kind === "parametricSurface") && (
-        <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1.5">
+          <label htmlFor={`${inputIdBase}-xExpr`} className="text-[11px] font-medium text-(--text-tertiary)">
             {object.kind === "parametricSurface" ? "x(u,v)" : "x(t)"}
           </label>
           <MathInput
@@ -720,10 +720,10 @@ export default function ExpressionRow({
             aria-label="Parametric x expression"
             aria-invalid={paramDraftDiag.status === "error" && activeParametricField === "xExpr"}
             aria-describedby={`${inputIdBase}-diagnostic`}
-            className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+            className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
           />
 
-          {(object.kind === "parametricSurface" ? PARAMETRIC_SURFACE_FIELDS : PARAMETRIC_CURVE_FIELDS).map((entry) => (
+          {(object.kind === "parametricSurface" ? PARAMETRIC_SURFACE_FIELDS : PARAMETRIC_CURVE_FIELDS).filter(entry => entry.field !== "zExpr" || object.dimension !== "2d").map((entry) => (
             <ParametricInput
               key={entry.field}
               id={`${inputIdBase}-${entry.field}`}
@@ -764,8 +764,8 @@ export default function ExpressionRow({
       )}
 
       {object.kind === "vectorField" && (
-        <div className="grid grid-cols-[auto,1fr] items-center gap-x-2 gap-y-1.5">
-          <label htmlFor={`${inputIdBase}-pExpr`} className="text-[11px] font-medium text-[var(--text-tertiary)]">
+        <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1.5">
+          <label htmlFor={`${inputIdBase}-pExpr`} className="text-[11px] font-medium text-(--text-tertiary)">
             {object.dimension === "3d" ? "P(x,y,z)" : "P(x,y)"}
           </label>
           <MathInput
@@ -803,7 +803,7 @@ export default function ExpressionRow({
             aria-invalid={vectorDraftDiag.status === "error" && activeVectorField === "pExpr"}
             aria-describedby={`${inputIdBase}-diagnostic`}
             placeholder="x"
-            className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+            className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
           />
 
           {(object.dimension === "3d" ? VECTOR_FIELD_3D_FIELDS : VECTOR_FIELD_2D_FIELDS).map((entry) => (
@@ -886,7 +886,7 @@ export default function ExpressionRow({
           aria-invalid={planeDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder="ax + by + cz + d = 0"
-          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
         />
       )}
 
@@ -917,7 +917,7 @@ export default function ExpressionRow({
           aria-invalid={implicitDraftDiag.status === "error"}
           aria-describedby={`${inputIdBase}-diagnostic`}
           placeholder="x^2 + y^2 + z^2 = 1"
-          className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+          className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
         />
       )}
 
@@ -963,7 +963,7 @@ function ParametricInput({
 }: ParametricInputProps) {
   return (
     <>
-      <label htmlFor={id} className="text-[11px] font-medium text-[var(--text-tertiary)]">
+      <label htmlFor={id} className="text-[11px] font-medium text-(--text-tertiary)">
         {label}
       </label>
       <MathInput
@@ -979,7 +979,7 @@ function ParametricInput({
         aria-label={ariaLabel ?? `Parametric ${label}`}
         aria-invalid={ariaInvalid}
         aria-describedby={ariaDescribedBy}
-        className="input h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2.5 text-[13px]"
+        className="input h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-(--surface-overlay) px-2.5 text-[13px]"
       />
     </>
   );

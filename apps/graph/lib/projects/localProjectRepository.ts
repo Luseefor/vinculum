@@ -2,6 +2,7 @@ import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { validateSceneJsonTextLength } from "@/lib/scene/importPayloadLimits";
 import { serializeScene } from "@/lib/scene/serializeScene";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
+import { packStoredScene, unpackStoredScene } from "@/lib/scene/sceneCompression";
 
 const PROJECT_STORAGE_KEY = "vinculum-local-projects-v1";
 const RECOVERY_STORAGE_KEY = "vinculum-unnamed-scene-recovery-v1";
@@ -152,14 +153,12 @@ export class LocalProjectRepository {
       reason: "unnamed-scene-recovery"
     };
 
-    const storage = getStorage();
-    storage.setItem(RECOVERY_STORAGE_KEY, JSON.stringify(snapshot, null, 2));
+    writeStorage(RECOVERY_STORAGE_KEY, JSON.stringify({ ...snapshot, sceneJson: packStoredScene(sceneJson) }));
     return snapshot;
   }
 
   getUnnamedRecoverySnapshot(): RecoverySnapshot | null {
-    const storage = getStorage();
-    const raw = storage.getItem(RECOVERY_STORAGE_KEY);
+    const raw = readStorage(RECOVERY_STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -201,8 +200,8 @@ export class LocalProjectRepository {
   }
 
   clearUnnamedRecoverySnapshot(): void {
-    const storage = getStorage();
-    storage.removeItem(RECOVERY_STORAGE_KEY);
+    try { getStorage().removeItem(RECOVERY_STORAGE_KEY); }
+    catch { throw new LocalProjectRepositoryError("Browser storage is unavailable. Export a JSON backup before leaving this page."); }
   }
 
   private readValidatedProjects(): StoredProjectDocument[] {
@@ -211,8 +210,7 @@ export class LocalProjectRepository {
   }
 
   private readRawEnvelope(): StoredProjectsEnvelope {
-    const storage = getStorage();
-    const raw = storage.getItem(PROJECT_STORAGE_KEY);
+    const raw = readStorage(PROJECT_STORAGE_KEY);
     if (!raw) {
       return { projects: [] };
     }
@@ -234,8 +232,7 @@ export class LocalProjectRepository {
   }
 
   private writeProjects(projects: StoredProjectDocument[]): void {
-    const storage = getStorage();
-    storage.setItem(PROJECT_STORAGE_KEY, JSON.stringify({ projects }, null, 2));
+    writeStorage(PROJECT_STORAGE_KEY, JSON.stringify({ projects: projects.map(project => ({ ...project, sceneJson: packStoredScene(project.sceneJson) })) }));
   }
 
   private toSummary(project: StoredProjectDocument): ProjectSummary {
@@ -277,7 +274,7 @@ function validateStoredProject(value: unknown, index: number): StoredProjectDocu
   const createdAt = requireIsoTimestamp(value.createdAt, `projects[${index}].createdAt`);
   const updatedAt = requireIsoTimestamp(value.updatedAt, `projects[${index}].updatedAt`);
   const sceneSchemaVersion = requireInteger(value.sceneSchemaVersion, `projects[${index}].sceneSchemaVersion`);
-  const sceneJson = requireNonEmptyString(value.sceneJson, `projects[${index}].sceneJson`);
+  const sceneJson = decodeStoredScene(value.sceneJson, `projects[${index}].sceneJson`);
   const jsonLengthError = validateSceneJsonTextLength(sceneJson);
   if (jsonLengthError) {
     throw new LocalProjectRepositoryError(`projects[${index}].sceneJson is too large. ${jsonLengthError}`);
@@ -331,7 +328,7 @@ function validateRecoverySnapshot(value: unknown): RecoverySnapshot {
   }
 
   const schemaVersion = requireInteger(value.schemaVersion, "recovery.schemaVersion");
-  const sceneJson = requireNonEmptyString(value.sceneJson, "recovery.sceneJson");
+  const sceneJson = decodeStoredScene(value.sceneJson, "recovery.sceneJson");
   const jsonLengthError = validateSceneJsonTextLength(sceneJson);
   if (jsonLengthError) {
     throw new LocalProjectRepositoryError(`recovery.sceneJson is too large. ${jsonLengthError}`);
@@ -353,10 +350,33 @@ function validateRecoverySnapshot(value: unknown): RecoverySnapshot {
 }
 
 function getStorage(): Storage {
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
-    throw new LocalProjectRepositoryError("Local project storage is unavailable in this environment.");
+  try {
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage;
+  } catch {
+    // Access itself can throw when browser privacy policy blocks storage.
   }
-  return window.localStorage;
+  throw new LocalProjectRepositoryError("Local project storage is unavailable. Export a JSON backup before leaving this page.");
+}
+
+function decodeStoredScene(value: unknown, path: string): string {
+  const text = requireNonEmptyString(value, path);
+  try { return unpackStoredScene(text); }
+  catch { throw new LocalProjectRepositoryError(`${path} is corrupted or too large. Restore a JSON backup instead.`); }
+}
+
+function readStorage(key: string): string | null {
+  try { return getStorage().getItem(key); }
+  catch { throw new LocalProjectRepositoryError("Browser project storage is unavailable. Allow site storage or use JSON import/export."); }
+}
+
+function writeStorage(key: string, value: string): void {
+  try { getStorage().setItem(key, value); }
+  catch (error) {
+    const quota = error instanceof DOMException && (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
+    throw new LocalProjectRepositoryError(quota
+      ? "Browser storage is full. Download a JSON backup, remove unneeded projects, and retry. Your previous saved data was preserved."
+      : "Browser project storage is unavailable. Export a JSON backup before leaving this page.");
+  }
 }
 
 function createProjectId(): string {

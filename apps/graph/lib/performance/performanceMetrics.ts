@@ -5,9 +5,9 @@ import {
   MAX_SURFACE_RESOLUTION,
   MAX_VECTOR_FIELD_GLYPH_COUNT
 } from "@vinculum/scene/defaults";
-import { clampSeedDensity } from "@/lib/math/streamlineSeeds";
+import { clampSeedDensity } from "@/lib/math/fields/streamlineSeeds";
 import type { StreamlineVizConfig } from "@/types/graphUi";
-import { MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressionSafety";
+import { MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressions/expressionSafety";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 
 export type PerformanceWarningLevel = "ok" | "warning" | "critical";

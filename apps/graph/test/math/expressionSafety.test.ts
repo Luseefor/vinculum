@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
+import { sampleCurve } from "@/lib/math/curves/sampleCurve";
+import { MAX_EXPRESSION_LENGTH, MAX_PARAMETRIC_CURVE_SAMPLES } from "@/lib/math/expressions/expressionSafety";
+import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
+import { createParametricCurve } from "@/lib/graph/createParametricCurve";
+import { createSceneDocument } from "@/lib/scene/sceneSchema";
+import { serializeScene } from "@/lib/scene/serializeScene";
+import { deserializeScene } from "@/lib/scene/deserializeScene";
+
+describe("expression safety", () => {
+  it("valid surface expression compiles and evaluates", () => {
+    const { error, evaluator } = compileSurfaceExpression("z = sin(x) * cos(y)", "z");
+    expect(error).toBeNull();
+    expect(Number.isFinite(evaluator(1, 2))).toBe(true);
+  });
+
+  it("rejects overlong surface expressions", () => {
+    const chunk = "sin(x)+";
+    const times = Math.ceil((MAX_EXPRESSION_LENGTH + 1) / chunk.length);
+    const body = `${chunk.repeat(times)}0`;
+    const { error } = compileSurfaceExpression(`z = ${body}`, "z");
+    expect(error).toMatch(/Expression is too long/i);
+  });
+
+  it("rejects unsupported functions", () => {
+    const { error } = compileSurfaceExpression("z = factorial(5)", "z");
+    expect(error).toMatch(/Unsupported function: factorial/i);
+    expect(error).not.toMatch(/\bat\b|stack/i);
+  });
+
+  it("rejects malformed expression syntax", () => {
+    const { error } = compileSurfaceExpression("z = sin(", "z");
+    expect(error).toMatch(/Invalid expression syntax/i);
+  });
+
+  it("accepts constant non-finite surface expressions structurally; evaluator yields NaN", () => {
+    // S9 (F1): 1/0 is syntactically valid and sandbox-safe, so compilation
+    // accepts it. Pointwise invalidity belongs to sampling, not compilation.
+    const { error, evaluator } = compileSurfaceExpression("z = 1/0", "z");
+    expect(error).toBeNull();
+    if (error) {
+      return;
+    }
+    expect(evaluator(0, 0)).toBeNaN();
+    expect(evaluator(3, -2)).toBeNaN();
+  });
+
+  it("compiles constant non-finite expressions; evaluator yields NaN (domain handled at sampling, not fixed-point compilation)", () => {
+    const compiled = compileParametricExpressions("1/0", "0", "0");
+    expect(compiled.error).toBeNull();
+    if (compiled.error) {
+      return;
+    }
+    for (const t of [-5, 0, 5]) {
+      expect(compiled.evaluator(t)[0]).toBeNaN();
+    }
+  });
+
+  it("rejects overlong imported scene surface expressions", () => {
+    const chunk = "sin(x)+";
+    const times = Math.ceil((MAX_EXPRESSION_LENGTH + 1) / chunk.length);
+    const body = `${chunk.repeat(times)}0`;
+    const scene = createSceneDocument({
+      metadata: { name: "Overlong expression scene" },
+      objects: [createSurfaceGraph({ equation: body })]
+    });
+
+    const parsed = deserializeScene(serializeScene(scene));
+    expect(parsed.valid).toBe(false);
+    if (parsed.valid) return;
+    expect(parsed.errors.join(" ")).toMatch(/Expression is too long/i);
+  });
+
+  it("rejects oversized imported parametric curve samples", () => {
+    const scene = createSceneDocument({
+      metadata: { name: "Oversized samples scene" },
+      objects: [
+        createParametricCurve({
+          xExpr: "t",
+          yExpr: "0",
+          zExpr: "0",
+          samples: MAX_PARAMETRIC_CURVE_SAMPLES + 1
+        })
+      ]
+    });
+
+    const parsed = deserializeScene(serializeScene(scene));
+    expect(parsed.valid).toBe(false);
+    if (parsed.valid) return;
+    expect(parsed.errors.join(" ")).toMatch(/Resolution is too high/i);
+  });
+
+  it("caps parametric curve sampling to prevent freezing", () => {
+    const evaluator = (_t: number) => [0, 0, 0] as [number, number, number];
+    expect(() =>
+      sampleCurve(evaluator, {
+        tMin: 0,
+        tMax: 1,
+        samples: MAX_PARAMETRIC_CURVE_SAMPLES + 1
+      })
+    ).toThrow(/Resolution is too high/i);
+  });
+});
+

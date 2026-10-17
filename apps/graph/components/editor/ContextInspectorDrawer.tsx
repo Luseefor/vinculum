@@ -24,7 +24,7 @@ export default function ContextInspectorDrawer({
   }
   return (
     <aside
-      className="absolute bottom-2 right-2 top-2 z-30 flex min-h-0 flex-col overflow-hidden max-w-[calc(100%-16px)] rounded-[var(--radius-xl)] bg-[var(--editor-chrome)] shadow-[var(--shadow-floating)]"
+      className="absolute bottom-2 right-2 top-2 z-30 flex min-h-0 flex-col overflow-hidden max-w-[calc(100%-16px)] rounded-[var(--ui-radius-xl)] bg-(--editor-chrome) shadow-(--shadow-floating)"
       style={{ width: Math.max(296, Math.min(width, 332)) }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -35,19 +35,19 @@ export default function ContextInspectorDrawer({
       tabIndex={-1}
     >
       <div className="flex h-9 items-center justify-between  px-2 text-[11px]">
-        <span className="font-semibold text-[var(--text-secondary)]">Inspector</span>
+        <span className="font-semibold text-(--text-secondary)">Inspector</span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={onTogglePinned}
-            className="h-7 rounded border border-transparent px-2 text-[11px] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]"
+            className="h-7 rounded-sm border border-transparent px-2 text-[11px] font-semibold text-(--text-secondary) hover:border-(--border-subtle) hover:bg-(--surface-muted)"
           >
             {pinned ? "Unpin" : "Pin"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="h-7 rounded border border-transparent px-2 text-[11px] font-semibold text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]"
+            className="h-7 rounded-sm border border-transparent px-2 text-[11px] font-semibold text-(--text-secondary) hover:border-(--border-subtle) hover:bg-(--surface-muted)"
           >
             Close
           </button>

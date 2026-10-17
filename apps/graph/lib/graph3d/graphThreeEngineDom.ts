@@ -42,7 +42,7 @@ export function createAxisLabelDiv(text: string): HTMLDivElement {
   const div = document.createElement("div");
   div.textContent = text;
   div.className =
-    "pointer-events-none rounded border px-1 py-0.5 text-[9px] font-medium tracking-wide opacity-90 shadow-sm";
+    "pointer-events-none rounded-sm border px-1 py-0.5 text-[9px] font-medium tracking-wide opacity-90 shadow-xs";
   return div;
 }
 

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Organize math modules and tests by domain, and separate contributor guides,
+  architecture, reports, and historical documentation.
+- Add MIT licensing and contributor documentation.
+- Require typed creation actions and exhaustive object-kind dispatch; add
+  integration coverage for canonical kinds, dimensions, scene round trips,
+  and representative viewport support.
+- Reveal extended Cartesian curves in 3D while retaining the saved definition.
+- Wait for the lazy math editor before starting the share-link browser workflow.
+- Document the 2D/3D support matrix and unresolved public-release findings.
+- Keep the in-memory editor usable when session storage is unavailable, and
+  keep manually oriented automatic surfaces valid for saving and sharing.
+
 - Added true implicit 3D surfaces `F(x,y,z) = 0` via marching-tetrahedra extraction from a bounded scalar grid, with synchronized Perspective/XY/XZ/YZ views and sphere/ellipsoid/torus/gyroid examples and presets.
 - Added parametric surfaces `x(u,v)`, `y(u,v)`, `z(u,v)` with independent `u`/`v` domains, grid resolutions 2–128, synchronized Perspective/XY/XZ/YZ views, and sphere/torus/saddle examples and presets.
 - Scene documents now include an explicit schema version, with a migration pipeline for older/missing-version payloads.

@@ -39,7 +39,7 @@ function StatusGlyph({ tone }: { tone: StatusTone }) {
     return (
       <span
         aria-hidden="true"
-        className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 animate-spin rounded-full border border-[var(--border-strong)] border-t-[var(--text-secondary)] motion-reduce:animate-none"
+        className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 animate-spin rounded-full border border-(--border-strong) border-t-(--text-secondary) motion-reduce:animate-none"
       />
     );
   }

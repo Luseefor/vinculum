@@ -11,13 +11,16 @@ export function applyGraphThreeTickPerfSampling(
   frameDeltaMs: number,
   runtime: GraphThreeEngineTickRuntime,
   perfBadge: HTMLDivElement,
-  scenePressure: ScenePressure
+  scenePressure: ScenePressure,
+  didRender = true
 ): void {
-  runtime.sampleFrames += 1;
-  runtime.sampleFrameTimeSumMs += frameDeltaMs;
-  runtime.sampleWorstFrameMs = Math.max(runtime.sampleWorstFrameMs, frameDeltaMs);
+  if (didRender) {
+    runtime.sampleFrames += 1;
+    runtime.sampleFrameTimeSumMs += frameDeltaMs;
+    runtime.sampleWorstFrameMs = Math.max(runtime.sampleWorstFrameMs, frameDeltaMs);
+  }
 
-  if (frameDeltaMs > LONG_FRAME_MS && now - runtime.lastLongFrameLogAt > LONG_FRAME_LOG_COOLDOWN_MS) {
+  if (didRender && frameDeltaMs > LONG_FRAME_MS && now - runtime.lastLongFrameLogAt > LONG_FRAME_LOG_COOLDOWN_MS) {
     runtime.lastLongFrameLogAt = now;
     console.warn("[graph3d] long frame", {
       frameMs: Number(frameDeltaMs.toFixed(2)),
@@ -28,7 +31,7 @@ export function applyGraphThreeTickPerfSampling(
   const sampleElapsedMs = now - runtime.sampleWindowStart;
   if (sampleElapsedMs >= PERF_SAMPLE_WINDOW_MS) {
     const fps = (runtime.sampleFrames * 1000) / sampleElapsedMs;
-    const avgFrameMs = runtime.sampleFrameTimeSumMs / runtime.sampleFrames;
+    const avgFrameMs = runtime.sampleFrames ? runtime.sampleFrameTimeSumMs / runtime.sampleFrames : 0;
     perfBadge.textContent = `FPS ${Math.round(fps)} · Avg ${avgFrameMs.toFixed(1)}ms · Vis ${scenePressure.visibleObjectCount}/${scenePressure.objectCount} · Res ${Math.round(scenePressure.surfaceResolutionMax)} · Smp ${Math.round(scenePressure.parametricSamplesMax)}`;
     runtime.sampleWindowStart = now;
     runtime.sampleFrames = 0;

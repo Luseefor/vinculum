@@ -1,5 +1,5 @@
 import { Mesh, Vector2, type Object3D } from "three";
-import { worldToMath3D } from "@/lib/math/coordinates";
+import { worldToMath3D } from "@/lib/math/geometry/coordinates";
 import {
   setPickRaycaster,
   type PickWorldFromCanvasArgs

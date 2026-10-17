@@ -1,4 +1,4 @@
-import { compileRustExpression as compile } from "@/lib/math/rustMath";
+import { compileRustExpression as compile } from "@/lib/math/runtime/rustMath";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -10,7 +10,7 @@ import {
   MeshBasicMaterial
 } from "three";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { validateExpressionSafety } from "@/lib/math/expressionSafety";
+import { validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { updateIndexAttributeUint32 } from "./bufferGeometryAttributes";

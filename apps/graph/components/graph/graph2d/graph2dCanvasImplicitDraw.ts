@@ -1,3 +1,4 @@
+import { refineContourEdge } from "@/lib/math/surfaces/marchingSquares";
 import type { DrawContext } from "./graph2dCanvasTypes";
 import { clamp } from "./graph2dCanvasMath";
 
@@ -45,28 +46,8 @@ export function drawHatchedDomain(
   ctx.restore();
 }
 
-function interpolateZeroCrossing(
-  x1: number,
-  y1: number,
-  v1: number,
-  x2: number,
-  y2: number,
-  v2: number
-): { x: number; y: number } | null {
-  if (!Number.isFinite(v1) || !Number.isFinite(v2)) {
-    return null;
-  }
-  if (Math.abs(v1 - v2) < 1e-12) {
-    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
-  }
-  const t = clamp(v1 / (v1 - v2), 0, 1);
-  return {
-    x: x1 + (x2 - x1) * t,
-    y: y1 + (y2 - y1) * t
-  };
-}
-
-const contourPaths = new WeakMap<Function, { key: string; points: Float32Array }>();
+type ContourPath = { minX: number; maxX: number; minY: number; maxY: number; spacing: number; points: Float64Array };
+const contourPaths = new WeakMap<Function, ContourPath[]>();
 
 export function drawImplicitContour(
   evaluate: (horizontalValue: number, verticalValue: number) => number | null,
@@ -75,19 +56,33 @@ export function drawImplicitContour(
   width: number,
   height: number
 ) {
-  const key = `${width}:${height}:${dc.centerX}:${dc.centerY}:${dc.scale}`;
-  const cached = contourPaths.get(evaluate);
-  if (cached?.key === key) {
+  const target = { width, height, centerX: dc.centerX, centerY: dc.centerY, scale: dc.scale };
+  const minX = dc.centerX - width / (2 * dc.scale), maxX = dc.centerX + width / (2 * dc.scale);
+  const minY = dc.centerY - height / (2 * dc.scale), maxY = dc.centerY + height / (2 * dc.scale);
+  const entries = contourPaths.get(evaluate) ?? [];
+  const cached = entries.find(path => minX >= path.minX && maxX <= path.maxX && minY >= path.minY && maxY <= path.maxY && path.spacing * dc.scale <= 3.75);
+  const emit = (x: number, y: number, line: boolean) => {
+    const px = (x - target.centerX) * target.scale + target.width / 2;
+    const py = -(y - target.centerY) * target.scale + target.height / 2;
+    if (line) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+  };
+  if (cached) {
     for (let index = 0; index < cached.points.length; index += 4) {
-      ctx.moveTo(cached.points[index], cached.points[index + 1]);
-      ctx.lineTo(cached.points[index + 2], cached.points[index + 3]);
+      emit(cached.points[index], cached.points[index + 1], false);
+      emit(cached.points[index + 2], cached.points[index + 3], true);
     }
     return;
   }
+  // Cache world-space paths with pan padding. Small navigation changes only
+  // reproject them; zooming beyond the screen-error budget resamples.
+  width *= 1.25; height *= 1.25;
+  dc = { ...dc, width, height };
   const points: number[] = [];
   const drawSegment = (start: { x: number; y: number }, end: { x: number; y: number }) => {
-    points.push(start.x, start.y, end.x, end.y);
-    ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y);
+    const ax = (start.x - width / 2) / dc.scale + dc.centerX, ay = -(start.y - height / 2) / dc.scale + dc.centerY;
+    const bx = (end.x - width / 2) / dc.scale + dc.centerX, by = -(end.y - height / 2) / dc.scale + dc.centerY;
+    points.push(ax, ay, bx, by);
+    emit(ax, ay, false); emit(bx, by, true);
   };
   const cols = clamp(Math.ceil(width / 3), 40, 768);
   const rows = clamp(Math.ceil(height / 3), 40, 768);
@@ -143,10 +138,8 @@ export function drawImplicitContour(
         if (!crosses) {
           return;
         }
-        const point = interpolateZeroCrossing(ex1, ey1, ev1, ex2, ey2, ev2);
-        if (point) {
-          intersections.push(point);
-        }
+        const point = refineContourEdge(ex1, ey1, ev1, ex2, ey2, ev2, (x, y) => evaluate((x - width / 2) / dc.scale + dc.centerX, -(y - height / 2) / dc.scale + dc.centerY));
+        if (point) intersections.push(point);
       };
       addCrossing(x0, y0, a, x1, y0, b);
       addCrossing(x1, y0, b, x1, y1, c);
@@ -168,5 +161,6 @@ export function drawImplicitContour(
       }
     }
   }
-  contourPaths.set(evaluate, { key, points: new Float32Array(points) });
+  entries.unshift({ minX: dc.centerX - width / (2 * dc.scale), maxX: dc.centerX + width / (2 * dc.scale), minY: dc.centerY - height / (2 * dc.scale), maxY: dc.centerY + height / (2 * dc.scale), spacing: Math.max(cellWidth, cellHeight) / dc.scale, points: new Float64Array(points) });
+  contourPaths.set(evaluate, entries.slice(0, 3));
 }

@@ -24,11 +24,11 @@ export function Graph2DCanvasUiCursorCoordsBadge({
     <div
       className={
         embedded
-          ? "min-w-0 truncate font-mono text-[10px] text-[var(--text-primary)]"
-          : "max-w-[min(200px,calc(100%-1rem))] truncate rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-primary)] shadow-[var(--shadow-floating)]"
+          ? "min-w-0 truncate font-mono text-[10px] text-(--text-primary)"
+          : "max-w-[min(200px,calc(100%-1rem))] truncate rounded-sm border border-(--border-subtle) bg-(--surface-overlay) px-2 py-1 font-mono text-[10px] text-(--text-primary) shadow-(--shadow-floating)"
       }
     >
-      <span className="text-[var(--text-tertiary)]">Cursor </span>
+      <span className="text-(--text-tertiary)">Cursor </span>
       <MathExpression expression={`${axisPair.horizontalLabel}: ${formatGraph2dCoordForTool(mousePos.math.horizontal, canvas2dTool)}`} />
       {" · "}
       <MathExpression expression={`${axisPair.verticalLabel}: ${formatGraph2dCoordForTool(mousePos.math.vertical, canvas2dTool)}`} />

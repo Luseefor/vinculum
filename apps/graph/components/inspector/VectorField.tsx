@@ -20,8 +20,8 @@ export default function VectorField({ label, value, onChange }: VectorFieldProps
   };
 
   return (
-    <section className="rounded-md border border-[var(--border-subtle)] p-2">
-      <h4 className="mb-2 text-[11px] font-medium text-[var(--text-tertiary)]">{label}</h4>
+    <section className="rounded-md border border-(--border-subtle) p-2">
+      <h4 className="mb-2 text-[11px] font-medium text-(--text-tertiary)">{label}</h4>
       <div className="grid grid-cols-3 gap-2">
         <NumericField label="X" value={value[0]} onChange={(v) => update(0, v)} />
         <NumericField label="Y" value={value[1]} onChange={(v) => update(1, v)} />

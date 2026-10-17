@@ -1,8 +1,9 @@
-import { createDefaultParametricCurve } from "@vinculum/scene/defaults";
+import { createDefaultParametricCurve, withParametricDimension } from "@vinculum/scene/defaults";
 import type { ParametricCurveObject } from "@vinculum/scene/types";
 
 interface CreateParametricCurveInput {
   colorIndex?: number;
+  dimension?: "2d" | "3d";
   xExpr?: string;
   yExpr?: string;
   zExpr?: string;
@@ -22,7 +23,7 @@ function createParametricCurveId(): string {
 }
 
 export function createParametricCurve(input: CreateParametricCurveInput = {}): ParametricCurveObject {
-  return createDefaultParametricCurve({
+  return withParametricDimension(createDefaultParametricCurve({
     id: input.id ?? createParametricCurveId(),
     index: input.colorIndex,
     xExpr: input.xExpr,
@@ -33,5 +34,5 @@ export function createParametricCurve(input: CreateParametricCurveInput = {}): P
     samples: input.samples,
     visible: input.visible,
     color: input.color
-  });
+  }), input.dimension ?? "3d");
 }

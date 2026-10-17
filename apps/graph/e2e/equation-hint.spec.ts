@@ -7,6 +7,7 @@ test("empty equation hints are italic placeholders, never editable selections", 
   const hint = page.locator('.math-input-placeholder').filter({ hasText: "Type an equation" }).first();
   await expect(hint).toBeVisible();
   await expect(hint).toHaveAttribute("aria-hidden", "true");
+  await expect(hint.locator('[role="math"]')).toHaveAttribute("tabindex", "-1");
   expect(await hint.evaluate(element => { const style = getComputedStyle(element); return style.getPropertyValue("user-select") || style.getPropertyValue("-webkit-user-select"); })).toBe("none");
   await expect(hint.locator(".textit")).toBeVisible();
   await field.focus();

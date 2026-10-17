@@ -76,7 +76,7 @@ export function isExpressionRowEmpty(object: GraphObject): boolean {
       object.bzExpr
     ].some((expr) => expr.trim());
   }
-  return ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+  return ![object.xExpr, object.yExpr, ...(object.dimension === "2d" ? [] : [object.zExpr])].some((expr) => expr.trim());
 }
 
 export function getObjectRowDisplayMeta(object: GraphObject): { label: string; type: string } {
@@ -88,15 +88,15 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
     return { label: "Plane", type: formatPrimitiveSnippet(object.equation) };
   }
   if (object.kind === "parametricCurve" || object.kind === "parametricSurface") {
-    const allEmpty = ![object.xExpr, object.yExpr, object.zExpr].some((expr) => expr.trim());
+    const allEmpty = ![object.xExpr, object.yExpr, ...(object.dimension === "2d" ? [] : [object.zExpr])].some((expr) => expr.trim());
     if (allEmpty) {
       return { label: "Expression", type: "Choose type in menu" };
     }
     if (object.kind === "parametricSurface") {
       // S32: collapsed rows prioritize the mathematical definition.
       return {
-        label: "Parametric Surface",
-        type: formatMathSnippet(`r(u,v) = <${object.xExpr}, ${object.yExpr}, ${object.zExpr}>`)
+        label: object.dimension === "2d" ? "2D Parametric Surface" : "Parametric Surface",
+        type: formatMathSnippet(`r(u,v) = <${object.xExpr}, ${object.yExpr}${object.dimension === "2d" ? "" : `, ${object.zExpr}`}>`)
       };
     }
     const normalized = [object.xExpr, object.yExpr, object.zExpr].map((v) => v.replace(/\s+/g, ""));
@@ -108,8 +108,8 @@ export function getObjectRowDisplayMeta(object: GraphObject): { label: string; t
       return { label: "Point", type: "Point" };
     }
     return {
-      label: "Parametric Curve",
-      type: formatMathSnippet(`r(t) = <${object.xExpr}, ${object.yExpr}, ${object.zExpr}>`)
+      label: object.dimension === "2d" ? "2D Parametric Curve" : "Parametric Curve",
+      type: formatMathSnippet(`r(t) = <${object.xExpr}, ${object.yExpr}${object.dimension === "2d" ? "" : `, ${object.zExpr}`}>`)
     };
   }
   // S20: compact field identity — never the full component list in a

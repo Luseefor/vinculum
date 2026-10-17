@@ -56,23 +56,24 @@ export default function EditorGuide({ open, onOpenChange, onShowObjects, onShowI
           <ol className="space-y-5">
             {tasks.map((task, index) => (
               <li key={task.title} className="flex gap-3">
-                <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[12px] font-semibold text-[var(--accent-ink)]">{index + 1}</span>
+                <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--accent-soft) text-[12px] font-semibold text-(--accent-ink)">{index + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">{task.title}</h3>
-                  <p className="mt-1 text-[12px] font-medium text-[var(--accent-ink)]">{task.location}</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-secondary)]">{task.description}</p>
+                  <h3 className="text-[14px] font-semibold text-(--text-primary)">{task.title}</h3>
+                  <p className="mt-1 text-[12px] font-medium text-(--accent-ink)">{task.location}</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-(--text-secondary)">{task.description}</p>
                   <Button type="button" size="sm" variant="secondary" className="mt-2" onClick={task.run}>{task.action}</Button>
                 </div>
               </li>
             ))}
           </ol>
-          <div className="mt-5 space-y-3 border-t border-[var(--border-subtle)] pt-4 text-[13px] leading-relaxed text-[var(--text-secondary)]">
-            <div><h3 className="font-semibold text-[var(--text-primary)]">Move around the graph</h3><p>Drag to orbit in 3D or pan in 2D. Scroll to zoom; on touch screens, pinch. The controls above the graph choose the view and Tool. Choose Probe to inspect coordinates.</p></div>
-            <div><h3 className="font-semibold text-[var(--text-primary)]">Save, import, and export</h3><p>Use Scene on a wide screen or More actions on a small screen to create, save, open, or import a project. Choose Share & export for JSON, PNG, SVG, and share links. The Share button opens the same export options on a wide screen.</p></div>
+          <div className="mt-5 space-y-3 border-t border-(--border-subtle) pt-4 text-[13px] leading-relaxed text-(--text-secondary)">
+            <div><h3 className="font-semibold text-(--text-primary)">Piecewise functions</h3><p>Enter <code>f(t)={"{0 for t<0; 1 for t>=0}"}</code> for a step function. Separate cases with semicolons; use <code>otherwise</code> for a final fallback. The first matching case wins. You can paste this into the math editor or use Text.</p></div>
+            <div><h3 className="font-semibold text-(--text-primary)">Move around the graph</h3><p>Drag to orbit in 3D or pan in 2D. Scroll to zoom; on touch screens, pinch. The controls above the graph choose the view and Tool. Choose Probe to inspect coordinates.</p></div>
+            <div><h3 className="font-semibold text-(--text-primary)">Save, import, and export</h3><p>Use Scene on a wide screen or More actions on a small screen to create, save, open, or import a project. Choose Share & export for JSON, PNG, SVG, and share links. The Share button opens the same export options on a wide screen.</p></div>
           </div>
         </div>
         <DialogFooter className="shrink-0">
-          <Link href="/documentations" target="_blank" rel="noopener noreferrer" className="mr-auto rounded-[var(--radius-sm)] px-2 py-2 text-[13px] text-[var(--accent-ink)] outline-none hover:bg-[var(--accent-soft)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]">Full documentation ↗</Link>
+          <Link href="/documentations" target="_blank" rel="noopener noreferrer" className="mr-auto rounded-[var(--ui-radius-sm)] px-2 py-2 text-[13px] text-(--accent-ink) outline-hidden hover:bg-(--accent-soft) focus-visible:ring-2 focus-visible:ring-(--accent)">Full documentation ↗</Link>
           <Button type="button" variant="secondary" size="sm" onClick={() => onOpenChange(false)}>Close guide</Button>
         </DialogFooter>
       </DialogContent>

@@ -23,6 +23,10 @@ export default function SceneImportExportDialog() {
   const replaceSceneDocument = useGraphStore((state) => state.replaceSceneDocument);
 
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied" | "failed">("idle");
+  const exportValidation = useMemo(
+    () => dialogState.isOpen && dialogState.mode === "export" ? deserializeScene(dialogState.jsonText) : null,
+    [dialogState.isOpen, dialogState.mode, dialogState.jsonText]
+  );
 
   useEffect(() => {
     if (!dialogState.isOpen) {
@@ -37,8 +41,8 @@ export default function SceneImportExportDialog() {
             .split("\n")
             .map((error) => error.trim())
             .filter(Boolean)
-        : [],
-    [dialogState.error]
+        : exportValidation?.errors ?? [],
+    [dialogState.error, exportValidation]
   );
 
   if (!dialogState.isOpen) {
@@ -49,6 +53,7 @@ export default function SceneImportExportDialog() {
   const exportFileName = `${slugify(sceneName || "scene")}.json`;
 
   const handleCopyJson = async () => {
+    if (!exportValidation?.valid) return;
     try {
       await navigator.clipboard.writeText(dialogState.jsonText);
       setCopyFeedback("copied");
@@ -58,6 +63,7 @@ export default function SceneImportExportDialog() {
   };
 
   const handleDownloadJson = () => {
+    if (!exportValidation?.valid) return;
     const blob = new Blob([dialogState.jsonText], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -133,7 +139,7 @@ export default function SceneImportExportDialog() {
               "text-[11px]",
               copyFeedback === "copied" && "text-emerald-400",
               copyFeedback === "failed" && "text-amber-400",
-              copyFeedback === "idle" && "text-[var(--text-tertiary)]"
+              copyFeedback === "idle" && "text-(--text-tertiary)"
             )}
           >
             {isExportMode
@@ -148,7 +154,7 @@ export default function SceneImportExportDialog() {
           <div className="flex items-center gap-2">
             {isExportMode ? (
               <>
-                <Button type="button" variant="secondary" size="sm" onClick={handleCopyJson}>
+                <Button type="button" variant="secondary" size="sm" onClick={handleCopyJson} disabled={!exportValidation?.valid}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
@@ -156,7 +162,7 @@ export default function SceneImportExportDialog() {
                   Copy
                 </Button>
 
-                <Button type="button" variant="secondary" size="sm" onClick={handleDownloadJson}>
+                <Button type="button" variant="secondary" size="sm" onClick={handleDownloadJson} disabled={!exportValidation?.valid}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                     <polyline points="7 10 12 15 17 10" />

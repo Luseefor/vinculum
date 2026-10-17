@@ -1,4 +1,6 @@
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { defaultCurveExtensionRange } from "@vinculum/scene/defaults";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
 import { createEquationGraph } from "@/lib/graph/createEquationGraph";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { useEditorStore } from "@/lib/store/editorStore";
@@ -47,13 +49,21 @@ function dropReferencingIntegralResults(ui: GraphUiState, fieldId: string): Grap
 
 export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "setCurveExtension3D" | "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updateLinearTransformEntry" | "updatePlaneEquation"
+  "setCurveExtension3D" | "updateCurveExtensionRange" | "updateSurfaceEquation" | "updateSurfaceOrientation" | "updateParametricExpression" | "updateParametricSurfaceExpression" | "updateImplicitSurfaceExpression" | "updateVectorFieldExpression" | "updateGeometryCoordinate" | "updateLinearTransformEntry" | "updatePlaneEquation"
 > {
   return {
     setCurveExtension3D: (id, enabled) => set((state) => {
       const object = findObjectById(state.scene.objects, id);
       if (!object || object.kind !== "implicitCurve" || Boolean(object.extendTo3D) === enabled) return state;
       return { scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: { ...object, extendTo3D: enabled } } }) };
+    }),
+    updateCurveExtensionRange: (id, patch) => set(state => {
+      const object = findObjectById(state.scene.objects, id);
+      if (object?.kind !== "implicitCurve") return state;
+      const range = { ...(object.extensionRange ?? defaultCurveExtensionRange), ...patch };
+      if (!Number.isFinite(range.zMin) || !Number.isFinite(range.zMax) || range.zMin >= range.zMax || Math.abs(range.zMin) > 1e6 || Math.abs(range.zMax) > 1e6) return state;
+      if (range.zMin === object.extensionRange?.zMin && range.zMax === object.extensionRange?.zMax) return state;
+      return { scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: { ...object, extensionRange: range } } }) };
     }),
     updateSurfaceEquation: (id, equation) => {
       const inferred = equation.includes("=") ? inferGraphEquation(equation, getEditorParameterScope()) : null;
@@ -91,7 +101,10 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           ui: { ...pruneScalarVizForSourceId(pruneAnalysisForSourceId(state.ui, id), id), ...(conversion ? { graphMode: conversion.dimension } : {}) }
         };
       });
-      if (converted && conversion) useEditorStore.getState().setViewportMode(conversion.dimension);
+      if (converted && conversion) {
+        const editor = useEditorStore.getState();
+        if (editor.viewportMode !== "split" && editor.viewportMode !== "quad") editor.setViewportMode(conversion.dimension);
+      }
     },
 
     updateSurfaceOrientation: (id, orientation) => {
@@ -103,12 +116,20 @@ export function buildObjectsSliceExpr(set: GraphStoreSet): Pick<
           return state;
         }
 
+        const assignment = splitSingleMathEquality(object.equation);
+        const equation = assignment && /^[xyz]$/i.test(assignment.lhs)
+          ? `${orientation} = ${assignment.rhs}`
+          : object.equation;
         const command: SceneCommand = {
           type: "UPDATE_OBJECT",
           payload: {
             object: {
               ...object,
-              orientation
+              equation,
+              orientation,
+              // Choosing an output axis explicitly overrides equation inference.
+              // Keep the surface definition and its persistence metadata aligned.
+              ...(object.autoExpression ? { autoExpression: false, autoDomain: object.autoDomain ?? true } : {})
             }
           }
         };

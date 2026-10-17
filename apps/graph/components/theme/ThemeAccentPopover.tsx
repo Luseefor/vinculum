@@ -32,7 +32,7 @@ export default function ThemeAccentPopover({
     <div id="vinculum-theme-menu" className="w-full p-1 flex flex-col gap-3">
         <section className="space-y-2 px-2 py-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-medium text-[var(--text-tertiary)]">Appearance</h3>
+              <h3 className="text-[11px] font-medium text-(--text-tertiary)">Appearance</h3>
               <Badge variant="outline">Theme</Badge>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -45,10 +45,10 @@ export default function ThemeAccentPopover({
                 captureEvent(context === "editor" ? "editor_theme_changed" : "landing_theme_changed", { theme: "light" });
               }}
               className={cn(
-                "h-8 gap-2 text-[11px] font-medium",
+                "theme-mode-choice h-8 gap-2 text-[11px] font-medium",
                 themeMode === "light"
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "text-[var(--text-secondary)]"
+                  ? "border-(--accent) bg-(--accent-soft) text-(--accent-ink)"
+                  : "text-(--text-secondary)"
               )}
               variant="secondary"
               size="sm"
@@ -64,10 +64,10 @@ export default function ThemeAccentPopover({
                 captureEvent(context === "editor" ? "editor_theme_changed" : "landing_theme_changed", { theme: "dark" });
               }}
               className={cn(
-                "h-8 gap-2 text-[11px] font-medium",
+                "theme-mode-choice h-8 gap-2 text-[11px] font-medium",
                 themeMode === "dark"
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "text-[var(--text-secondary)]"
+                  ? "border-(--accent) bg-(--accent-soft) text-(--accent-ink)"
+                  : "text-(--text-secondary)"
               )}
               variant="secondary"
               size="sm"
@@ -81,7 +81,7 @@ export default function ThemeAccentPopover({
 
         <section className="space-y-3 px-2 py-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-medium text-[var(--text-tertiary)]">Accent Color</h3>
+              <h3 className="text-[11px] font-medium text-(--text-tertiary)">Accent Color</h3>
               <Badge variant="outline">{accentPreset}</Badge>
             </div>
             <div className="grid grid-cols-5 gap-1 justify-items-center">
@@ -95,8 +95,8 @@ export default function ThemeAccentPopover({
                   captureEvent(context === "editor" ? "editor_accent_changed" : "landing_accent_changed", { accent: preset });
                 }}
                 className={cn(
-                  "accent-choice flex h-11 w-11 items-center justify-center rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-                  accentPreset === preset ? "border-[var(--text-primary)] ring-2 ring-[var(--accent-primary)]/20 shadow-md opacity-100" : "border-transparent opacity-80 hover:opacity-100"
+                  "accent-choice flex h-11 w-11 items-center justify-center rounded-full border-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)",
+                  accentPreset === preset ? "border-(--text-primary) ring-2 ring-(--accent-primary)/20 shadow-md opacity-100" : "border-transparent opacity-80 hover:opacity-100"
                 )}
                 aria-label={`Accent ${preset}`}
               ><span aria-hidden="true" className="h-6 w-6 rounded-full" style={{ backgroundColor: `var(--clr-${preset})` }} /></button>
@@ -108,7 +108,7 @@ export default function ThemeAccentPopover({
           <>
             <Separator />
             <section className="space-y-2 px-2 py-2">
-                <h3 className="text-[11px] font-medium text-[var(--text-tertiary)]">Performance</h3>
+                <h3 className="text-[11px] font-medium text-(--text-tertiary)">Performance</h3>
                 <button
               type="button"
               role="checkbox"
@@ -117,8 +117,8 @@ export default function ThemeAccentPopover({
               className={cn(
                 "flex items-center justify-between gap-3 w-full h-8 px-3 rounded-md border text-[10px] font-bold transition",
                 showPerfHud
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+                  ? "border-(--accent) bg-(--accent-soft) text-(--accent-ink)"
+                  : "border-(--border-subtle) bg-transparent text-(--text-secondary) hover:bg-(--surface-muted)"
               )}
             >
               <span>Performance HUD</span>

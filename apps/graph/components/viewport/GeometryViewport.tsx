@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { createGraphThreeEngine } from "@/lib/graph3d/GraphThreeEngine";
 import type { GraphThreeEngine } from "@/lib/graph3d/graphThreeEngineTypes";
 import { subscribeCanvasFrameRequests } from "@/lib/interaction/canvasFrameRequests";
@@ -9,6 +9,7 @@ import { routePointerToPaneIndex } from "@/lib/graph3d/graphThreeGeometryViews";
 import type { GeometryView } from "@/lib/types/ui";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { cn } from "@/components/ui/styles";
+import PlanarFieldNotice from "@/components/viewport/PlanarFieldNotice";
 import CanvasEmptyState from "@/components/viewport/CanvasEmptyState";
 
 function paneFraction(index: number, paneCount: number): { left: string; top: string } {
@@ -37,15 +38,21 @@ export default function GeometryViewport({
   className = "",
   suspended = false,
   onOpenGuide,
-  onOpenExamples
+  onOpenExamples,
+  onStart,
+  gettingStarted
 }: {
   className?: string;
   suspended?: boolean;
   onOpenGuide?: () => void;
   onOpenExamples?: () => void;
+  onStart?: () => void;
+  gettingStarted?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<GraphThreeEngine | null>(null);
+  const suspendedRef = useRef(suspended);
+  suspendedRef.current = suspended;
   const [renderReady, setRenderReady] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const geometryLayout = useEditorStore((state) => state.geometryLayout);
@@ -72,6 +79,7 @@ export default function GeometryViewport({
     });
     // S33 Frame Selected / Fit Scene (camera-only): the active pane frames.
     const unsubscribeFrame = subscribeCanvasFrameRequests((kind) => {
+      if (suspendedRef.current) return;
       if (kind === "selected") {
         engine.frameSelectedObject();
       } else {
@@ -149,9 +157,10 @@ export default function GeometryViewport({
         onPointerDownCapture={handleContainerPointerDownCapture}
         onWheelCapture={handleContainerWheelCapture}
       >
-        {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--surface-canvas)] text-sm text-[var(--text-secondary)]">Starting 3D renderer…</p> : null}
+        {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-(--surface-canvas) text-sm text-(--text-secondary)">Starting 3D renderer…</p> : null}
         {/* S30: single empty-scene prompt (the engine canvas mounts once). */}
-        <CanvasEmptyState workspaceId="geometry" onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples} />
+        <CanvasEmptyState workspaceId="geometry" startMinimized={geometryLayout === "quad"} onOpenGuide={onOpenGuide} onOpenExamples={onOpenExamples} onStart={onStart} gettingStarted={gettingStarted} />
+        <PlanarFieldNotice />
         {/* Pane buttons pick the active pane; a single pane needs no picker
             (the toolbar View select already names it). */}
         {panes.length > 1 && panes.map((pane, index) => {
@@ -166,10 +175,10 @@ export default function GeometryViewport({
               onClick={() => activatePane(pane)}
               style={{ position: "absolute", left: position.left, top: position.top }}
               className={cn(
-                "z-20 h-11 md:h-7 shrink-0 rounded-full border px-3 text-[12px] font-medium shadow-[var(--shadow-control)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                "z-20 h-11 md:h-7 shrink-0 rounded-full border px-3 text-[12px] font-medium shadow-(--shadow-control) transition-colors focus-visible:ring-2 focus-visible:ring-(--accent)",
                 activeView === pane
-                  ? "border-[var(--accent)] bg-[var(--surface-overlay)] text-[var(--accent-ink)]"
-                  : "border-[var(--border-subtle)] bg-[var(--surface-overlay)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  ? "border-(--accent) bg-(--surface-overlay) text-(--accent-ink)"
+                  : "border-(--border-subtle) bg-(--surface-overlay) text-(--text-secondary) hover:text-(--text-primary)"
               )}
             >
               {GEOMETRY_VIEW_LABELS[pane]}

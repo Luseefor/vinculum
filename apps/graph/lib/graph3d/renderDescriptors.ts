@@ -1,5 +1,5 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { getEffectiveSurfaceOrientation } from "@/lib/math/compileExpression";
+import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 
 export interface GraphObjectRenderDescriptor {
   id: string;
@@ -16,7 +16,7 @@ export interface GraphObjectRenderDescriptor {
 }
 
 export function toGraphObjectRenderDescriptor(object: GraphObject): GraphObjectRenderDescriptor {
-  if (object.kind === "implicitCurve") return { id: object.id, kind: object.kind, color: object.color, visible: object.visible, payload: { equation: object.equation } };
+  if (object.kind === "implicitCurve") return { id: object.id, kind: object.kind, color: object.color, visible: object.visible, payload: { equation: object.equation, ...("displayDomain" in object ? { displayDomain: object.displayDomain } : {}) } };
   if (object.kind === "surface") {
     const { effectiveOrientation } = getEffectiveSurfaceOrientation(
       object.equation,
