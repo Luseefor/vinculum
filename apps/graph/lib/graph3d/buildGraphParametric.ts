@@ -5,9 +5,9 @@ import {
   Object3D,
   SphereGeometry
 } from "three";
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
 import { createWideStroke } from "./graphWideStroke";
-import { sampleCurve } from "@/lib/math/sampleCurve";
+import { sampleCurve } from "@/lib/math/curves/sampleCurve";
 
 // Sample cap (8192 in MAX_PARAMETRIC_CURVE_SAMPLES) keeps every vertex index
 // below 65536, so the compact Uint16 segment index below is always sufficient.

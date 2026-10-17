@@ -19,8 +19,8 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { resolveVectorGeometry } from "@/lib/math/geometryResolve";
-import { mathToWorld3D, worldToMath3D } from "@/lib/math/coordinates";
+import { resolveVectorGeometry } from "@/lib/math/geometry/geometryResolve";
+import { mathToWorld3D, worldToMath3D } from "@/lib/math/geometry/coordinates";
 import { isTypingTarget } from "./graphThreeEngineDom";
 import { applyHoverEmphasisToNode, SELECTION_EMPHASIS_KINDS } from "./buildGraphObjectDisposal";
 import {

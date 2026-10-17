@@ -80,7 +80,7 @@ Canonical path:
 apps/graph/app/layout.tsx
 apps/graph/app/page.tsx
 apps/graph/components/editor/EditorShell.tsx
-apps/graph/components/layout/TopToolbar.tsx
+apps/graph/components/editor/TopToolbar.tsx
 apps/graph/components/viewport/
 ```
 
@@ -222,7 +222,7 @@ Canonical location:
 
 ```txt
 apps/graph/components/graph/Graph2DCanvas.tsx
-apps/graph/graph2d/
+apps/graph/components/graph/graph2d/
 ```
 
 Rules:
@@ -245,6 +245,7 @@ apps/graph/lib/scene/validateScene*.ts
 
 Rules:
 
+- Use the existing domain subfolders described in `docs/development/repository-layout.md`.
 - Do not evaluate raw user expressions outside the approved math layer.
 - Do not add `eval`, `Function`, dynamic imports, or arbitrary JavaScript execution.
 - Do not let math expression errors crash the editor shell.

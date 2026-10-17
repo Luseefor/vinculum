@@ -22,7 +22,6 @@ export type Graph2DCanvasUiChromeProps = {
   setSketchFitPreview: (v: SketchFitPreview | null) => void;
   addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[], axisPair?: Axis2DPair) => string;
   isQuadTop: boolean;
-  axis2dPairQuadTop: Axis2DPair;
   probePins: GraphProbePin[];
   measurements: SceneMeasurement[];
   measurementDraft: { kind: "distance" | "angle"; points: { x: number; y: number; z: number }[] } | null;
@@ -43,7 +42,6 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
     setSketchFitPreview,
     addSketchedParametricFromStroke,
     isQuadTop,
-    axis2dPairQuadTop,
     probePins,
     measurements,
     measurementDraft,
@@ -53,7 +51,7 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
 
   return (
     <>
-      <Graph2DCanvasUiTopIdentity pairForCanvas={pairForCanvas} canvas2dTool={canvas2dTool} />
+      <Graph2DCanvasUiTopIdentity pairForCanvas={pairForCanvas} canvas2dTool={canvas2dTool} isQuadTop={isQuadTop} />
       {mousePos && (
         <Graph2DCanvasUiCursorTooltip
           containerRef={containerRef}
@@ -76,8 +74,6 @@ export function Graph2DCanvasUiChrome(props: Graph2DCanvasUiChromeProps) {
         sketchFitPreview={sketchFitPreview}
         setSketchFitPreview={setSketchFitPreview}
         addSketchedParametricFromStroke={addSketchedParametricFromStroke}
-        isQuadTop={isQuadTop}
-        axis2dPairQuadTop={axis2dPairQuadTop}
         probePins={probePins}
         measurements={measurements}
         measurementDraft={measurementDraft}

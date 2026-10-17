@@ -81,6 +81,13 @@ for (const width of [320, 390, 1024]) {
       await page.keyboard.press("Escape");
       await expect(sheet).toHaveCount(0);
     }
+    // Inspect settled colors: the definition row fades in on creation.
+    // Keep contrast checks enabled and await the actual finite animations.
+    await page.locator(".app-shell").evaluate(async element => {
+      await Promise.all(element.getAnimations({ subtree: true })
+        .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => {})));
+    });
     const axe = await new AxeBuilder({ page }).include(".app-shell").analyze();
     expect(axe.violations).toEqual([]);
   });

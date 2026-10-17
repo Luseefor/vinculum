@@ -1,6 +1,7 @@
 {
   "name": "vinculum",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -18,6 +19,24 @@
     "prepare:math": "bun scripts/prepare-math-assets.ts",
     "video:dev": "bun run --filter @vinculum/video dev",
     "video:build": "bun run --filter @vinculum/video build",
-    "video:build:vertical": "bun run --filter @vinculum/video build:vertical"
+    "video:build:vertical": "bun run --filter @vinculum/video build:vertical",
+    "test:dependencies": "bun scripts/check-dependencies.mjs",
+    "audit:release": "bun scripts/check-dependencies.mjs --audit",
+    "check:public-source": "bun scripts/public-source.mjs",
+    "export:public-source": "bun scripts/public-source.mjs --output",
+    "prepare:public-repository": "bun scripts/public-source.mjs --initialize --output",
+    "test:release-scripts": "node --test scripts/public-source.test.mjs scripts/check-dependencies.test.mjs"
+  },
+  "overrides": {
+    "postcss": "8.5.30",
+    "postcss-selector-parser": "7.1.6",
+    "fast-glob": "npm:tinyglobby@0.2.17"
+  },
+  "patchedDependencies": {
+    "@next/eslint-plugin-next@15.5.28": "patches/@next%2Feslint-plugin-next@15.5.28.patch"
+  },
+  "packageManager": "bun@1.4.3",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   }
 }

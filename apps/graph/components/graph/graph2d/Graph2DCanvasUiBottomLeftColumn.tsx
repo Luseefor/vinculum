@@ -21,8 +21,6 @@ export type Graph2DCanvasUiBottomLeftColumnProps = {
     stroke: { horizontal: number; vertical: number }[],
     axisPair?: Axis2DPair
   ) => string;
-  isQuadTop: boolean;
-  axis2dPairQuadTop: Axis2DPair;
   probePins: GraphProbePin[];
   measurements: SceneMeasurement[];
   measurementDraft: { kind: "distance" | "angle"; points: { x: number; y: number; z: number }[] } | null;
@@ -38,8 +36,6 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
     sketchFitPreview,
     setSketchFitPreview,
     addSketchedParametricFromStroke,
-    isQuadTop,
-    axis2dPairQuadTop,
     probePins,
     measurements,
     measurementDraft,
@@ -48,30 +44,28 @@ export function Graph2DCanvasUiBottomLeftColumn(props: Graph2DCanvasUiBottomLeft
   } = props;
 
   const showProbeBlock =
-    !isQuadTop &&
     (probePins.length > 0 || measurements.some((measurement) => measurement.kind !== "pin") || measurementDraft);
 
   return (
-    <div className="absolute bottom-24 left-3 z-[24] flex max-h-[calc(100%-7rem)] max-w-[min(480px,calc(100%-4rem))] min-w-0 flex-col gap-1.5 overflow-hidden">
+    <div className="absolute bottom-24 left-3 z-24 flex max-h-[calc(100%-7rem)] max-w-[min(480px,calc(100%-4rem))] min-w-0 flex-col gap-1.5 overflow-hidden">
       {sketchFitPreview && (
         <Graph2DCanvasUiSketchFitPreview
           axisPair={axisPair}
           sketchFitPreview={sketchFitPreview}
           setSketchFitPreview={setSketchFitPreview}
           addSketchedParametricFromStroke={addSketchedParametricFromStroke}
-          isQuadTop={isQuadTop}
-          axis2dPairQuadTop={axis2dPairQuadTop}
+          pairForCanvas={pairForCanvas}
         />
       )}
       {/* Readout card fades in while the pointer is over the canvas or when it
           carries probe/measurement data; otherwise the graph stays unobstructed. */}
       <div
         className={cn(
-          "flex min-w-0 flex-col gap-1 overflow-y-auto rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-2 shadow-[var(--shadow-control)] transition-opacity duration-[var(--motion-fast)] motion-reduce:transition-none",
+          "flex min-w-0 flex-col gap-1 overflow-y-auto rounded-[var(--ui-radius-md)] border border-(--border-subtle) bg-(--surface-overlay) p-2 shadow-(--shadow-control) transition-opacity duration-(--motion-fast) motion-reduce:transition-none",
           mousePos || showProbeBlock ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >
-        <div className="flex min-w-0 flex-col divide-y divide-[var(--border-subtle)]/55">
+        <div className="flex min-w-0 flex-col divide-y divide-(--border-subtle)/55">
           {mousePos ? (
             <div className="min-w-0 py-1 first:pt-0">
               <Graph2DCanvasUiCursorCoordsBadge mousePos={mousePos} axisPair={axisPair} canvas2dTool={canvas2dTool} embedded />

@@ -6,7 +6,7 @@ import { getObjectRowDisplayMeta } from "@/components/objects/objectRowUtils";
 import AdvancedTab from "@/components/inspector/AdvancedTab";
 import AnalysisTab from "@/components/inspector/AnalysisTab";
 import AppearanceTab from "@/components/inspector/AppearanceTab";
-import ConstraintsTab from "@/components/inspector/ConstraintsTab";
+import ObjectOperationsSection from "@/components/inspector/ObjectOperationsSection";
 import ObjectTab from "@/components/inspector/ObjectTab";
 import { createAndFocus } from "@/lib/objects/objectCreation";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,12 +38,11 @@ export default function InspectorPanel({
   const measurementCount = useGraphStore((state) => state.scene.measurements.length);
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const toggleObjectVisibility = useGraphStore((state) => state.toggleObjectVisibility);
-  const constraints = useEditorStore((state) => state.constraints);
   // Primary workflows stay visible; occasional object tools belong in Settings.
   const [tab, setTab] = useState<"object" | "analysis" | "appearance">("object");
   const tabIds = ["object", "analysis", "appearance"] as const;
   const hasSelection = Boolean(selectedObject && mode !== "scene");
-  const canShowLinks = objects.length > 1 || constraints.some((constraint) => constraint.objectIds.includes(selectedObjectId ?? ""));
+  const canShowOperations = objects.length > 1;
   type InspectorTabId = (typeof tabIds)[number];
   const tabButtonRefs = useRef<Partial<Record<InspectorTabId, HTMLButtonElement | null>>>({});
 
@@ -72,31 +71,31 @@ export default function InspectorPanel({
   return (
     <aside
       aria-label="Inspector"
-      className="inspector-panel flex h-full min-w-0 max-w-full shrink-0 flex-col border-l border-[var(--border-subtle)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
+      className="inspector-panel flex h-full min-w-0 max-w-full shrink-0 flex-col border-l border-(--border-subtle) bg-(--editor-chrome) transition-[width] duration-100 motion-reduce:transition-none"
       style={{ width: width ?? "100%" }}
     >
       <div className="flex flex-col gap-4 px-4 pb-3 pt-4">
         <div className="flex min-w-0 items-center gap-3">
           <div
             aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface-muted)]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--ui-radius-md)] bg-(--surface-muted)"
             style={selectedObject ? { backgroundColor: `color-mix(in srgb, ${selectedObject.color} 16%, transparent)` } : undefined}
           >
             {selectedObject ? (
               <span className="h-3 w-3 rounded-full" style={{ backgroundColor: selectedObject.color }} />
             ) : (
-              <OrbitAtomIcon className="h-4 w-4 text-[var(--text-tertiary)]" />
+              <OrbitAtomIcon className="h-4 w-4 text-(--text-tertiary)" />
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[14px] font-semibold tracking-tight text-[var(--text-primary)]">
+            <h2 className="truncate text-[14px] font-semibold tracking-tight text-(--text-primary)">
               {selectedObject && selectedMeta
                 ? `${selectedMeta.label} #${selectedIndex + 1}`
                 : mode === "tool"
                   ? activeToolLabel
                   : "Scene"}
             </h2>
-            <p className="truncate text-[12px] text-[var(--text-tertiary)]">
+            <p className="truncate text-[12px] text-(--text-tertiary)">
               {selectedObject && selectedMeta
                 ? `${objectKindLabel(selectedObject.kind)}${selectedObject.visible ? "" : " · Hidden"}`
                 : mode === "tool"
@@ -125,7 +124,7 @@ export default function InspectorPanel({
         </div>
 
         {mode === "tool" ? (
-          <p className="rounded-[var(--radius-md)] bg-[var(--accent-soft)] px-3 py-2 text-[12px] text-[var(--accent-ink)]">
+          <p className="rounded-[var(--ui-radius-md)] bg-(--accent-soft) px-3 py-2 text-[12px] text-(--accent-ink)">
             Follow the viewport steps. Press Escape to stop.
           </p>
         ) : null}
@@ -166,29 +165,29 @@ export default function InspectorPanel({
           id="graph-inspector"
           aria-labelledby={hasSelection ? `inspector-tab-${tab}` : undefined}
           tabIndex={0}
-          className="min-w-0 px-4 py-4 outline-none transition-opacity duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--accent)]"
+          className="min-w-0 px-4 py-4 outline-hidden transition-opacity duration-100 motion-reduce:transition-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-(--accent)"
         >
           {!hasSelection || !selectedObject ? (
             <div className="flex min-h-[200px] flex-col items-center justify-center px-4 text-center">
-              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
-                <OrbitAtomIcon className="h-4 w-4 text-[var(--accent-ink)]" />
+              <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-[var(--ui-radius-sm)] border border-(--border-subtle) bg-transparent">
+                <OrbitAtomIcon className="h-4 w-4 text-(--accent-ink)" />
               </div>
-              <p className="text-[13px] font-semibold text-[var(--text-primary)]">No selection</p>
-              <p className="mt-1 max-w-[220px] text-[12px] text-[var(--text-tertiary)]">
+              <p className="text-[13px] font-semibold text-(--text-primary)">No selection</p>
+              <p className="mt-1 max-w-[220px] text-[12px] text-(--text-tertiary)">
                 Select an object to edit its definition and analysis.
               </p>
               <div className="mt-3 flex w-full max-w-[240px] gap-2">
                 {onOpenExamples ? <button
                   type="button"
                   onClick={onOpenExamples}
-                  className="h-8 flex-1 rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-transparent text-[12px] font-medium text-[var(--text-secondary)] outline-none transition-colors hover:text-[var(--text-primary)] focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[var(--ui-radius-md)] border border-(--border-subtle) bg-transparent text-[12px] font-medium text-(--text-secondary) outline-hidden transition-colors hover:text-(--text-primary) focus-visible:ring-1 focus-visible:ring-(--accent)"
                 >
                   Examples
                 </button> : null}
                 <button
                   type="button"
                   onClick={() => createAndFocus(() => addEmptyObject())}
-                  className="h-8 flex-1 rounded-[var(--radius-md)] border border-[var(--accent)] bg-[var(--accent-soft)] text-[12px] font-medium text-[var(--accent-ink)] outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+                  className="h-8 flex-1 rounded-[var(--ui-radius-md)] border border-(--accent) bg-(--accent-soft) text-[12px] font-medium text-(--accent-ink) outline-hidden transition-colors focus-visible:ring-1 focus-visible:ring-(--accent)"
                 >
                   Add Object
                 </button>
@@ -208,7 +207,7 @@ export default function InspectorPanel({
               </>}
               {tab === "appearance" && <>
                 <AppearanceTab />
-                {canShowLinks ? <InspectorDisclosure title="Object links"><ConstraintsTab /></InspectorDisclosure> : null}
+                {canShowOperations ? <InspectorDisclosure title="Object operations"><ObjectOperationsSection /></InspectorDisclosure> : null}
                 <InspectorDisclosure title="Object data"><AdvancedTab /></InspectorDisclosure>
               </>}
             </div>
@@ -233,11 +232,11 @@ function objectKindLabel(kind: string): string {
 }
 
 function analysisHelp(kind: string): string {
-  if (kind === "surface") return "Gradient, Laplacian, field colors and integrals.";
-  if (kind === "implicitSurface") return "Gradient, normals and field colors.";
+  if (kind === "surface") return "Intersections, gradient, field colors and integrals.";
+  if (kind === "implicitSurface") return "Intersections, gradient, normals and field colors.";
   if (kind === "vectorField") return "Divergence, curl, field direction and streamlines.";
   if (kind === "parametricCurve") return "Arc length and line integrals.";
-  if (kind === "parametricSurface") return "Surface area and surface integrals.";
+  if (kind === "parametricSurface") return "Intersections, surface area and surface integrals.";
   if (kind === "linearTransform") return "Determinant, inverse, rank and eigendirections.";
   return "Measurements and geometric properties of this object.";
 }

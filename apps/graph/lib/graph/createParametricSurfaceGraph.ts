@@ -1,8 +1,9 @@
-import { createDefaultParametricSurfaceGraph } from "@vinculum/scene/defaults";
+import { createDefaultParametricSurfaceGraph, withParametricDimension } from "@vinculum/scene/defaults";
 import type { ParametricSurfaceDomain, ParametricSurfaceObject, SurfaceAppearance } from "@vinculum/scene/types";
 
 interface CreateParametricSurfaceGraphInput {
   colorIndex?: number;
+  dimension?: "2d" | "3d";
   xExpr?: string;
   yExpr?: string;
   zExpr?: string;
@@ -22,7 +23,7 @@ function createParametricSurfaceGraphId(): string {
 }
 
 export function createParametricSurfaceGraph(input: CreateParametricSurfaceGraphInput = {}): ParametricSurfaceObject {
-  return createDefaultParametricSurfaceGraph({
+  return withParametricDimension(createDefaultParametricSurfaceGraph({
     id: input.id ?? createParametricSurfaceGraphId(),
     index: input.colorIndex,
     xExpr: input.xExpr,
@@ -33,5 +34,5 @@ export function createParametricSurfaceGraph(input: CreateParametricSurfaceGraph
     visible: input.visible,
     color: input.color,
     appearance: input.appearance
-  });
+  }), input.dimension ?? "3d");
 }

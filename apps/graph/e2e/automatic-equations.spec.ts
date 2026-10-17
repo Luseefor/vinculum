@@ -1,5 +1,6 @@
+import { readRecoveryScene } from "./helpers/recoveryScene";
 import { expect, test, type Page } from "@playwright/test";
-import { fillInput } from "./helpers/mathInput";
+import { expectInputFocused, fillInput } from "./helpers/mathInput";
 
 async function start(page: Page, width = 1440) {
   await page.setViewportSize({ width, height: 844 });
@@ -12,9 +13,9 @@ const blank = (page: Page) => page.locator('[data-auto-equation-input]').filter(
 const newInput = (page: Page) => blank(page).locator('[aria-label="New equation"]').first();
 const source = (page: Page) => blank(page).locator('input.math-source-input');
 async function savedObjects(page: Page) {
-  return page.evaluate(() => {
-    const raw = localStorage.getItem("vinculum-unnamed-scene-recovery-v1");
-    return raw ? JSON.parse(JSON.parse(raw).sceneJson).objects as { id: string; kind: string; equation: string; autoExpression?: boolean }[] : [];
+  return ((await readRecoveryScene(page))?.objects ?? []).map(object => {
+    if (!("equation" in object)) throw new Error("Expected an equation object in this fixture.");
+    return object;
   });
 }
 
@@ -94,3 +95,76 @@ test("types a relation directly in the typeset math editor", async ({ page }) =>
   await expect(blank(page).locator('math-field')).toBeVisible();
   expect((await savedObjects(page))[0].equation).toMatch(/^x\s*=.*y/);
 });
+
+for (const width of [390, 1440]) {
+  test(`${width}px Add empty expression matches direct entry and Enter focuses the next row`, async ({ page }) => {
+    await start(page, width);
+    if (width < 720) await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "3D only", exact: true }).click();
+    if (width < 720) await page.getByRole("button", { name: "Objects", exact: true }).click();
+    await page.getByRole("button", { name: "Open object menu" }).click();
+    await page.getByRole("button", { name: "Empty expression", exact: true }).click();
+    const rowEditor = page.getByRole("complementary", { name: "Scene Navigator" }).locator('[data-auto-equation-input]').filter({ has: page.locator('[aria-label="Equation"]') });
+    const equation = rowEditor.first().locator('[aria-label="Equation"]').first();
+    await expectInputFocused(equation);
+    await fillInput(equation, "x=y^2");
+    await expect.poll(() => savedObjects(page)).toMatchObject([{ kind: "implicitCurve", equation: "x=y^2" }]);
+    await expect(page.getByRole("button", { name: "2D only", exact: true, includeHidden: true })).toHaveAttribute("aria-pressed", "true");
+    await fillInput(equation, "x=y^2+z^2");
+    const rowSource = rowEditor.first().locator('input.math-source-input');
+    await expect(rowSource).toBeFocused();
+    // Initializing the single 3D view can delay the debounced recovery write on software renderers.
+    await expect.poll(() => savedObjects(page), { timeout: 15_000 }).toMatchObject([{ kind: "surface", equation: "x=y^2+z^2" }]);
+    await expect(page.getByRole("button", { name: "3D only", exact: true, includeHidden: true })).toHaveAttribute("aria-pressed", "true");
+    await fillInput(equation, "x=");
+    await expect(rowEditor.first().getByRole("status")).toBeVisible();
+    expect(await savedObjects(page)).toMatchObject([{ equation: "x=y^2+z^2" }]);
+    await fillInput(equation, "x=y^2");
+    await rowSource.press("Enter");
+    // Unfinished rows belong to the raw session draft, not the validated
+    // recovery document. The last healthy recovery remains intact until both
+    // definitions are complete.
+    await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("vinculum-graph-session")!).state.scene.objects))
+      .toMatchObject([{ kind: "implicitCurve", equation: "x=y^2" }, { kind: "implicitCurve", equation: "" }]);
+    expect(await savedObjects(page)).toHaveLength(1);
+    const next = rowEditor.nth(1);
+    await expectInputFocused(next.locator('[aria-label="Equation"]').first());
+    await fillInput(next.locator('[aria-label="Equation"]').first(), "y=sin(x)");
+    await next.locator('input.math-source-input').press("Tab");
+    await expect.poll(() => savedObjects(page)).toMatchObject([{ equation: "x=y^2" }, { equation: "y=sin(x)" }]);
+    await page.reload();
+    await expect.poll(() => savedObjects(page)).toMatchObject([{ equation: "x=y^2" }, { equation: "y=sin(x)" }]);
+  });
+}
+
+
+for (const width of [390, 1440]) {
+  test(`${width}px equation entry stays in place through preview and matches Add`, async ({ page }) => {
+    await start(page, width);
+    const draft = newInput(page);
+    await fillInput(draft, "");
+    const before = await source(page).boundingBox();
+    await source(page).fill("y=x^2");
+    await expect(page.getByTestId("scene-object-count")).toHaveText("1");
+    const during = await source(page).boundingBox();
+    expect(Math.abs(during!.y - before!.y)).toBeLessThan(2);
+    expect(Math.abs(during!.x - before!.x)).toBeLessThan(2);
+    await expect(source(page)).toBeFocused();
+    await source(page).press("Enter");
+    const navigator = page.getByRole("complementary", { name: "Scene Navigator" });
+    const finalized = navigator.locator('[data-auto-equation-input]').filter({ has: page.locator('[aria-label="Equation"]') });
+    const field = finalized.first();
+    await expect(field).toBeVisible();
+    expect(Math.abs((await field.boundingBox())!.y - before!.y)).toBeLessThan(2);
+    await expect(navigator.getByText("Definition", { exact: true })).toHaveCount(0);
+    await expect(source(page)).toBeFocused();
+    await page.getByRole("button", { name: "Open object menu" }).click();
+    await page.getByRole("button", { name: "Empty expression", exact: true }).click();
+    await expectInputFocused(finalized.nth(1).locator('[aria-label="Equation"]').first());
+    await page.keyboard.press("ArrowDown");
+    await expectInputFocused(finalized.nth(1).locator('[aria-label="Equation"]').first());
+    const added = await finalized.nth(1).boundingBox();
+    expect(Math.abs(added!.x - (await field.boundingBox())!.x)).toBeLessThan(2);
+    await expect(navigator.getByText("Definition", { exact: true })).toHaveCount(0);
+  });
+}

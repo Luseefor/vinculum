@@ -8,11 +8,16 @@ on:
       - "project-description.md"
       - "bun.lock"
       - "package.json"
+      - ".node-version"
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
-      - "scripts/build-math-wasm.ts"
-      - "scripts/prepare-math-assets.ts"
+      - "scripts/**"
+      - "patches/**"
+      - "docs/reports/media-provenance.json"
+      - "apps/video/public/**"
+      - "THIRD_PARTY_NOTICES.md"
+      - "LICENSE"
       - ".github/workflows/graph.yml"
   pull_request:
     paths:
@@ -21,11 +26,16 @@ on:
       - "project-description.md"
       - "bun.lock"
       - "package.json"
+      - ".node-version"
       - "Cargo.toml"
       - "Cargo.lock"
       - "rust-toolchain.toml"
-      - "scripts/build-math-wasm.ts"
-      - "scripts/prepare-math-assets.ts"
+      - "scripts/**"
+      - "patches/**"
+      - "docs/reports/media-provenance.json"
+      - "apps/video/public/**"
+      - "THIRD_PARTY_NOTICES.md"
+      - "LICENSE"
       - ".github/workflows/graph.yml"
 
 jobs:
@@ -35,12 +45,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.3"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Dependency audit and patch regressions
+        run: bun run audit:release
+
+      - name: Public source and media review
+        run: |
+          bun run test:release-scripts
+          bun run check:public-source
 
       - uses: dtolnay/rust-toolchain@1.91.1
         with:
@@ -121,9 +144,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.3"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -166,9 +194,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+          package-manager-cache: false
+
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.3"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - uses: dtolnay/rust-toolchain@1.91.1

@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import type { ImplicitSurfaceObject, SurfaceGraphObject, VectorFieldObject } from "@vinculum/scene/types";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { parametersToScope } from "@/lib/store/editorParameters";
-import { normalizeSurfaceLevelSet } from "@/lib/math/surfaceDifferential";
-import { solveComplexField } from "@/lib/math/complexFieldAnalysis";
-import { solveFieldProblem, type FieldSolution } from "@/lib/math/fieldSolutions";
+import { normalizeSurfaceLevelSet } from "@/lib/math/calculus/surfaceDifferential";
+import { solveComplexField } from "@/lib/math/fields/complexFieldAnalysis";
+import { solveFieldProblem, type FieldSolution } from "@/lib/math/fields/fieldSolutions";
 import FieldSolutionView from "./FieldSolutionView";
 
 export default function AutomaticFieldAnalysis({ object }: { object: VectorFieldObject | SurfaceGraphObject | ImplicitSurfaceObject }) {
@@ -41,11 +41,11 @@ export default function AutomaticFieldAnalysis({ object }: { object: VectorField
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return (
-    <section className="border-b border-[var(--border-subtle)] pb-4" aria-label="Automatic field solution">
-      <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Automatic solution</h3>
-      <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Derived from the definition. No point required.</p>
-      {object.kind === "vectorField" && object.dimension === "2d" ? <label className="mt-2 block text-[12px] text-[var(--text-secondary)]">Interpret as
-        <select aria-label="Field interpretation" value={interpretation} onChange={(event) => setInterpretation(event.target.value as "vector" | "complex")} className="mt-1 h-8 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-2 text-[12px] text-[var(--text-primary)]">
+    <section className="border-b border-(--border-subtle) pb-4" aria-label="Automatic field solution">
+      <h3 className="text-[13px] font-semibold text-(--text-primary)">Automatic solution</h3>
+      <p className="mt-1 text-[11px] text-(--text-tertiary)">Derived from the definition. No point required.</p>
+      {object.kind === "vectorField" && object.dimension === "2d" ? <label className="mt-2 block text-[12px] text-(--text-secondary)">Interpret as
+        <select aria-label="Field interpretation" value={interpretation} onChange={(event) => setInterpretation(event.target.value as "vector" | "complex")} className="mt-1 h-8 w-full rounded-sm border border-(--border-subtle) bg-(--surface-raised) px-2 text-[12px] text-(--text-primary)">
           <option value="vector">Real vector field (P,Q)</option><option value="complex">Complex function P + i Q</option>
         </select>
       </label> : null}

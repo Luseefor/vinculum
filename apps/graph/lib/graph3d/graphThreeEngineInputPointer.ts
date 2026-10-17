@@ -8,7 +8,7 @@ import { pickGeometryPrimitiveAtPointer, pickHitsAnyVisibleObject } from "./grap
 import type { GraphThreeEngineInputHandlersDeps } from "./graphThreeEngineInputTypes";
 import { appendThreeSketchPoint, clearThreeSketch } from "./graphThreeSketchStroke";
 import { constrainSketchPointToBaselinePlane } from "./graphThreeEngineSketchBaseline";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 
 function pickWorld(deps: GraphThreeEngineInputHandlersDeps, event: { clientX: number; clientY: number }) {
   const pickOverride = deps.resolvePickContext?.(event.clientX, event.clientY) ?? null;
@@ -143,6 +143,15 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     clearSketch();
   };
 
+  const handlePointerCancel = () => {
+    mutable.isSketching = false;
+    mutable.hoverProbePoint = null;
+    mutable.analysisPickDown = null;
+    mutable.primitivePickDown = null;
+    clearSketch();
+    deps.setHoverProbeBadge(null, 0, 0);
+  };
+
   const handlePointerLeave = () => {
     mutable.hoverProbePoint = null;
     mutable.analysisPickDown = null;
@@ -154,6 +163,7 @@ export function createGraphThreePointerInputHandlers(deps: GraphThreeEngineInput
     handlePointerMove,
     handlePointerDown,
     handlePointerUp,
+    handlePointerCancel,
     handlePointerLeave
   };
 }

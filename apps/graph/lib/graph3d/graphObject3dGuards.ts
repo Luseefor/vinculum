@@ -1,10 +1,11 @@
-import { createImplicitSurfaceGraph } from "@/lib/graph/createImplicitSurfaceGraph";
 import type { GraphObject } from "@vinculum/scene/types";
+import type { DisplayImplicitCurve } from "./buildGraphImplicitCurve";
+import { extendCurveToSurface } from "@/lib/math/curves/curveExtension";
 
 /** Project an opted-in curve into the existing surface renderer without changing scene data. */
 export function getGraphObjectFor3D(object: GraphObject): GraphObject {
   if (object.kind !== "implicitCurve" || !object.extendTo3D) return object;
-  return createImplicitSurfaceGraph({ id: object.id, equation: object.equation, color: object.color, visible: object.visible, resolution: 48 });
+  return extendCurveToSurface(object, (object as DisplayImplicitCurve).displayDomain);
 }
 
 export function isGraphObjectRenderable3D(object: GraphObject): boolean {
@@ -54,7 +55,8 @@ export function isGraphObjectRenderable3D(object: GraphObject): boolean {
         : [object.m11, object.m12, object.m13, object.m21, object.m22, object.m23, object.m31, object.m32, object.m33];
     return entries.some((expr) => expr.trim().length > 0);
   }
-  return false;
+  const unhandled: never = object;
+  throw new Error(`Unsupported graph object: ${String(unhandled)}`);
 }
 
 export function sceneHasVisibleSurface(objects: GraphObject[]): boolean {

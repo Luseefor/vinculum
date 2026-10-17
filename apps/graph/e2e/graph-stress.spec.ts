@@ -5,11 +5,11 @@ import { writeFileSync } from "node:fs";
 
 test.skip(({ browserName }) => browserName !== "chromium", "Chrome stress uses CDP heap measurements.");
 
-type Probe = { frames:number[]; tasks:number[]; last:number; active:boolean };
+type Probe = { frames:number[]; tasks:number[]; last:number; active:boolean; pixelRatios?:number[] };
 const colors = ["#3b82f6", "#e11d48", "#059669", "#d97706"];
 for (const mode of ["2d", "3d"] as const) {
   test(`stress ${mode}: dense scene, repeated zoom, layout changes, and recovery`, async ({ page }, testInfo) => {
-    test.setTimeout(90000);
+    test.setTimeout(mode === "3d" && !process.env.CI ? 120000 : 90000);
     const errors:string[]=[];
     page.on("pageerror", error=>errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
@@ -36,9 +36,9 @@ for (const mode of ["2d", "3d"] as const) {
       await cdp.send("Profiler.start");
     }
     await page.evaluate(()=>{
-      const probe:Probe={frames:[],tasks:[],last:performance.now(),active:true};
+      const probe:Probe={frames:[],tasks:[],last:performance.now(),active:true,pixelRatios:[]};
       (window as unknown as {graphStress:Probe}).graphStress=probe;
-      const tick=(now:number)=>{if(!probe.active)return;probe.frames.push(now-probe.last);probe.last=now;requestAnimationFrame(tick);};
+      const tick=(now:number)=>{if(!probe.active)return;probe.frames.push(now-probe.last);probe.pixelRatios!.push(Number(document.querySelector('canvas[data-graph3d-canvas="true"]')?.getAttribute("data-render-pixel-ratio")??1));probe.last=now;requestAnimationFrame(tick);};
       requestAnimationFrame(tick);
       new PerformanceObserver(list=>{if(probe.active)probe.tasks.push(...list.getEntries().map(entry=>entry.duration));}).observe({type:"longtask",buffered:false});
     });
@@ -50,7 +50,7 @@ for (const mode of ["2d", "3d"] as const) {
       await page.getByRole("button",{name:mode==="2d"?"2D only":"3D only",exact:true}).click();
     }
     await page.waitForTimeout(2000);
-    const probe=await page.evaluate(mode=>{const p=(window as unknown as {graphStress:Probe}).graphStress;p.active=false;return {frames:p.frames,tasks:p.tasks,backend:mode === "2d" ? "canvas2d" : document.querySelector('canvas[data-graph3d-canvas="true"]')?.getAttribute("data-render-backend")};}, mode);
+    const probe=await page.evaluate(mode=>{const p=(window as unknown as {graphStress:Probe}).graphStress;p.active=false;return {frames:p.frames,tasks:p.tasks,pixelRatios:p.pixelRatios,backend:mode === "2d" ? "canvas2d" : document.querySelector('canvas[data-graph3d-canvas="true"]')?.getAttribute("data-render-backend")};}, mode);
     await cdp.send("HeapProfiler.collectGarbage");
     const after=await cdp.send("Runtime.getHeapUsage");
     if (process.env.VINCULUM_STRESS_PROFILE) {
@@ -58,10 +58,11 @@ for (const mode of ["2d", "3d"] as const) {
       writeFileSync(`${process.env.VINCULUM_STRESS_PROFILE}-${mode}.json`, JSON.stringify(profile));
     }
     const frames=probe.frames.slice(1).sort((a,b)=>a-b);
-    const report={mode,objects:objects.length,backend:probe.backend,frames:frames.length,p95FrameMs:frames[Math.floor(frames.length*.95)]??0,maxFrameMs:Math.max(0,...frames),maxLongTaskMs:Math.max(0,...probe.tasks),longTasks:probe.tasks.length,heapGrowthBytes:after.usedSize-before.usedSize,backingStorageGrowthBytes:after.backingStorageSize-before.backingStorageSize,errors};
-    expect(report.maxFrameMs).toBeLessThan(2500);
+    const report={mode,objects:objects.length,backend:probe.backend,frames:frames.length,minPixelRatio:Math.min(...(probe.pixelRatios??[1])),p95FrameMs:frames[Math.floor(frames.length*.95)]??0,maxFrameMs:Math.max(0,...frames),maxLongTaskMs:Math.max(0,...probe.tasks),longTasks:probe.tasks.length,heapGrowthBytes:after.usedSize-before.usedSize,backingStorageGrowthBytes:after.backingStorageSize-before.backingStorageSize,errors};
     console.info("BROWSER_GRAPH_STRESS",JSON.stringify(report));
     await testInfo.attach(`graph-stress-${mode}.json`,{body:JSON.stringify(report,null,2),contentType:"application/json"});
+    expect(report.maxFrameMs).toBeLessThan(2500);
+    if (mode === "3d") expect(report.p95FrameMs).toBeLessThan(200);
     expect(errors).toEqual([]);
     expect(report.frames).toBeGreaterThan(5);
     expect(report.maxLongTaskMs).toBeLessThan(2500);

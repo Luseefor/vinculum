@@ -1,6 +1,6 @@
 import type { ParametricSurfaceObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
+import { computeParametricSurfaceData } from "@/lib/math/surfaces/computeParametricSurfaceData";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";

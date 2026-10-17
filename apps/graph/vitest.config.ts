@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
+    // Bound DOM/math worker contention locally and in CI; keep all budgets unchanged.
+    maxWorkers: 2,
     environment: 'jsdom',
     setupFiles: ['./test/setup.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/.{idea,git,cache,output,temp}/**'],

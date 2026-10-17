@@ -1,4 +1,4 @@
-import type { GraphObjectKind } from "@vinculum/scene/types";
+import { GRAPH_OBJECT_KINDS, type GraphObjectKind } from "@vinculum/scene/types";
 import { CURRENT_SCENE_SCHEMA_VERSION, DEFAULT_SCENE_NAME, SCENE_DOCUMENT_VERSION } from "./sceneSchema";
 import {
   MAX_SCENE_LABEL_LENGTH,
@@ -76,25 +76,10 @@ export function parseSceneMetadata(value: unknown, errors: string[]): {
 }
 
 export function parseObjectKind(value: unknown, path: string, errors: string[]): GraphObjectKind | null {
-  if (
-    value === "surface" ||
-    value === "implicitCurve" ||
-    value === "parametricCurve" ||
-    value === "plane" ||
-    value === "parametricSurface" ||
-    value === "implicitSurface" ||
-    value === "vectorField" ||
-    value === "point" ||
-    value === "vector" ||
-    value === "line" ||
-    value === "ray" ||
-    value === "segment" ||
-    value === "linearTransform"
-  ) {
-    return value;
-  }
+  const kind = GRAPH_OBJECT_KINDS.find(kind => kind === value);
+  if (kind) return kind;
 
-  errors.push(`${path} must be one of: surface, implicitCurve, parametricCurve, plane, parametricSurface, implicitSurface, vectorField, point, vector, line, ray, segment, linearTransform.`);
+  errors.push(`${path} must be one of: ${GRAPH_OBJECT_KINDS.join(", ")}.`);
   return null;
 }
 

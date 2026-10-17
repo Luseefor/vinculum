@@ -31,13 +31,13 @@ export function Graph2DCanvasUiProbePinsSummary({
     <div
       className={
         embedded
-          ? "min-w-0 truncate font-mono text-[10px] text-[var(--text-primary)]"
-          : "max-w-[min(280px,calc(100%-1rem))] rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[11px] text-[var(--text-primary)]"
+          ? "min-w-0 truncate font-mono text-[10px] text-(--text-primary)"
+          : "max-w-[min(280px,calc(100%-1rem))] rounded-sm border border-(--border-subtle) bg-(--surface-overlay) px-2 py-1 font-mono text-[11px] text-(--text-primary)"
       }
     >
-      <div className="mb-0.5 text-[var(--text-tertiary)] font-medium">Measurements</div>
+      <div className="mb-0.5 text-(--text-tertiary) font-medium">Measurements</div>
       {measurementDraft ? (
-        <div className="mt-0.5 text-[var(--text-tertiary)]">
+        <div className="mt-0.5 text-(--text-tertiary)">
           Draft {measurementDraft.kind === "distance" ? "distance" : "angle"} ({measurementDraft.points.length}/
           {measurementDraft.kind === "distance" ? 2 : 3})
         </div>
@@ -60,7 +60,7 @@ export function Graph2DCanvasUiProbePinsSummary({
         );
       })}
       {(probePins.length > 3 || nonPinMeasurements.length > 3) && (
-        <div className="mt-0.5 text-[var(--text-tertiary)] opacity-60">...</div>
+        <div className="mt-0.5 text-(--text-tertiary) opacity-60">...</div>
       )}
     </div>
   );

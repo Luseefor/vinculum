@@ -9,6 +9,7 @@ export function updateParametricSurfaceField(
   field: ParametricSurfaceField,
   value: string | number
 ): ParametricSurfaceObject | null {
+  if (field === "zExpr" && object.dimension === "2d") return null;
   if (field === "xExpr" || field === "yExpr" || field === "zExpr") {
     return {
       ...object,

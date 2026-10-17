@@ -101,7 +101,7 @@ export const OpeningSequence: React.FC<OpeningSequenceProps> = ({
           transform: `translateY(${interpolate(frame, [15, 105], [15, -15])}px)`,
         }}
       >
-        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded shadow-lg">
+        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md border border-cyan-500/30 px-3 py-1.5 rounded-sm shadow-lg">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
           <span className="text-slate-400 font-semibold tracking-wider uppercase text-[10px]">
             Trajectory Vector
@@ -112,7 +112,7 @@ export const OpeningSequence: React.FC<OpeningSequenceProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md border border-rose-500/30 px-3 py-1.5 rounded shadow-lg w-fit">
+        <div className="flex items-center gap-2 bg-slate-900/80 backdrop-blur-md border border-rose-500/30 px-3 py-1.5 rounded-sm shadow-lg w-fit">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
           <span className="text-slate-400 font-semibold tracking-wider uppercase text-[10px]">
             Velocity Unit
@@ -159,14 +159,14 @@ export const OpeningSequence: React.FC<OpeningSequenceProps> = ({
           </div>
 
           {/* Actual Vinculum Editor Screenshot */}
-          <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#070b16]">
+          <div className="relative aspect-16/10 w-full overflow-hidden bg-[#070b16]">
             <img
               src={staticFile("landing/editor-dark.jpg")}
               alt="Vinculum Interactive Workspace"
-              className="w-full h-full object-cover object-left-top"
+              className="w-full h-full object-cover object-top-left"
             />
             {/* Subtle inner reflection gradient */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 via-transparent to-blue-500/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-linear-to-tr from-cyan-500/10 via-transparent to-blue-500/5 pointer-events-none" />
           </div>
         </div>
       </div>

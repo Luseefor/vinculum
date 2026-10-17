@@ -16,7 +16,7 @@ import {
 import type { GraphObject, VectorFieldDimension } from "@vinculum/scene/types";
 import type { StreamlineVizConfig } from "@/types/graphUi";
 import type { StreamlineResultEntry } from "@/lib/compute/streamlineResults";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 

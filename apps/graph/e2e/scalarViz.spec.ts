@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput } from "./helpers/mathInput";
 import { screenshotPixels } from "./helpers/canvasPixels";
@@ -142,11 +143,66 @@ test.describe("S23 scalar field visualization", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
   });
 
+  test("Follow View expands the shared heat and contour domain and returns to custom bounds", async ({ page }) => {
+    const { consoleErrors, pageErrors } = collectErrors(page);
+    await page.addInitScript(() => {
+      const recorded = window as unknown as Window & { scalarDomains: { uMin: number; uMax: number; vMin: number; vMax: number }[] };
+      recorded.scalarDomains = [];
+      const NativeWorker = window.Worker;
+      window.Worker = class extends NativeWorker {
+        postMessage(message: unknown, transfer: Transferable[] | StructuredSerializeOptions = []) {
+          const request = message as { kind?: string; payload?: { target?: { kind: string; domain: typeof recorded.scalarDomains[number] } } };
+          if (request.kind === "scalarField" && request.payload?.target?.kind === "domain2D") {
+            recorded.scalarDomains.push(request.payload.target.domain);
+          }
+          if (Array.isArray(transfer)) super.postMessage(message, transfer);
+          else super.postMessage(message, transfer);
+        }
+      };
+    });
+    await startClean(page);
+    await page.getByRole("button", { name: "3D only", exact: true }).click();
+    await addObject(page, "Surface");
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = (x^2+y^2)/25");
+    await page.getByRole("checkbox", { name: "Follow view" }).check();
+    await openAnalyze(page);
+    await page.getByLabel("Show heat map").click();
+    await page.getByLabel("Show contours").click();
+    await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
+    const latestDomain = () => page.evaluate(() => (window as unknown as Window & {
+      scalarDomains: { uMin: number; uMax: number; vMin: number; vMax: number }[]
+    }).scalarDomains.at(-1));
+    await expect.poll(latestDomain).toBeTruthy();
+    const before = (await latestDomain())!;
+    expect(before.uMax - before.uMin).toBeGreaterThan(10);
+    const canvas = page.locator('canvas[data-graph3d-canvas="true"]').first();
+    const beforePixels = await screenshotPixels(page, canvas);
+    const box = (await canvas.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // Domains are quantized: cross a tile even when native input scales the
+    // wheel delta (Firefox on Retina delivers half the requested amount).
+    await page.mouse.wheel(0, 1200);
+    await page.mouse.wheel(0, 1200);
+    await expect.poll(async () => {
+      const domain = await latestDomain();
+      return domain ? domain.uMax - domain.uMin : 0;
+    }, { timeout: 15000 }).toBeGreaterThan(before.uMax - before.uMin);
+    await expect.poll(() => countChangedPixels(page, canvas, beforePixels!), { timeout: 15000 }).toBeGreaterThan(500);
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Follow view" }).uncheck();
+    await expect.poll(latestDomain).toEqual({ uMin: -5, uMax: 5, vMin: -5, vMax: 5 });
+    await openAnalyze(page);
+    await expect(page.getByLabel("Hide heat map")).toBeVisible();
+    await expect(page.getByLabel("Hide contours")).toBeVisible();
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
+  });
+
   test("A: heat map of f=x^2+y^2 paints with a sane range", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
@@ -169,8 +225,8 @@ test.describe("S23 scalar field visualization", () => {
   test("B: contours draw closed rings over the heat", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -189,11 +245,53 @@ test.describe("S23 scalar field visualization", () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  test("Contour values label the actual rings and follow zoom without resampling", async ({ page }) => {
+    await page.addInitScript(() => {
+      const recorded = window as typeof window & { contourLabels: { text: string; x: number; y: number }[] };
+      recorded.contourLabels = [];
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
+        if (this.canvas.matches('[data-graph2d-canvas="true"]') && this.font.includes("ui-monospace")) {
+          const transform = this.getTransform();
+          const ratio = this.canvas.width / this.canvas.getBoundingClientRect().width;
+          recorded.contourLabels.push({ text,
+            x: (transform.a * x + transform.c * y + transform.e) / ratio,
+            y: (transform.b * x + transform.d * y + transform.f) / ratio });
+          if (recorded.contourLabels.length > 64) recorded.contourLabels.shift();
+        }
+        if (maxWidth === undefined) fillText.call(this, text, x, y);
+        else fillText.call(this, text, x, y, maxWidth);
+      };
+    });
+    await startClean(page);
+    await addObject(page, "Surface");
+    await to2DOnly(page);
+    await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z=(x^2+y^2)/25");
+    await to2DOnly(page);
+    await openAnalyze(page);
+    await page.getByLabel("Show contours").click();
+    await page.getByLabel("Contour count", { exact: true }).fill("3");
+    const lastOne = () => page.evaluate(() => (window as typeof window & { contourLabels: { text: string; x: number; y: number }[] }).contourLabels.filter(label => label.text === "1").at(-1));
+    await expect.poll(lastOne, { timeout: 15000 }).toBeTruthy();
+    const before = await lastOne();
+    const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("Missing contour map canvas.");
+    await expectNoComputePending(page, async () => {
+      await page.mouse.move(box.x + box.width * .6, box.y + box.height * .4);
+      await page.keyboard.down("Control");
+      await page.mouse.wheel(0, -120);
+      await page.keyboard.up("Control");
+    });
+    await expect.poll(lastOne).not.toEqual(before);
+    expect((await lastOne())?.text).toBe("1");
+  });
+
   test("C: saddle f=x^2-y^2 shows a zero contour", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 - y^2");
     await openAnalyze(page);
@@ -212,8 +310,8 @@ test.describe("S23 scalar field visualization", () => {
   test("D: singular 1/x leaves a gap with no bridge or crash", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = 1/x");
     await openAnalyze(page);
@@ -232,8 +330,8 @@ test.describe("S23 scalar field visualization", () => {
   test("E: dense gradient arrows point outward on the bowl", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + 2*y^2");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
@@ -251,8 +349,8 @@ test.describe("S23 scalar field visualization", () => {
   test("F: heat and contours survive while gradients report unavailable", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = tan(x) + y");
     await openAnalyze(page);
@@ -379,8 +477,8 @@ test.describe("S23 scalar field visualization", () => {
   test("K: hiding the source hides derived layers with zero recompute", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -406,8 +504,8 @@ test.describe("S23 scalar field visualization", () => {
   test("L: source edits refresh derived results without staleness", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -432,8 +530,8 @@ test.describe("S23 scalar field visualization", () => {
   test("M: scalar visualization is transient across save/reopen", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -459,8 +557,8 @@ test.describe("S23 scalar field visualization", () => {
   test("N: scalar state coheres across Math Lab and Geometry Studio", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -487,7 +585,7 @@ test.describe("S23 scalar field visualization", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByText("Scalar Visualization")).toBeVisible();
@@ -501,8 +599,8 @@ test.describe("S23 scalar field visualization", () => {
   test("P: nested unsafe source is visibly rejected with viz inert", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = sin(factorial(x)) + y");
     await expect(page.getByTestId("expression-diagnostic").first()).toContainText(/not supported|unsupported/i);
@@ -516,8 +614,8 @@ test.describe("S23 scalar field visualization", () => {
   test("Q: scalar visualization editor has no axe violations", async ({ page }) => {
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
-    await to2DOnly(page);
     await addObject(page, "Surface");
+    await to2DOnly(page);
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = x^2 + y^2");
     await openAnalyze(page);
@@ -536,4 +634,87 @@ test.describe("S23 scalar field visualization", () => {
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
+});
+
+
+test("2D Follow View resamples pan and zoom and writes contour values into the lines", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    const recorded = window as unknown as {
+      scalarDomains: { uMin: number; uMax: number; vMin: number; vMax: number }[];
+      contourLabels: { text: string; x: number; y: number; angle: number }[];
+    };
+    recorded.scalarDomains = [];
+    recorded.contourLabels = [];
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      postMessage(message: unknown, transfer: Transferable[] | StructuredSerializeOptions = []) {
+        const request = message as { kind?: string; payload?: { target?: { kind: string; domain: typeof recorded.scalarDomains[number] } } };
+        if (request.kind === "scalarField" && request.payload?.target?.kind === "domain2D") {
+          recorded.scalarDomains.push(request.payload.target.domain);
+        }
+        if (Array.isArray(transfer)) super.postMessage(message, transfer);
+        else super.postMessage(message, transfer);
+      }
+    };
+    const fillText = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+      if (this.canvas.hasAttribute("data-graph2d-canvas") && this.font.includes("12px ui-monospace")) {
+        const transform = this.getTransform();
+        recorded.contourLabels.push({ text, x, y, angle: Math.atan2(transform.b, transform.a) });
+        if (recorded.contourLabels.length > 100) recorded.contourLabels.shift();
+      }
+      if (maxWidth === undefined) fillText.call(this, text, x, y);
+      else fillText.call(this, text, x, y, maxWidth);
+    };
+  });
+  const { consoleErrors, pageErrors } = collectErrors(page);
+  await startClean(page);
+  await addObject(page, "Surface");
+  await fillInput(page.getByLabel("Equation", { exact: true }).first(), "z = (x^2+y^2)/25");
+  await page.getByRole("checkbox", { name: "Follow view" }).check();
+  await to2DOnly(page);
+  await openAnalyze(page);
+  await page.getByLabel("Show heat map").click();
+  await page.getByLabel("Show contours").click();
+  await expect(page.getByTestId("scalar-viz-legend")).toBeVisible({ timeout: 15000 });
+  const latestDomain = () => page.evaluate(() => (window as unknown as {
+    scalarDomains: { uMin: number; uMax: number; vMin: number; vMax: number }[]
+  }).scalarDomains.at(-1));
+  await expect.poll(latestDomain).toBeTruthy();
+  const initial = (await latestDomain())!;
+  const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
+  const bounds = (await canvas.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, 1400);
+  await page.keyboard.up("Control");
+  await expect.poll(async () => {
+    const domain = await latestDomain();
+    return domain ? domain.uMax - domain.uMin : 0;
+  }, { timeout: 15000 }).toBeGreaterThan(initial.uMax - initial.uMin);
+  const zoomed = (await latestDomain())!;
+  for (let drag = 0; drag < 3; drag++) {
+    await page.mouse.move(bounds.x + bounds.width * .85, bounds.y + bounds.height * .55);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * .15, bounds.y + bounds.height * .55, { steps: 8 });
+    await page.mouse.up();
+  }
+  await expect.poll(async () => {
+    const domain = await latestDomain();
+    return domain ? (domain.uMin + domain.uMax) / 2 : 0;
+  }, { timeout: 15000 }).toBeGreaterThan((zoomed.uMin + zoomed.uMax) / 2);
+  // Reset the 2D camera so circular levels and their inline values are visible.
+  await page.getByRole("button", { name: "Reset 2D view", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as {
+    contourLabels: { x: number; y: number; angle: number }[]
+  }).contourLabels.some(label => label.x === 0 && label.y === 0 && Math.abs(label.angle) > .1)), { timeout: 15000 }).toBe(true);
+  await page.getByRole("button", { name: /^(Select|Selected) Surface #1$/ }).click();
+  const inspector = page.getByRole("button", { name: "Inspector", exact: true });
+  if (await inspector.getAttribute("aria-pressed") !== "true") await inspector.click();
+  await page.getByRole("tab", { name: "Edit", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Follow view" }).uncheck();
+  await expect.poll(latestDomain).toEqual({ uMin: -5, uMax: 5, vMin: -5, vMax: 5 });
+  expect(pageErrors).toEqual([]);
+  expect(consoleErrors).toEqual([]);
 });

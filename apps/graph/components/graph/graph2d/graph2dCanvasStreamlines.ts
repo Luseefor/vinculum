@@ -1,4 +1,4 @@
-import { projectMathToPair2D, type MathAxisPair } from "@/lib/math/coordinates";
+import { projectMathToPair2D, type MathAxisPair } from "@/lib/math/geometry/coordinates";
 import type { StreamlineResultBody } from "@/lib/compute/streamlineResults";
 import { drawScreenArrowheads, type ScreenArrowTip } from "./graph2dCanvasVectorField";
 import type { AxisPairSpec, DrawContext } from "./graph2dCanvasTypes";

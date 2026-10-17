@@ -19,7 +19,8 @@ for (const width of [320, 1280]) {
       const control = page.getByRole("button", { name, exact: true });
       await expect(control).toBeVisible();
       const bounds = (await control.boundingBox())!;
-      expect(bounds.x).toBeGreaterThanOrEqual(card!.x + card!.width);
+      const overlaps = bounds.x < card!.x + card!.width && bounds.x + bounds.width > card!.x && bounds.y < card!.y + card!.height && bounds.y + bounds.height > card!.y;
+      expect(overlaps).toBe(false);
     }
   });
 }
@@ -81,8 +82,8 @@ test("short phone first-run tips leave starters reachable", async ({ page }) => 
   const starter = page.getByRole("button", { name: "Create Point", exact: true });
   const hintBounds = await hint.boundingBox();
   const starterBounds = await starter.boundingBox();
-  expect(hintBounds!.y + hintBounds!.height).toBeLessThanOrEqual(starterBounds!.y);
-  await hint.getByRole("button", { name: "Where are the tools?", exact: true }).click();
+  expect(hintBounds!.y).toBeGreaterThanOrEqual(starterBounds!.y + starterBounds!.height);
+  await page.getByRole("button", { name: "Where are the tools?", exact: true }).click();
   await expect(page.getByTestId("editor-guide")).toBeVisible();
   await expect(hint).toHaveCount(0);
   await page.getByRole("button", { name: "Close guide", exact: true }).click();

@@ -162,7 +162,7 @@ function PopoverSurface({ children, className, sideOffset = 8, align = "end", ar
   }, [setOpen, triggerRef]);
 
   return <div id={popoverId} ref={contentRef} role="dialog" aria-label={ariaLabel} tabIndex={-1}
-    className={cn("ui-popover fixed z-[100] min-w-[16rem] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)] shadow-xl", className)}
+    className={cn("ui-popover fixed z-100 min-w-[16rem] rounded-xl border border-(--border-strong) bg-(--surface-overlay) shadow-(--shadow-floating)", className)}
     style={style} onBlur={(event) => {
       if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget) && !triggerRef.current?.contains(event.relatedTarget)) setOpen(false);
     }}>{children}</div>;

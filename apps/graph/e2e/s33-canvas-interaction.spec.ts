@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputValue, readInputValue, expectInputVisible, pressInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -643,6 +644,8 @@ test.describe("S33 canvas interaction", () => {
     await select.selectOption(value as string);
     await expect(page.getByTestId("linear-fact-av")).toBeVisible({ timeout: 10000 });
     const before = await page.getByTestId("linear-fact-av").textContent();
+    // Creating a planar transform reveals Math Lab; return to spatial geometry for its vector drag.
+    await toGeometry(page);
     // Select the vector and drag its ORIGIN (center): Av unchanged.
     await page.getByRole("button", { name: /^(Select|Selected) Vector #1$/ }).click();
     const { x, y } = await canvasCenter(page);
@@ -769,6 +772,8 @@ test.describe("S33 canvas interaction", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "2D only" }).click();
+    // The start panel owns the canvas center until explicitly dismissed.
+    await page.getByRole("button", { name: "Hide start panel", exact: true }).click();
     const badge = page.getByTestId("graph2d-viewport-range-badge");
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
@@ -876,7 +881,7 @@ test.describe("S33 canvas interaction", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputVisible(inspector(page).getByLabel("Point x"));
     await page.keyboard.press("Escape");

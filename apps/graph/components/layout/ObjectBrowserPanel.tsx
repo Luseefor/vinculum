@@ -35,7 +35,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   // Search and filters only earn space once the list is long enough to need
   // them; below that they stay one click (or "/") away.
   const showFinder =
-    searchOpen || objectCount >= FINDER_MIN_OBJECTS || searchQuery !== "" || filter !== "all";
+    searchOpen || objectCount - (pendingEquationId ? 1 : 0) >= FINDER_MIN_OBJECTS || searchQuery !== "" || filter !== "all";
 
   useEffect(() => {
     const open = () => {
@@ -57,15 +57,15 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
   return (
     <aside
       aria-label="Scene Navigator"
-      className="flex h-full min-w-0 max-w-full shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--editor-chrome)] transition-[width] duration-100 motion-reduce:transition-none"
+      className="flex h-full min-w-0 max-w-full shrink-0 flex-col border-r border-(--border-subtle) bg-(--editor-chrome) transition-[width] duration-100 motion-reduce:transition-none"
       style={{ width: width ?? "100%" }}
     >
       <div className="flex flex-col gap-3 px-3 pb-3 pt-4">
         <div className="flex items-center gap-2 px-1">
-          <p className="text-[14px] font-semibold tracking-tight text-[var(--text-primary)]">{workspace === "math" ? "Expressions" : "Objects"}</p>
+          <p className="text-[14px] font-semibold tracking-tight text-(--text-primary)">{workspace === "math" ? "Expressions" : "Objects"}</p>
           <span
             data-testid="scene-object-count"
-            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] px-1.5 text-[11px] font-medium tabular-nums text-[var(--text-tertiary)]"
+            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-(--surface-muted) px-1.5 text-[11px] font-medium tabular-nums text-(--text-tertiary)"
           >
             {objectCount}
           </span>
@@ -79,7 +79,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
                   pendingSearchFocus.current = true;
                   setSearchOpen(true);
                 }}
-                className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] outline-none transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                className="flex h-7 w-7 items-center justify-center rounded-[var(--ui-radius-sm)] text-(--text-secondary) outline-hidden transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-(--accent)"
               >
                 <SearchIcon className="h-3.5 w-3.5" />
               </button>
@@ -92,7 +92,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
         {showFinder ? (
         <>
         <div className="relative">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-(--text-tertiary)" />
           <input
             id="object-search-input"
             ref={searchInputRef}
@@ -107,17 +107,17 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
             }}
             placeholder="Search objects"
             aria-label="Search objects"
-            className="h-9 w-full rounded-[var(--radius-md)] border border-transparent bg-[var(--surface-muted)] pl-8 pr-3 text-[13px] text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:bg-[var(--surface-raised)]"
+            className="h-9 w-full rounded-[var(--ui-radius-md)] border border-transparent bg-(--surface-muted) pl-8 pr-3 text-[13px] text-(--text-primary) outline-hidden transition-colors placeholder:text-(--text-tertiary) focus:border-(--accent) focus:bg-(--surface-raised)"
           />
         </div>
-        <div className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Object list filter">
+        <div className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto scrollbar-none" role="group" aria-label="Object list filter">
           {(["all", "objects", "measurements", "visible"] as const).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setFilter(key)}
               aria-pressed={filter === key}
-              className={`h-7 shrink-0 whitespace-nowrap rounded-full px-2 text-[12px] font-medium capitalize outline-none transition-colors duration-100 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${filter === key ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"}`}
+              className={`h-7 shrink-0 whitespace-nowrap rounded-full px-2 text-[12px] font-medium capitalize outline-hidden transition-colors duration-100 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-(--accent) ${filter === key ? "bg-(--accent-soft) text-(--accent-ink)" : "text-(--text-secondary) hover:bg-(--surface-muted) hover:text-(--text-primary)"}`}
             >
               {key}
             </button>
@@ -130,26 +130,30 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
       <ScrollArea className="min-h-0 flex-1 px-2 pb-2">
         {(filter === "all" || filter === "objects" || filter === "visible") && (
           <>
-          <ObjectTree filterQuery={searchQuery} visibleOnly={filter === "visible"} excludeId={pendingEquationId} />
-          {!searchQuery && filter !== "visible" ? <div className="mt-2 px-1 py-2">
-            <AutomaticEquationInput label="New equation" onPendingObjectChange={setPendingEquationId} />
-            {objectCount === 0 ? <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Equations in x and y plot in 2D. Include z for 3D.</p> : null}
+          <ObjectTree filterQuery={searchQuery} visibleOnly={filter === "visible"} excludeId={pendingEquationId} showEmptyState={Boolean(searchQuery) || filter === "visible"} />
+          {!searchQuery && filter !== "visible" ? <div>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 rounded-[var(--ui-radius-md)] px-2.5 py-3">
+              <span aria-hidden="true" className="flex h-10 w-3 items-center justify-center text-[12px] tabular-nums text-(--text-tertiary)">+</span>
+              <AutomaticEquationInput label="New equation" onPendingObjectChange={setPendingEquationId} />
+              <span aria-hidden="true" className="w-6" />
+            </div>
+            {objectCount === 0 ? <p className="mt-1 text-[12px] text-(--text-tertiary)">Equations in x and y plot in 2D. Include z for 3D.</p> : null}
           </div> : null}
           <ParameterSliders />
           </>
         )}
         {filter === "measurements" || (filter === "all" && measurements.length > 0) ? (
           <section className={filter === "all" ? "mt-4 space-y-1" : "space-y-1"} aria-label="Measurements">
-            <p className="px-2 pb-1 text-[12px] font-medium text-[var(--text-tertiary)]">Measurements</p>
+            <p className="px-2 pb-1 text-[12px] font-medium text-(--text-tertiary)">Measurements</p>
             {measurements.length === 0 ? (
-              <p className="px-2 py-2 text-[12px] text-[var(--text-tertiary)]">No measurements yet.</p>
+              <p className="px-2 py-2 text-[12px] text-(--text-tertiary)">No measurements yet.</p>
             ) : (
               measurements.map((measurement) => {
                 const isSelected = selectedMeasurementId === measurement.id;
                 return (
                   <div
                     key={measurement.id}
-                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2.5 py-2 text-[12px] ${isSelected ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"}`}
+                    className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--ui-radius-md)] px-2.5 py-2 text-[12px] ${isSelected ? "bg-(--accent-soft) text-(--accent-ink)" : "text-(--text-secondary) hover:bg-(--surface-muted)"}`}
                   >
                     <button
                       type="button"
@@ -161,9 +165,9 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
                           addConsoleEvent(`Deleted measurement ${measurement.kind}`);
                         }
                       }}
-                      className="min-w-0 truncate text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                      className="min-w-0 truncate text-left outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
                     >
-                      <span className="mr-1.5 text-[11px] capitalize text-[var(--text-tertiary)]">{measurement.kind}</span>
+                      <span className="mr-1.5 text-[11px] capitalize text-(--text-tertiary)">{measurement.kind}</span>
                       <span className="truncate font-medium">{formatMeasurementValue(measurement)}</span>
                     </button>
                     <button
@@ -173,7 +177,7 @@ export default function ObjectBrowserPanel({ width }: ObjectBrowserPanelProps) {
                         removeMeasurement(measurement.id);
                         addConsoleEvent(`Deleted measurement ${measurement.kind}`);
                       }}
-                      className="h-6 rounded-[var(--radius-sm)] px-2 text-[11px] font-medium text-[var(--text-tertiary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                      className="h-6 rounded-[var(--ui-radius-sm)] px-2 text-[11px] font-medium text-(--text-tertiary) hover:bg-(--surface-muted) hover:text-(--text-primary)"
                     >
                       Delete
                     </button>

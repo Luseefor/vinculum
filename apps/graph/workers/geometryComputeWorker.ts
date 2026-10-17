@@ -1,9 +1,9 @@
-import { computeImplicitSurfaceData } from "@/lib/math/computeImplicitSurfaceData";
-import { computeIntegralData } from "@/lib/math/computeIntegralData";
-import { computeParametricSurfaceData } from "@/lib/math/computeParametricSurfaceData";
-import { computeScalarFieldData } from "@/lib/math/computeScalarFieldData";
-import { computeStreamlineData } from "@/lib/math/computeStreamlineData";
-import { computeVectorFieldData } from "@/lib/math/computeVectorFieldData";
+import { computeImplicitSurfaceData } from "@/lib/math/surfaces/computeImplicitSurfaceData";
+import { computeIntegralData } from "@/lib/math/calculus/computeIntegralData";
+import { computeParametricSurfaceData } from "@/lib/math/surfaces/computeParametricSurfaceData";
+import { computeScalarFieldData } from "@/lib/math/fields/computeScalarFieldData";
+import { computeStreamlineData } from "@/lib/math/fields/computeStreamlineData";
+import { computeVectorFieldData } from "@/lib/math/fields/computeVectorFieldData";
 import {
   isGeometryComputeRequest,
   type GeometryComputeRequest,
@@ -85,6 +85,7 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       mode: request.payload.mode,
       target: request.payload.target,
       scalarIntegrand: request.payload.scalarIntegrand,
+      lowerBoundary: request.payload.lowerBoundary,
       field: request.payload.field,
       quality: request.payload.quality,
       direction: request.payload.direction,
@@ -164,6 +165,7 @@ function computeRequestResult(request: GeometryComputeRequest): GeometryComputeR
       totalSamples: computed.totalSamples,
       levels: computed.levels,
       contourSegments: computed.contourSegments,
+      contourLevelOffsets: computed.contourLevelOffsets,
       contourSegmentCount: computed.contourSegmentCount,
       contourStatus: computed.contourStatus,
       gradientPositions: computed.gradientPositions,
@@ -285,6 +287,7 @@ function collectTransferBuffers(
       result.valid.buffer as Transferable,
       result.levels.buffer as Transferable,
       result.contourSegments.buffer as Transferable,
+      ...(result.contourLevelOffsets ? [result.contourLevelOffsets.buffer as Transferable] : []),
       result.gradientPositions.buffer as Transferable,
       result.gradientVectors.buffer as Transferable,
       result.gradientMagnitudes.buffer as Transferable

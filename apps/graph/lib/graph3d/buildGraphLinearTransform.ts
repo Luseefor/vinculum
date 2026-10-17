@@ -22,10 +22,10 @@ import {
   type Object3D
 } from "three";
 import type { LinearTransformObject } from "@vinculum/scene/types";
-import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/coordinates";
+import { mathToWorld3D, mathVectorToWorld3D } from "@/lib/math/geometry/coordinates";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
-import { resolveLinearTransform, transformedBasis3 } from "@/lib/math/linearTransformResolve";
-import type { Matrix3 } from "@/lib/math/matrix";
+import { resolveLinearTransform, transformedBasis3 } from "@/lib/math/linear-algebra/linearTransformResolve";
+import type { Matrix3 } from "@/lib/math/linear-algebra/matrix";
 import {
   arrowProportions,
   buildArrowHead,

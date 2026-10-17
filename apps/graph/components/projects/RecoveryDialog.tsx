@@ -37,7 +37,7 @@ export default function RecoveryDialog({
               {error}
             </div>
           ) : null}
-          <p className="text-[11px] text-[var(--text-tertiary)]">
+          <p className="text-[11px] text-(--text-tertiary)">
             Restore to continue from the recovered scene, or discard to start with the current session.
           </p>
         </div>

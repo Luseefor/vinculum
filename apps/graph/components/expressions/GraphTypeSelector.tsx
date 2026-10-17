@@ -16,8 +16,10 @@ const GRAPH_TYPE_OPTIONS: Array<{
   dimension?: VectorFieldDimension | LinearTransformDimension;
 }> = [
   { label: "Surface", value: "surface", kind: "surface" },
-  { label: "Curve", value: "parametricCurve", kind: "parametricCurve" },
-  { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface" },
+  { label: "2D Parametric Curve", value: "parametricCurve:2d", kind: "parametricCurve", dimension: "2d" },
+  { label: "Curve", value: "parametricCurve", kind: "parametricCurve", dimension: "3d" },
+  { label: "2D Parametric Surface", value: "parametricSurface:2d", kind: "parametricSurface", dimension: "2d" },
+  { label: "Parametric Surface", value: "parametricSurface", kind: "parametricSurface", dimension: "3d" },
   { label: "Implicit Surface", value: "implicitSurface", kind: "implicitSurface" },
   { label: "Plane", value: "plane", kind: "plane" },
   { label: "Point", value: "point", kind: "point" },
@@ -33,7 +35,9 @@ const GRAPH_TYPE_OPTIONS: Array<{
 
 export default function GraphTypeSelector({ value, dimension, onChange }: GraphTypeSelectorProps) {
   const selectValue =
-    value === "vectorField" || value === "linearTransform"
+    (value === "parametricCurve" || value === "parametricSurface") && dimension === "2d"
+      ? `${value}:2d`
+      : value === "vectorField" || value === "linearTransform"
       ? `${value}:${dimension ?? "2d"}`
       : value;
 
@@ -54,7 +58,7 @@ export default function GraphTypeSelector({ value, dimension, onChange }: GraphT
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className="h-7 w-auto cursor-pointer rounded-md border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-raised)]"
+      className="h-7 w-auto cursor-pointer rounded-md border border-(--border-subtle) bg-(--surface-overlay) px-2 text-[11px] font-medium text-(--text-secondary) transition-colors hover:bg-(--surface-raised)"
       aria-label="Graph type"
     >
       {GRAPH_TYPE_OPTIONS.map((option) => (

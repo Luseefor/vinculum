@@ -1,9 +1,10 @@
 import type { SurfaceGraphObject } from "@vinculum/scene/types";
 import { Group } from "three";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { sampleSurface } from "@/lib/math/sampleSurface";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { sampleSurface } from "@/lib/math/surfaces/sampleSurface";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
+import { surfaceHeightClamp } from "./surfaceDisplayDomain";
 import { buildIndexedSurfaceMeshGroup } from "./buildIndexedSurfaceMesh";
 import { buildImplicitSurfaceContour } from "./buildImplicitSurfaceContour";
 
@@ -32,7 +33,7 @@ export function buildSurface(
     sampled = sampleSurface(evaluator, {
       domain: object.domain,
       resolution: Math.max(2, Math.floor(object.resolution)),
-      clampHeight: (object.autoDomain ?? object.autoExpression) ? 1e12 : 10_000,
+      clampHeight: surfaceHeightClamp(object),
       orientation: effectiveOrientation
     });
   } catch {

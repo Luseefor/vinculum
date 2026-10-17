@@ -30,16 +30,16 @@ export interface GraphThemeTokens {
 }
 
 const DARK_THEME_TOKENS: GraphThemeTokens = {
-  surfaceCanvas: "#20252d",
-  gridMinor: "#1b2438",
-  gridMajor: "#2c3c5f",
-  axisLine: "#526691",
-  axisLabel: "#7f98c8",
-  axisOrigin: "#64748b",
-  axisNegativeRgb: [0.17, 0.2, 0.27],
-  axisXPositiveRgb: [0.62, 0.37, 0.37],
-  axisYPositiveRgb: [0.4, 0.56, 0.4],
-  axisZPositiveRgb: [0.38, 0.5, 0.66],
+  surfaceCanvas: "#171b22",
+  gridMinor: "#1e2530",
+  gridMajor: "#323e4e",
+  axisLine: "#7e90a9",
+  axisLabel: "#b7c5d8",
+  axisOrigin: "#a5b4c9",
+  axisNegativeRgb: [0.42, 0.48, 0.57],
+  axisXPositiveRgb: [0.86, 0.48, 0.48],
+  axisYPositiveRgb: [0.45, 0.72, 0.56],
+  axisZPositiveRgb: [0.46, 0.65, 0.9],
   sceneHemiGround: "#131316",
   sceneHemiSky: "#e0e0e5",
   sceneAmbientIntensity: 0.4,
@@ -53,9 +53,9 @@ const DARK_THEME_TOKENS: GraphThemeTokens = {
   scenePlaneRoughness: 0.4,
   scenePlaneMetalness: 0.05,
   scenePlaneOpacity: 0.78,
-  axisLabelBorder: "rgba(51, 65, 85, 0.7)",
-  axisLabelBg: "rgba(2, 6, 23, 0.85)",
-  axisLabelText: "#e2e8f0"
+  axisLabelBorder: "rgba(186, 201, 222, 0.18)",
+  axisLabelBg: "rgba(32, 37, 45, 0.94)",
+  axisLabelText: "#c0ccdc"
 };
 
 const LIGHT_THEME_TOKENS: GraphThemeTokens = {

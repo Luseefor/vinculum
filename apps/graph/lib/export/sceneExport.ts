@@ -1,19 +1,17 @@
-import { drawImplicitContour } from "@/components/graph/graph2d/graph2dCanvasImplicitDraw";
-import { buildGridSeries } from "@/components/viewport/Grid2D";
+import { graph2dPaintPalette } from "@/components/graph/graph2d/graph2dPaintPalette";
+import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
+import { drawRenderableGraph2d } from "@/components/graph/graph2d/graph2dCanvasDrawRenderableGraph";
+import { createSvgCanvasContext, escapeSvgAttribute as escapeXml } from "./svgCanvasContext";
+import { drawGraph2dGrid } from "@/components/graph/graph2d/graph2dCanvasDrawGrid";
 import { getAxisPairSpec } from "@/components/graph/graph2d/graph2dCanvasAxis";
 import { buildRenderableGraphsFromScene } from "@/components/graph/graph2d/buildRenderableGraphsFromScene";
-import {
-  GRID_EDGE_OVERSCAN_LINES,
-  GRID_TARGET_SPACING_PX,
-  MAX_GRID_LINE_COUNT,
-  MIN_GRID_SPACING_UNITS
-} from "@/components/graph/graph2d/graph2dCanvasConstants";
 import { graph2dMathToScreen } from "@/components/graph/graph2d/graph2dCanvasTransforms";
 import type { Axis2DPair, Viewport2DFrame } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
 import { serializeScene } from "@/lib/scene/serializeScene";
+import { deserializeScene } from "@/lib/scene/deserializeScene";
 import { reportWarning } from "@/lib/monitoring/errorReporting";
 import { getGraphCanvasCapture } from "@/lib/graph3d/graphCanvasCapture";
 
@@ -36,6 +34,8 @@ export interface SceneExportResult {
 export function exportSceneJson(scene: SceneDocument): SceneExportResult {
   try {
     const json = serializeScene(scene);
+    const validation = deserializeScene(json);
+    if (!validation.valid) return { ok: false, error: `JSON export failed: ${validation.errors.join(" ")}` };
     return {
       ok: true,
       file: {
@@ -145,6 +145,7 @@ export function export2dSvg(input: {
   axisPair: Axis2DPair;
   viewport: { centerX: number; centerY: number; scale: number };
   viewportFrame: Viewport2DFrame;
+  theme?: ResolvedTheme;
 }): SceneExportResult {
   const width = Math.max(1, Math.floor(input.viewportFrame.width));
   const height = Math.max(1, Math.floor(input.viewportFrame.height));
@@ -159,6 +160,7 @@ export function export2dSvg(input: {
     };
   }
 
+  const palette = graph2dPaintPalette(input.theme ?? "dark");
   const axisSpec = getAxisPairSpec(input.axisPair);
   const renderables = buildRenderableGraphsFromScene(input.objects, axisSpec, getEditorParameterScope());
   const dc = {
@@ -170,131 +172,27 @@ export function export2dSvg(input: {
   };
 
   const warnings: string[] = [];
-  const graphLines: string[] = [];
-
-  // S17: parametric surfaces intentionally produce no 2D renderable (no
-  // single-equation axis-pair projection). Implicit surfaces export the
-  // same labeled coordinate-plane slice as the canvas. Warn per skipped object so SVG export
-  // never silently drops scene content. S20: 3D vector fields join the
-  // warn/skip set (no per-pane arrow projection in SVG); 2D field arrows
-  // are not yet represented either and warn via the renderable fallback
-  // below. Arrow-to-SVG export stays explicitly out of scope. S26: the
-  // four geometric primitives are 3D mathematical geometry with no
-  // established 2D projection model in the exporter — explicit warning,
-  // never silent omission.
-  // S28: canonical linearTransform objects always warn (PART 70) — the
-  // 2D transform layer is derived analysis rendering with no established
-  // SVG projection in the exporter, independent of renderable presence.
-  // Never silently omitted.
-  const renderedIds = new Set(renderables.map((graph) => graph.id));
+  const recording = createSvgCanvasContext();
+  const graphLines = recording.elements;
+  const renderedIds = new Set(renderables.map(graph => graph.id));
   for (const object of input.objects) {
-    if (object.visible && object.kind === "linearTransform") {
-      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
-      continue;
-    }
-    if (
-      object.visible &&
-      (object.kind === "parametricSurface" ||
-        object.kind === "implicitSurface" ||
-        object.kind === "point" ||
-        object.kind === "vector" ||
-        object.kind === "line" ||
-        object.kind === "ray" ||
-        object.kind === "segment" ||
-        (object.kind === "vectorField" && object.dimension === "3d")) &&
-      !renderedIds.has(object.id)
-    ) {
-      warnings.push(`Object ${object.id} uses features not yet represented in SVG.`);
+    if (object.visible && !renderedIds.has(object.id)) {
+      warnings.push(`Object ${object.id} has no geometry in the selected 2D plane.`);
     }
   }
-
+  const grid = createSvgCanvasContext("grid");
+  drawGraph2dGrid({ ...dc, ctx: grid.context }, graph2dMathToScreen, palette);
   for (const graph of renderables) {
-    // SVG export draws parametric points as one polyline (legacy: gaps render
-    // as chords here; canonical branch splitting in SVG export is out of scope).
-    if (graph.polylineHV && graph.polylineHV.points.length >= 4) {
-      const points: string[] = [];
-      for (let i = 0; i < graph.polylineHV.points.length; i += 2) {
-        const screen = graph2dMathToScreen(graph.polylineHV.points[i], graph.polylineHV.points[i + 1], dc);
-        points.push(`${screen.x.toFixed(2)},${screen.y.toFixed(2)}`);
-      }
-      if (points.length >= 2) {
-        graphLines.push(
-          `<polyline fill="none" stroke="${escapeXml(graph.color)}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="${points.join(" ")}" />`
-        );
-      }
-      continue;
-    }
-
-    if (typeof graph.verticalLineValue === "number") {
-      const screen = graph2dMathToScreen(graph.verticalLineValue, 0, dc);
-      graphLines.push(
-        `<line x1="${screen.x.toFixed(2)}" y1="0" x2="${screen.x.toFixed(2)}" y2="${height}" stroke="${escapeXml(graph.color)}" stroke-width="2.2" />`
-      );
-      continue;
-    }
-
-    if (typeof graph.horizontalLineValue === "number") {
-      const screen = graph2dMathToScreen(0, graph.horizontalLineValue, dc);
-      graphLines.push(
-        `<line x1="0" y1="${screen.y.toFixed(2)}" x2="${width}" y2="${screen.y.toFixed(2)}" stroke="${escapeXml(graph.color)}" stroke-width="2.2" />`
-      );
-      continue;
-    }
-
-    if (graph.implicitEvaluate) {
-      const segments: string[] = [];
-      drawImplicitContour(graph.implicitEvaluate, {
-        moveTo: (x, y) => { segments.push(`M ${x.toFixed(2)} ${y.toFixed(2)}`); },
-        lineTo: (x, y) => { segments.push(`L ${x.toFixed(2)} ${y.toFixed(2)}`); }
-      }, dc, width, height);
-      if (segments.length) graphLines.push(`<path d="${segments.join(" ")}" fill="none" stroke="${escapeXml(graph.color)}" stroke-width="2.2" stroke-linecap="round" />`);
-      continue;
-    }
-
-    if (graph.evaluate) {
-      const samples = Math.max(220, Math.floor(width * 1.2));
-      const step = width / samples;
-      let path = "";
-      let hasPoint = false;
-      for (let i = 0; i <= samples; i += 1) {
-        const x = i * step;
-        const h = (x - width / 2) / dc.scale + dc.centerX;
-        const v = graph.evaluate(h);
-        if (v === null || !Number.isFinite(v)) {
-          continue;
-        }
-        const screen = graph2dMathToScreen(h, v, dc);
-        path += hasPoint ? ` L ${screen.x.toFixed(2)} ${screen.y.toFixed(2)}` : `M ${screen.x.toFixed(2)} ${screen.y.toFixed(2)}`;
-        hasPoint = true;
-      }
-      if (hasPoint) {
-        graphLines.push(
-          `<path d="${path}" fill="none" stroke="${escapeXml(graph.color)}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />`
-        );
-      }
-      continue;
-    }
-
-    warnings.push(`Object ${graph.id} uses features not yet represented in SVG.`);
-  }
-
-  const gridMarkup = buildSvgGridMarkup(dc);
-  const origin = graph2dMathToScreen(0, 0, dc);
-  const axisMarkup: string[] = [];
-  if (origin.y >= 0 && origin.y <= height) {
-    axisMarkup.push(`<line x1="0" y1="${origin.y.toFixed(2)}" x2="${width}" y2="${origin.y.toFixed(2)}" stroke="#7e8798" stroke-width="1.8" />`);
-  }
-  if (origin.x >= 0 && origin.x <= width) {
-    axisMarkup.push(`<line x1="${origin.x.toFixed(2)}" y1="0" x2="${origin.x.toFixed(2)}" y2="${height}" stroke="#7e8798" stroke-width="1.8" />`);
+    drawRenderableGraph2d(graph, { ...dc, ctx: recording.context }, graph2dMathToScreen);
   }
 
   const svg = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Vinculum 2D graph export">`,
     ...(input.objects.some(object => object.visible && object.kind === "implicitSurface") ? [`<desc>Implicit surface cross-sections: ${input.axisPair === "xy" ? "z" : input.axisPair === "xz" ? "y" : "x"} = 0.</desc>`] : []),
-    `<rect x="0" y="0" width="${width}" height="${height}" fill="#0f172a" />`,
-    ...gridMarkup,
-    ...axisMarkup,
+    `<rect x="0" y="0" width="${width}" height="${height}" fill="${escapeXml(palette.background)}" />`,
+    `<defs>${grid.definitions.join("")}${recording.definitions.join("")}</defs>`,
+    ...grid.elements,
     ...graphLines,
     `</svg>`
   ].join("");
@@ -366,65 +264,4 @@ function dataUrlToBlob(dataUrl: string): Blob | null {
     bytes[i] = binary.charCodeAt(i);
   }
   return new Blob([bytes], { type: mime });
-}
-
-function buildSvgGridMarkup(dc: { width: number; height: number; centerX: number; centerY: number; scale: number }): string[] {
-  const minX = dc.centerX - dc.width / (2 * dc.scale);
-  const maxX = dc.centerX + dc.width / (2 * dc.scale);
-  const minY = dc.centerY - dc.height / (2 * dc.scale);
-  const maxY = dc.centerY + dc.height / (2 * dc.scale);
-  const safeRawSpacing = Math.max(MIN_GRID_SPACING_UNITS, GRID_TARGET_SPACING_PX / dc.scale);
-  const magnitude = Math.pow(10, Math.floor(Math.log10(safeRawSpacing)));
-  const normalized = safeRawSpacing / magnitude;
-  const majorSpacing = normalized < 2 ? magnitude : normalized < 5 ? magnitude * 2 : magnitude * 5;
-  const minorSpacing = Math.max(MIN_GRID_SPACING_UNITS, majorSpacing / 5);
-  const minorOverscan = minorSpacing * GRID_EDGE_OVERSCAN_LINES;
-  const majorOverscan = majorSpacing * GRID_EDGE_OVERSCAN_LINES;
-
-  const markup: string[] = [];
-  const minorX = buildGridSeries(minX - minorOverscan, maxX + minorOverscan, minorSpacing, MAX_GRID_LINE_COUNT);
-  if (minorX) {
-    for (let i = 0; i < minorX.count; i += 1) {
-      const value = minorX.start + minorX.step * i;
-      const screen = graph2dMathToScreen(value, 0, dc);
-      markup.push(`<line x1="${screen.x.toFixed(2)}" y1="0" x2="${screen.x.toFixed(2)}" y2="${dc.height}" stroke="#334155" stroke-width="1" opacity="0.38" />`);
-    }
-  }
-
-  const minorY = buildGridSeries(minY - minorOverscan, maxY + minorOverscan, minorSpacing, MAX_GRID_LINE_COUNT);
-  if (minorY) {
-    for (let i = 0; i < minorY.count; i += 1) {
-      const value = minorY.start + minorY.step * i;
-      const screen = graph2dMathToScreen(0, value, dc);
-      markup.push(`<line x1="0" y1="${screen.y.toFixed(2)}" x2="${dc.width}" y2="${screen.y.toFixed(2)}" stroke="#334155" stroke-width="1" opacity="0.38" />`);
-    }
-  }
-
-  const majorX = buildGridSeries(minX - majorOverscan, maxX + majorOverscan, majorSpacing, MAX_GRID_LINE_COUNT);
-  if (majorX) {
-    for (let i = 0; i < majorX.count; i += 1) {
-      const value = majorX.start + majorX.step * i;
-      const screen = graph2dMathToScreen(value, 0, dc);
-      markup.push(`<line x1="${screen.x.toFixed(2)}" y1="0" x2="${screen.x.toFixed(2)}" y2="${dc.height}" stroke="#475569" stroke-width="1" opacity="0.72" />`);
-    }
-  }
-
-  const majorY = buildGridSeries(minY - majorOverscan, maxY + majorOverscan, majorSpacing, MAX_GRID_LINE_COUNT);
-  if (majorY) {
-    for (let i = 0; i < majorY.count; i += 1) {
-      const value = majorY.start + majorY.step * i;
-      const screen = graph2dMathToScreen(0, value, dc);
-      markup.push(`<line x1="0" y1="${screen.y.toFixed(2)}" x2="${dc.width}" y2="${screen.y.toFixed(2)}" stroke="#475569" stroke-width="1" opacity="0.72" />`);
-    }
-  }
-  return markup;
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
 }

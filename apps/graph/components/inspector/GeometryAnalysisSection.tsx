@@ -1,9 +1,9 @@
 // S27 Geometry Analysis Inspector section (PART 22): contextual facts
 // for the selected source paired with a compatible second object. All
 // cheap relevant facts render together (no operation picker ceremony);
-// numbers compute synchronously from live sources every render — nothing
-// is cached, so parameters, undo/redo, and workspace switches never show
-// stale math. One explicit construction toggle per pair (PART 23).
+// Primitive numbers compute synchronously from live sources; sampled
+// surface intersections cache by definitions and parameters. One explicit
+// construction toggle per pair (PART 23).
 
 "use client";
 
@@ -20,11 +20,12 @@ import { getObjectRowDisplayMeta } from "@/components/objects/objectRowUtils";
 import { FactRow } from "@/components/inspector/FactRow";
 import {
   computeGeometryFacts,
-  geometryPairSupported,
+  geometryObjectsPairSupported,
   radiansToDegrees,
   resolveGeometrySource,
   type GeometryAnalysisFacts
-} from "@/lib/math/geometryAnalysis";
+} from "@/lib/math/geometry/geometryAnalysis";
+import { planarDisplayDomain2D } from "@/lib/graph3d/surfaceDisplayDomain";
 
 function formatPoint(point: { x: number; y: number; z: number }): string {
   return `(${formatNumber(point.x)}, ${formatNumber(point.y)}, ${formatNumber(point.z)})`;
@@ -46,6 +47,23 @@ function formatDistance(distance: number | null): string {
 
 function FactsBlock({ facts, primaryKind }: { facts: GeometryAnalysisFacts; primaryKind: GraphObject["kind"] }) {
   switch (facts.pair) {
+    case "curve-curve":
+    case "surface-surface": {
+      const result = facts.intersection;
+      return <>
+        <FactRow label="Intersection" value={result.status === "curve" ? "Intersection curve found." : result.status === "points" ? facts.pair === "curve-curve" ? "Intersection points found." : "Contact points found." : result.status === "overlap" ? facts.pair === "curve-curve" ? "Curves overlap." : "Shared surface area." : result.status === "empty" ? "No sampled intersection." : "Unable to solve."} testId="surface-intersection-result" />
+        <p role="status" className="text-[12px] leading-relaxed text-(--text-secondary)">{result.message}</p>
+        <details className="mt-1 text-[12px]">
+          <summary className="cursor-pointer text-(--text-primary)">Solution</summary>
+          <p className="my-2 text-(--text-secondary)">Solve both definitions together within their plot ranges:</p>
+          {result.equations.map((equation, index) => <div key={index} className="min-w-0 py-1"><MathText text={equation} /></div>)}
+          {result.reducedEquation && <><p className="mt-2 text-(--text-secondary)">Substitute one definition into the other:</p><div className="min-w-0 py-1" data-testid="intersection-reduced-equation"><MathText text={result.reducedEquation} /></div></>}
+          {result.segments.length > 0 && <FactRow label="Approximate curve length" value={formatNumber(result.segments.reduce((sum, [a,b]) => sum + Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z),0))} />}
+          {(result.segments.length ? result.segments.slice(0,3).map(([a]) => a) : result.points.slice(0,3)).map((point,index) => <FactRow key={index} label={`Sample point ${index+1}`} value={formatPoint(point)} />)}
+          {(result.status === "curve" || result.status === "points") && <p className="mt-2 text-(--text-tertiary)">Coordinates are numerical approximations, not a closed-form solution.</p>}
+        </details>
+      </>;
+    }
     case "point-point":
       return <FactRow label="Distance" value={formatDistance(facts.distance)} testId="geometry-fact-distance" />;
     case "point-linear":
@@ -90,13 +108,13 @@ function FactsBlock({ facts, primaryKind }: { facts: GeometryAnalysisFacts; prim
       return <PlanePlaneFacts facts={facts} />;
     case "unresolved":
       return (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           {facts.reason}
         </p>
       );
     case "incompatible":
       return (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Select a compatible second object.
         </p>
       );
@@ -152,7 +170,7 @@ function LinearLinearFacts({
       )}
       <FactRow label="Angle" value={formatDegrees(facts.angleRadians)} testId="geometry-fact-angle" />
       {relation.kind === "skew" && (
-        <p className="text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+        <p className="text-[11px] leading-relaxed text-(--text-tertiary)">
           Directions nonparallel with positive distance; closest points shown above.
         </p>
       )}
@@ -231,6 +249,10 @@ export function geometryPairHasOverlay(facts: GeometryAnalysisFacts): boolean {
  */
 export function geometryOverlayToggleLabel(facts: GeometryAnalysisFacts): string | null {
   switch (facts.pair) {
+    case "curve-curve":
+      return facts.intersection.status === "points" ? "Show intersection points" : null;
+    case "surface-surface":
+      return facts.intersection.status === "curve" ? "Show intersection curve" : facts.intersection.status === "points" ? "Show contact points" : null;
     case "point-linear":
     case "point-plane":
       return "Show projection";
@@ -260,13 +282,17 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
   const clearGeometryAnalysis = useGraphStore((state) => state.clearGeometryAnalysis);
   const editorParameters = useEditorStore((state) => state.parameters);
   const paramScope = useMemo(() => parametersToScope(editorParameters), [editorParameters]);
+  const viewport = useGraphStore(state => state.ui.active2dViewport === "quadTop" ? state.ui.viewport2dQuadTop : state.ui.viewport2d);
+  const frame = useGraphStore(state => state.ui.active2dViewport === "quadTop" ? state.ui.viewport2dQuadTopFrame : state.ui.viewport2dFrame);
+  const domain = useMemo(() => planarDisplayDomain2D(viewport, frame), [viewport, frame]);
+
 
   const options = useMemo(
     () =>
       objects.filter(
-        (candidate) => candidate.id !== object.id && geometryPairSupported(object.kind, candidate.kind)
+        (candidate) => candidate.id !== object.id && geometryObjectsPairSupported(object, candidate)
       ),
-    [objects, object.id, object.kind]
+    [objects, object]
   );
 
   // A stored secondary may have been deleted or converted since: fall
@@ -282,31 +308,31 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
     if (!config || !secondary) {
       return null;
     }
-    if (!geometryPairSupported(object.kind, secondary.kind)) {
+    if (!geometryObjectsPairSupported(object, secondary)) {
       return { pair: "incompatible" };
     }
     return computeGeometryFacts(
-      resolveGeometrySource(object, paramScope),
-      resolveGeometrySource(secondary, paramScope)
+      resolveGeometrySource(object, paramScope, domain),
+      resolveGeometrySource(secondary, paramScope, domain)
     );
-  }, [config, secondary, object, paramScope]);
+  }, [config, secondary, object, paramScope, domain]);
 
   return (
     <section
       data-testid="geometry-analysis-section"
-      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
+      className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Geometry Analysis</h3>
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Geometry Analysis</h3>
       </header>
       <div className="flex flex-col gap-2">
-        <p className="px-0.5 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
+        <p className="px-0.5 text-[11px] leading-relaxed text-(--text-tertiary)">
           From {primaryMeta.label} #{primaryIndex + 1}
           {" · "}
           With {secondary && secondaryMeta ? `${secondaryMeta.label} #${secondaryIndex + 1}` : "—"}
         </p>
         <label className="block">
-          <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+          <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
             Second object
           </span>
           <select
@@ -320,7 +346,7 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
                 clearGeometryAnalysis(object.id);
               }
             }}
-            className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+            className="h-8 w-full rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2.5 text-[13px] text-(--text-primary)"
           >
             <option value="">Select another object…</option>
             {options.map((candidate) => {
@@ -333,10 +359,10 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
               );
             })}
           </select>
-          {secondaryMeta ? <span className="mt-1 block min-w-0 text-[12px] text-[var(--text-secondary)]"><MathText text={secondaryMeta.type} /></span> : null}
+          {secondaryMeta ? <span className="mt-1 block min-w-0 text-[12px] text-(--text-secondary)"><MathText text={secondaryMeta.type} /></span> : null}
         </label>
         {!config || !secondary ? (
-          <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]" role="status">
+          <p className="text-[12px] leading-relaxed text-(--text-tertiary)" role="status">
             Select another object.
           </p>
         ) : (
@@ -346,8 +372,8 @@ export default function GeometryAnalysisSection({ object }: { object: GraphObjec
               {(() => {
                 const overlayLabel = geometryOverlayToggleLabel(facts);
                 return overlayLabel ? (
-                  <div className="mt-1 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 py-1.5">
-                    <span className="text-[12px] text-[var(--text-secondary)]">{overlayLabel}</span>
+                  <div className="mt-1 flex items-center justify-between rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2.5 py-1.5">
+                    <span className="text-[12px] text-(--text-secondary)">{overlayLabel}</span>
                     <Switch
                       checked={config.showOverlay}
                       onCheckedChange={(checked) => setGeometryAnalysis(object.id, { showOverlay: checked })}

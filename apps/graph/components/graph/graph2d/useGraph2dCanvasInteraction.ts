@@ -21,18 +21,18 @@ import { graph2dMathToScreen, graph2dScreenToMath } from "./graph2dCanvasTransfo
 
 export type UseGraph2dCanvasInteractionArgs = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  suspended?: boolean;
   isQuadTop: boolean;
   canvas2dTool: Canvas2DTool;
   viewport: Viewport2D;
   pairForCanvas: Axis2DPair;
-  axis2dPairQuadTop: Axis2DPair;
   snapEnabled: boolean;
   snapStep: number;
   probePins: GraphProbePin[];
   sketchAutoCreate: boolean;
   patchViewport2D: (viewport: Partial<Viewport2D>) => void;
   setActive2dViewport: (slot: Active2dViewportSlot) => void;
-  setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
+  setProbePinnedMath: (point: { horizontal: number; vertical: number } | null, axisPair?: Axis2DPair) => void;
   removeProbePin: (id: string) => void;
   clearProbes: () => void;
   addSketchedParametricFromStroke: (stroke: { horizontal: number; vertical: number }[], axisPair?: Axis2DPair) => string;
@@ -59,11 +59,11 @@ export function useGraph2dCanvasInteraction(
 } {
   const {
     canvasRef,
+    suspended = false,
     isQuadTop,
     canvas2dTool,
     viewport,
     pairForCanvas,
-    axis2dPairQuadTop,
     snapEnabled,
     snapStep,
     probePins,
@@ -154,10 +154,6 @@ export function useGraph2dCanvasInteraction(
         return;
       }
 
-      if (isQuadTop && canvas2dTool !== "pan") {
-        return;
-      }
-
       setActive2dViewport(isQuadTop ? "quadTop" : "primary");
 
       const rect = canvas.getBoundingClientRect();
@@ -182,7 +178,7 @@ export function useGraph2dCanvasInteraction(
         setProbePinnedMath({
           horizontal: mathCoords.horizontal,
           vertical: mathCoords.vertical
-        });
+        }, pairForCanvas);
         return;
       }
 
@@ -226,14 +222,13 @@ export function useGraph2dCanvasInteraction(
       activePointerId.current = event.pointerId;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [canvas2dTool, canvasRef, isQuadTop, setActive2dViewport, setProbePinnedMath, snapEnabled, snapStep, viewport]
+    [canvas2dTool, canvasRef, isQuadTop, pairForCanvas, setActive2dViewport, setProbePinnedMath, snapEnabled, snapStep, viewport]
   );
 
   const handleContextMenu = useCallback(
     (event: MouseEvent<HTMLCanvasElement>) => {
       event.preventDefault();
       if (
-        isQuadTop ||
         (canvas2dTool !== "probe" &&
           canvas2dTool !== "addPin" &&
           canvas2dTool !== "measureDistance" &&
@@ -261,7 +256,7 @@ export function useGraph2dCanvasInteraction(
         removeProbePin(hit.id);
       }
     },
-    [canvas2dTool, canvasRef, isQuadTop, pairForCanvas, probePins, removeProbePin, viewport.centerX, viewport.centerY, viewport.scale]
+    [canvas2dTool, canvasRef, pairForCanvas, probePins, removeProbePin, viewport.centerX, viewport.centerY, viewport.scale]
   );
 
   const handlePointerMove = useCallback(
@@ -392,8 +387,7 @@ export function useGraph2dCanvasInteraction(
         finalizeGraph2dSketchStroke({
           stroke,
           sketchAutoCreate,
-          isQuadTop,
-          axis2dPairQuadTop,
+          pairForCanvas,
           addSketchedParametricFromStroke,
           setSketchFitPreview
         });
@@ -416,7 +410,7 @@ export function useGraph2dCanvasInteraction(
         // Pointer may already be released (e.g. touch cancelled by OS).
       }
     },
-    [addSketchedParametricFromStroke, axis2dPairQuadTop, canvas2dTool, canvasRef, isQuadTop, sketchAutoCreate]
+    [addSketchedParametricFromStroke, pairForCanvas, canvas2dTool, canvasRef, sketchAutoCreate]
   );
 
   const handlePointerLeave = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
@@ -477,15 +471,26 @@ export function useGraph2dCanvasInteraction(
     };
   }, [canvasRef, handleWheel]);
 
+  // A retained pane must not carry gestures or fitted coordinates into a
+  // different plane, tool, or visible session.
   useEffect(() => {
-    if (canvas2dTool !== "draw") {
-      isSketching.current = false;
-      lastSketchScreen.current = null;
-      sketchAccumRef.current = [];
-      setSketchDraft(null);
-      setSketchFitPreview(null);
+    const canvas = canvasRef.current;
+    const pointerIds = new Set(pointersRef.current.keys());
+    if (activePointerId.current !== null) pointerIds.add(activePointerId.current);
+    for (const id of pointerIds) {
+      if (canvas?.hasPointerCapture?.(id)) canvas.releasePointerCapture(id);
     }
-  }, [canvas2dTool]);
+    pointersRef.current.clear();
+    pinchRef.current = null;
+    activePointerId.current = null;
+    isDragging.current = false;
+    isSketching.current = false;
+    lastSketchScreen.current = null;
+    sketchAccumRef.current = [];
+    setMousePos(null);
+    setSketchDraft(null);
+    setSketchFitPreview(null);
+  }, [canvasRef, canvas2dTool, pairForCanvas, suspended]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

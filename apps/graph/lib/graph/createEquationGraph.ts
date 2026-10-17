@@ -1,7 +1,7 @@
 import type { GraphObject, ImplicitCurveObject } from "@vinculum/scene/types";
 import { createSurfaceGraph } from "./createSurfaceGraph";
 import { createImplicitSurfaceGraph } from "./createImplicitSurfaceGraph";
-import type { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import type { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 
 type Inference = Extract<ReturnType<typeof inferGraphEquation>, { ok: true }>;
 
@@ -17,6 +17,6 @@ export function createEquationGraph(equation: string, inferred: Inference, index
     return { ...object, ...(current?.kind === "implicitSurface" ? { domain: current.domain, resolution: current.resolution, appearance: current.appearance } : {}), autoExpression: true };
   }
   const object = createSurfaceGraph(base);
-  const curve: ImplicitCurveObject = { id: object.id, color: object.color, visible: object.visible, kind: "implicitCurve", equation, autoExpression: true, ...(current?.kind === "implicitCurve" ? { extendTo3D: current.extendTo3D } : {}) };
+  const curve: ImplicitCurveObject = { id: object.id, color: object.color, visible: object.visible, kind: "implicitCurve", equation, autoExpression: true, ...(current?.kind === "implicitCurve" ? { extendTo3D: current.extendTo3D, extensionRange: current.extensionRange } : {}) };
   return curve;
 }

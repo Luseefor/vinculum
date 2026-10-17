@@ -79,7 +79,7 @@ export const FormulaCard: React.FC<FormulaCardProps> = ({
       {parameters && Object.keys(parameters).length > 0 && (
         <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-3 justify-center text-xs font-mono text-slate-300">
           {Object.entries(parameters).map(([key, val]) => (
-            <div key={key} className="bg-slate-800/80 px-2.5 py-1 rounded border border-white/5">
+            <div key={key} className="bg-slate-800/80 px-2.5 py-1 rounded-sm border border-white/5">
               <span className="text-cyan-400">{key}:</span> {val}
             </div>
           ))}

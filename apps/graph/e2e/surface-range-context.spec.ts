@@ -22,6 +22,12 @@ for (const width of [320, 1440]) {
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 8);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(width === 320 ? 560 : 892);
     expect(bounds.height).toBeLessThan(200);
+    // Check resting colors after the existing finite entrance/hover effects.
+    await menu.evaluate(async element => {
+      await Promise.all(element.getAnimations({ subtree: true })
+        .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => undefined)));
+    });
     expect((await new AxeBuilder({ page }).include('[aria-label="Scene context menu"]').analyze()).violations).toEqual([]);
     await expect(menu.getByRole("menuitem", { name: "Add equation" })).toBeFocused();
     await page.keyboard.press("End");

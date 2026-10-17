@@ -8,8 +8,8 @@ import {
   Mesh,
   MeshBasicMaterial
 } from "three";
-import { compilePlaneEquation, samplePlane } from "@/lib/math/samplePlane";
-import { mathToWorld3D } from "@/lib/math/coordinates";
+import { compilePlaneEquation, samplePlane } from "@/lib/math/surfaces/samplePlane";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import { updateFloat32Attribute, updateIndexAttributeUint32 } from "./bufferGeometryAttributes";
 

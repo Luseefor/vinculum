@@ -4,6 +4,7 @@ import { LineBasicMaterial, Mesh, MeshBasicMaterial } from "three";
 import type { Group } from "three";
 import type { Material } from "three";
 import type { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { removeCachedSliceOverlay } from "./buildScalarSliceOverlays";
 import { disposeObject3D } from "@/lib/graph3d/buildGraphObjects";
 
 export type DisposeGraphThreeEngineResourcesArgs = {
@@ -126,10 +127,9 @@ export function disposeGraphThreeEngineThreeResources(args: DisposeGraphThreeEng
   }
   scene.remove(measurementMarkersRoot);
 
-  // S21: derived analysis overlays (cached groups disposed with the engine).
-  for (const [, cached] of analysisOverlayCache) {
-    analysisOverlayRoot.remove(cached.group);
-    disposeObject3D(cached.group);
+  // The scalar overlay disposer also releases owned heat/slice textures.
+  for (const [key] of analysisOverlayCache) {
+    removeCachedSliceOverlay({ cache: analysisOverlayCache, overlayRoot: analysisOverlayRoot }, key);
   }
   analysisOverlayCache.clear();
   scene.remove(analysisOverlayRoot);

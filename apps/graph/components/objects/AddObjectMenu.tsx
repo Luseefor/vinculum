@@ -26,9 +26,11 @@ import { useGraphStore } from "@/store/graphStore";
 // from Quick Add / palette / context menu). Only presentation ORDER lives
 // here; templates and Analysis helpers stay bespoke menu items.
 const GRAPH_KIND_KEYS = [
+  "parametricCurve-2d",
   "parametricCurve",
-  "surface",
+  "parametricSurface-2d",
   "parametricSurface",
+  "surface",
   "implicitSurface",
   "vectorField-2d",
   "vectorField-3d",
@@ -64,15 +66,25 @@ export default function AddObjectMenu() {
     const dismiss = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target) && !catalogRef.current?.contains(event.target)) setOpen(false);
     };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
     document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape, true);
     window.addEventListener("resize", positionCatalog);
     window.addEventListener("scroll", positionCatalog, true);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape, true);
       window.removeEventListener("resize", positionCatalog);
       window.removeEventListener("scroll", positionCatalog, true);
     };
   }, [open, positionCatalog]);
+  const canProject = useGraphStore(state => state.scene.objects.some(object => object.id === state.ui.selectedObjectId && object.kind === "parametricCurve"));
   const addEmptyObject = useGraphStore((state) => state.addEmptyObject);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
 
@@ -91,6 +103,8 @@ export default function AddObjectMenu() {
         const entryLabel = label(key);
         return {
           label: entryLabel,
+          searchTerms: descriptorByKey(key)?.aliases.join(" ") ?? "",
+          description: key === "parametricCurve-2d" ? "2D · x(t), y(t)" : key === "parametricSurface-2d" ? "2D · x(u,v), y(u,v)" : key === "parametricCurve" ? "3D · x(t), y(t), z(t)" : key === "parametricSurface" ? "3D · x(u,v), y(u,v), z(u,v)" : "",
           onClick: () => {
             createMenuKind(key, `Created ${entryLabel} from Add menu`);
           }
@@ -174,6 +188,8 @@ export default function AddObjectMenu() {
             },
             {
               label: "Projection",
+              disabled: !canProject,
+              description: canProject ? "Copy selected curve onto XY" : "Select a parametric curve first",
               onClick: () => {
                 createProjectionPreset();
               }
@@ -182,17 +198,20 @@ export default function AddObjectMenu() {
         }
       ];
     },
-    [createMenuKind]
+    [createMenuKind, canProject]
   );
 
   const filteredSections = sections
     .filter(section => category === "All" || category === section.title)
-    .map(section => ({ ...section, items: section.items.filter(item => item.label.toLowerCase().includes(query.trim().toLowerCase())) }))
+    .map(section => ({ ...section, items: section.items.filter(item => {
+      const terms = `${item.label} ${"searchTerms" in item ? item.searchTerms : ""}`.toLowerCase();
+      return query.trim().toLowerCase().split(/\s+/).every(word => terms.includes(word));
+    }) }))
     .filter(section => section.items.length > 0);
 
   const closeCatalog = () => { setOpen(false); triggerRef.current?.focus(); };
   const iconButton =
-    "flex h-7 items-center justify-center text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent)]";
+    "flex h-7 items-center justify-center text-(--text-secondary) outline-hidden transition-colors duration-(--motion-fast) hover:bg-(--surface-muted) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--accent)";
 
   return (
     <div ref={rootRef} className="relative" onKeyDown={event => {
@@ -205,7 +224,7 @@ export default function AddObjectMenu() {
       <button
         ref={triggerRef}
         type="button"
-        className={`${iconButton} gap-1 px-2 rounded-[var(--radius-sm)] ${open ? "bg-[var(--surface-muted)] text-[var(--text-primary)]" : ""}`}
+        className={`${iconButton} gap-1 px-2 rounded-[var(--ui-radius-sm)] ${open ? "bg-(--surface-muted) text-(--text-primary)" : ""}`}
         onClick={() => {
           if (!open) { positionCatalog(); setQuery(""); setCategory("All"); }
           setOpen(value => !value);
@@ -222,7 +241,7 @@ export default function AddObjectMenu() {
       {open ? createPortal(
         <div ref={catalogRef} id={catalogId} data-object-catalog role="dialog" aria-labelledby={`${catalogId}-title`} className="object-catalog animate-fade-in" style={placement}>
           <div className="object-catalog-header">
-            <h2 id={`${catalogId}-title`} className="text-[14px] font-semibold text-[var(--text-primary)]">Add to graph</h2>
+            <h2 id={`${catalogId}-title`} className="text-[14px] font-semibold text-(--text-primary)">Add to graph</h2>
             <button type="button" aria-label="Close object picker" onClick={closeCatalog} className="object-catalog-close"><CloseIcon className="h-4 w-4" /></button>
           </div>
           <input ref={searchRef} type="search" aria-label="Search objects" placeholder="Search objects and examples…" value={query} onChange={event => setQuery(event.target.value)} className="object-catalog-search" />
@@ -236,14 +255,14 @@ export default function AddObjectMenu() {
               setOpen(false);
             }}><PlusIcon className="h-4 w-4" />Empty expression</button>}
             {filteredSections.map(section => <section key={section.title} aria-label={`${section.title} objects`}>
-              <h3 className="mb-2 text-[11px] font-medium text-[var(--text-tertiary)]">{section.title}</h3>
+              <h3 className="mb-2 text-[11px] font-medium text-(--text-tertiary)">{section.title}</h3>
               <div className="object-catalog-grid">
-                {section.items.map(item => <button key={item.label} type="button" onClick={() => { item.onClick(); setOpen(false); }}>{item.label}</button>)}
+                {section.items.map(item => <button key={item.label} type="button" className="disabled:cursor-not-allowed disabled:opacity-50" aria-label={item.label} disabled={"disabled" in item && item.disabled} title={"description" in item ? item.description : undefined} onClick={() => { item.onClick(); setOpen(false); }}><span>{"description" in item && typeof item.description === "string" && item.description.startsWith("3D ·") ? `3D ${item.label}` : item.label}</span>{"description" in item && typeof item.description === "string" && item.description ? <span className="mt-1 block text-[11px] text-(--text-tertiary)">{item.description}</span> : null}</button>)}
               </div>
             </section>)}
-            {filteredSections.length === 0 && <div className="py-5 text-[12px] text-[var(--text-secondary)]">
+            {filteredSections.length === 0 && <div className="py-5 text-[12px] text-(--text-secondary)">
               <p>No objects match “{query}”.</p>
-              <button type="button" onClick={() => { setQuery(""); setCategory("All"); searchRef.current?.focus(); }} className="mt-2 rounded-lg px-2 py-1 text-[var(--accent-ink)] hover:bg-[var(--accent-soft)]">Clear filters</button>
+              <button type="button" onClick={() => { setQuery(""); setCategory("All"); searchRef.current?.focus(); }} className="mt-2 rounded-lg px-2 py-1 text-(--accent-ink) hover:bg-(--accent-soft)">Clear filters</button>
             </div>}
           </div>
         </div>, rootRef.current?.closest('[role="dialog"]') ?? document.body

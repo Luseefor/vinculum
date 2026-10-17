@@ -1,9 +1,11 @@
-import { normalizeMathInput } from "@/lib/math/mathNotation";
+import { withParametricDimension } from "@vinculum/scene/defaults";
+import { buildObjectOperation, resolveObjectCombinations } from "@/lib/math/geometry/objectOperations";
+import { normalizeMathInput } from "@/lib/math/expressions/mathNotation";
 import { useEditorStore } from "@/lib/store/editorStore";
-import { splitSingleMathEquality } from "@/lib/math/implicitEquation";
-import { validateExpressionSafety } from "@/lib/math/expressionSafety";
-import { compileRustExpression } from "@/lib/math/rustMath";
-import { inferGraphEquation } from "@/lib/math/inferGraphEquation";
+import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
+import { validateExpressionSafety } from "@/lib/math/expressions/expressionSafety";
+import { compileRustExpression } from "@/lib/math/runtime/rustMath";
+import { inferGraphEquation } from "@/lib/math/expressions/inferGraphEquation";
 import { getEquationParameterNames, isParameterName, getEditorParameterScope } from "@/lib/store/editorParameters";
 import { parseGraphObject } from "@/lib/scene/validateSceneGraphParsers";
 import { createEquationGraph } from "@/lib/graph/createEquationGraph";
@@ -42,6 +44,8 @@ import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
   GraphStoreState,
   | "addDefinedObject"
+  | "addObjectOperation"
+  | "detachObjectOperation"
   | "commitAutoEquation"
   | "addSurfaceObject"
   | "addParametricCurve"
@@ -98,12 +102,47 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         }
         return {
           scene: applySceneCommand(state.scene, current ? { type: "UPDATE_OBJECT", payload: { object: validated } } : { type: "ADD_OBJECT", payload: { object: validated } }),
-          ui: { ...(current ? pruneGeometryAnalysisForSourceId(clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, current.id), current.id), current.id) : state.ui), selectedObjectId: validated.id }
+          ui: { ...(current ? current.kind === validated.kind
+            ? clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, current.id), current.id)
+            : pruneGeometryAnalysisForSourceId(clearIntegralFieldSelection(clearAllDerivedForSource(state.ui, current.id), current.id), current.id)
+            : state.ui), selectedObjectId: validated.id }
         };
       });
       if (committedId && !error) useEditorStore.getState().ensureParameters(names);
       return { id: committedId, error, dimension: inference.dimension };
     },
+    addObjectOperation: (operation, targetId) => {
+      let result: ReturnType<GraphStoreState["addObjectOperation"]> = { id: null, error: "Select two different source objects." };
+      set(state => {
+        const source = state.scene.objects.find(object => object.id === state.ui.selectedObjectId);
+        const target = state.scene.objects.find(object => object.id === targetId);
+        if (!source || !target || source.id === target.id) return state;
+        const built = buildObjectOperation(source, target, operation, getEditorParameterScope());
+        if (!built.ok) { result = { id: null, error: built.error }; return state; }
+        const base = createImplicitSurfaceGraph({ colorIndex: state.scene.objects.length, equation: built.definition.equation, domain: built.definition.domain, resolution: 48 });
+        const combination = { operation, operands: [source.id, target.id] as [string, string] };
+        const object = built.definition.kind === "implicitCurve"
+          ? { id: base.id, kind: "implicitCurve" as const, color: base.color, visible: true, equation: built.definition.equation, combination }
+          : { ...base, combination };
+        const errors: string[] = [];
+        const parsed = parseGraphObject(object, state.scene.objects.length, errors);
+        if (!parsed) { result = { id: null, error: errors.join(" ") }; return state; }
+        resolveObjectCombinations([...state.scene.objects, parsed], getEditorParameterScope(), errors);
+        if (errors.length) { result = { id: null, error: errors.join(" ") }; return state; }
+        let scene = applySceneCommand(state.scene, { type: "ADD_OBJECT", payload: { object: parsed } });
+        scene = applySceneCommand(scene, { type: "UPDATE_OBJECT", payload: { object: { ...source, visible: false } } });
+        scene = applySceneCommand(scene, { type: "UPDATE_OBJECT", payload: { object: { ...target, visible: false } } });
+        result = { id: object.id, error: null, dimension: object.kind === "implicitCurve" ? "2d" : "3d" };
+        return { scene, ui: { ...state.ui, selectedObjectId: object.id } };
+      });
+      return result;
+    },
+    detachObjectOperation: id => set(state => {
+      const object = state.scene.objects.find(candidate => candidate.id === id);
+      if (!object?.combination) return state;
+      const { combination: _combination, ...independent } = object;
+      return { scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: independent } }) };
+    }),
     addDefinedObject: (object) => {
       // Internal insertion of a definition validated by the canonical parser.
       const id = appendObject(set, () => object);
@@ -113,16 +152,16 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
       return appendObject(set, (index) => createSurfaceGraph({ colorIndex: index }));
     },
 
-    addParametricCurve: () => {
-      return appendObject(set, (index) => createParametricCurve({ colorIndex: index }));
+    addParametricCurve: (dimension) => {
+      return appendObject(set, (index) => createParametricCurve({ colorIndex: index, dimension }));
     },
 
     addPlaneObject: () => {
       return appendObject(set, (index) => createPlaneGraph({ colorIndex: index }));
     },
 
-    addParametricSurface: () => {
-      return appendObject(set, (index) => createParametricSurfaceGraph({ colorIndex: index }));
+    addParametricSurface: (dimension) => {
+      return appendObject(set, (index) => createParametricSurfaceGraph({ colorIndex: index, dimension }));
     },
 
     addImplicitSurface: () => {
@@ -166,7 +205,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
 
       set((state) => {
         const source = state.scene.objects.find((object) => object.id === id);
-        const nextObject = source?.autoExpression || source?.kind === "implicitCurve" ? createEmptyGraphObject("implicitCurve", state.scene.objects.length) : createGraphObject(kind, state.scene.objects.length, { dimension });
+        const nextObject = source?.autoExpression || source?.kind === "implicitCurve" ? createEmptyGraphObject("implicitCurve", state.scene.objects.length) : createGraphObject(kind, state.scene.objects.length, { dimension: dimension ?? (source?.kind === kind && "dimension" in source ? source.dimension : undefined) });
         createdObjectId = nextObject.id;
 
         const insertIndex = state.scene.objects.findIndex((object) => object.id === id);
@@ -200,6 +239,15 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
         }
 
         const currentObject = state.scene.objects[index];
+        if ((currentObject.kind === "parametricCurve" || currentObject.kind === "parametricSurface") && kind === currentObject.kind) {
+          const converted = withParametricDimension(currentObject, dimension ?? currentObject.dimension ?? "3d");
+          if (converted === currentObject) return state;
+          useIntegralResultsStore.getState().removeForSource(id);
+          return {
+            scene: applySceneCommand(state.scene, { type: "UPDATE_OBJECT", payload: { object: converted } }),
+            ui: clearAllDerivedForSource(pruneGeometryAnalysisForSourceId(state.ui, id), id)
+          };
+        }
         // S28 PART 41: linearTransform dimension switches preserve
         // entries deterministically (2D→3D embeds on XY with z fixed;
         // 3D→2D keeps the top-left 2×2) instead of rebuilding defaults.
@@ -244,7 +292,7 @@ export function buildObjectsSliceInsert(set: GraphStoreSet): Pick<
           id: currentObject.id,
           color: currentObject.color,
           visible: currentObject.visible,
-          ...(kind === "vectorField" ? { dimension: vectorDimension } : {})
+          ...((kind === "parametricCurve" || kind === "parametricSurface") ? { dimension: dimension ?? "3d" } : kind === "vectorField" ? { dimension: vectorDimension } : {})
         };
 
         // S23: kind switches drop cached scalar grids with the config.

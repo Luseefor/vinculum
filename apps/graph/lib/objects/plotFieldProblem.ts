@@ -3,8 +3,8 @@ import { createVectorFieldGraph } from "@/lib/graph/createVectorFieldGraph";
 import { createSurfaceGraph } from "@/lib/graph/createSurfaceGraph";
 import { createParametricCurve } from "@/lib/graph/createParametricCurve";
 import { createParametricSurfaceGraph } from "@/lib/graph/createParametricSurfaceGraph";
-import { polarVectorCartesianExpressions, substituteFieldSymbols } from "@/lib/math/polarFieldExpressions";
-import { checkFieldExpression } from "@/lib/math/fieldSolutions";
+import { polarVectorCartesianExpressions, substituteFieldSymbols } from "@/lib/math/fields/polarFieldExpressions";
+import { checkFieldExpression } from "@/lib/math/fields/fieldSolutions";
 import { parseGraphObject } from "@/lib/scene/validateSceneGraphParsers";
 import { useGraphStore } from "@/store/graphStore";
 

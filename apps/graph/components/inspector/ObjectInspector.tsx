@@ -11,6 +11,7 @@ import GeometryPrimitiveInspector from "./GeometryPrimitiveInspector";
 import LinearTransformInspector from "./LinearTransformInspector";
 import {
   ImplicitSurfaceDefinitionEditor,
+  CurveExtensionDefinitionEditor,
   ParametricCurveDefinitionEditor,
   ParametricSurfaceDefinitionEditor,
   SurfaceDefinitionEditor,
@@ -18,6 +19,7 @@ import {
 } from "./MathDefinitionEditors";
 import type { GraphObject, LineObject, PlaneGraphObject, PointObject, RayObject, SegmentObject, SurfaceGraphObject, VectorObject } from "@vinculum/scene/types";
 import { useGraphStore } from "@/store/graphStore";
+import { ObjectCombinationSummary } from "./ObjectOperationsSection";
 
 export function useSelectedGraphObject(): GraphObject | null {
   const objects = useGraphStore((state) => state.scene.objects);
@@ -34,18 +36,24 @@ export default function ObjectInspector() {
 
   if (!selectedObject) {
     return (
-      <div data-inspector-section className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
-        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">No selection</p>
-        <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to edit its properties.</p>
+      <div data-inspector-section className="rounded-[var(--ui-radius-sm)] border border-dashed border-(--border-subtle) bg-transparent px-3 py-4 text-center shadow-none">
+        <p className="text-[12px] font-semibold text-(--text-secondary)">No selection</p>
+        <p className="mt-1 text-[12px] text-(--text-tertiary)">Select an object to edit its properties.</p>
       </div>
     );
   }
 
+  if (selectedObject.combination) return <section data-inspector-section className="space-y-3">
+    <ObjectCombinationSummary object={selectedObject} />
+    {selectedObject.kind === "implicitCurve" && <CurveExtensionDefinitionEditor key={selectedObject.id} object={selectedObject} />}
+  </section>;
+
   if (selectedObject.kind === "implicitCurve" || (selectedObject.autoExpression && "equation" in selectedObject)) {
     return <section data-inspector-section className="space-y-3">
-      <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Equation</h3>
+      <h3 className="text-[13px] font-semibold text-(--text-primary)">Equation</h3>
       <AutomaticEquationInput key={selectedObject.id} objectId={selectedObject.id} value={selectedObject.equation} />
-      <p className="text-[12px] text-[var(--text-secondary)]">{selectedObject.kind === "implicitCurve" ? "2D curve" : "3D surface"} · Type z to include the third dimension.</p>
+      {selectedObject.kind === "implicitCurve" && <CurveExtensionDefinitionEditor key={`extension-${selectedObject.id}`} object={selectedObject} />}
+      <p className="text-[12px] text-(--text-secondary)">{selectedObject.kind === "implicitCurve" ? "2D curve" : "3D surface"} · Type z to include the third dimension.</p>
       {selectedObject.kind === "surface" ? <SurfaceDefinitionEditor object={selectedObject} index={objects.findIndex((object) => object.id === selectedObject.id)} hideEquation /> : null}
       {selectedObject.kind === "implicitSurface" ? <ImplicitSurfaceDefinitionEditor object={selectedObject} index={objects.findIndex((object) => object.id === selectedObject.id)} hideEquation /> : null}
     </section>;
@@ -146,16 +154,16 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
     }
   };
   return (
-    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
+    <section className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0">
       <header className="pb-3">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Plane</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Plane</h3>
+        <p className="mt-1 text-[12px] leading-relaxed text-(--text-tertiary)">
           2D view shows the intersection with the axis plane you chose in the
           toolbar. Color and wireframe live under the Settings tab.
         </p>
       </header>
       <label className="block">
-        <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+        <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
           Equation
         </span>
         <MathInput
@@ -178,7 +186,7 @@ function PlaneInspector({ object }: { object: PlaneGraphObject }) {
               event.currentTarget.blur();
             }
           }}
-          className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+          className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
         />
       </label>
     </section>

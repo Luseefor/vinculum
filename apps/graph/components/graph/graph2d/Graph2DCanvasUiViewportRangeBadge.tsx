@@ -22,8 +22,8 @@ export function Graph2DCanvasUiViewportRangeBadge({
       data-testid="graph2d-viewport-range-badge"
       className={
         embedded
-          ? "min-w-0 font-mono text-[10px] text-[var(--text-secondary)]"
-          : "rounded border border-[var(--border-subtle)] bg-[var(--surface-overlay)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] shadow-[var(--shadow-floating)]"
+          ? "min-w-0 font-mono text-[10px] text-(--text-secondary)"
+          : "rounded-sm border border-(--border-subtle) bg-(--surface-overlay) px-2 py-1 font-mono text-[10px] text-(--text-secondary) shadow-(--shadow-floating)"
       }
     >
       {axisPair.horizontalLabel}: <MathExpression expression={`[${formatCoord(viewportRange.horizontalMin)}, ${formatCoord(viewportRange.horizontalMax)}]`} latex={`\\left[${formatCoord(viewportRange.horizontalMin)},\\,${formatCoord(viewportRange.horizontalMax)}\\right]`} />

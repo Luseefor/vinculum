@@ -6,13 +6,13 @@ import { Switch } from "@/components/ui/switch";
 import { useGraphStore } from "@/store/graphStore";
 import { useGeometryComputeStore } from "@/lib/compute/geometryComputeStatus";
 import { useStreamlineResultsStore } from "@/lib/compute/streamlineResults";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
 import {
   MAX_STREAMLINE_SEED_DENSITY_2D,
   MAX_STREAMLINE_SEED_DENSITY_3D,
   MIN_STREAMLINE_SEED_DENSITY_2D,
   MIN_STREAMLINE_SEED_DENSITY_3D
-} from "@/lib/math/streamlineSeeds";
+} from "@/lib/math/fields/streamlineSeeds";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 
@@ -62,19 +62,19 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
   return (
     <section
       data-testid="streamline-section"
-      className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0"
+      className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0"
     >
       <header className="pb-2">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Streamlines</h3>
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Streamlines</h3>
       </header>
       {field.error ? (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Fix the component expressions to enable streamlines.
         </p>
       ) : (
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between py-1">
-            <span className="text-[12px] text-[var(--text-secondary)]">Show streamlines</span>
+            <span className="text-[12px] text-(--text-secondary)">Show streamlines</span>
             <Switch
               checked={config?.enabled ?? false}
               onCheckedChange={(checked) => commit({ enabled: checked })}
@@ -85,7 +85,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
             <>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                  <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
                     Seed density
                   </span>
                   <Input
@@ -103,11 +103,11 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                         });
                       }
                     }}
-                    className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+                    className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                  <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
                     Trace length
                   </span>
                   <select
@@ -119,7 +119,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                         commit({ length });
                       }
                     }}
-                    className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+                    className="h-8 w-full rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2.5 text-[13px] text-(--text-primary)"
                   >
                     <option value="short">Short</option>
                     <option value="medium">Medium</option>
@@ -128,7 +128,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                 </label>
               </div>
               <label className="block">
-                <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+                <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
                   Quality
                 </span>
                 <select
@@ -140,7 +140,7 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
                       commit({ quality });
                     }
                   }}
-                  className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2.5 text-[13px] text-[var(--text-primary)]"
+                  className="h-8 w-full rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2.5 text-[13px] text-(--text-primary)"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -150,23 +150,23 @@ export default function StreamlineSection({ object }: { object: VectorFieldObjec
             </>
           )}
           {computeStatus === "pending" && (config?.enabled ?? false) && (
-            <p className="text-[11px] text-[var(--text-tertiary)]" role="status">
+            <p className="text-[11px] text-(--text-tertiary)" role="status">
               Computing streamlines…
             </p>
           )}
           {result?.status === "ok" && (config?.enabled ?? false) && (
-            <p data-testid="streamline-count" className="font-mono text-[12px] text-[var(--text-secondary)]" role="status">
+            <p data-testid="streamline-count" className="font-mono text-[12px] text-(--text-secondary)" role="status">
               {result.streamlineCount} {result.streamlineCount === 1 ? "curve" : "curves"} ·{" "}
               {result.totalPoints} points
             </p>
           )}
           {result?.status === "empty" && (config?.enabled ?? false) && (
-            <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+            <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
               No streamlines here — the field is zero or invalid on every seed.
             </p>
           )}
           {computeStatus === "error" && (config?.enabled ?? false) && (
-            <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+            <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
               {computeMessage ?? "Streamline computation failed; edit to retry."}
             </p>
           )}

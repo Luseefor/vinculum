@@ -1,3 +1,5 @@
+import { useEditorStore } from "@/lib/store/editorStore";
+import { restoreSceneParameters } from "@/lib/store/sceneParameterSync";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
 import type { GraphStoreSet, GraphStoreState } from "./graphStoreTypes";
 
@@ -72,11 +74,12 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
     },
 
     applySceneSnapshot: (snapshot) => {
-      set((state) => ({
+      restoreSceneParameters(snapshot.parameters ?? useEditorStore.getState().parameters, () => set((state) => ({
         scene: {
           ...state.scene,
           objects: snapshot.objects,
-          measurements: snapshot.measurements
+          measurements: snapshot.measurements,
+          parameters: snapshot.parameters ?? state.scene.parameters
         },
         ui: {
           ...state.ui,
@@ -91,7 +94,7 @@ export function buildSnapSnapshotSlice(set: GraphStoreSet): Pick<
           selectedObjectId: resolveSelectedObjectId(snapshot.selection.selectedObjectId, snapshot.objects),
           selectedMeasurementId: null
         }
-      }));
+      })));
     }
   };
 }

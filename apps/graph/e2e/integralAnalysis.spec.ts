@@ -1,7 +1,85 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, pressInput } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+
+test.describe("bounded solid analysis", () => {
+  for (const width of [390, 1440]) {
+    test(`${width}px computes volume between functions and the complete solid boundary`, async ({ page }) => {
+      const { pageErrors, consoleErrors } = collectErrors(page);
+      await page.setViewportSize({ width, height: 900 });
+      await startClean(page);
+      if (width < 720) await page.getByRole("button", { name: "Objects", exact: true }).click();
+      await addObject(page, "Surface");
+      if (width < 720) {
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: "Inspector", exact: true }).click();
+      }
+      const inspector = page.locator("#graph-inspector");
+      await fillInput(inspector.getByLabel("Surface expression z = f(x,y)", { exact: true }).first(), "z=3");
+      for (const [label, value] of [["x min", "0"], ["x max", "2"], ["y min", "0"], ["y max", "4"]]) {
+        await fillInput(inspector.getByLabel(label, { exact: true }), value);
+      }
+      await openAnalyze(page);
+      await page.getByLabel("Integral mode").selectOption("volume");
+      await expect(page.getByTestId("integral-result-value")).toContainText("24", { timeout: 15000 });
+      await fillInput(page.getByLabel("Other boundary g(x,y)"), "1");
+      await pressInput(page.getByLabel("Other boundary g(x,y)"), "Enter");
+      await expect(page.getByTestId("integral-result-value")).toContainText("16", { timeout: 15000 });
+      await page.getByLabel("Integral mode").selectOption("solidArea");
+      await expect(page.getByTestId("integral-result-value")).toContainText("40", { timeout: 15000 });
+      await page.getByRole("button", { name: "Show solid boundary area solution", exact: true }).click();
+      const solution = page.getByRole("dialog", { name: "Solid boundary area solution", exact: true });
+      await expect(solution).toBeVisible();
+      await expect(solution).toContainText("four side-wall areas");
+      await expect(solution.locator(".katex-error")).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(solution).not.toBeVisible();
+      await expect(page.getByRole("button", { name: "Show solid boundary area solution", exact: true })).toBeFocused();
+      if (width < 720) await expect(page.getByRole("dialog", { name: "Inspector", exact: true })).toBeVisible();
+      await page.getByLabel("Integral mode").selectOption("volume");
+      await fillInput(page.getByLabel("Other boundary g(x,y)"), "1/(x-0.13)");
+      await pressInput(page.getByLabel("Other boundary g(x,y)"), "Enter");
+      await expect(page.getByTestId("integral-analysis-section")).toContainText(/undefined|singularity/, { timeout: 15000 });
+      await expect(page.getByTestId("integral-result-value")).toHaveCount(0);
+      expect(pageErrors).toEqual([]);
+      expect(consoleErrors).toEqual([]);
+    });
+  }
+
+  test("implicit sphere volume rejects a clipped boundary and recovers after restoring bounds", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await startClean(page);
+    await addObject(page, "Implicit Sphere");
+    await openAnalyze(page);
+    await page.getByLabel("Integral mode").selectOption("volume");
+    await expect.poll(async () => Number(await page.getByTestId("integral-result-value").locator(".katex-html").textContent()), { timeout: 15000 }).toBeCloseTo(4 * Math.PI / 3, 1);
+    await openObject(page);
+    await fillInput(page.locator("#graph-inspector").getByLabel("z min", { exact: true }), "0");
+    await openAnalyze(page);
+    await expect(page.getByTestId("integral-analysis-section")).toContainText(/open|clipped/, { timeout: 15000 });
+    await expect(page.getByTestId("integral-result-value")).toHaveCount(0);
+    await openObject(page);
+    await fillInput(page.locator("#graph-inspector").getByLabel("z min", { exact: true }), "-1.5");
+    await openAnalyze(page);
+    await expect(page.getByTestId("integral-result-value")).toBeVisible({ timeout: 15000 });
+  });
+
+  test("parametric sphere volume requires a closed parameterization", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await startClean(page);
+    await addObject(page, "Parametric Sphere");
+    await openAnalyze(page);
+    await page.getByLabel("Integral mode").selectOption("volume");
+    await expect.poll(async () => Number(await page.getByTestId("integral-result-value").locator(".katex-html").textContent()), { timeout: 15000 }).toBeCloseTo(4 * Math.PI / 3, 1);
+    await openObject(page);
+    await fillInput(page.locator("#graph-inspector").getByLabel("v max", { exact: true }), "1.57");
+    await openAnalyze(page);
+    await expect(page.getByTestId("integral-analysis-section")).toContainText(/open|clipped/, { timeout: 15000 });
+    await expect(page.getByTestId("integral-result-value")).toHaveCount(0);
+  });
+});
 
 // S25 timing bounds are load-sensitive (integral worker quadrature plus
 // dev-server compile), so this spec runs serially.
@@ -560,7 +638,7 @@ test.describe("S25 integral analysis", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Parametric Curve");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByText("Integral Analysis")).toBeVisible();

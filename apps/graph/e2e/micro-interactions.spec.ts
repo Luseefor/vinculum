@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { addObject } from "./helpers/addObject";
+import { fillInput } from "./helpers/mathInput";
 
 async function openEditor(page: Page, width = 1440) {
   await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
@@ -9,7 +10,49 @@ async function openEditor(page: Page, width = 1440) {
   await page.getByRole("button", { name: "2D only", exact: true }).click();
 }
 
+async function pressFeedback(page: Page, control: Locator, reducedMotion: string) {
+  const bounds = (await control.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  try {
+    await expect.poll(() => control.evaluate(element => getComputedStyle(element).transform))
+      .toBe(reducedMotion === "reduce" ? "none" : "matrix(0.98, 0, 0, 0.98, 0, 0)");
+  } finally { await page.mouse.up(); }
+}
+
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`editor controls and invalid fields give feedback with motion ${reducedMotion}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await openEditor(page);
+    await pressFeedback(page, page.getByRole("button", { name: "2D only", exact: true }), reducedMotion);
+    await addObject(page, "Surface");
+    await pressFeedback(page, page.locator("[data-object-row-select]").first(), reducedMotion);
+    await pressFeedback(page, page.getByRole("button", { name: "Hide object", exact: true }), reducedMotion);
+    await expect(page.getByRole("button", { name: "Show object", exact: true })).toHaveAttribute("aria-pressed", "false");
+    await pressFeedback(page, page.getByRole("tab", { name: "Settings", exact: true }), reducedMotion);
+    await expect(page.getByRole("tab", { name: "Settings", exact: true })).toHaveAttribute("aria-selected", "true");
+    const redo = page.getByRole("button", { name: "Redo", exact: true });
+    await expect(redo).toBeDisabled();
+    const beforeHover = await redo.evaluate(element => getComputedStyle(element).backgroundColor);
+    await redo.hover();
+    expect(await redo.evaluate(element => ({ background: getComputedStyle(element).backgroundColor, transform: getComputedStyle(element).transform, duration: getComputedStyle(element).transitionDuration })))
+      .toEqual({ background: beforeHover, transform: "none", duration: "0s" });
+    await page.getByRole("tab", { name: "Edit", exact: true }).click();
+    const expression = page.getByLabel("Surface expression z = f(x,y)").first();
+    await fillInput(expression, "sqrt(");
+    const invalid = page.locator('#graph-inspector .expression-field .math-input[data-invalid="true"]');
+    await expect(invalid).toHaveCount(1);
+    await expect(page.getByTestId("math-definition-diagnostic")).toBeVisible();
+    await expect.poll(() => invalid.evaluate(element => getComputedStyle(element.closest(".expression-field")!).boxShadow)).toContain("2px");
+    if (reducedMotion === "reduce") {
+      expect(await invalid.evaluate(element => getComputedStyle(element.closest(".expression-field")!).transitionDuration)).toBe("0s");
+    }
+    await fillInput(expression, "x+y");
+    await expect(invalid).toHaveCount(0);
+    await expect(page.getByTestId("math-definition-diagnostic")).toHaveCount(0);
+    expect((await new AxeBuilder({ page }).include('#graph-inspector').withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze()).violations).toEqual([]);
+  });
+
   test(`press and switch feedback remains functional with motion ${reducedMotion}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion });
     await page.goto("/");
@@ -46,6 +89,51 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     expect((await new AxeBuilder({ page }).include('.ui-popover').analyze()).violations).toEqual([]);
     await page.keyboard.press("Escape");
     await expect(theme).toBeFocused();
+  });
+}
+
+for (const width of [320, 1440]) {
+  test(`${width}px PNG capture exposes real pending, failure, and retry feedback`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openEditor(page, width);
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-graph2d-canvas="true"]')!;
+      const original = canvas.toBlob.bind(canvas);
+      let calls = 0;
+      Object.assign(window, { completePngCapture: null, pngCaptureCalls: () => calls });
+      canvas.toBlob = (callback, type, quality) => {
+        calls++;
+        Object.assign(window, { completePngCapture: (fail: boolean) => fail ? callback(null) : original(callback, type, quality) });
+      };
+    });
+    if (width < 1100) {
+      await page.getByRole("button", { name: "More actions", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Share & export...", exact: true }).click();
+    } else await page.getByRole("button", { name: "Share", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Share and export", exact: true });
+    const exportPng = dialog.getByRole("button", { name: "2D PNG", exact: true });
+    await exportPng.click();
+    await expect(exportPng).toHaveAttribute("aria-busy", "true");
+    await expect(exportPng).toBeDisabled();
+    await expect(dialog.getByRole("button", { name: "JSON", exact: true })).toBeDisabled();
+    await expect(dialog.getByRole("status")).toContainText("Preparing 2D PNG");
+    const pendingBounds = (await exportPng.boundingBox())!;
+    const dialogBounds = (await dialog.boundingBox())!;
+    expect(pendingBounds.x + pendingBounds.width).toBeLessThanOrEqual(dialogBounds.x + dialogBounds.width);
+    expect(await page.evaluate(() => (window as unknown as { pngCaptureCalls: () => number }).pngCaptureCalls())).toBe(1);
+    await page.evaluate(() => (window as unknown as { completePngCapture: (fail: boolean) => void }).completePngCapture(true));
+    await expect(exportPng).toBeEnabled();
+    await expect(exportPng).toHaveAttribute("aria-busy", "false");
+    await expect(dialog.getByRole("status")).toContainText("2D PNG export failed");
+    await exportPng.focus();
+    await page.keyboard.press("Enter");
+    await expect(exportPng).toBeDisabled();
+    const download = page.waitForEvent("download");
+    await page.evaluate(() => (window as unknown as { completePngCapture: (fail: boolean) => void }).completePngCapture(false));
+    expect((await download).suggestedFilename()).toMatch(/-2d\.png$/);
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".action-toast[role=status]")).toContainText("Export 2D PNG downloaded.");
+    expect(await page.evaluate(() => (window as unknown as { pngCaptureCalls: () => number }).pngCaptureCalls())).toBe(2);
   });
 }
 

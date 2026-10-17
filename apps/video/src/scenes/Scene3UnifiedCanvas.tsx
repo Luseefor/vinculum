@@ -99,7 +99,7 @@ export const Scene3UnifiedCanvas: React.FC<SceneProps> = ({ isVertical = false }
                 <span className="font-mono text-cyan-300">1.00</span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-sky-500 to-cyan-400 w-3/4 rounded-full" />
+                <div className="h-full bg-linear-to-r from-sky-500 to-cyan-400 w-3/4 rounded-full" />
               </div>
             </div>
 
@@ -110,7 +110,7 @@ export const Scene3UnifiedCanvas: React.FC<SceneProps> = ({ isVertical = false }
                 <span className="font-mono text-cyan-300">0.33</span>
               </div>
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 w-1/3 rounded-full" />
+                <div className="h-full bg-linear-to-r from-cyan-500 to-teal-400 w-1/3 rounded-full" />
               </div>
             </div>
           </div>

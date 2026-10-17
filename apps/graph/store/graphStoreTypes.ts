@@ -3,6 +3,7 @@ import type { SceneSnapshot } from "@/lib/types/scene";
 import type {
   GraphObject,
   GraphObjectKind,
+  ObjectOperation,
   ImplicitSurfaceObject,
   LinearTransformDimension,
   LinearTransformObject2D,
@@ -38,7 +39,7 @@ import type {
   Viewport2DFrame,
   WorkspaceId
 } from "@/types/graphUi";
-import type { SceneDocument } from "@/lib/scene/sceneSchema";
+import type { SceneDocument, SceneParameter } from "@/lib/scene/sceneSchema";
 
 export type ParametricExpressionField = keyof Pick<
   ParametricCurveObject,
@@ -78,13 +79,16 @@ export type LinearTransformEntryField =
 
 export interface GraphStoreState {
   scene: SceneDocument;
+  setSceneParameters: (parameters: SceneParameter[]) => void;
   ui: GraphUiState;
   cameraResetVersion: number;
   addDefinedObject: (object: GraphObject) => { id: string | null; error: string | null };
+  addObjectOperation: (operation: ObjectOperation, targetId: string) => { id: string | null; error: string | null; dimension?: "2d" | "3d" };
+  detachObjectOperation: (id: string) => void;
   addSurfaceObject: () => string;
-  addParametricCurve: () => string;
+  addParametricCurve: (dimension?: "2d" | "3d") => string;
   addPlaneObject: () => string;
-  addParametricSurface: () => string;
+  addParametricSurface: (dimension?: "2d" | "3d") => string;
   addImplicitSurface: () => string;
   addVectorFieldObject: (dimension: VectorFieldDimension) => string;
   addPointObject: () => string;
@@ -106,6 +110,7 @@ export interface GraphStoreState {
     dimension?: VectorFieldDimension | LinearTransformDimension
   ) => void;
   setCurveExtension3D: (id: string, enabled: boolean) => void;
+  updateCurveExtensionRange: (id: string, patch: Partial<{ zMin: number; zMax: number }>) => void;
   updateSurfaceEquation: (id: string, equation: string) => void;
   updateSurfaceOrientation: (id: string, orientation: SurfaceOrientation) => void;
   updateParametricExpression: (
@@ -211,7 +216,7 @@ export interface GraphStoreState {
   setCanvas2dTool: (tool: Canvas2DTool) => void;
   setCanvas3dTool: (tool: Canvas3DTool) => void;
   setBaseline3dPlane: (pair: Axis2DPair) => void;
-  setProbePinnedMath: (point: { horizontal: number; vertical: number } | null) => void;
+  setProbePinnedMath: (point: { horizontal: number; vertical: number } | null, axisPair?: Axis2DPair) => void;
   setProbePinnedWorld: (point: { x: number; y: number; z: number } | null) => void;
   removeProbePin: (id: string) => void;
   removeMeasurement: (id: string) => void;

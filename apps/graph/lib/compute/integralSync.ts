@@ -1,5 +1,5 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { getParamScopeSignature } from "@/lib/math/paramScope";
+import { getParamScopeSignature } from "@/lib/math/expressions/paramScope";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { useGraphStore } from "@/store/graphStore";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";
@@ -47,7 +47,7 @@ export interface IntegralJob {
 }
 
 const CURVE_MODES: IntegralAnalysisMode[] = ["arcLength", "scalarLine", "work"];
-const SURFACE_MODES: IntegralAnalysisMode[] = ["surfaceArea", "scalarSurface", "flux"];
+const SURFACE_MODES: IntegralAnalysisMode[] = ["surfaceArea", "scalarSurface", "flux", "solidArea", "volume"];
 
 // Desired integral job for a target+config, or null when no computation
 // is possible yet (disabled paths, missing integrand/field, incompatible
@@ -94,7 +94,7 @@ export function buildIntegralJob(
     };
     targetStructure = scalarVizMathIdentity(target, paramKeys);
   } else if (target.kind === "parametricSurface") {
-    if (!SURFACE_MODES.includes(config.mode)) {
+    if (!SURFACE_MODES.includes(config.mode) || config.mode === "solidArea") {
       return null;
     }
     targetPayload = {
@@ -105,6 +105,10 @@ export function buildIntegralJob(
       domain: { ...target.domain }
     };
     targetStructure = integralParametricSurfaceMathIdentity(target, paramKeys);
+  } else if (target.kind === "implicitSurface") {
+    if (config.mode !== "surfaceArea" && config.mode !== "volume") return null;
+    targetPayload = { kind: "implicitSurface", equation: target.equation, domain: { ...target.domain } };
+    targetStructure = scalarVizMathIdentity(target, paramKeys);
   } else {
     return null;
   }
@@ -149,6 +153,7 @@ export function buildIntegralJob(
   // (direction only matters for work, orientation only for flux,
   // integrand only for scalar modes), so unrelated edits never recompute.
   const segments = [config.mode, targetStructure, fieldStructure];
+  if (target.kind === "surface" && (config.mode === "volume" || config.mode === "solidArea")) segments.push(`lower:${config.lowerBoundary ?? "0"}`);
   if (config.mode === "scalarLine" || config.mode === "scalarSurface") {
     segments.push(`integrand:${config.scalarIntegrand}`);
   }
@@ -167,6 +172,7 @@ export function buildIntegralJob(
       mode: config.mode,
       target: targetPayload,
       scalarIntegrand: config.scalarIntegrand,
+      lowerBoundary: config.lowerBoundary ?? "0",
       field: fieldPayload,
       quality: config.quality,
       direction: config.direction,
@@ -352,7 +358,8 @@ export function syncIntegralAnalysis(
     const compatible =
       (target.kind === "parametricCurve" && CURVE_MODES.includes(config.mode)) ||
       ((target.kind === "surface" || target.kind === "parametricSurface") &&
-        SURFACE_MODES.includes(config.mode));
+        SURFACE_MODES.includes(config.mode) && (target.kind === "surface" || config.mode !== "solidArea")) ||
+      (target.kind === "implicitSurface" && (config.mode === "surfaceArea" || config.mode === "volume"));
     if (!compatible) {
       graph.clearIntegralAnalysis(sourceId);
       useIntegralResultsStore.getState().removeForSource(sourceId);

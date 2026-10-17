@@ -112,19 +112,8 @@ export function buildUiDialogModeSlice(set: GraphStoreSet): Pick<
           ui: {
             ...state.ui,
             graphMode: mode,
-            ...(mode === "3d"
-              ? {
-                  canvas2dTool: "pan" as const,
-                  measurementDraft: null,
-                  probePins: state.ui.probePins
-                }
-              : {
-                  canvas3dTool: "pan" as const,
-                  measurementDraft: null,
-                  probePins: state.ui.probePins
-                })
-          },
-          cameraResetVersion: mode === "3d" ? state.cameraResetVersion + 1 : state.cameraResetVersion
+            measurementDraft: null
+          }
         };
       });
     },

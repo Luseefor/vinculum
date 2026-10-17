@@ -7,10 +7,14 @@ import { useGraphStore } from "@/store/graphStore";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { format3dBasePlaneLabel } from "@/components/viewport/viewportLabelFormat";
 import { cn } from "@/components/ui/styles";
+import type { Axis2DPair } from "@/types/graphUi";
+import PlanarFieldNotice from "@/components/viewport/PlanarFieldNotice";
 
-export default function GraphCanvas({ suspended = false }: { suspended?: boolean }) {
+export default function GraphCanvas({ suspended = false, projectionPlane }: { suspended?: boolean; projectionPlane?: Axis2DPair }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ReturnType<typeof createGraphThreeEngine> | null>(null);
+  const suspendedRef = useRef(suspended);
+  suspendedRef.current = suspended;
   const [renderReady, setRenderReady] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
   const canvas3dTool = useGraphStore((state) => state.ui.canvas3dTool);
@@ -50,6 +54,7 @@ export default function GraphCanvas({ suspended = false }: { suspended?: boolean
     // S33 Frame Selected / Fit Scene in the legacy perspective view
     // (Math Lab 3D); orthographic drag handles live in Geometry panes.
     const unsubscribeFrame = subscribeCanvasFrameRequests((kind) => {
+      if (suspendedRef.current) return;
       if (kind === "selected") {
         engine.frameSelectedObject();
       } else {
@@ -68,40 +73,45 @@ export default function GraphCanvas({ suspended = false }: { suspended?: boolean
     engineRef.current?.setSuspended(suspended);
   }, [suspended]);
 
+  useEffect(() => {
+    engineRef.current?.setGeometryPanes(projectionPlane ? [projectionPlane] : null);
+  }, [projectionPlane]);
+
   const basePlane = format3dBasePlaneLabel(baseline3dPlane);
   const showTool = canvas3dTool !== "pan";
-  const showIdentity = multiPane || showTool;
+  const showIdentity = multiPane || showTool || Boolean(projectionPlane);
   if (renderError) throw new Error(renderError);
 
   return (
-    <div ref={containerRef} className={`relative h-full w-full overflow-hidden ${cursorClass}`} style={{ touchAction: "none" }}>
-      {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--surface-canvas)] text-sm text-[var(--text-secondary)]">Starting 3D renderer…</p> : null}
+    <div ref={containerRef} data-graph3d-projection={projectionPlane} className={`relative h-full w-full overflow-hidden ${cursorClass}`} style={{ touchAction: "none" }}>
+      {!renderReady ? <p role="status" className="absolute inset-0 z-30 flex items-center justify-center bg-(--surface-canvas) text-sm text-(--text-secondary)">Starting 3D renderer…</p> : null}
       {showIdentity ? (
         <div
           className={cn(
-            "pointer-events-none absolute left-3 top-3 z-[25] flex max-w-[min(300px,calc(100%-4rem))] min-w-0 flex-col gap-1"
+            "pointer-events-none absolute left-3 top-3 z-25 flex max-w-[min(300px,calc(100%-4rem))] min-w-0 flex-col gap-1"
           )}
         >
           <div
             className={cn(
-              "flex min-w-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-overlay)] py-1 shadow-[var(--shadow-control)]",
-              multiPane ? "pl-3" : "pl-1",
+              "flex min-w-0 items-center gap-2 rounded-full border border-(--border-subtle) bg-(--surface-overlay) py-1 shadow-(--shadow-control)",
+              multiPane || projectionPlane ? "pl-3" : "pl-1",
               showTool ? "pr-1" : "pr-3"
             )}
           >
-            {multiPane ? (
-              <div className="min-w-0 truncate text-[12px] font-medium leading-tight text-[var(--text-primary)]">
-                3D Scene
-                <span className="font-normal text-[var(--text-tertiary)]"> · </span>
-                <span className="text-[var(--text-secondary)]">{basePlane}</span>
+            {multiPane || projectionPlane ? (
+              <div className="min-w-0 truncate text-[12px] font-medium leading-tight text-(--text-primary)">
+                {projectionPlane ? "3D projection" : "3D Scene"}
+                <span className="font-normal text-(--text-tertiary)"> · </span>
+                <span className="text-(--text-secondary)">{projectionPlane?.toUpperCase() ?? basePlane}</span>
               </div>
             ) : null}
             {showTool ? (
-              <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-ink)]">{toolLabel}</span>
+              <span className="shrink-0 rounded-full bg-(--accent-soft) px-2 py-0.5 text-[11px] font-medium text-(--accent-ink)">{toolLabel}</span>
             ) : null}
           </div>
         </div>
       ) : null}
+      <PlanarFieldNotice showAction={!multiPane} />
     </div>
   );
 }

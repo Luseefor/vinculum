@@ -1,6 +1,6 @@
 import type { GraphObject } from "@vinculum/scene/types";
-import { getParamScopeSignature } from "@/lib/math/paramScope";
-import { clampSeedDensity } from "@/lib/math/streamlineSeeds";
+import { getParamScopeSignature } from "@/lib/math/expressions/paramScope";
+import { clampSeedDensity } from "@/lib/math/fields/streamlineSeeds";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import { useGraphStore } from "@/store/graphStore";
 import { vectorCalculusSourceIdentity } from "@/store/graphStoreSliceAnalysis";

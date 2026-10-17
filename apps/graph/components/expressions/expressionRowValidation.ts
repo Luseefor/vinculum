@@ -1,10 +1,10 @@
-import { compileParametricExpressions } from "@/lib/math/compileParametric";
-import { compileParametricSurfaceExpressions } from "@/lib/math/compileParametricSurface";
-import { compileImplicitSurfaceExpression } from "@/lib/math/compileImplicitSurface";
-import { compileVectorFieldExpressions } from "@/lib/math/compileVectorField";
-import { compileSurfaceExpression } from "@/lib/math/compileExpression";
-import { compilePlaneEquation } from "@/lib/math/samplePlane";
-import { compileGeometryCoordinate } from "@/lib/math/compileGeometryCoordinate";
+import { compileParametricExpressions } from "@/lib/math/expressions/compileParametric";
+import { compileParametricSurfaceExpressions } from "@/lib/math/expressions/compileParametricSurface";
+import { compileImplicitSurfaceExpression } from "@/lib/math/expressions/compileImplicitSurface";
+import { compileVectorFieldExpressions } from "@/lib/math/expressions/compileVectorField";
+import { compileSurfaceExpression } from "@/lib/math/expressions/compileExpression";
+import { compilePlaneEquation } from "@/lib/math/surfaces/samplePlane";
+import { compileGeometryCoordinate } from "@/lib/math/expressions/compileGeometryCoordinate";
 import { getEditorParameterScope } from "@/lib/store/editorParameters";
 import type { ExpressionValidationState } from "@/types/graphUi";
 import type { GraphObject } from "@vinculum/scene/types";

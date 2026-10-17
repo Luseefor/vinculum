@@ -14,12 +14,12 @@ import {
   UnsignedByteType,
   type Object3D
 } from "three";
-import type { GraphObject } from "@vinculum/scene/types";
+import type { GraphObject, SurfaceDomain } from "@vinculum/scene/types";
 import type { ResolvedTheme } from "@/lib/theme/resolveTheme";
 import type { ScalarVizConfig } from "@/types/graphUi";
 import type { ScalarVizResultEntry } from "@/lib/compute/scalarVizResults";
-import { mathToWorld3D } from "@/lib/math/coordinates";
-import { resolveScalarRange, scalarColorForValue } from "@/lib/math/scalarColorPolicy";
+import { mathToWorld3D } from "@/lib/math/geometry/coordinates";
+import { resolveScalarRange, scalarColorForValue } from "@/lib/math/fields/scalarColorPolicy";
 import { scalarVizMathIdentity } from "@/store/graphStoreSliceScalarViz";
 import { disposeObject3D } from "./buildGraphObjectDisposal";
 
@@ -60,6 +60,7 @@ export interface ScalarSliceOverlayFrame {
   cache: Map<string, { key: string; group: Group }>;
   theme: ResolvedTheme;
   params: Record<string, number>;
+  displayDomains?: Record<string, SurfaceDomain>;
 }
 
 interface SlicePlaneFrame {

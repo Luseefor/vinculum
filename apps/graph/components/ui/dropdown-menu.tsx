@@ -175,7 +175,7 @@ export function DropdownMenuContent({
         }
       }}
       className={cn(
-        "absolute z-[100] mt-2 min-w-[12rem] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-1 shadow-lg backdrop-blur-xl animate-fade-in",
+        "absolute z-100 mt-2 min-w-48 overflow-hidden rounded-xl border border-(--border-subtle) bg-(--surface-overlay) p-1 shadow-lg backdrop-blur-xl animate-fade-in",
         align === "end" ? "right-0" : "left-0",
         className
       )}
@@ -187,11 +187,11 @@ export function DropdownMenuContent({
 }
 
 export function DropdownMenuLabel({ children }: { children: ReactNode }) {
-  return <p className="px-2 py-1 text-[10px] font-medium tracking-wide text-[var(--text-tertiary)]">{children}</p>;
+  return <p className="px-2 py-1 text-[10px] font-medium tracking-wide text-(--text-tertiary)">{children}</p>;
 }
 
 export function DropdownMenuSeparator() {
-  return <div className="my-1 h-px bg-[var(--border-subtle)]" />;
+  return <div className="my-1 h-px bg-(--border-subtle)" />;
 }
 
 export function DropdownMenuGroup({ children }: { children: ReactNode }) {
@@ -199,7 +199,7 @@ export function DropdownMenuGroup({ children }: { children: ReactNode }) {
 }
 
 export function DropdownMenuShortcut({ children }: { children: ReactNode }) {
-  return <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">{children}</span>;
+  return <span className="ml-auto text-[10px] text-(--text-tertiary)">{children}</span>;
 }
 
 export function DropdownMenuItem({
@@ -224,10 +224,10 @@ export function DropdownMenuItem({
         setOpen(false);
       }}
       className={cn(
-        "flex h-8 w-full items-center rounded-md px-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors",
+        "ui-control flex h-8 w-full items-center rounded-md px-2.5 text-[12px] font-medium text-(--text-secondary)",
         disabled
           ? "cursor-not-allowed opacity-50"
-          : "hover:bg-[var(--accent-soft)] hover:text-[var(--text-primary)] focus-visible:bg-[var(--accent-soft)] focus-visible:text-[var(--text-primary)]"
+          : "hover:bg-(--accent-soft) hover:text-(--text-primary) focus-visible:bg-(--accent-soft) focus-visible:text-(--text-primary)"
       )}
     >
       {children}
