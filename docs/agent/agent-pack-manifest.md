@@ -1,4 +1,4 @@
-# agent-pack-manifest.md
+# docs/agent/agent-pack-manifest.md
 
 ## Pack contents
 

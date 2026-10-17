@@ -9,6 +9,9 @@ Vinculum renders mathematical scenes in 3D using the object types supported by t
 - Parametric curves
 - Parametric surfaces (x(u,v), y(u,v), z(u,v) with u/v ranges)
 - Implicit surfaces (F(x,y,z) = 0 extracted from a bounded 3D sampling box)
+- Points, vectors, lines, rays, and segments
+- 3D vector fields and 2D/3D linear transformations
+- Planar Cartesian equations and 2D parametric objects embedded at z=0
 
 Use the 3D viewport controls to orbit/pan/zoom your view.
 
@@ -24,9 +27,18 @@ Objects are built from mathematical definitions:
 
 - **Surfaces**: explicit functions (with a bounded domain and render resolution)
 - **Planes**: plane equations with size/appearance
-- **Parametric curves**: x(t), y(t), z(t) with a sampling cap
-- **Parametric surfaces**: x(u,v), y(u,v), z(u,v) with u/v ranges and grid resolution (3D views only)
-- **Implicit surfaces**: F(x,y,z) = 0 as a bare field or equality, extracted from a bounded x/y/z sampling box (3D views only)
+- **Cartesian equations**: automatic classification of planar relations and spatial surfaces
+- **Parametric curves**: 2D or 3D coordinates with a sampling cap
+- **Parametric surfaces**: 2D filled XY regions or 3D meshes with u/v ranges and grid resolution
+- **Implicit surfaces**: F(x,y,z) = 0 as a bare field or equality, extracted from a bounded x/y/z sampling box
+- **Geometry**: points, vectors, lines, rays, and segments defined by coordinates
+- **Vector fields**: 2D planar arrows or 3D spatial arrows
+- **Linear transformations**: 2D or 3D matrix diagrams
+
+Spatial surfaces and primitives show coordinate-plane intersections in 2D;
+parametric curves project onto the selected axes. An off-plane object can have
+an empty slice. 3D fields and 3D transformation diagrams remain in the spatial
+viewport. See [known limits](limits.md) for the detailed view semantics.
 
 ## Projects (save/load) and recovery
 
@@ -52,8 +64,10 @@ Math expression inputs are sandboxed and validated before evaluation. Invalid or
 
 ## Optional performance HUD
 
-An optional Performance HUD can be enabled from the editor’s theme/appearance menu. It is off by default.
-
+Enable the Performance HUD from the editor's Appearance menu to inspect
+measured rendering performance. It is off by default. In 3D, FPS counts
+submitted draw frames; an unchanged viewport deliberately stops drawing and
+can show zero FPS while idle. Navigation and scene changes resume drawing.
 
 ## Automatic field solutions
 

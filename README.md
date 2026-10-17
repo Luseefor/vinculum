@@ -1,15 +1,21 @@
 # Vinculum
 
-Vinculum is an interactive math visualization and sketching editor. You can author mathematical scenes (implicit surfaces, planes, and parametric curves) and explore them in 2D and 3D in a single editor.
+Vinculum is a local-first mathematical visualization and sketching editor.
+Author equations, curves, surfaces, fields, and geometric objects, then explore
+them in 2D and 3D in one workspace.
 
 ## Core features
 
 - Interactive 3D mathematical visualization (Three.js)
 - 2D plotting / sketching canvas
 - Scene objects:
-  - Surfaces (implicit equations)
+  - Automatic Cartesian equations and planar relations
+  - Explicit, implicit, and parametric surfaces
   - Planes
-  - Parametric curves (x(t), y(t), z(t))
+  - 2D and 3D parametric curves
+  - Points, vectors, lines, rays, and segments
+  - 2D and 3D vector fields and linear transformations
+- Bounded numerical geometry, calculus, and field analysis
 - Save/load named projects (local to your browser)
 - Autosave and recovery for in-progress work (local to your browser)
 - Shareable scene links (URL-encoded scene payload with a size guard)
@@ -21,13 +27,13 @@ Vinculum is an interactive math visualization and sketching editor. You can auth
 - Examples and welcome flow (open example scenes / start blank)
 - Math expression safety (limits + validation before evaluation)
 - Expression diagnostics and debounced preview updates
-- Optional performance HUD (off by default)
+- Optional performance HUD in Appearance (off by default)
 
 ## Developer quickstart
 
 ### Setup
 
-From the repo root:
+Use Node 26 (see `.node-version`), Bun 1.4.3 and rustup. From the repo root:
 
 ```bash
 bun install
@@ -43,6 +49,8 @@ bun run dev
 ### Validation
 
 ```bash
+bun run audit:release
+bun run check:public-source
 bun run lint
 bun run typecheck
 bun run test
@@ -84,6 +92,18 @@ existing mathematical results and scene format.
 - [Features](docs/user/features.md)
 - [Limits](docs/user/limits.md)
 
+## Contributing and architecture
+
+- [Contributor setup and checks](CONTRIBUTING.md)
+- [Repository and math folder layout](docs/development/repository-layout.md)
+- [Adding graph and object types](docs/development/object-types.md)
+- [Core engine architecture](docs/architecture/core-engine.md)
+- [Public-release review and remaining gaps](docs/reports/public-release-review.md)
+
+The main app is `apps/graph`; shared domain types are in `packages/scene`.
+`apps/video` is an optional showcase workspace. Neither it nor an analytics
+account is required to run the editor.
+
 ## Changelog and roadmap
 
 - [Changelog](CHANGELOG.md)
@@ -100,3 +120,13 @@ Vinculum may collect product usage analytics when PostHog environment variables 
 - Raw error stacks or URLs
 
 To disable analytics, simply omit the `NEXT_PUBLIC_POSTHOG_KEY` environment variable.
+
+## License
+
+[MIT](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for adapted
+source and bundled math fonts. Project-owned media is also MIT; ownership and
+hashes are recorded in the [media inventory](docs/reports/media-provenance.json).
+Dependencies retain their original licenses.
+
+For a public repository without historical local logs, follow the
+[isolated public-repository workflow](docs/development/public-release.md).

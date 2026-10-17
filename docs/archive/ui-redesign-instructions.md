@@ -1,3 +1,5 @@
+> Historical document. Current behavior and instructions are in [project-description.md](../../project-description.md) and [AGENTS.md](../../AGENTS.md).
+
 # VINCULUM AGENT INSTRUCTIONS
 
 This file defines strict rules for the coding agent.

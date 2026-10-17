@@ -4,7 +4,7 @@
 
 This is the first detailed document a coding agent must read after `AGENTS.md`. It defines how to work inside Vinculum without drifting from the existing architecture or producing unfinished implementation.
 
-Vinculum is a Bun workspaces monorepo. The main product is `@vinculum/graph` in `apps/graph`, a Next.js 14 App Router editor for interactive 3D mathematical visualization and 2D plotting/sketch authoring. Shared scene/domain types live in `@vinculum/scene` under `packages/scene`.
+Vinculum is a Bun workspaces monorepo. The main product is `@vinculum/graph` in `apps/graph`, a Next.js 15 App Router editor for interactive 3D mathematical visualization and 2D plotting/sketch authoring. Shared scene/domain types live in `@vinculum/scene` under `packages/scene`.
 
 ## Current product boundaries
 
@@ -35,14 +35,14 @@ apps/graph/components/editor/   main editor shell and workspace composition
 apps/graph/components/layout/   top toolbar and app chrome
 apps/graph/components/viewport/ viewport mounting and mode wiring
 apps/graph/components/graph/    Graph2DCanvas and canvas-facing UI
-apps/graph/graph2d/             2D graph rendering helpers
+apps/graph/components/graph/graph2d/  2D graph rendering helpers
 apps/graph/lib/graph3d/         Three.js engine, mesh/line sync, input, probes
-apps/graph/lib/math/            expression compilation, sampling, sketch fitting
+apps/graph/lib/math/<domain>/   expressions, curves, surfaces, fields, calculus, geometry, sketch, linear algebra, WASM runtime
 apps/graph/lib/scene/           scene schema, validation, serialization, commands
 apps/graph/lib/store/           editor UI/layout state
 apps/graph/store/               graph scene/tool/dialog state
 packages/scene/                 shared scene object types and defaults
-apps/graph/test/                unit/integration tests
+apps/graph/test/<domain>/       unit/integration tests (shared setup.ts stays at test/)
 apps/graph/e2e/                 Playwright tests
 ```
 

@@ -176,3 +176,66 @@ can be typed immediately and that text-to-math mode switching retains focus.
 Quad overlay fixtures zoom each pane before comparing the translucent tint;
 the area gate still requires over 200 changed pixels, rather than accepting
 only a point marker.
+
+
+## 2026-10-16 follow-up: bounded curve caches and numerical parity
+
+All three production Chromium stress/recovery cases passed in isolation, with
+one worker, no retries, and no concurrent builds or functional tests. Implicit
+contours reuse world-space paths within a bounded pan/zoom error budget;
+explicit curves reuse paths for repeated viewport redraws. Both implicit-curve
+views now refine sign-changing edges against the same residual policy so poles
+and finite jumps do not become false zero contours.
+
+| Workload | p95 frame gap | Worst main-thread task | Retained JS heap growth | Errors/crashes |
+| --- | ---: | ---: | ---: | --- |
+| 24 curves, zoom and first 3D visits | 441.6 ms | 2,312 ms | 4,129,744 bytes | None |
+| 8 implicit surfaces, zoom/view changes, WebGL2 fallback | 358.4 ms | 375 ms | 1,967,948 bytes | None |
+| 4 ordinary curves, 4× CPU slowdown, 120 interactions over 122.5 seconds | 10.0 ms | 62 ms | 160,756 bytes | None |
+
+The previous isolated dense p95 gaps were 508.5 ms (2D) and 507.9 ms (3D),
+compared with 441.6 ms and 358.4 ms in this run. These are individual lab runs,
+not a statistical guarantee across devices. The ordinary workload remains
+within its 200 ms p95 / 500 ms long-task / 16 MiB growth gates and also passes
+hide/show and reload restoration.
+
+Dense workloads still are not smooth. The 2D case includes cold renderer/shader
+startup on the first 3D visit and recorded a 2,312 ms main-thread task, higher
+than the previous 1,656 ms maximum. Caching reduces repeated sampling but does
+not eliminate cold GPU startup, geometry extraction, or software-renderer cost.
+Keep this measured limitation visible; do not describe this as eliminating all
+heavy-scene pauses. Physical low-power devices and GPUs remain uncertified.
+
+Functional follow-up coverage spans 1,524 distinct browser cases: 1,503 passing
+cases and 21 explicit tool/platform skips, using a complete run plus corrected
+reruns. The final 90-case feature pass was 89 passing / one Firefox touch skip.
+Lint, type checking, the production build, 2,025 unit tests, all four Rust tests,
+and `git diff --check` passed. See `ux-progress-review.md` for the full-run and
+rerun distinction and simulator evidence.
+
+
+## Navigation resolution follow-up (2026-10-16)
+
+The eight-implicit-surface headless Chromium/WebGL2 baseline measured a 333.4 ms
+p95 frame. Navigation now reduces only the screen pixel ratio when submitted
+frames are slow; full geometry and numerical grids remain unchanged. Full pixel
+resolution returns after one second without navigation, and canonical PNG
+capture always restores it before drawing. Fast navigation remains at full DPR.
+
+Three repeated final runs measured 191.7, 175.9 and 184.1 ms p95, with maximum
+frames of 420.7, 354.7 and 366.0 ms. All passed the added p95 <200 ms assertion
+and the unchanged maximum-frame, long-task, memory, error and recovery checks.
+The temporary pixel ratio reached 0.25 on this DPR-1 software-rendered scene.
+Earlier short-debounce and half-resolution-only trials failed that new target;
+their logs and CPU profiles remain in ignored local review evidence. See the
+[release review](public-release-review.md#remaining-limitations-follow-up) for
+the policy, failed trials and final validation. This is a measured improvement,
+not a 60 FPS guarantee on dense scenes or untested hardware.
+
+
+Final clean-build verification repeated the complete isolated three-case stress
+job: all passed in 2.5 minutes. Dense 3D measured 183.3 ms p95 / 367.3 ms maximum
+frame / 371 ms maximum long task. Ordinary 2D at 4x CPU slowdown measured 9.2 ms
+p95 with no recorded long task over 120 interactions / 122.1 seconds. The complete
+headed Chromium functional suite separately passed all 523 cases in one run;
+the focused Chromium/Firefox/WebKit matrix passed all 111 selected cases.

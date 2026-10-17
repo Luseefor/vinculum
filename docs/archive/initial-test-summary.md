@@ -1,3 +1,5 @@
+> Historical document. Current behavior and instructions are in [project-description.md](../../project-description.md) and [AGENTS.md](../../AGENTS.md).
+
 # Test Suite Summary - Vinculum Graph Application
 
 ## Overview
@@ -13,12 +15,12 @@ Complete test coverage for all critical fixes identified in the code audit.
 ## Test Coverage by Category
 
 ### CRITICAL Fixes - Memory & SSR (9 tests)
-**File:** `test/sampleSurface.test.ts`
+**File:** `test/math/sampleSurface.test.ts`
 
 ✓ Should cap resolution at 128 per normalizeSurfaceResolution
 ✓ Should verify memory budget check exists
 ✓ Should handle edge case: xMin > xMax by swapping
-✓ Should handle edge case: yMin > yMax by swapping  
+✓ Should handle edge case: yMin > yMax by swapping
 ✓ Should produce valid geometry with NaN-free positions
 ✓ Should handle evaluator that returns NaN gracefully
 ✓ Should handle evaluator that returns Infinity
@@ -36,7 +38,7 @@ Complete test coverage for all critical fixes identified in the code audit.
 ### HIGH Severity - Math & Storage (20 tests)
 
 #### Grid Math Safety (8 tests)
-**File:** `test/grid.test.ts`
+**File:** `test/editor/grid.test.ts`
 
 ✓ Should handle distance = 0 without producing -Infinity
 ✓ Should handle very small distances
@@ -53,7 +55,7 @@ Complete test coverage for all critical fixes identified in the code audit.
 - Prevents -Infinity in rendering loop
 
 #### Parametric Curve Robustness (11 tests)
-**File:** `test/sampleCurve.test.ts`
+**File:** `test/math/sampleCurve.test.ts`
 
 ✓ Should handle samples = 2 (minimum) without division by zero
 ✓ Should handle tMin ≈ tMax (very narrow range)
@@ -73,8 +75,8 @@ Complete test coverage for all critical fixes identified in the code audit.
 - Fallback to [-1, 1] for invalid ranges
 - NaN/Infinity handling with sanitizePoint
 
-#### Theme Storage Exception Handling (9 tests)  
-**File:** `test/themeStorage.test.ts`
+#### Theme Storage Exception Handling (9 tests)
+**File:** `test/editor/themeStorage.test.ts`
 
 ✓ Should persist theme mode successfully
 ✓ Should handle localStorage.setItem throwing QuotaExceededError
@@ -131,8 +133,8 @@ const result = sampleSurface(nanEvaluator, { ... });
 Tests confirm swapping reversed domains:
 ```typescript
 // xMin > xMax should swap internally
-sampleSurface(evaluator, { 
-  domain: { xMin: 10, xMax: -10, ... } 
+sampleSurface(evaluator, {
+  domain: { xMin: 10, xMax: -10, ... }
 });
 // Works without error
 ```

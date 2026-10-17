@@ -38,7 +38,7 @@ feature work. Normal bug fixes are not artificially prevented.
 | plane | linear eq, probe-fitted | 3D quad | no | yes | geometry relations |
 | parametricSurface | x/y/z(u,v) | 3D mesh (worker) | yes | yes | differential, integrals |
 | implicitSurface | F(x,y,z)=0 | marching tetra (worker) | yes | yes | — |
-| vectorField 2D/3D | P/Q[/R](x,y[/z]) | glyphs (worker) + 2D arrows | yes | yes | vector calculus, streamlines, integrals |
+| vectorField 2D/3D | `P/Q[/R](x,y[/z])` | glyphs (worker) + 2D arrows | yes | yes | vector calculus, streamlines, integrals |
 | point | scalar-expr coords | sprite/marker | no | yes | geometry relations |
 | vector/line/ray/segment | scalar-expr anchors/directions | primitive proxies | no | yes | geometry analysis |
 | linearTransform 2D/3D | row-major scalar-expr entries | basis overlay | no | yes | eigen/det/rank |
@@ -48,7 +48,7 @@ Raw expression text roundtrips byte-exact; resolved numerics are transient.
 ## 3. Coordinate mapping (frozen)
 
 - Canonical math 3D: (x,y,z). Three world: (x,z,y), Y-up, self-inverse.
-- Single boundary: `lib/math/coordinates.ts`
+- Single boundary: `lib/math/geometry/coordinates.ts`
   (`mathToWorld3D/worldToMath3D/mathVectorToWorld3D/projectMathToPair2D`).
   All builders map math-frame buffers through it once; picking maps
   world->math once at input. No renderer redefines semantics.
@@ -159,7 +159,7 @@ signatures (math vs presentation split) and persistence roundtrips. No
 second store, serializer, compiler framework, or renderer may be created
 without a demonstrated blocker.
 
-## 12. S29 repairs (all pinned in `test/s29CoreFreezeAudit.test.ts`)
+## 12. S29 repairs (all pinned in `test/editor/s29CoreFreezeAudit.test.ts`)
 
 - S29-R1 samplePlane probe scope: locals win (`{...scope,x,y,z}`).
 - S29-R2 history cap 100.
