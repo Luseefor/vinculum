@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
+@source ".";
+@source "../components";
+@source "../lib";
+@source "../store";
+
+@theme {
+  --shadow-focus: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+
+/* Preserve the previous border and placeholder defaults during the v4 migration. */
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button { border-color: #e5e7eb; }
+  input::placeholder, textarea::placeholder { color: #9ca3af; }
+}
 
 :root {
   color-scheme: light;

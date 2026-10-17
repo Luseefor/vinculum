@@ -9,14 +9,13 @@ export const metadata: Metadata = {
 };
 
 interface HomePageProps {
-  searchParams?: {
-    scene?: string;
-  };
+  searchParams?: Promise<{ scene?: string | string[] }>;
 }
 
-export default function HomePage({ searchParams }: HomePageProps) {
-  if (typeof searchParams?.scene === "string" && searchParams.scene.length > 0) {
-    redirect(`/editor?scene=${encodeURIComponent(searchParams.scene)}`);
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  if (typeof params?.scene === "string" && params.scene.length > 0) {
+    redirect(`/editor?scene=${encodeURIComponent(params.scene)}`);
   }
   return <LandingPage />;
 }
