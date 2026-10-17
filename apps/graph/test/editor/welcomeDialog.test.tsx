@@ -11,7 +11,6 @@ describe("FirstRunHint", () => {
         workspace="geometry"
         error={null}
         onDismiss={onDismiss}
-        onOpenExamples={vi.fn()}
       />
     );
 
@@ -32,7 +31,6 @@ describe("FirstRunHint", () => {
         touchHints
         canvasMode="math"
         onDismiss={vi.fn()}
-        onOpenExamples={vi.fn()}
       />
     );
 
@@ -40,7 +38,7 @@ describe("FirstRunHint", () => {
     expect(screen.getByText(canvasNavHint("math", true))).toBeInTheDocument();
   });
 
-  it("exposes a named dismiss control", () => {
+  it("dismisses the inline tips without changing the scene", () => {
     const onDismiss = vi.fn();
     render(
       <FirstRunHint
@@ -48,10 +46,9 @@ describe("FirstRunHint", () => {
         workspace="geometry"
         error={null}
         onDismiss={onDismiss}
-        onOpenExamples={vi.fn()}
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /dismiss getting started tips/i }));
+    fireEvent.click(screen.getByRole("button", { name: /got it/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
@@ -62,7 +59,6 @@ describe("FirstRunHint", () => {
         workspace="geometry"
         error={null}
         onDismiss={vi.fn()}
-        onOpenExamples={vi.fn()}
       />
     );
     expect(container).toBeEmptyDOMElement();

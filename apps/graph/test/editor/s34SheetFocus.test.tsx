@@ -4,6 +4,22 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+
+function NestedSolutionHarness() {
+  const [sheetOpen, setSheetOpen] = useState(true);
+  const [solutionOpen, setSolutionOpen] = useState(false);
+  return <Sheet open={sheetOpen} onOpenChange={setSheetOpen} title="Inspector">
+    <button type="button" onClick={() => setSolutionOpen(true)}>Show solution</button>
+    <Dialog open={solutionOpen} onOpenChange={setSolutionOpen}>
+      <DialogContent>
+        <DialogTitle>Volume solution</DialogTitle>
+        <DialogDescription>Calculation steps</DialogDescription>
+        <button type="button" onClick={() => setSolutionOpen(false)}>Close solution</button>
+      </DialogContent>
+    </Dialog>
+  </Sheet>;
+}
 
 function Harness({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false);
@@ -28,6 +44,25 @@ function Harness({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
 }
 
 describe("Sheet focus contract", () => {
+  it("keeps focus and Escape in a nested solution before returning to the inspector", () => {
+    render(<NestedSolutionHarness />);
+    const trigger = screen.getByRole("button", { name: "Show solution" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const close = screen.getByRole("button", { name: "Close solution" });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Volume solution" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Inspector" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Inspector" })).not.toBeInTheDocument();
+  });
+
   it("labels the dialog, focuses content on open, restores trigger on close", () => {
     const onOpenChange = vi.fn();
     render(<Harness onOpenChange={onOpenChange} />);

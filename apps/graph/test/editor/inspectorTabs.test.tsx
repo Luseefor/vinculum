@@ -59,7 +59,6 @@ describe("InspectorPanel tablist", () => {
 
 describe("Inspector essential and secondary controls", () => {
   beforeEach(() => {
-    useEditorStore.setState({ constraints: [] });
     useGraphStore.getState().resetScene();
     const id = useGraphStore.getState().addSurfaceObject();
     useGraphStore.getState().updateSurfaceEquation(id, "sin(x) * cos(y)");
@@ -72,7 +71,7 @@ describe("Inspector essential and secondary controls", () => {
     expect(screen.queryByText("Selected object JSON")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
     expect(screen.getByLabelText("Surface color")).toBeVisible();
-    expect(screen.queryByText("Object links")).toBeNull();
+    expect(screen.queryByText("Object operations")).toBeNull();
     expect(screen.queryByText("Selected object JSON")).toBeNull();
     const details = screen.getByText("Object data").closest("details")!;
     details.open = true;
@@ -84,37 +83,46 @@ describe("Inspector essential and secondary controls", () => {
     expect(screen.queryByText("Selected object JSON")).toBeNull();
   });
 
-  it("shows link tools when another scene object is available", () => {
+  it("shows geometric operations when another equation object is available", () => {
     const state = useGraphStore.getState();
     const selectedId = state.ui.selectedObjectId!;
     state.addSurfaceObject();
     state.selectObject(selectedId);
     render(<InspectorPanel mode="object" />);
     fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
-    const details = screen.getByText("Object links").closest("details")!;
-    expect(screen.queryByLabelText("Target object")).toBeNull();
+    const details = screen.getByText("Object operations").closest("details")!;
+    expect(screen.queryByLabelText("Second object for operation")).toBeNull();
     details.open = true;
     fireEvent(details, new Event("toggle"));
-    expect(screen.getByLabelText("Target object")).toBeEnabled();
+    expect(screen.getByLabelText("Second object for operation")).toBeEnabled();
   });
 
-  it("shows tint controls only for color-tint links and labels the real color channels", () => {
+  it("creates linked geometric results instead of appearance links", () => {
     const state = useGraphStore.getState();
-    const selectedId = state.ui.selectedObjectId!;
-    state.addSurfaceObject();
-    state.selectObject(selectedId);
+    const sourceId = state.ui.selectedObjectId!;
+    const targetId = state.addSurfaceObject();
+    state.selectObject(sourceId);
     render(<InspectorPanel mode="object" />);
     fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
-    const details = screen.getByText("Object links").closest("details")!;
+    const details = screen.getByText("Object operations").closest("details")!;
     details.open = true;
     fireEvent(details, new Event("toggle"));
-    fireEvent.click(screen.getByRole("button", { name: "Add visibility sync link" }));
+    expect(screen.queryByRole("button", { name: "Add visibility sync link" })).toBeNull();
     expect(screen.queryByLabelText("Constraint offset")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Tint red channel" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Add color tint link" }));
-    expect(screen.getByLabelText("Constraint offset")).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "Tint red channel" }));
-    expect(useEditorStore.getState().constraints.find(constraint => constraint.type === "offset")?.axisLocks.x).toBe(false);
+    expect(screen.getByRole("button", { name: "Intersection" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Union" }));
+    const result = useGraphStore.getState().scene.objects.at(-1)!;
+    expect(result).toMatchObject({ kind: "implicitSurface", combination: { operation: "union", operands: [sourceId, targetId] } });
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+    expect(screen.getByTestId("object-combination-summary")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Make independent" }));
+    expect(useGraphStore.getState().scene.objects.at(-1)!.combination).toBeUndefined();
+  });
+
+  it("does not revive obsolete appearance links from saved editor preferences", () => {
+    const state = useEditorStore.getState();
+    const merged = useEditorStore.persist.getOptions().merge!({ constraints: [{ type: "align", objectIds: ["a", "b"] }] }, state);
+    expect("constraints" in merged).toBe(false);
   });
 
   it("toggles the selected object's visibility without changing its expression", () => {

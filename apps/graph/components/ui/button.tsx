@@ -14,18 +14,18 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "btn",
-  secondary: "btn border border-transparent bg-[var(--surface-muted)] text-[var(--text-primary)] hover:bg-[var(--surface-inset)]",
-  ghost: "btn border border-transparent bg-transparent shadow-none text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]",
-  primary: "btn btn-primary shadow-sm",
-  shell: "btn bg-transparent border-transparent shadow-none text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)]/40",
-  utility: "btn bg-[var(--surface-overlay)]/50 border-[var(--border-subtle)] text-[var(--text-primary)] hover:bg-[var(--surface-overlay)]"
+  secondary: "btn border border-transparent bg-(--surface-muted) text-(--text-primary) enabled:hover:bg-(--surface-inset)",
+  ghost: "btn border border-transparent bg-transparent shadow-none text-(--text-secondary) enabled:hover:bg-(--surface-muted) enabled:hover:text-(--text-primary)",
+  primary: "btn btn-primary shadow-xs",
+  shell: "btn bg-transparent border-transparent shadow-none text-(--text-secondary) enabled:hover:text-(--text-primary) enabled:hover:bg-(--surface-overlay)/40",
+  utility: "btn bg-(--surface-overlay)/50 border-(--border-subtle) text-(--text-primary) enabled:hover:bg-(--surface-overlay)"
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  default: "h-9 rounded-[var(--radius-md)] px-4 py-2 text-[13px]",
-  sm: "h-8 rounded-[var(--radius-sm)] px-3 text-[12px]",
-  xs: "h-6 rounded-[var(--radius-sm)] px-2 text-[11px]",
-  icon: "h-8 w-8 rounded-[var(--radius-sm)] p-0 flex items-center justify-center"
+  default: "h-9 rounded-[var(--ui-radius-md)] px-4 py-2 text-[13px]",
+  sm: "h-8 rounded-[var(--ui-radius-sm)] px-3 text-[12px]",
+  xs: "h-6 rounded-[var(--ui-radius-sm)] px-2 text-[11px]",
+  icon: "h-8 w-8 rounded-[var(--ui-radius-sm)] p-0 flex items-center justify-center"
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -38,10 +38,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
       type="button"
       aria-pressed={props["aria-pressed"] ?? isActive}
       className={cn(
-        "outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1",
+        "outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent) focus-visible:ring-offset-1 focus-visible:ring-offset-(--editor-chrome)",
         variantClasses[variant],
         sizeClasses[size],
-        isActive && "ring-1 ring-[var(--accent-primary)] bg-[var(--surface-overlay)]",
+        isActive && "ring-1 ring-(--accent-primary) bg-(--surface-overlay)",
         className
       )}
       {...props}

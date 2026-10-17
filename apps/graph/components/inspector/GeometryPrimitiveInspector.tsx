@@ -34,20 +34,20 @@ export default function GeometryPrimitiveInspector({ object, index }: { object: 
 
   return (
     <div className="py-1">
-      <div className="mb-2 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-2 py-1.5">
+      <div className="mb-2 flex items-center justify-between rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-2 py-1.5">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: object.color }} />
-          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">
+          <h3 className="text-[12px] font-semibold text-(--text-primary)">
             {title}
             {selectedTitle}
           </h3>
         </div>
-        <span className="rounded-[var(--radius-sm)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]">
+        <span className="rounded-[var(--ui-radius-sm)] bg-(--surface-muted) px-2 py-0.5 text-[11px] font-medium text-(--text-secondary)">
           {object.kind}
         </span>
       </div>
 
-      <p className="mb-2 px-0.5 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+      <p className="mb-2 px-0.5 text-[12px] leading-relaxed text-(--text-tertiary)">
         {KIND_DESCRIPTIONS[object.kind]}
       </p>
 

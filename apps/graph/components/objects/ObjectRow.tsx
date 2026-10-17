@@ -5,6 +5,8 @@ import { MathExpression } from "@/components/math/MathExpression";
 import { MathInput } from "@/components/math/MathInput";
 
 import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { revealObjectInViewport } from "@/lib/objects/objectCreation";
+import ParametricDimensionControl from "@/components/expressions/ParametricDimensionControl";
 import type { GraphObject, GraphObjectKind, LinearTransformDimension, VectorFieldDimension } from "@vinculum/scene/types";
 import { MoreHorizontalIcon, ChevronDownIcon } from "@/components/layout/icons";
 import { StatusCallout } from "@/components/ui/StatusCallout";
@@ -127,6 +129,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   const meta = getObjectRowDisplayMeta(object);
   const title = `${meta.label} #${index + 1}`;
   const emptyCue = isExpressionRowEmpty(object);
+  const automaticEquation = !object.combination && (object.autoExpression || object.kind === "implicitCurve") && "equation" in object;
   const equationSnippet = useMemo(() => {
     if (object.kind !== "implicitCurve" && object.kind !== "surface" && object.kind !== "plane" && object.kind !== "implicitSurface") {
       return null;
@@ -213,6 +216,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
 
   const convertKind = (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => {
     setObjectKind(object.id, kind, dimension);
+    if ((kind === "parametricCurve" || kind === "parametricSurface") && dimension) revealObjectInViewport(object.id);
     onSelect(object.id);
     closeMenu();
   };
@@ -275,7 +279,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
     const nextId = insertObjectAfter(
       object.id,
       object.kind,
-      object.kind === "vectorField" ? object.dimension : undefined
+      "dimension" in object ? object.dimension : undefined
     );
     if (nextId) {
       requestEquationFocus(nextId);
@@ -313,7 +317,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
   };
 
   return (
-    <div className="flex flex-col gap-1 font-sans">
+    <div className="flex flex-col gap-1 font-sans" role={automaticEquation ? "group" : undefined} aria-label={automaticEquation ? `${selected ? "Selected " : ""}${title}` : undefined}>
       <div
         onContextMenu={(e) => {
           e.preventDefault();
@@ -326,10 +330,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           setMenuOpen(true);
         }}
         className={cn(
-          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--radius-md)] px-2.5 py-3 transition-colors duration-[var(--motion-fast)] motion-reduce:transition-none",
+          "group relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--ui-radius-md)] px-2.5 py-3 transition-colors duration-(--motion-fast) motion-reduce:transition-none",
           selected
-            ? "bg-[var(--accent-soft)]"
-            : "hover:bg-[var(--surface-muted)]"
+            ? "bg-(--accent-soft)"
+            : "hover:bg-(--surface-muted)"
         )}
       >
         {/* Desmos-style: the color swatch is the visibility toggle (filled =
@@ -347,10 +351,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               onToggleVisibility(object.id);
             }
           }}
+          data-object-row-select={automaticEquation ? object.id : undefined}
           aria-label={object.visible ? "Hide object" : "Show object"}
           aria-pressed={object.visible}
           title={object.visible ? "Hide object" : "Show object"}
-          className="-m-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full outline-none transition-transform duration-100 hover:scale-110 focus-visible:ring-2 focus-visible:ring-[var(--accent)] motion-reduce:transition-none"
+          className="ui-control -m-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
         >
           <span
             aria-hidden="true"
@@ -363,7 +368,11 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
           />
         </button>
 
-        {emptyCue && !object.autoExpression && object.kind !== "implicitCurve" ? (
+        {automaticEquation && "equation" in object ? (
+          <div className="min-w-0" onFocusCapture={() => { if (!selected) onSelect(object.id); }}>
+            <AutomaticEquationInput ref={eqInputRef} objectId={object.id} value={object.equation} onEnter={handleCreateNext} />
+          </div>
+        ) : emptyCue && !object.autoExpression && object.kind !== "implicitCurve" ? (
           <div className="min-w-0 flex-1 overflow-hidden">
             <button
               type="button"
@@ -371,14 +380,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               aria-label={selected ? `Selected ${title}` : `Select ${title}`}
               aria-pressed={selected}
               data-object-row-select={object.id}
-              className="block w-full cursor-pointer overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
+              className="ui-control block w-full cursor-pointer overflow-hidden rounded-[4px] text-left outline-hidden focus-visible:ring-1 focus-visible:ring-(--accent)"
             >
-              <span className="block truncate text-[13px] font-medium text-[var(--text-primary)]">{title}</span>
+              <span className="block truncate text-[13px] font-medium text-(--text-primary)">{title}</span>
             </button>
             <div className="mt-0.5">
               <select
                 value={
-                  object.kind === "vectorField"
+                  (object.kind === "parametricCurve" || object.kind === "parametricSurface") && object.dimension === "2d"
+                    ? `${object.kind}:2d`
+                    : object.kind === "vectorField"
                     ? `vectorField:${object.dimension}`
                     : object.kind === "linearTransform"
                       ? `linearTransform:${object.dimension}`
@@ -386,6 +397,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                 }
                 onChange={(e) => {
                   const next = e.target.value;
+                  if (next === "parametricCurve:2d" || next === "parametricSurface:2d") {
+                    convertKind(next === "parametricCurve:2d" ? "parametricCurve" : "parametricSurface", "2d");
+                    return;
+                  }
                   if (next === "vectorField:2d" || next === "vectorField:3d") {
                     convertKind("vectorField", next === "vectorField:2d" ? "2d" : "3d");
                     return;
@@ -394,14 +409,16 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     convertKind("linearTransform", next === "linearTransform:2d" ? "2d" : "3d");
                     return;
                   }
-                  convertKind(next as GraphObjectKind);
+                  convertKind(next as GraphObjectKind, next === "parametricCurve" || next === "parametricSurface" ? "3d" : undefined);
                 }}
-                className="h-7 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-1.5 text-[12px] font-medium text-[var(--text-secondary)]"
+                className="h-7 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-1.5 text-[12px] font-medium text-(--text-secondary)"
                 aria-label="Select object type"
               >
                 <option value="surface">Surface</option>
-                <option value="parametricCurve">Parametric Curve</option>
-                <option value="parametricSurface">Parametric Surface</option>
+                <option value="parametricCurve:2d">2D Parametric Curve</option>
+                <option value="parametricCurve">3D Parametric Curve</option>
+                <option value="parametricSurface:2d">2D Parametric Surface</option>
+                <option value="parametricSurface">3D Parametric Surface</option>
                 <option value="implicitSurface">Implicit Surface</option>
                 <option value="plane">Plane</option>
                 <option value="point">Point</option>
@@ -424,10 +441,10 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             aria-label={selected ? `Selected ${title}` : `Select ${title}`}
             aria-pressed={selected}
             data-object-row-select={object.id}
-            className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] active:scale-[0.99]"
+            className="ui-control flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden rounded-[4px] text-left outline-hidden focus-visible:ring-1 focus-visible:ring-(--accent)"
           >
             <div className="min-w-0 flex-1 overflow-hidden">
-              <span className={cn("flex min-w-0 items-center gap-1.5 truncate text-[var(--text-primary)]", formulaLine ? "expression-text" : "text-[14px] font-medium")}>
+              <span className={cn("flex min-w-0 items-center gap-1.5 truncate text-(--text-primary)", formulaLine ? "expression-text" : "text-[14px] font-medium")}>
                 <span className="min-w-0 truncate" title={formulaLine ?? undefined}>
                   {formulaLine ? <MathExpression expression={formulaLine} /> : title}
                 </span>
@@ -444,7 +461,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     className={cn(
                       "h-1.5 w-1.5 shrink-0 rounded-full",
                       computeStatus === "pending"
-                        ? "animate-pulse bg-[var(--accent)] motion-reduce:animate-none"
+                        ? "animate-pulse bg-(--accent) motion-reduce:animate-none"
                         : "bg-red-500/80"
                     )}
                   />
@@ -453,7 +470,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               <span
                 className={cn(
                   "mt-0.5 block truncate text-[11px]",
-                  selected ? "text-[var(--accent-ink)]" : "text-[var(--text-tertiary)]"
+                  selected ? "text-(--accent-ink)" : "text-(--text-tertiary)"
                 )}
                 title={object.kind === "surface" || object.kind === "plane" ? object.equation : meta.type}
               >
@@ -464,7 +481,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         )}
 
         <div className="flex items-center gap-0.5">
-          <button
+          {!automaticEquation ? <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
@@ -474,12 +491,12 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
             aria-expanded={isExpanded}
             title={isExpanded ? "Collapse definition" : "Expand definition"}
             className={cn(
-              "flex h-7 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+              "ui-control flex h-7 w-6 items-center justify-center rounded-[var(--ui-radius-sm)] text-(--text-tertiary) hover:bg-(--surface-raised) hover:text-(--text-primary)",
               isExpanded ? "rotate-180 opacity-100" : selected ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
             )}
           >
             <ChevronDownIcon className="h-3 w-3" />
-          </button>
+          </button> : null}
 
           <button
             ref={ellipsisRef}
@@ -506,7 +523,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
               }
             }}
             className={cn(
-              "flex h-7 w-6 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-tertiary)] transition-all duration-100 motion-reduce:transition-none hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)]",
+              "ui-control flex h-7 w-6 items-center justify-center rounded-[var(--ui-radius-sm)] text-(--text-tertiary) hover:bg-(--surface-raised) hover:text-(--text-primary)",
               "opacity-100"
             )}
           >
@@ -528,19 +545,17 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
         onClose={closeMenu}
       />
 
-      {(isExpanded || emptyCue) && (
-        <div className="mb-3 ml-7 mr-2 mt-0.5 rounded-[var(--radius-md)] px-1 py-1 animate-slide-up">
+      {!automaticEquation && (isExpanded || emptyCue) && (
+        <div className="mb-3 ml-7 mr-2 mt-0.5 rounded-[var(--ui-radius-md)] px-1 py-1 animate-slide-up">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
+            <p className="text-[11px] font-medium text-(--text-tertiary)">
               Definition
             </p>
           </div>
 
           <div className="flex flex-col gap-2">
-            {(object.autoExpression || object.kind === "implicitCurve") && "equation" in object ? (
-              <AutomaticEquationInput ref={eqInputRef} objectId={object.id} value={object.equation} onEnter={handleCreateNext} />
-            ) : null}
-            {!object.autoExpression && (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
+            {object.combination && <p className="text-[12px] text-(--text-secondary)">Linked {object.combination.operation === "subtract" ? "subtraction" : object.combination.operation}. Edit its sources in the Inspector.</p>}
+            {!object.combination && !object.autoExpression && (object.kind === "surface" || object.kind === "plane" || object.kind === "implicitSurface") && (
               <div className="expression-field">
                 <MathInput
                   ref={eqInputRef}
@@ -569,23 +584,24 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                   placeholder={object.kind === "surface" ? "x + y = 1, z = x^2 + y^2, or x^2 + y^2 = 1" : object.kind === "implicitSurface" ? "x^2 + y^2 + z^2 = 1" : "ax + by + cz + d = 0"}
                   spellCheck={false}
                   autoComplete="off"
-                  className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
+                  className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-(--text-primary) outline-hidden"
                 />
               </div>
             )}
 
             {(object.kind === "parametricCurve" || object.kind === "parametricSurface") && (
               <div className="flex flex-col gap-1.5">
+                <ParametricDimensionControl object={object} />
                 {[
                   { label: object.kind === "parametricSurface" ? "x(u,v) =" : "x(t) =", val: localX, set: setLocalX, field: "xExpr" as const },
                   { label: object.kind === "parametricSurface" ? "y(u,v) =" : "y(t) =", val: localY, set: setLocalY, field: "yExpr" as const },
                   { label: object.kind === "parametricSurface" ? "z(u,v) =" : "z(t) =", val: localZ, set: setLocalZ, field: "zExpr" as const }
-                ].map((item) => (
+                ].filter(entry => entry.field !== "zExpr" || object.dimension !== "2d").map((item) => (
                   <div
                     key={item.field}
                     className="expression-field"
                   >
-                    <span className="text-[12px] font-mono font-normal text-[var(--text-tertiary)] shrink-0 w-10">
+                    <span className="text-[12px] font-mono font-normal text-(--text-tertiary) shrink-0 w-10">
                       {item.label}
                     </span>
                     <MathInput
@@ -631,7 +647,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       }
                       spellCheck={false}
                       autoComplete="off"
-                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
+                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-(--text-primary) outline-hidden"
                     />
                   </div>
                 ))}
@@ -673,7 +689,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                     key={item.field}
                     className="expression-field"
                   >
-                    <span className="text-[12px] font-mono font-normal text-[var(--text-tertiary)] shrink-0 w-14">
+                    <span className="text-[12px] font-mono font-normal text-(--text-tertiary) shrink-0 w-14">
                       {item.label}
                     </span>
                     <MathInput
@@ -699,7 +715,7 @@ export default function ObjectRow({ object, index, selected, onSelect, onToggleV
                       placeholder={item.placeholder}
                       spellCheck={false}
                       autoComplete="off"
-                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-[var(--text-primary)] outline-none"
+                      className="min-w-0 w-full bg-transparent font-mono text-[14px] font-normal text-(--text-primary) outline-hidden"
                     />
                   </div>
                 ))}

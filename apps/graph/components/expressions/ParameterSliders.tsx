@@ -18,13 +18,13 @@ export default function ParameterSliders() {
   const visible = parameters.filter(parameter => parameter.defined || usedNames.has(parameter.id));
   if (!visible.length) return null;
   return <section aria-label="Parameters" className="mt-3 px-3 pb-3">
-    <h3 className="mb-1 text-[12px] font-medium text-[var(--text-secondary)]">Parameters</h3>
+    <h3 className="mb-1 text-[12px] font-medium text-(--text-secondary)">Parameters</h3>
     {visible.map(parameter => <div key={parameter.id} className="flex min-h-11 items-center gap-2">
       <label htmlFor={`parameter-${parameter.id}`} className="min-w-5 text-[14px]"><MathExpression expression={parameter.id} /></label>
       <input id={`parameter-${parameter.id}`} type="range" aria-label={`${parameter.id} slider`} min={parameter.min} max={parameter.max} step="0.01" value={parameter.value}
-        className="h-11 min-w-0 flex-1 accent-[var(--accent)]" onChange={event => setValue(parameter.id, Number(event.target.value))} />
+        className="h-11 min-w-0 flex-1 accent-(--accent)" onChange={event => setValue(parameter.id, Number(event.target.value))} />
       <input type="number" aria-label={`${parameter.id} value`} min={parameter.min} max={parameter.max} step="any" value={Number(parameter.value.toFixed(6))}
-        className="h-11 w-16 rounded-[var(--radius-sm)] border border-transparent bg-[var(--surface-muted)] px-2 text-right text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className="h-11 w-16 rounded-[var(--ui-radius-sm)] border border-transparent bg-(--surface-muted) px-2 text-right text-[13px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)"
         onChange={event => { if (event.target.value && Number.isFinite(event.target.valueAsNumber)) setValue(parameter.id, event.target.valueAsNumber); }} />
     </div>)}
   </section>;

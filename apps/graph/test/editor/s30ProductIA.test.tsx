@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { GRAPH_OBJECT_KINDS } from "@vinculum/scene/types";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { matchPaletteCommand } from "@/components/editor/CommandPalette";
 import AnalysisInspector from "@/components/inspector/AnalysisInspector";
@@ -68,8 +69,7 @@ function resetAll(): void {
 }
 
 describe("S30 descriptors: one metadata source for all creation surfaces", () => {
-  it("covers all 14 creation entries with unique keys, labels, and command ids", () => {
-    expect(OBJECT_DESCRIPTORS).toHaveLength(14);
+  it("keeps catalog keys, labels, and command ids unique", () => {
     const keys = OBJECT_DESCRIPTORS.map((entry) => entry.key);
     const labels = OBJECT_DESCRIPTORS.map((entry) => entry.label);
     const commandIds = OBJECT_DESCRIPTORS.map((entry) => entry.commandId);
@@ -78,24 +78,9 @@ describe("S30 descriptors: one metadata source for all creation surfaces", () =>
     expect(new Set(commandIds).size).toBe(commandIds.length);
   });
 
-  it("covers all 12 canonical kinds (fields and transforms in both dimensions)", () => {
-    const kinds = new Set(OBJECT_DESCRIPTORS.map((entry) => entry.kind));
-    for (const kind of [
-      "surface",
-      "parametricCurve",
-      "plane",
-      "parametricSurface",
-      "implicitSurface",
-      "vectorField",
-      "point",
-      "vector",
-      "line",
-      "ray",
-      "segment",
-      "linearTransform"
-    ] as const) {
-      expect(kinds.has(kind)).toBe(true);
-    }
+  it("covers every catalog kind, including dimension variants", () => {
+    const kinds = new Set(OBJECT_DESCRIPTORS.map(entry => entry.kind));
+    expect(kinds).toEqual(new Set(GRAPH_OBJECT_KINDS.filter(kind => kind !== "implicitCurve")));
     expect(OBJECT_DESCRIPTORS.filter((entry) => entry.kind === "vectorField")).toHaveLength(2);
     expect(OBJECT_DESCRIPTORS.filter((entry) => entry.kind === "linearTransform")).toHaveLength(2);
   });
@@ -125,24 +110,8 @@ describe("S30 creation parity: every descriptor key creates a valid canonical ob
     resetAll();
   });
 
-  it("creates all 14 kinds through the central path", () => {
-    const expectations: Array<{ key: string; kind: GraphObject["kind"]; dimension?: string }> = [
-      { key: "surface", kind: "surface" },
-      { key: "parametricCurve", kind: "parametricCurve" },
-      { key: "parametricSurface", kind: "parametricSurface" },
-      { key: "implicitSurface", kind: "implicitSurface" },
-      { key: "vectorField-2d", kind: "vectorField", dimension: "2d" },
-      { key: "vectorField-3d", kind: "vectorField", dimension: "3d" },
-      { key: "plane", kind: "plane" },
-      { key: "point", kind: "point" },
-      { key: "vector", kind: "vector" },
-      { key: "line", kind: "line" },
-      { key: "ray", kind: "ray" },
-      { key: "segment", kind: "segment" },
-      { key: "linearTransform-2d", kind: "linearTransform", dimension: "2d" },
-      { key: "linearTransform-3d", kind: "linearTransform", dimension: "3d" }
-    ];
-    for (const expected of expectations) {
+  it("creates every catalog entry through the central path", () => {
+    for (const expected of OBJECT_DESCRIPTORS) {
       const id = createObjectByKey(expected.key);
       expect(id).not.toBe("");
       const object = liveObject(id);
@@ -266,7 +235,7 @@ describe("S30 palette matching: categories with mathematical aliases", () => {
 
 describe("S30 Convert menu: 14 Title-Case entries from descriptors", () => {
   it("lists every canonical kind with canonical casing", () => {
-    expect(CONVERT_OPTIONS).toHaveLength(14);
+    expect(CONVERT_OPTIONS).toHaveLength(16);
     const labels = CONVERT_OPTIONS.map((entry) => entry.label);
     for (const label of [
       "Surface",
@@ -367,11 +336,13 @@ describe("S30 Analyze tab: full per-kind capability matrix", () => {
     expect(screen.queryByText("Differential Analysis")).not.toBeInTheDocument();
   });
 
-  it("implicit surface shows differential and scalar viz without integral", () => {
+  it("implicit surface shows differential, scalar viz, and bounded solid analysis", () => {
     renderAnalysisFor("implicitSurface");
     expect(screen.getByText("Differential Analysis")).toBeInTheDocument();
     expect(screen.getByTestId("scalar-visualization-section")).toBeInTheDocument();
-    expect(screen.queryByTestId("integral-analysis-section")).not.toBeInTheDocument();
+    expect(screen.getByTestId("integral-analysis-section")).toBeInTheDocument();
+    expect(screen.getByLabelText("Integral mode").textContent).toMatch(/Enclosed volume/);
+    expect(screen.getByLabelText("Integral mode").textContent).not.toMatch(/Flux|Scalar surface/);
   });
 
   it("plane and vector show geometry analysis only", () => {

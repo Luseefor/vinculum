@@ -25,7 +25,7 @@ import Viewport3D from "@/components/viewport/Viewport3D";
 import { exportSceneJson, triggerSceneExportDownload } from "@/lib/export/sceneExport";
 import { reportError } from "@/lib/monitoring/errorReporting";
 import { deserializeScene } from "@/lib/scene/deserializeScene";
-import type { SceneDocument } from "@/lib/scene/sceneSchema";
+import { sceneHasContent, type SceneDocument } from "@/lib/scene/sceneSchema";
 import {
   LocalProjectRepositoryError,
   localProjectRepository
@@ -45,7 +45,6 @@ import type { SceneSnapshot } from "@/lib/types/scene";
 import { useEditorStore } from "@/lib/store/editorStore";
 import { useGraphStore } from "@/store/graphStore";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { applyConstraintDerivedUpdates } from "@/lib/editor/applyConstraintDerivedUpdates";
 import { captureEvent } from "@/lib/analytics/posthog";
 import { consumeHistoryActionFlag, isDragTransactionActive } from "@/lib/interaction/dragHistoryTransaction";
 import { requestCanvasFrame } from "@/lib/interaction/canvasFrameRequests";
@@ -70,8 +69,6 @@ export default function EditorShell() {
   const setBaseline3dPlane = useGraphStore((state) => state.setBaseline3dPlane);
   const snapEnabled = useGraphStore((state) => state.ui.snapEnabled);
   const setSnapEnabled = useGraphStore((state) => state.setSnapEnabled);
-  const updateObjectColor = useGraphStore((state) => state.updateObjectColor);
-  const setObjectVisibility = useGraphStore((state) => state.setObjectVisibility);
   const selectedObjectId = useGraphStore((state) => state.ui.selectedObjectId);
   const selectedMeasurementId = useGraphStore((state) => state.ui.selectedMeasurementId);
   const removeObject = useGraphStore((state) => state.removeObject);
@@ -134,7 +131,6 @@ export default function EditorShell() {
   const setGeometryLayout = useEditorStore((state) => state.setGeometryLayout);
   const setGeometryView = useEditorStore((state) => state.setGeometryView);
   const addConsoleEvent = useEditorStore((state) => state.addConsoleEvent);
-  const constraints = useEditorStore((state) => state.constraints);
   const pushSnapshot = useHistoryStore((state) => state.pushSnapshot);
   const undoHistory = useHistoryStore((state) => state.undo);
   const redoHistory = useHistoryStore((state) => state.redo);
@@ -143,9 +139,9 @@ export default function EditorShell() {
   const canRedo = useHistoryStore((state) => state.future.length > 0);
   
   const historyActionRef = useRef(false);
-  const skipDerivedHistoryRef = useRef(0);
   const lastSceneSnapshotRef = useRef<SceneSnapshot | null>(null);
   const hasCheckedRecoveryRef = useRef(false);
+  const hasPendingRecoveryRef = useRef(false);
   const hasCheckedSharedSceneRef = useRef(false);
   const hasCheckedExamplesQueryRef = useRef(false);
   const hasCheckedWelcomeRef = useRef(false);
@@ -157,7 +153,7 @@ export default function EditorShell() {
   const [inspectorDrawerMode, setInspectorDrawerMode] = useState(false);
 
   const activeTool = graphMode === "2d" ? canvas2dTool : canvas3dTool;
-  const setActiveTool = (tool: any) => {
+  const setActiveTool = (tool: Exclude<ViewTool, "select">) => {
     setCanvas2dTool(tool);
     setCanvas3dTool(tool);
   };
@@ -175,6 +171,8 @@ export default function EditorShell() {
   const activeViewType: "2d" | "3d" | "both" =
     effectiveViewportMode === "split" || effectiveViewportMode === "quad" ? "both" : graphMode === "3d" ? "3d" : "2d";
   const activeLayout: "split" | "quad" = effectiveViewportMode === "quad" ? "quad" : "split";
+  const workspace = useGraphStore((state) => state.ui.workspace);
+  const canFrameViewport = true;
   const contextInspectorOpen =
     inspectorPinned ||
     inspectorOpen ||
@@ -315,39 +313,17 @@ export default function EditorShell() {
     }
 
     const objectsChanged = previousSnapshot.objects !== currentSnapshot.objects;
+    const measurementsChanged = previousSnapshot.measurements !== currentSnapshot.measurements;
+    const parametersChanged = previousSnapshot.parameters !== currentSnapshot.parameters;
     const selectionChanged =
       previousSnapshot.selection.selectedObjectId !== currentSnapshot.selection.selectedObjectId;
 
-    if (objectsChanged && skipDerivedHistoryRef.current > 0) {
-      skipDerivedHistoryRef.current -= 1;
-      lastSceneSnapshotRef.current = currentSnapshot;
-      return;
-    }
-
-    if (objectsChanged || selectionChanged) {
+    if (objectsChanged || measurementsChanged || parametersChanged || selectionChanged) {
       pushSnapshot(previousSnapshot);
     }
 
     lastSceneSnapshotRef.current = currentSnapshot;
-  }, [pushSnapshot, scene.objects, selectedObjectId]);
-
-  useEffect(() => {
-    if (constraints.length === 0 || scene.objects.length === 0) {
-      return;
-    }
-
-    const { updateCount: derivedUpdateCount, errors } = applyConstraintDerivedUpdates(
-      constraints,
-      setObjectVisibility,
-      updateObjectColor
-    );
-    for (const error of errors) {
-      addConsoleEvent(`Constraint skipped: ${error}`);
-    }
-    if (derivedUpdateCount > 0) {
-      skipDerivedHistoryRef.current += derivedUpdateCount;
-    }
-  }, [addConsoleEvent, constraints, scene.objects, setObjectVisibility, updateObjectColor]);
+  }, [pushSnapshot, scene.objects, scene.measurements, scene.parameters, selectedObjectId]);
 
   useEffect(() => {
     const isTypingTarget = (target: EventTarget | null): boolean => {
@@ -355,7 +331,7 @@ export default function EditorShell() {
         return false;
       }
       const tag = target.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "MATH-FIELD" || target.isContentEditable;
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
@@ -369,9 +345,10 @@ export default function EditorShell() {
         // S33 PART 47: an active drag cancels first — the engine restores
         // pre-drag values. Shell skips its own Escape handling so one
         // keypress never double-processes (no menu/pick side effects).
-        if (isDragTransactionActive()) {
+        if (event.defaultPrevented || isDragTransactionActive()) {
           return;
-        }        // Functional updates return identical state when nothing is open so
+        }
+        // Functional updates return identical state when nothing is open so
         // idle keypresses never force a shell re-render (which would churn
         // downstream effect subscriptions such as drawer Escape handlers).
         setCommandPaletteOpen((wasOpen) => (wasOpen ? false : wasOpen));
@@ -382,6 +359,10 @@ export default function EditorShell() {
           const armedId = useGraphStore.getState().ui.differentialAnalysisPickArmedId;
           if (armedId !== null) {
             useGraphStore.getState().armDifferentialAnalysisPick(null);
+          } else if (!(event.target instanceof HTMLElement && event.target.closest('[role="dialog"], [role="menu"], [role="listbox"]')) && !document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) {
+            const store = useGraphStore.getState();
+            store.setCanvas2dTool("pan");
+            store.setCanvas3dTool("pan");
           }
         }
         return;
@@ -408,7 +389,7 @@ export default function EditorShell() {
       // selected). Window-level with typing/modifier guards — equivalent to
       // canvas focus without adding tab stops; equation inputs keep F.
       if (event.key === "f" || event.key === "F") {
-        if (!isDragTransactionActive()) {
+        if (canFrameViewport && !isDragTransactionActive()) {
           requestCanvasFrame(
             useGraphStore.getState().ui.selectedObjectId ? "selected" : "scene"
           );
@@ -427,12 +408,12 @@ export default function EditorShell() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [removeObject]);
+  }, [removeObject, canFrameViewport]);
 
   const [narrowRailMode, setNarrowRailMode] = useState(false);
   // Narrow-mode drawers open only on explicit user action so a fresh narrow
   // load never starts with canvas-blocking overlays.
-  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);  const workspace = useGraphStore((state) => state.ui.workspace);
+  const [narrowObjectsOpen, setNarrowObjectsOpen] = useState(false);
   // Lazily mount each workspace tree on first visit, then keep it mounted
   // (suspended while hidden) so cameras, sync state, and engines survive
   // workspace switches without rebuilds.
@@ -505,7 +486,7 @@ export default function EditorShell() {
       return;
     }
 
-    if (scene.objects.length > 0) {
+    if (sceneHasContent(scene) || currentProjectId !== null) {
       hasCheckedRecoveryRef.current = true;
       return;
     }
@@ -517,14 +498,8 @@ export default function EditorShell() {
         return;
       }
 
-      const snapshotTime = Date.parse(snapshot.updatedAt);
-      const sceneTime = Date.parse(scene.metadata.updatedAt);
-      if (Number.isFinite(snapshotTime) && Number.isFinite(sceneTime) && snapshotTime <= sceneTime) {
-        hasCheckedRecoveryRef.current = true;
-        return;
-      }
-
       setRecoveryUpdatedAt(snapshot.updatedAt);
+      hasPendingRecoveryRef.current = true;
       setRecoveryError(null);
       setRecoveryDialogOpen(true);
       hasCheckedRecoveryRef.current = true;
@@ -535,11 +510,12 @@ export default function EditorShell() {
           ? error.message
           : "Recovery snapshot could not be read safely.";
       setRecoveryError(message);
+      hasPendingRecoveryRef.current = true;
       setRecoveryDialogOpen(true);
       hasCheckedRecoveryRef.current = true;
       captureEvent("recovery_prompt_shown", { error_type: "read-failed" });
     }
-  }, [isGraphStoreHydrated, scene.metadata.updatedAt, scene.objects.length]);
+  }, [currentProjectId, isGraphStoreHydrated, scene]);
 
   useEffect(() => {
     if (hasCheckedSharedSceneRef.current || !isGraphStoreHydrated) {
@@ -560,7 +536,7 @@ export default function EditorShell() {
     }
 
     const hasWorkToProtect =
-      scene.objects.length > 0 ||
+      sceneHasContent(scene) ||
       currentProjectId !== null ||
       recoveryDialogOpen ||
       scene.metadata.updatedAt !== scene.metadata.createdAt;
@@ -587,9 +563,7 @@ export default function EditorShell() {
     isGraphStoreHydrated,
     recoveryDialogOpen,
     replaceSceneDocument,
-    scene.metadata.createdAt,
-    scene.metadata.updatedAt,
-    scene.objects.length,
+    scene,
     setCurrentProjectSession,
     setProjectAutosaveStatus
   ]);
@@ -681,7 +655,7 @@ export default function EditorShell() {
       return;
     }
 
-    if (recoveryDialogOpen) {
+    if (recoveryDialogOpen || hasPendingRecoveryRef.current) {
       autosave.clearPending();
       return;
     }
@@ -695,7 +669,7 @@ export default function EditorShell() {
       return () => autosave.clearPending();
     }
 
-    if (scene.objects.length === 0) {
+    if (!sceneHasContent(scene)) {
       autosave.clearPending();
       localProjectRepository.clearUnnamedRecoverySnapshot();
       setProjectAutosaveStatus("idle");
@@ -721,6 +695,7 @@ export default function EditorShell() {
       localProjectRepository.clearUnnamedRecoverySnapshot();
       clearHistory();
       replaceSceneDocument(restoredScene);
+      hasPendingRecoveryRef.current = false;
       setCurrentProjectSession(null);
       setProjectAutosaveStatus("idle");
       setRecoveryError(null);
@@ -740,6 +715,7 @@ export default function EditorShell() {
   const handleDiscardRecovery = useCallback(() => {
     try {
       localProjectRepository.clearUnnamedRecoverySnapshot();
+      hasPendingRecoveryRef.current = false;
       setRecoveryError(null);
       setRecoveryDialogOpen(false);
       setRecoveryUpdatedAt(null);
@@ -870,133 +846,16 @@ export default function EditorShell() {
     // S33 PART 10/42: camera-only framing (never math/scene/analysis).
     // Distinct from Reset View (restores default cameras).
     if (commandId === "frame-selected") {
-      if (!isDragTransactionActive()) {
+      if (canFrameViewport && !isDragTransactionActive()) {
         requestCanvasFrame("selected");
       }
       return;
     }
     if (commandId === "fit-scene") {
-      if (!isDragTransactionActive()) {
+      if (canFrameViewport && !isDragTransactionActive()) {
         requestCanvasFrame("scene");
       }
       return;
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
-    }
-    {
-      // S30: creation funnels through the central descriptors path so
-      // palette/context creation cannot drift from Quick Add / Add Object.
-      const entry = descriptorByCommandId(commandId);
-      if (entry) {
-        createObjectByKey(entry.key);
-        return;
-      }
     }
     {
       // S30: creation funnels through the central descriptors path so
@@ -1023,7 +882,7 @@ export default function EditorShell() {
     if (commandId === "reset-view") { handleViewportResetView(); return; }
     if (commandId === "export-scene-json") { handleViewportExportSceneJson(); return; }
     if (commandId === "import-scene-json") { importInputRef.current?.click(); return; }
-  }, [narrowRailMode, setLeftPanelCollapsed, runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
+  }, [canFrameViewport, narrowRailMode, setLeftPanelCollapsed, runUndo, runRedo, setGraphMode, setViewportMode, setGeometryLayout, setGeometryView, setWorkspace, removeObject, snapEnabled, setSnapEnabled, handleViewportResetView, handleViewportExportSceneJson]);
 
   const startHorizontalResize = useCallback((event: ReactPointerEvent<HTMLDivElement>, side: "left" | "right") => {    const shell = shellRef.current;
     if (!shell) return;
@@ -1086,7 +945,7 @@ export default function EditorShell() {
     onLayoutChange: (layout: "split" | "quad") => {
       setViewportMode(layout);
     },
-    plane2d: axis2dPair,
+    plane2d: planeSwitcherActivePair,
     onPlane2dChange: setAxis2DPair,
     base3d: baseline3dPlane,
     onBase3dChange: setBaseline3dPlane,
@@ -1098,11 +957,22 @@ export default function EditorShell() {
     }
   };
 
+  const gettingStarted = welcomeDialogOpen ? (
+    <FirstRunHint
+      open
+      workspace={workspace}
+      error={welcomeDialogError}
+      touchHints={touchHints}
+      canvasMode={workspace === "math" ? "math" : geometryView === "perspective" ? "perspective" : "ortho"}
+      onDismiss={handleCloseWelcome}
+    />
+  ) : null;
+
   return (
     <div
       ref={shellRef}
       data-composition={composition}
-      className="app-shell flex h-screen flex-col bg-[var(--bg-primary)] font-sans"
+      className="app-shell flex h-screen flex-col bg-(--bg-primary) font-sans"
       onContextMenu={(e) => { if (!(e.target instanceof HTMLCanvasElement)) return; e.preventDefault(); setContextMenu({ open: true, x: e.clientX, y: e.clientY }); }}
       onKeyDown={(e) => {
         if (!(e.target instanceof HTMLCanvasElement) || !(e.key === "ContextMenu" || (e.shiftKey && e.key === "F10"))) return;
@@ -1179,7 +1049,7 @@ export default function EditorShell() {
               <div className="relative h-full w-full" onPointerDownCapture={handleWorkspacePointerDownCapture}>
                 {(workspace === "geometry" || visitedWorkspaces.geometry) && (
                   <div className={workspace === "geometry" ? "h-full w-full" : "hidden"}>
-                    <GeometryViewport suspended={workspace !== "geometry"} onOpenGuide={() => setGuideOpen(true)} onOpenExamples={() => setExamplesOpenSignal(value => value + 1)} />
+                    <GeometryViewport suspended={workspace !== "geometry"} onOpenGuide={() => { setWelcomeDialogOpen(false); setGuideOpen(true); }} onOpenExamples={handleWelcomeOpenExamples} onStart={handleCloseWelcome} gettingStarted={gettingStarted} />
                   </div>
                 )}
                 {(workspace === "math" || visitedWorkspaces.math) && (
@@ -1189,34 +1059,20 @@ export default function EditorShell() {
                       viewport2d={<Viewport2D key="graph-2d" suspended={workspace !== "math"} />}
                       viewport2dQuadTop={<Viewport2D key="graph-2d-quad-xz" variant="quadTop" suspended={workspace !== "math"} />}
                       viewport3d={<Viewport3D key="graph-3d" suspended={workspace !== "math"} />}
+                      viewport3dQuadSide={<Viewport3D key="graph-3d-yz" projectionPlane="yz" suspended={workspace !== "math"} />}
                       workspaceId="math"
-                      onOpenGuide={() => setGuideOpen(true)}
-                      onOpenExamples={() => setExamplesOpenSignal(value => value + 1)}
+                      onOpenGuide={() => { setWelcomeDialogOpen(false); setGuideOpen(true); }}
+                      onOpenExamples={handleWelcomeOpenExamples}
+                      onStart={handleCloseWelcome}
+                      gettingStarted={gettingStarted}
                     />
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-0 z-20">
-                  <FirstRunHint
-                    open={welcomeDialogOpen}
-                    workspace={workspace}
-                    error={welcomeDialogError}
-                    touchHints={touchHints}
-                    canvasMode={
-                      workspace === "math"
-                        ? "math"
-                        : geometryView === "perspective"
-                          ? "perspective"
-                          : "ortho"
-                    }
-                    onDismiss={handleCloseWelcome}
-                    onOpenExamples={handleWelcomeOpenExamples}
-                    onOpenGuide={() => { setWelcomeDialogOpen(false); setGuideOpen(true); }}
-                  />
-                </div>
+
               </div>
             </GraphViewportErrorBoundary>
             {viewportFallbackMessage ? (
-              <div className="pointer-events-none absolute left-3 top-3 z-[11] rounded border border-[var(--border-strong)] bg-[var(--surface-overlay)] px-2 py-1 text-[10px] text-[var(--text-secondary)]">
+              <div className="pointer-events-none absolute left-3 top-3 z-11 rounded-sm border border-(--border-strong) bg-(--surface-overlay) px-2 py-1 text-[10px] text-(--text-secondary)">
                 {viewportFallbackMessage}
               </div>
             ) : null}
@@ -1309,8 +1165,8 @@ export default function EditorShell() {
       <Sheet open={narrowRailMode && narrowObjectsOpen} onOpenChange={setNarrowObjectsOpen} title="Objects">
         <SceneNavigatorPremium />
       </Sheet>
-      <ContextMenu open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
-      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
+      <ContextMenu canFrame={canFrameViewport} open={contextMenu.open} x={contextMenu.x} y={contextMenu.y} onRunCommand={runCommand} hasSelection={Boolean(selectedObjectId)} canUndo={canUndo} canRedo={canRedo} onClose={() => setContextMenu(state => ({ ...state, open: false }))} />
+      <CommandPalette canFrame={canFrameViewport} open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} onRunCommand={runCommand} />
       
       <input
         ref={importInputRef}

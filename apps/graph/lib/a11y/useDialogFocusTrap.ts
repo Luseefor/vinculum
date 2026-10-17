@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -33,7 +33,8 @@ export function useDialogFocusTrap(args: {
   const { open, containerRef, initialFocusSelector } = args;
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
+  // Move focus before paint so the first key cannot reach the launcher underneath.
+  useLayoutEffect(() => {
     if (!open) return;
     const container = containerRef.current;
     if (!container) return;

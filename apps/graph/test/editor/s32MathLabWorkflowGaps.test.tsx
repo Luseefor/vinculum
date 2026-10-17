@@ -58,7 +58,7 @@ describe("S32 gaps: history/persistence isolation", () => {
     resetScene();
   });
 
-  it("history snapshots carry only objects/measurements/selection (no workspace/view/analysis)", () => {
+  it("history snapshots carry only objects/measurements/parameters/selection (no workspace/view/analysis)", () => {
     const state = useGraphStore.getState();
     const surfaceId = state.addSurfaceObject();
     state.updateSurfaceEquation(surfaceId, "x^2 + y^2");
@@ -66,7 +66,7 @@ describe("S32 gaps: history/persistence isolation", () => {
     const snapshot = getCurrentSceneSnapshot();
     // Exact key contract: UI-only state (workspace, graphMode, tabs,
     // analysis configs, streamline) must never enter undo history.
-    expect(Object.keys(snapshot).sort()).toEqual(["measurements", "objects", "selection"]);
+    expect(Object.keys(snapshot).sort()).toEqual(["measurements", "objects", "parameters", "selection"]);
     expect(Object.keys(snapshot.selection).sort()).toEqual(["selectedObjectId"]);
   });
 
@@ -126,6 +126,22 @@ describe("S32 gaps: surface domain ordering and tuple draft preservation", () =>
     );
     expect(positions.every((p) => p >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it("shows the rendered surface axis and changes the equation with the dependent-variable control", () => {
+    const state = useGraphStore.getState();
+    const id = state.addSurfaceObject();
+    state.updateSurfaceEquation(id, "x = 3");
+    state.selectObject(id);
+    render(<ObjectInspector />);
+    expect((screen.getByLabelText("Dependent variable") as HTMLSelectElement).value).toBe("x");
+    expect((screen.getByLabelText("Surface expression x = f(y,z)") as HTMLInputElement).value).toBe("3");
+    expect(screen.getByLabelText("z min")).toBeDefined();
+    fireEvent.change(screen.getByLabelText("Dependent variable"), { target: { value: "y" } });
+    expect(useGraphStore.getState().scene.objects.find(o => o.id === id)).toMatchObject({ orientation: "y", equation: "y = 3" });
+    const expression = screen.getByLabelText("Surface expression y = f(x,z)");
+    fireEvent.change(expression, { target: { value: "4" } });
+    expect(useGraphStore.getState().scene.objects.find(o => o.id === id)).toMatchObject({ equation: "y = 4" });
   });
 
   it("parametric tuple draft survives Object→Analyze→Object", () => {

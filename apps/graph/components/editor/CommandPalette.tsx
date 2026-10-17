@@ -9,6 +9,7 @@ interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   onRunCommand: (commandId: string) => void;
+  canFrame?: boolean;
 }
 
 import { OBJECT_DESCRIPTORS, type PaletteCategory } from "@/lib/objects/objectDescriptors";
@@ -17,7 +18,7 @@ interface PaletteCommand {
   id: string;
   label: string;
   category: PaletteCategory;
-  aliases: string[];
+  aliases: readonly string[];
 }
 
 // S30: creation commands render from the central descriptors (labels and
@@ -66,18 +67,17 @@ export function matchPaletteCommand(command: PaletteCommand, query: string): boo
   return command.label.toLowerCase().includes(q) || command.aliases.some((alias) => alias.includes(q));
 }
 
-export default function CommandPalette({ open, onClose, onRunCommand }: CommandPaletteProps) {
+export default function CommandPalette({ open, onClose, onRunCommand, canFrame = true }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) {
-      return COMMANDS;
-    }
-    return COMMANDS.filter((command) => matchPaletteCommand(command, q));
-  }, [query]);
+    return COMMANDS.filter(command =>
+      (canFrame || (command.id !== "fit-scene" && command.id !== "frame-selected")) &&
+      matchPaletteCommand(command, query)
+    );
+  }, [query, canFrame]);
   const showingCategories = query.trim().length === 0;
   const activeCommand = filtered[activeIndex];
   const activeOptionId = activeCommand ? `command-palette-option-${activeCommand.id}` : undefined;
@@ -112,9 +112,9 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="max-w-xl self-start mt-[10vh] p-0 border-[var(--border-subtle)] bg-[var(--surface-bg)] shadow-[var(--shadow-floating)]" contentProps={{ onClick: (event) => event.stopPropagation() }}>
+      <DialogContent className="max-w-xl self-start mt-[10vh] p-0 border-(--border-subtle) bg-(--surface-bg) shadow-(--shadow-floating)" contentProps={{ onClick: (event) => event.stopPropagation() }}>
         <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <div className="border-b border-[var(--border-subtle)] p-3">
+        <div className="border-b border-(--border-subtle) p-3">
           <Input
             autoFocus
             value={query}
@@ -190,7 +190,7 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 }
                 return (
                   <div key={category} role="presentation">
-                    <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-[var(--text-tertiary)]">
+                    <p className="px-2 pb-1 pt-2 text-[11px] font-medium text-(--text-tertiary)">
                       {category}
                     </p>
                     {group.map((command) => (
@@ -233,15 +233,15 @@ export default function CommandPalette({ open, onClose, onRunCommand }: CommandP
                 />
               ))}
           {filtered.length === 0 ? (
-            <p className="px-2 py-2 text-[11px] text-[var(--text-tertiary)]">No matching commands.</p>
+            <p className="px-2 py-2 text-[11px] text-(--text-tertiary)">No matching commands.</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-subtle)] px-3 py-2 text-[10px] text-[var(--text-tertiary)]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-(--border-subtle) px-3 py-2 text-[10px] text-(--text-tertiary)">
           <span>
             {filtered.length} match{filtered.length === 1 ? "" : "es"}
           </span>
           <span className="ml-auto text-right">
-            ⌘/Ctrl+K · Undo/Redo · F Frame · Esc
+            ⌘/Ctrl+K · Undo/Redo{canFrame ? " · F Frame" : ""} · Esc
           </span>
         </div>
       </DialogContent>
@@ -273,8 +273,8 @@ function PaletteOption({
       onFocus={onHover}
       onClick={onRun}
       className={[
-        "w-full rounded-md px-2 py-2 text-left text-[12px] text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-        active ? "bg-[var(--surface-overlay)] text-[var(--text-primary)]" : ""
+        "w-full rounded-md px-2 py-2 text-left text-[12px] text-(--text-secondary) hover:bg-(--surface-overlay) hover:text-(--text-primary)",
+        active ? "bg-(--surface-overlay) text-(--text-primary)" : ""
       ].join(" ")}
     >
       {command.label}

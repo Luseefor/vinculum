@@ -22,6 +22,7 @@ export const MathInput = forwardRef<HTMLInputElement, Props>(function MathInput(
   propsRef.current = props;
   const lastEmitted = useRef<string | null>(null);
   const transferFocus = useRef(false);
+  const switchingMode = useRef(false);
   const [ready, setReady] = useState(false);
   const [sourceMode, setSourceMode] = useState(false);
   const ariaLabel = props["aria-label"];
@@ -122,7 +123,7 @@ export const MathInput = forwardRef<HTMLInputElement, Props>(function MathInput(
         if (tex) { event.preventDefault(); event.stopImmediatePropagation(); field!.insert(tex); }
       }, true);
       listen("focus", (event) => propsRef.current.onFocus?.(event as unknown as React.FocusEvent<HTMLInputElement>));
-      listen("blur", (event) => propsRef.current.onBlur?.(event as unknown as React.FocusEvent<HTMLInputElement>));
+      listen("blur", (event) => { if (!switchingMode.current) propsRef.current.onBlur?.(event as unknown as React.FocusEvent<HTMLInputElement>); });
       listen("keydown", (event) => {
         // Existing React handlers rely on nativeEvent and currentTarget.blur().
         const adapted = new Proxy(event, {
@@ -185,17 +186,20 @@ export const MathInput = forwardRef<HTMLInputElement, Props>(function MathInput(
   }, [ready, sourceMode]);
 
   const label = props["aria-label"] ?? "expression";
-  return <div data-math-input-id={inputId} className={cn("math-input min-w-0 flex-1", className)}>
+  return <div data-math-input-id={inputId} data-invalid={ariaInvalid === true || ariaInvalid === "true" ? "true" : undefined} data-disabled={disabled ? "true" : undefined} className={cn("math-input min-w-0 flex-1", className)}>
     <div ref={hostRef} hidden={!ready || sourceMode} />
-    {ready && !sourceMode && placeholder && !String(value).trim() ? <span aria-hidden="true" className="math-input-placeholder"><MathExpression expression={placeholder} latex={placeholderToLatex(placeholder)} /></span> : null}
+    {ready && !sourceMode && placeholder && !String(value).trim() ? <span aria-hidden="true" className="math-input-placeholder"><MathExpression tabIndex={-1} expression={placeholder} latex={placeholderToLatex(placeholder)} /></span> : null}
     <input {...nativeProps} id={ready && props.id ? `${props.id}-source` : props.id} ref={inputRef} value={value} hidden={ready && !sourceMode} aria-label={ready && !sourceMode ? undefined : props["aria-label"]} aria-hidden={ready && !sourceMode ? true : undefined} spellCheck={false}
-      className="math-source-input w-full min-w-0 bg-transparent outline-none" onChange={(event) => {
+      className="math-source-input w-full min-w-0 bg-transparent outline-hidden" onChange={(event) => {
         const next = normalizeMathInput(event.target.value);
         if (next !== event.target.value) event.target.value = next;
         useEditorStore.getState().ensureParameters(getEquationParameterNames(next));
         onChange?.(event);
-      }} />
-    {ready ? <button type="button" disabled={disabled} title={sourceMode ? "Use typeset math editing" : "Edit as plain text"} className="math-source-toggle" aria-label={`${sourceMode ? "Use math editor for" : "Edit as text:"} ${label}`} aria-pressed={sourceMode} onClick={() => {
+      }} onBlur={(event) => { if (!switchingMode.current) nativeProps.onBlur?.(event); }} />
+    {ready ? <button type="button" disabled={disabled} title={sourceMode ? "Use typeset math editing" : "Edit as plain text"} className="math-source-toggle" aria-label={`${sourceMode ? "Use math editor for" : "Edit as text:"} ${label}`} aria-pressed={sourceMode} onPointerDown={(event) => event.preventDefault()} onClick={() => {
+      // Switching editors is an internal focus transfer, not completion of a draft.
+      // Safari does not focus clicked buttons, so its blur otherwise has no relatedTarget.
+      switchingMode.current = true;
       setSourceMode(!sourceMode);
       requestAnimationFrame(() => {
         if (sourceMode) {
@@ -205,6 +209,7 @@ export const MathInput = forwardRef<HTMLInputElement, Props>(function MathInput(
           mathRef.current?.blur();
           inputRef.current?.focus();
         }
+        switchingMode.current = false;
       });
     }}>{sourceMode ? "Math" : "Text"}</button> : null}
   </div>;

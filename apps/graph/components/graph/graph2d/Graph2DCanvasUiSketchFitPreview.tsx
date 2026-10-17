@@ -1,6 +1,7 @@
 "use client";
 
 import { MathExpression } from "@/components/math/MathExpression";
+import { Button } from "@/components/ui/button";
 
 import type { Axis2DPair } from "@/types/graphUi";
 import { formatCoord } from "./graph2dCanvasFormat";
@@ -14,8 +15,7 @@ export type Graph2DCanvasUiSketchFitPreviewProps = {
     stroke: { horizontal: number; vertical: number }[],
     axisPair?: Axis2DPair
   ) => string;
-  isQuadTop: boolean;
-  axis2dPairQuadTop: Axis2DPair;
+  pairForCanvas: Axis2DPair;
 };
 
 export function Graph2DCanvasUiSketchFitPreview({
@@ -23,35 +23,35 @@ export function Graph2DCanvasUiSketchFitPreview({
   sketchFitPreview,
   setSketchFitPreview,
   addSketchedParametricFromStroke,
-  isQuadTop,
-  axis2dPairQuadTop
+  pairForCanvas
 }: Graph2DCanvasUiSketchFitPreviewProps) {
   return (
-    <div className="max-w-full rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-overlay)] p-3 text-xs text-[var(--text-secondary)] shadow-[var(--shadow-floating)]">
-      <p className="mb-1 text-[var(--text-primary)]">{sketchFitPreview.fit.shape === "freehand" ? "Freehand curve" : `${sketchFitPreview.fit.shape[0].toUpperCase()}${sketchFitPreview.fit.shape.slice(1)} fit`}</p>
+    <div className="max-w-full rounded-[var(--ui-radius-lg)] border border-(--border-subtle) bg-(--surface-overlay) p-3 text-xs text-(--text-secondary) shadow-(--shadow-floating)">
+      <p className="mb-1 text-(--text-primary)">{sketchFitPreview.fit.shape === "freehand" ? "Freehand curve" : `${sketchFitPreview.fit.shape[0].toUpperCase()}${sketchFitPreview.fit.shape.slice(1)} fit`}</p>
       <p>
         <MathExpression expression={`${axisPair.horizontalLabel}(t) = ${sketchFitPreview.horizontalExpr}`} />
       </p>
       <p>
         <MathExpression expression={`${axisPair.verticalLabel}(t) = ${sketchFitPreview.verticalExpr}`} />
       </p>
-      <p className="mt-1 text-[var(--text-tertiary)]">
+      <p className="mt-1 text-(--text-tertiary)">
         Maximum deviation {formatCoord(sketchFitPreview.fit.maxError)}
       </p>
       <div className="mt-2 flex items-center gap-1.5">
-        <button
+        <Button
           type="button"
-          className="editor-control min-h-11 rounded-[var(--radius-md)] bg-[var(--accent)] px-3 text-xs font-medium text-white"
+          variant="primary"
+          className="editor-control min-h-11 px-3 text-xs"
           onClick={() => {
-            addSketchedParametricFromStroke(sketchFitPreview.stroke, isQuadTop ? axis2dPairQuadTop : undefined);
+            addSketchedParametricFromStroke(sketchFitPreview.stroke, pairForCanvas);
             setSketchFitPreview(null);
           }}
         >
           Create
-        </button>
+        </Button>
         <button
           type="button"
-          className="editor-control min-h-11 rounded-[var(--radius-md)] bg-[var(--surface-raised)] px-3 text-xs text-[var(--text-secondary)]"
+          className="editor-control min-h-11 rounded-[var(--ui-radius-md)] bg-(--surface-raised) px-3 text-xs text-(--text-secondary)"
           onClick={() => setSketchFitPreview(null)}
         >
           Discard

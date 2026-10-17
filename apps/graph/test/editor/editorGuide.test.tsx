@@ -38,4 +38,93 @@ describe("editor discovery", () => {
     expect(onOpenGuide).toHaveBeenCalledOnce();
     expect(useGraphStore.getState().scene.objects).toHaveLength(0);
   });
+  it("hides and reopens the launcher with focus and no scene changes", () => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("math");
+    store.setCanvas2dTool("pan");
+    store.setCanvas3dTool("pan");
+    const onStart = vi.fn();
+    render(<CanvasEmptyState workspaceId="math" onStart={onStart} />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide start panel" }));
+    const reopen = screen.getByRole("button", { name: "Show start panel" });
+    expect(reopen).toHaveFocus();
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+    expect(onStart).toHaveBeenCalledOnce();
+    fireEvent.click(reopen);
+    const close = screen.getByRole("button", { name: "Hide start panel" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Show start panel" })).toHaveFocus();
+    expect(useGraphStore.getState().scene.objects).toHaveLength(0);
+  });
+
+  it("starts minimized in Quad without losing dismissal state in other layouts", () => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("math");
+    store.setCanvas2dTool("pan");
+    store.setCanvas3dTool("pan");
+    const onStart = vi.fn();
+    const view = render(<CanvasEmptyState workspaceId="math" startMinimized onStart={onStart} />);
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+    expect(onStart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Show start panel" }));
+    expect(screen.getByRole("button", { name: "Hide start panel" })).toHaveFocus();
+    view.rerender(<CanvasEmptyState workspaceId="math" onStart={onStart} />);
+    expect(screen.getByTestId("canvas-empty-state")).toBeVisible();
+    view.rerender(<CanvasEmptyState workspaceId="math" startMinimized onStart={onStart} />);
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+    expect(store.scene.objects).toHaveLength(0);
+  });
+
+  it("keeps examples and the first-run guide inside the same launcher", () => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("math");
+    store.setCanvas2dTool("pan");
+    store.setCanvas3dTool("pan");
+    const onOpenExamples = vi.fn();
+    render(<CanvasEmptyState workspaceId="math" onOpenExamples={onOpenExamples} gettingStarted={<aside>Quick tips</aside>} />);
+    const panel = screen.getByRole("region", { name: "Start panel" });
+    expect(panel).toContainElement(screen.getByText("Quick tips"));
+    fireEvent.click(screen.getByRole("button", { name: "Open example" }));
+    expect(onOpenExamples).toHaveBeenCalledOnce();
+    expect(store.scene.objects).toHaveLength(0);
+  });
+});
+
+describe("empty canvas input", () => {
+  it.each(["draw", "probe", "addPin", "measureDistance", "measureAngle"] as const)("yields to the %s tool in each dimension", tool => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("math");
+    store.setCanvas2dTool(tool);
+    store.setCanvas3dTool(tool);
+    const view = render(<CanvasEmptyState workspaceId="math" dimension="2d" />);
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+    view.rerender(<CanvasEmptyState workspaceId="math" dimension="3d" />);
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+  });
+
+  it.each(["2d", "3d"] as const)("uses the %s pane's tool, preserving the other dimension's preference", dimension => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("math");
+    store.setCanvas2dTool(dimension === "2d" ? "pan" : "draw");
+    store.setCanvas3dTool(dimension === "3d" ? "pan" : "draw");
+    render(<CanvasEmptyState workspaceId="math" dimension={dimension} />);
+    expect(screen.getByTestId("canvas-empty-state")).toBeVisible();
+  });
+
+  it("yields to Geometry Studio's tool even when Math Lab's last dimension was 2D", () => {
+    const store = useGraphStore.getState();
+    store.resetScene();
+    store.setWorkspace("geometry");
+    store.setGraphMode("2d");
+    store.setCanvas2dTool("pan");
+    store.setCanvas3dTool("draw");
+    render(<CanvasEmptyState workspaceId="geometry" />);
+    expect(screen.queryByTestId("canvas-empty-state")).toBeNull();
+  });
 });

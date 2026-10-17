@@ -72,7 +72,7 @@ export default function ProjectDialog({
         <div className="space-y-4 px-5 py-4">
           {mode === "saveAs" ? (
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-[var(--text-secondary)]" htmlFor="project-name-input">
+              <label className="mb-1 block text-[11px] font-semibold text-(--text-secondary)" htmlFor="project-name-input">
                 Project name
               </label>
               <Input
@@ -86,11 +86,11 @@ export default function ProjectDialog({
             </div>
           ) : null}
 
-          <ScrollArea className="max-h-80 rounded-lg border border-[var(--border-subtle)]">
+          <ScrollArea className="max-h-80 rounded-lg border border-(--border-subtle)">
             {sortedProjects.length === 0 ? (
-              <p className="px-4 py-6 text-center text-[12px] text-[var(--text-tertiary)]">No saved projects yet.</p>
+              <p className="px-4 py-6 text-center text-[12px] text-(--text-tertiary)">No saved projects yet.</p>
             ) : (
-              <ul className="divide-y divide-[var(--border-subtle)]">
+              <ul className="divide-y divide-(--border-subtle)">
                 {sortedProjects.map((project) => (
                   <li key={project.id} className="px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -99,8 +99,8 @@ export default function ProjectDialog({
                         onClick={() => onOpen(project.id)}
                         className="min-w-0 text-left"
                       >
-                        <p className="truncate text-[12px] font-semibold text-[var(--text-primary)]">{project.name}</p>
-                        <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">
+                        <p className="truncate text-[12px] font-semibold text-(--text-primary)">{project.name}</p>
+                        <p className="mt-0.5 text-[10px] text-(--text-tertiary)">
                           Updated {new Date(project.updatedAt).toLocaleString()} · {project.objectCount} objects · schema v{project.sceneSchemaVersion}
                         </p>
                       </button>

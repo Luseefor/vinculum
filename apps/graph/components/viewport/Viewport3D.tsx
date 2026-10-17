@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { Axis2DPair } from "@/types/graphUi";
 
 const Graph3DCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full items-center justify-center text-[12px] text-[var(--text-tertiary)] motion-safe:transition-opacity motion-safe:duration-100">
+    <div className="flex h-full w-full items-center justify-center text-[12px] text-(--text-tertiary) motion-safe:transition-opacity motion-safe:duration-100">
       Loading 3D view…
     </div>
   )
@@ -14,12 +15,13 @@ const Graph3DCanvas = dynamic(() => import("@/components/graph/GraphCanvas"), {
 interface Viewport3DProps {
   className?: string;
   suspended?: boolean;
+  projectionPlane?: Axis2DPair;
 }
 
-export default function Viewport3D({ className = "", suspended = false }: Viewport3DProps) {
+export default function Viewport3D({ className = "", suspended = false, projectionPlane }: Viewport3DProps) {
   return (
     <div className={`h-full w-full ${className}`}>
-      <Graph3DCanvas suspended={suspended} />
+      <Graph3DCanvas suspended={suspended} projectionPlane={projectionPlane} />
     </div>
   );
 }

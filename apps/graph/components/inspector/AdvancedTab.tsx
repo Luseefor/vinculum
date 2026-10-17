@@ -18,8 +18,8 @@ export default function AdvancedTab() {
     return (
       <section className="min-w-0">
         <header className="p-3">
-          <h3 className="text-[12px] font-semibold text-[var(--text-primary)]">Object data</h3>
-          <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to inspect advanced metadata.</p>
+          <h3 className="text-[12px] font-semibold text-(--text-primary)">Object data</h3>
+          <p className="mt-1 text-[12px] text-(--text-tertiary)">Select an object to inspect advanced metadata.</p>
         </header>
       </section>
     );
@@ -37,8 +37,8 @@ export default function AdvancedTab() {
           <Diagnostic label="Color" value={selected.color} mono />
         </div>
         <div className="py-1">
-          <p className="mb-1 text-[11px] font-medium text-[var(--text-tertiary)]">Selected object JSON</p>
-          <pre className="max-h-40 overflow-auto text-[11px] text-[var(--text-secondary)]">{serialized}</pre>
+          <p className="mb-1 text-[11px] font-medium text-(--text-tertiary)">Selected object JSON</p>
+          <pre className="max-h-40 overflow-auto text-[11px] text-(--text-secondary)">{serialized}</pre>
         </div>
         <div className="flex items-center gap-2 mt-2">
           <Button
@@ -58,7 +58,7 @@ export default function AdvancedTab() {
           >
             Copy JSON
           </Button>
-          <span role="status" className="text-[12px] text-[var(--text-secondary)]">
+          <span role="status" className="text-[12px] text-(--text-secondary)">
             {copyState === "copied" && "Copied"}
             {copyState === "failed" && "Copy failed"}
           </span>
@@ -70,9 +70,9 @@ export default function AdvancedTab() {
 
 function Diagnostic({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="min-w-0 rounded-[var(--radius-sm)] bg-[var(--editor-control)] px-2 py-1.5">
-      <p className="text-[11px] font-medium text-[var(--text-tertiary)]">{label}</p>
-      <p className={`mt-0.5 break-words text-[12px] text-[var(--text-primary)] ${mono ? "font-mono" : ""}`}>{value}</p>
+    <div className="min-w-0 rounded-[var(--ui-radius-sm)] bg-(--editor-control) px-2 py-1.5">
+      <p className="text-[11px] font-medium text-(--text-tertiary)">{label}</p>
+      <p className={`mt-0.5 wrap-break-word text-[12px] text-(--text-primary) ${mono ? "font-mono" : ""}`}>{value}</p>
     </div>
   );
 }

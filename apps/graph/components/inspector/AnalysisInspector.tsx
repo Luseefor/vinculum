@@ -6,7 +6,7 @@
 // - explicit surface: Differential, Scalar Visualization, Integral
 // - vector field: Vector Calculus, Streamlines
 // - parametric curve/surface: Integral
-// - implicit surface: Differential, Scalar Visualization
+// - implicit surface: Geometry, Differential, Scalar Visualization, Integral
 // - plane/primitives: Geometry Analysis
 // - linear transform: Properties, Apply to Vector, Eigendirections
 
@@ -27,15 +27,15 @@ export default function AnalysisInspector() {
 
   if (!selectedObject) {
     return (
-      <div data-inspector-section className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-subtle)] bg-transparent px-3 py-4 text-center shadow-none">
-        <p className="text-[12px] font-semibold text-[var(--text-secondary)]">No selection</p>
-        <p className="mt-1 text-[12px] text-[var(--text-tertiary)]">Select an object to analyze it.</p>
+      <div data-inspector-section className="rounded-[var(--ui-radius-sm)] border border-dashed border-(--border-subtle) bg-transparent px-3 py-4 text-center shadow-none">
+        <p className="text-[12px] font-semibold text-(--text-secondary)">No selection</p>
+        <p className="mt-1 text-[12px] text-(--text-tertiary)">Select an object to analyze it.</p>
       </div>
     );
   }
 
   if (selectedObject.kind === "implicitCurve") {
-    return <section data-inspector-section><p className="text-[13px] text-[var(--text-secondary)]">This equation plots a curve in the xy plane. Choose Probe to inspect its coordinates.</p></section>;
+    return <section data-inspector-section><GeometryAnalysisSection key={selectedObject.id} object={selectedObject} /></section>;
   }
 
   if (selectedObject.kind === "parametricCurve") {
@@ -49,6 +49,7 @@ export default function AnalysisInspector() {
   if (selectedObject.kind === "parametricSurface") {
     return (
       <section data-inspector-section className="flex flex-col gap-3">
+        <GeometryAnalysisSection key={`intersection-${selectedObject.id}`} object={selectedObject} />
         <IntegralAnalysisSection key={selectedObject.id} object={selectedObject} />
       </section>
     );
@@ -57,9 +58,11 @@ export default function AnalysisInspector() {
   if (selectedObject.kind === "implicitSurface") {
     return (
       <section data-inspector-section className="flex flex-col gap-3">
+        <GeometryAnalysisSection key={`intersection-${selectedObject.id}`} object={selectedObject} />
         <AutomaticFieldAnalysis key={`symbolic-${selectedObject.id}`} object={selectedObject} />
         <DifferentialAnalysisSection object={selectedObject} />
         <ScalarVisualizationSection object={selectedObject} />
+        <IntegralAnalysisSection key={`integral-${selectedObject.id}`} object={selectedObject} />
       </section>
     );
   }
@@ -106,6 +109,7 @@ export default function AnalysisInspector() {
 
   return (
     <section data-inspector-section className="flex flex-col gap-3">
+      <GeometryAnalysisSection key={`intersection-${selectedObject.id}`} object={selectedObject} />
       <AutomaticFieldAnalysis key={`symbolic-${selectedObject.id}`} object={selectedObject} />
         <DifferentialAnalysisSection object={selectedObject} />
       <ScalarVisualizationSection object={selectedObject} />

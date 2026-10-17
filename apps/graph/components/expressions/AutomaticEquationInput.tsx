@@ -5,7 +5,7 @@ import { MathInput } from "@/components/math/MathInput";
 import { useGraphStore } from "@/store/graphStore";
 import { splitSingleMathEquality } from "@/lib/math/expressions/implicitEquation";
 import { isParameterName } from "@/lib/store/editorParameters";
-import { useEditorStore } from "@/lib/store/editorStore";
+import { revealObjectInViewport } from "@/lib/objects/objectCreation";
 
 interface Props {
   objectId?: string;
@@ -22,7 +22,7 @@ export const AutomaticEquationInput = forwardRef<HTMLInputElement, Props>(functi
   const [pendingId, setPendingId] = useState<string | null>(null);
   const objects = useGraphStore((state) => state.scene.objects);
   const lastCommitted = useRef(value);
-  const dimension = useRef<"2d" | "3d" | null>(objectId ? objects.find((object) => object.id === objectId)?.kind === "implicitCurve" ? "2d" : "3d" : null);
+  const dimension = useRef<"2d" | "3d" | null>(objectId && value.trim() ? objects.find((object) => object.id === objectId)?.kind === "implicitCurve" ? "2d" : "3d" : null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,9 +57,7 @@ export const AutomaticEquationInput = forwardRef<HTMLInputElement, Props>(functi
     if (!objectId && result.id !== pendingId) { setPendingId(result.id); latest.current.pendingId = result.id; onPendingObjectChange?.(result.id); }
     if (source.trim() && result.dimension && dimension.current !== result.dimension) {
       dimension.current = result.dimension;
-      useGraphStore.getState().setGraphMode(result.dimension);
-      useEditorStore.getState().setViewportMode(result.dimension);
-      if (result.dimension === "2d") useGraphStore.getState().setAxis2DPair("xy");
+      revealObjectInViewport(result.id);
     }
     return true;
   };
@@ -90,7 +88,7 @@ export const AutomaticEquationInput = forwardRef<HTMLInputElement, Props>(functi
           }
           if (event.key === "Escape") event.currentTarget.blur();
         }} />
-      {error ? <p id={errorId} role="status" className="mt-1 text-[12px] text-[var(--status-error-fg)]">{error}</p> : null}
+      {error ? <p id={errorId} role="status" className="mt-1 text-[12px] text-(--status-error-fg)">{error}</p> : null}
     </div>
   );
 });

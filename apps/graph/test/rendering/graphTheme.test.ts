@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getGraphThemeTokens } from "@/lib/theme/graphTheme";
 
@@ -17,6 +18,33 @@ describe("graphTheme tokens", () => {
 
     expect(isDarkHex(dark.surfaceCanvas)).toBe(true);
     expect(isDarkHex(light.surfaceCanvas)).toBe(false);
+  });
+
+  it("keeps dark canvas and grid colors aligned with the editor CSS", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    const block = css.match(/:root\[data-theme="dark"\] \{([^}]+)\}/)?.[1];
+    expect(block).toBeDefined();
+    const dark = getGraphThemeTokens("dark");
+    for (const [variable, color] of [
+      ["surface-canvas", dark.surfaceCanvas], ["grid-minor", dark.gridMinor], ["grid-major", dark.gridMajor]
+    ]) expect(block).toContain(`--${variable}: ${color};`);
+  });
+
+  it("keeps graph labels legible and grid lines subordinate to axes", () => {
+    const luminance = (hex: string) => {
+      const channels = hex.match(/[a-f\d]{2}/gi)!.map(value => Number.parseInt(value, 16) / 255)
+        .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+      return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    };
+    const dark = getGraphThemeTokens("dark");
+    expect(luminance(dark.gridMinor)).toBeGreaterThan(luminance(dark.surfaceCanvas));
+    expect(luminance(dark.gridMajor)).toBeGreaterThan(luminance(dark.gridMinor));
+    expect(luminance(dark.axisLine)).toBeGreaterThan(luminance(dark.gridMajor));
+    for (const theme of ["dark", "light"] as const) {
+      const tokens = getGraphThemeTokens(theme);
+      const values = [luminance(tokens.axisLabel), luminance(tokens.surfaceCanvas)].sort((a, b) => a - b);
+      expect((values[1] + .05) / (values[0] + .05)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });
 

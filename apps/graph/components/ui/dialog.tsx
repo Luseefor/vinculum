@@ -74,7 +74,7 @@ export function DialogContent({
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         onOpenChange(false);
       }
     };
@@ -88,7 +88,7 @@ export function DialogContent({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[var(--surface-backdrop)] p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-80 flex items-center justify-center bg-(--surface-backdrop) p-6 backdrop-blur-xs"
       onClick={() => onOpenChange(false)}
       data-testid={backdropTestId}
       {...backdropProps}
@@ -100,10 +100,17 @@ export function DialogContent({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         className={cn(
-          "w-full max-h-[calc(100dvh-3rem)] overflow-y-auto animate-fade-in rounded-xl border border-[var(--border-strong)] bg-[var(--surface-overlay)] shadow-2xl",
+          "w-full max-h-[calc(100dvh-3rem)] overflow-y-auto animate-fade-in rounded-xl border border-(--border-strong) bg-(--surface-overlay) shadow-2xl",
           className
         )}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenChange(false);
+          }
+        }}
         data-testid={contentTestId}
         {...contentProps}
       >
@@ -114,13 +121,13 @@ export function DialogContent({
 }
 
 export function DialogHeader({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("border-b border-[var(--border-subtle)] px-5 py-4", className)}>{children}</div>;
+  return <div className={cn("border-b border-(--border-subtle) px-5 py-4", className)}>{children}</div>;
 }
 
 export function DialogTitle({ children, className }: { children: ReactNode; className?: string }) {
   const { titleId } = useDialogContext();
   return (
-    <h2 id={titleId} className={cn("text-sm font-semibold text-[var(--text-primary)]", className)}>
+    <h2 id={titleId} className={cn("text-sm font-semibold text-(--text-primary)", className)}>
       {children}
     </h2>
   );
@@ -129,12 +136,12 @@ export function DialogTitle({ children, className }: { children: ReactNode; clas
 export function DialogDescription({ children, className }: { children: ReactNode; className?: string }) {
   const { descriptionId } = useDialogContext();
   return (
-    <p id={descriptionId} className={cn("mt-1 text-[11px] text-[var(--text-tertiary)]", className)}>
+    <p id={descriptionId} className={cn("mt-1 text-[11px] text-(--text-tertiary)", className)}>
       {children}
     </p>
   );
 }
 
 export function DialogFooter({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("flex justify-end gap-2 border-t border-[var(--border-subtle)] px-5 py-4", className)}>{children}</div>;
+  return <div className={cn("flex justify-end gap-2 border-t border-(--border-subtle) px-5 py-4", className)}>{children}</div>;
 }

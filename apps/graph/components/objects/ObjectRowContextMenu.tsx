@@ -24,7 +24,7 @@ type ObjectRowContextMenuProps = {
   object: GraphObject;
   menuOpen: boolean;
   menuPos: { top: number; left: number } | null;
-  menuRef: RefObject<HTMLDivElement>;
+  menuRef: RefObject<HTMLDivElement | null>;
   onClose: () => void;
   onConvertKind: (kind: GraphObjectKind, dimension?: VectorFieldDimension | LinearTransformDimension) => void;
   onRemove: () => void;

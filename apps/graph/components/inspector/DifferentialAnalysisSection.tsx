@@ -53,13 +53,13 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
   }, [model.stale, object.id, clearAnalysis]);
 
   return (
-    <section className="border-b border-[var(--border-subtle)] pb-4 last:border-b-0 last:pb-0">
+    <section className="border-b border-(--border-subtle) pb-4 last:border-b-0 last:pb-0">
       <header className="pb-2">
-        <h3 className="text-[13px] font-semibold text-[var(--text-primary)]">Differential Analysis</h3>
+        <h3 className="text-[13px] font-semibold text-(--text-primary)">Differential Analysis</h3>
       </header>
       {model.body === "empty" && (
         <div>
-          <p className="mb-2 text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+          <p className="mb-2 text-[12px] leading-relaxed text-(--text-tertiary)">
             {armed ? "Click on the surface to set the analysis point." : "Pick a point on the surface."}
           </p>
           <button
@@ -78,39 +78,39 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
                       : "Pick a point on the surface"
             }
             aria-label={armed ? "Cancel picking analysis point" : "Pick analysis point on surface"}
-            className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-8 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-3 text-[12px] font-semibold text-(--text-secondary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary) disabled:cursor-not-allowed disabled:opacity-40"
           >
             {armed ? "Cancel" : "Pick point"}
           </button>
           {!armed && computeStatus !== "idle" && (
-            <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)]">Computing source…</p>
+            <p className="mt-1.5 text-[11px] text-(--text-tertiary)">Computing source…</p>
           )}
         </div>
       )}
       {model.body === "pending" && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-tertiary)]">
+        <p className="text-[12px] leading-relaxed text-(--text-tertiary)">
           Source updating — analysis resumes when the new surface settles.
         </p>
       )}
       {model.body === "values" && (
         <div className="flex flex-col gap-2.5" role="status" aria-label="Differential analysis results">
-          <p className="text-[12px] text-[var(--text-secondary)]">
+          <p className="text-[12px] text-(--text-secondary)">
             <MathExpression expression={`P = (${formatNumber(model.point.x)}, ${formatNumber(model.point.y)}, ${formatNumber(model.point.z)})`}
               latex={`P = \\left(${[model.point.x, model.point.y, model.point.z].map(value => expressionToLatex(formatNumber(value))).join(", ")}\\right)`} />
           </p>
-          <p className="text-[12px] text-[var(--text-secondary)]">
+          <p className="text-[12px] text-(--text-secondary)">
             {/* The tangent-plane gradient is a surface normal. The scalar
                 function gradient in the independent variables is shown separately. */}
             {object.kind === "surface" ? "Surface normal = " : "Level-set normal = "}<MathExpression expression={`<${formatNumber(model.gradient.x)}, ${formatNumber(model.gradient.y)}, ${formatNumber(model.gradient.z)}>`} />
           </p>
-          <p className="break-words text-[12px] text-[var(--text-secondary)]">
+          <p className="wrap-break-word text-[12px] text-(--text-secondary)">
             Tangent: <MathExpression expression={formatPlaneEquation(model.gradient, model.point)} />
           </p>
           {object.kind === "surface" && (
             <DirectionalDerivativeBlock key={object.id} object={object} point={model.point} />
           )}
           <div className="flex items-center justify-between py-1">
-            <span className="text-[12px] text-[var(--text-secondary)]">Show normal</span>
+            <span className="text-[12px] text-(--text-secondary)">Show normal</span>
             <Switch
               checked={model.showNormal}
               onCheckedChange={(checked) => setOverlays(object.id, { showNormal: checked })}
@@ -118,7 +118,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
             />
           </div>
           <div className="flex items-center justify-between py-1">
-            <span className="text-[12px] text-[var(--text-secondary)]">Show tangent plane</span>
+            <span className="text-[12px] text-(--text-secondary)">Show tangent plane</span>
             <Switch
               checked={model.showTangent}
               onCheckedChange={(checked) => setOverlays(object.id, { showTangent: checked })}
@@ -130,7 +130,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => armPick(object.id)}
               aria-label="Pick a new analysis point"
-              className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-3 text-[12px] font-semibold text-(--text-secondary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
             >
               Re-pick
             </button>
@@ -138,7 +138,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => clearAnalysis(object.id)}
               aria-label="Clear differential analysis"
-              className="h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-3 text-[12px] font-semibold text-(--text-secondary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
             >
               Clear
             </button>
@@ -147,7 +147,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
       )}
       {model.body === "diagnostic" && (
         <div>
-          <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+          <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
             {model.message}
           </p>
           {model.repick && (
@@ -155,7 +155,7 @@ export default function DifferentialAnalysisSection({ object }: DifferentialAnal
               type="button"
               onClick={() => armPick(object.id)}
               aria-label="Pick analysis point on surface"
-              className="mt-2 h-8 rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 text-[12px] font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+              className="mt-2 h-8 rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) px-3 text-[12px] font-semibold text-(--text-secondary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
             >
               Pick point
             </button>
@@ -224,13 +224,13 @@ function DirectionalDerivativeBlock({
 
   return (
     <div data-testid="directional-derivative" className="flex flex-col gap-2 py-1">
-      <p className="text-[11px] font-medium text-[var(--text-tertiary)]">
+      <p className="text-[11px] font-medium text-(--text-tertiary)">
         Directional derivative
       </p>
       <div className="grid grid-cols-2 gap-2">
         {(["u", "v"] as const).map((key, index) => (
           <label key={key} className="block">
-            <span className="mb-1 block text-[11px] font-medium text-[var(--text-secondary)]">
+            <span className="mb-1 block text-[11px] font-medium text-(--text-secondary)">
               d{vars[index]}
             </span>
             <Input
@@ -246,46 +246,46 @@ function DirectionalDerivativeBlock({
                 }
               }}
               onBlur={() => setDrafts((prev) => ({ ...prev, [key]: undefined }))}
-              className="h-8 rounded-[var(--radius-sm)] border-[var(--border-subtle)] bg-transparent px-2.5 text-[13px]"
+              className="h-8 rounded-[var(--ui-radius-sm)] border-(--border-subtle) bg-transparent px-2.5 text-[13px]"
             />
           </label>
         ))}
       </div>
       {!hasDirection && (
-        <p className="text-[11px] leading-snug text-[var(--text-tertiary)]">
+        <p className="text-[11px] leading-snug text-(--text-tertiary)">
           Enter a direction in ({vars[0]}, {vars[1]}).
         </p>
       )}
       {outcome !== null && outcome.status === "ok" && (
         <div className="flex flex-col gap-1" role="status" aria-label="Directional derivative result">
-          <p className="text-[12px] text-[var(--text-secondary)]">
+          <p className="text-[12px] text-(--text-secondary)">
             Function gradient (direction of maximum increase) = <MathExpression expression={`<${formatNumber(outcome.gradient.g1)}, ${formatNumber(outcome.gradient.g2)}>`} />
           </p>
-          <p className="text-[12px] text-[var(--text-secondary)]">
+          <p className="text-[12px] text-(--text-secondary)">
             Unit direction = <MathExpression expression={`<${formatNumber(outcome.unitDirection.u)}, ${formatNumber(outcome.unitDirection.v)}>`} />
           </p>
-          <p data-testid="directional-derivative-value" className="text-[12px] text-[var(--text-secondary)]">
+          <p data-testid="directional-derivative-value" className="text-[12px] text-(--text-secondary)">
             <MathExpression expression={`D = ${formatNumber(outcome.value)}`} />
           </p>
         </div>
       )}
       {outcome !== null && outcome.status === "zero-direction" && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Direction must be nonzero.
         </p>
       )}
       {outcome !== null && outcome.status === "derivative-unavailable" && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Directional derivative unavailable for this expression.
         </p>
       )}
       {outcome !== null && outcome.status === "non-finite" && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Derivatives are not finite at this point.
         </p>
       )}
       {outcome !== null && outcome.status === "invalid-source" && (
-        <p className="text-[12px] leading-relaxed text-[var(--text-secondary)]" role="status">
+        <p className="text-[12px] leading-relaxed text-(--text-secondary)" role="status">
           Fix the source equation to enable directional derivatives.
         </p>
       )}

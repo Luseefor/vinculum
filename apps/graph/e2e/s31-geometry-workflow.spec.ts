@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -580,7 +581,7 @@ test.describe("S31 Geometry Studio workflow", () => {
 
   test("V: mixed primitive scene stays usable", async ({ page }) => {
     // This creates 25 objects through the UI; per-action latency has separate gates.
-    test.setTimeout(120000);
+    test.setTimeout(process.env.CI ? 120000 : 180000);
     const { consoleErrors, pageErrors } = collectErrors(page);
     await startClean(page);
     await toGeometry(page);
@@ -611,14 +612,14 @@ test.describe("S31 Geometry Studio workflow", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "2");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Infinite Line");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     const select = page.getByLabel("Second object for geometry analysis");

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildShareSceneUrl } from "@/lib/share/shareSceneLink";
 import TopToolbar from "@/components/editor/TopToolbar";
+import { export2dPngFromCanvas, export3dPngFromCanvas, triggerSceneExportDownload, type SceneExportResult } from "@/lib/export/sceneExport";
 
 const mockOpenSceneDialog = vi.fn();
 
@@ -185,5 +186,68 @@ describe("share action feedback", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
     expect(screen.queryByRole("textbox", { name: "Copy share link manually" })).toBeNull();
+  });
+});
+
+describe("PNG export feedback", () => {
+  function visibleCanvas(dimension: "2D" | "3D") {
+    const canvas = document.createElement("canvas");
+    if (dimension === "2D") { canvas.dataset.graph2dCanvas = "true"; canvas.dataset.graph2dVariant = "primary"; }
+    else canvas.dataset.graph3dCanvas = "true";
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 400 }, clientHeight: { value: 300 },
+      getClientRects: { value: () => [{ width: 400, height: 300 }] }
+    });
+    document.body.appendChild(canvas);
+    return canvas;
+  }
+
+  it.each(["2D", "3D"] as const)("keeps %s capture pending across closing and reopening Share and downloads once", async dimension => {
+    let complete!: (result: SceneExportResult) => void;
+    const exporter = vi.mocked(dimension === "2D" ? export2dPngFromCanvas : export3dPngFromCanvas);
+    exporter.mockClear().mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+    vi.mocked(triggerSceneExportDownload).mockClear();
+    const canvas = visibleCanvas(dimension);
+    try {
+      render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Share" }));
+      const button = screen.getByRole("button", { name: `${dimension} PNG` });
+      fireEvent.click(button);
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("aria-busy", "true");
+      expect(screen.getByRole("status")).toHaveTextContent(`Preparing ${dimension} PNG`);
+      fireEvent.click(button);
+      fireEvent.click(screen.getByRole("button", { name: "JSON" }));
+      expect(exporter).toHaveBeenCalledOnce();
+      expect(triggerSceneExportDownload).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(screen.getByRole("status")).toHaveTextContent(`Preparing ${dimension} PNG`);
+      fireEvent.click(screen.getByRole("button", { name: "Share" }));
+      expect(screen.getByRole("button", { name: `${dimension} PNG` })).toBeDisabled();
+      await act(async () => complete({ ok: true, file: { kind: dimension === "2D" ? "png2d" : "png3d", blob: new Blob(), filename: "scene.png", contentType: "image/png" } }));
+      expect(triggerSceneExportDownload).toHaveBeenCalledOnce();
+      expect(screen.getByRole("status")).toHaveTextContent(`Export ${dimension} PNG downloaded.`);
+      expect(screen.queryByRole("dialog", { name: "Share and export" })).toBeNull();
+    } finally { canvas.remove(); }
+  });
+
+  it.each(["2D", "3D"] as const)("clears %s pending state after capture failure so the user can retry", async dimension => {
+    const exporter = vi.mocked(dimension === "2D" ? export2dPngFromCanvas : export3dPngFromCanvas);
+    exporter.mockClear();
+    if (dimension === "2D") exporter.mockResolvedValueOnce({ ok: false, error: "Canvas capture failed. Try again." });
+    else exporter.mockRejectedValueOnce(new Error("capture failed"));
+    const canvas = visibleCanvas(dimension);
+    try {
+      render(<TopToolbar canUndo={false} canRedo={false} onUndo={vi.fn()} onRedo={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Share" }));
+      fireEvent.click(screen.getByRole("button", { name: `${dimension} PNG` }));
+      await waitFor(() => expect(screen.getByRole("button", { name: `${dimension} PNG` })).toBeEnabled());
+      expect(screen.getByRole("status")).toHaveTextContent(/failed.*(Try|try)/);
+      exporter.mockResolvedValueOnce({ ok: false, error: "Retry reached capture." });
+      fireEvent.click(screen.getByRole("button", { name: `${dimension} PNG` }));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Retry reached capture."));
+      expect(exporter).toHaveBeenCalledTimes(2);
+      expect(screen.getByRole("button", { name: `${dimension} PNG` })).toHaveAttribute("aria-busy", "false");
+    } finally { canvas.remove(); }
   });
 });

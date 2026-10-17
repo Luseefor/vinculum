@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ViewControls from "@/components/editor/ViewControls";
 import CanvasToolbar from "@/components/editor/CanvasToolbar";
 import EditorLayoutPremium from "@/components/editor/EditorLayoutPremium";
@@ -112,5 +112,72 @@ describe("UI refresh: persisted layout migration", () => {
   it("leaves current-version state untouched and tolerates garbage", () => {
     expect(migrateEditorLayout({ bottomPanelCollapsed: false }, 1)).toEqual({ bottomPanelCollapsed: false });
     expect(migrateEditorLayout(null, 0)).toEqual({});
+  });
+});
+
+
+describe("equation entry continuity", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useGraphStore.getState().resetScene();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("keeps the draft mounted while previewing, then finalizes into an inline equation", () => {
+    render(<ObjectBrowserPanel />);
+    const draft = screen.getByLabelText("New equation");
+    expect(screen.queryByText("No objects in scene.")).toBeNull();
+    draft.focus();
+    fireEvent.change(draft, { target: { value: "y=x^2" } });
+    act(() => vi.advanceTimersByTime(350));
+    expect(screen.getByLabelText("New equation")).toBe(draft);
+    expect(draft).toHaveFocus();
+    expect(screen.queryByLabelText("Equation")).toBeNull();
+    fireEvent.keyDown(draft, { key: "Enter" });
+    expect(screen.getByLabelText("Equation")).toHaveValue("y=x^2");
+    expect(screen.queryByText("Definition")).toBeNull();
+    expect(screen.getByLabelText("New equation")).toBe(draft);
+    expect(draft).toHaveFocus();
+    expect(draft).toHaveValue("");
+    expect(useGraphStore.getState().scene.objects).toHaveLength(1);
+  });
+
+  it("uses inline editing for Add and keeps focus when the equation changes dimension", () => {
+    render(<ObjectBrowserPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Open object menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Empty expression" }));
+    const input = screen.getByLabelText("Equation");
+    expect(input).toHaveFocus();
+    expect(screen.queryByText("Definition")).toBeNull();
+    for (const equation of ["x=y^2", "x=y^2+z^2", "x=y^2"]) {
+      fireEvent.change(input, { target: { value: equation } });
+      act(() => vi.advanceTimersByTime(350));
+      expect(screen.getByLabelText("Equation")).toBe(input);
+      expect(input).toHaveFocus();
+    }
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getAllByLabelText("Equation")[1]).toHaveFocus();
+    expect(useGraphStore.getState().scene.objects).toHaveLength(2);
+  });
+
+  it("keeps MathLive navigation keys inside the equation editor", () => {
+    useGraphStore.getState().commitAutoEquation("y=x");
+    const second = useGraphStore.getState().commitAutoEquation("y=x^2").id;
+    render(<ObjectBrowserPanel />);
+    const field = document.createElement("math-field");
+    screen.getAllByLabelText("Equation")[1].parentElement!.appendChild(field);
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(useGraphStore.getState().ui.selectedObjectId).toBe(second);
+  });
+
+  it("waits for completion before revealing the finder at six objects", () => {
+    for (let index = 0; index < 5; index++) useGraphStore.getState().commitAutoEquation(`y=x+${index}`);
+    render(<ObjectBrowserPanel />);
+    const draft = screen.getByLabelText("New equation");
+    fireEvent.change(draft, { target: { value: "y=x+5" } });
+    act(() => vi.advanceTimersByTime(350));
+    expect(screen.queryByRole("group", { name: "Object list filter" })).toBeNull();
+    fireEvent.keyDown(draft, { key: "Enter" });
+    expect(screen.getByRole("group", { name: "Object list filter" })).toBeVisible();
   });
 });

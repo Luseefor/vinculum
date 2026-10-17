@@ -133,7 +133,7 @@ describe("parseParametricSurfaceObject", () => {
     expect(unknownKind.valid).toBe(false);
   });
 
-  it("allows empty coordinate expressions (editable-but-unrendered, like curves)", () => {
+  it("rejects unfinished coordinate expressions in portable documents", () => {
     const result = deserializeScene(
       JSON.stringify({
         schemaVersion: 1,
@@ -156,10 +156,12 @@ describe("parseParametricSurfaceObject", () => {
         measurements: []
       })
     );
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.normalizedScene).toBeUndefined();
+    expect(result.errors.join(" ")).toContain("incomplete definition");
   });
 
-  it("still loads legacy v1 scenes without the new kind (no version bump)", () => {
+  it("migrates legacy v1 scenes without the new kind", () => {
     const result = deserializeScene(
       JSON.stringify({
         schemaVersion: 1,
@@ -171,7 +173,7 @@ describe("parseParametricSurfaceObject", () => {
     );
     expect(result.valid).toBe(true);
     expect(result.normalizedScene?.schemaVersion).toBe(CURRENT_SCENE_SCHEMA_VERSION);
-    expect(CURRENT_SCENE_SCHEMA_VERSION).toBe(1);
+    expect(result.normalizedScene?.parameters).toEqual([]);
   });
 });
 
@@ -211,7 +213,7 @@ describe("parametric surface persistence", () => {
     }
   });
 
-  it("warns (never silently drops) parametric surfaces in 2D SVG export", async () => {
+  it("exports the parametric sphere cross-section in SVG", async () => {
     const scene = createSceneDocument({ objects: [makeSurface()] });
     const result = export2dSvg({
       sceneName: scene.metadata.name,
@@ -221,9 +223,10 @@ describe("parametric surface persistence", () => {
       viewportFrame: { width: 800, height: 600 }
     });
     expect(result.ok).toBe(true);
-    expect(result.file?.warnings?.some((warning) => warning.includes("not yet represented"))).toBe(true);
+    expect(result.file?.warnings).toEqual([]);
     const svg = await result.file!.blob.text();
     expect(svg).toContain("<svg");
+    expect(svg).toContain("<path");
   });
 });
 
@@ -428,7 +431,7 @@ describe("parametric surface store semantics", () => {
     render(<GraphTypeSelector value="surface" onChange={() => undefined} />);
     const select = screen.getByLabelText("Graph type") as HTMLSelectElement;
     const values = Array.from(select.options).map((option) => option.value);
-    expect(values).toEqual(["surface", "parametricCurve", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
+    expect(values).toEqual(["surface", "parametricCurve:2d", "parametricCurve", "parametricSurface:2d", "parametricSurface", "implicitSurface", "plane", "point", "vector", "line", "ray", "segment", "linearTransform:2d", "linearTransform:3d", "vectorField:2d", "vectorField:3d"]);
   });
 
   it("keeps Parametric Surface reachable in both workspaces (behind More)", () => {

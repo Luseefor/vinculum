@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputValue, expectInputFocused, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -337,7 +338,7 @@ test.describe("S30 product information architecture", () => {
     await showMoreAdd(page);
     await addObject(page, "Ray");
     await expect(page.getByTestId("scene-object-count")).toHaveText("2");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expect(page.getByRole("tab", { name: "Edit" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -352,7 +353,7 @@ test.describe("S30 product information architecture", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await openAnalyze(page);
     await expect(page.getByTestId("integral-analysis-section")).toBeVisible();
@@ -406,7 +407,10 @@ test.describe("S30 product information architecture", () => {
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
     await expectInputFocused(page.getByLabel("Equation", { exact: true }));
     await page.keyboard.type("x=y^2");
-    await expect(page.getByRole("math", { name: /^x.*y/ }).first()).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+      const saved = sessionStorage.getItem("vinculum-graph-session");
+      return saved ? JSON.parse(saved).state.scene.objects[0]?.equation : undefined;
+    })).toMatch(/^x=\(?y\)?\^\(?2\)?$/);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });

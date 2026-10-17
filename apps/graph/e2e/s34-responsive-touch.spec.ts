@@ -1,3 +1,4 @@
+import { closeObjectsSheet } from "./helpers/sheets";
 import { addObject } from "./helpers/addObject";
 import { fillInput, expectInputValue, readInputValue, expectInputVisible } from "./helpers/mathInput";
 import AxeBuilder from "@axe-core/playwright";
@@ -107,7 +108,7 @@ test.describe("S34 responsive composition", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Point x"), "2");
     await expectInputValue(inspector(page).getByLabel("Point x"), "2");
@@ -233,7 +234,7 @@ test.describe("S34 responsive composition", () => {
     await expect(page.getByTestId("compact-object-count")).toHaveText("1");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await expect(page.getByRole("button", { name: "Selected Point #1" })).toBeVisible();
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputValue(inspector(page).getByLabel("Point x"), "7");
     await page.keyboard.press("Escape");
@@ -272,7 +273,7 @@ test.describe("S34 responsive composition", () => {
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expect(inspector(page)).toBeVisible();
     expect(await page.locator("#graph-inspector").count()).toBe(1);
@@ -321,7 +322,7 @@ test.describe("S34 responsive composition", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Surface expression z = f(x,y)"), "x^2 + y^2");
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -342,7 +343,7 @@ test.describe("S34 responsive composition", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "2D Vector Field");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputVisible(inspector(page).getByLabel("Vector field P component"));
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -361,7 +362,7 @@ test.describe("S34 responsive composition", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await page.getByRole("button", { name: "Open object menu" }).click();
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     const group = inspector(page).getByRole("group", { name: "3 by 3 matrix entries" });
     await expect(group).toBeVisible();
@@ -383,10 +384,10 @@ test.describe("S34 responsive composition", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
     await addObject(page, "Infinite Line");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await page.getByRole("button", { name: /Point #1/ }).click();
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
     const select = page.getByLabel("Second object for geometry analysis");
@@ -407,7 +408,7 @@ test.describe("S34 responsive composition", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Parametric Curve");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
     await expect(page.getByLabel("Integral mode")).toBeVisible();
@@ -441,7 +442,7 @@ test.describe("S34 responsive composition", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
     const section = page.getByTestId("scalar-visualization-section");
@@ -489,7 +490,7 @@ test.describe("S34 responsive composition", () => {
     await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Objects", exact: true }).click();
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 844, height: 390 });
@@ -610,7 +611,7 @@ test.describe("S34 responsive composition", () => {
     await toGeometry(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputVisible(inspector(page).getByLabel("Point x"));
     // Sheets dismiss before workspace switch (backdrop/Escape); Inspector
@@ -633,7 +634,7 @@ test.describe("S34 responsive composition", () => {
     await toMathLab(page);
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Surface");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await page.getByRole("tab", { name: "Analyze" }).click();
     await page.waitForTimeout(800);
@@ -738,6 +739,8 @@ test.describe("S34 touch workflows", () => {
     await startClean(page);
     await toMathLab(page);
     await page.getByRole("group", { name: "View type" }).getByRole("button", { name: "2D only" }).click();
+    // The start panel owns the canvas center until explicitly dismissed.
+    await page.getByRole("button", { name: "Hide start panel", exact: true }).click();
     const canvas = page.locator('canvas[data-graph2d-canvas="true"]').first();
     await expect(canvas).toBeVisible();
     const badge = page.getByTestId("graph2d-viewport-range-badge");
@@ -792,7 +795,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "0");
     await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "0");
@@ -834,7 +837,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Segment");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Segment start x"), "0");
     await fillInput(inspector(page).getByLabel("Segment start y"), "0");
@@ -874,7 +877,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Vector");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Vector origin x"), "0");
     await fillInput(inspector(page).getByLabel("Vector origin y"), "0");
@@ -915,7 +918,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(inspector(page).getByLabel("Point x"), "r-2.5");
     await fillInput(inspector(page).getByLabel("Point y"), "0");
@@ -978,7 +981,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
     await expect(page.getByTestId("scene-object-count")).toHaveText("1");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await expectInputVisible(inspector(page).getByLabel("Point x"));
     await page.getByRole("tab", { name: "Analyze" }).click();
@@ -994,7 +997,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByLabel("Geometry view").selectOption("xy");
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await addObject(page, "Point");
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     await fillInput(page.locator("#graph-inspector").getByLabel("Point x"), "30");
     await fillInput(page.locator("#graph-inspector").getByLabel("Point y"), "40");
@@ -1038,7 +1041,7 @@ test.describe("S34 touch workflows", () => {
     await page.getByRole("button", { name: "Objects", exact: true }).click();
     await page.getByRole("button", { name: "Open object menu" }).click();
     await page.getByRole("button", { name: "3D Linear Transformation", exact: true }).click();
-    await page.keyboard.press("Escape");
+    await closeObjectsSheet(page);
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
     const cell = inspector(page).locator('math-field[aria-label="Row 3 column 3"]');
     await expect(cell).toBeVisible();

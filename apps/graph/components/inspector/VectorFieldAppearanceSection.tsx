@@ -52,37 +52,37 @@ export default function VectorFieldAppearanceSection({ object }: VectorFieldAppe
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-[11px] font-medium text-[var(--text-tertiary)]">Appearance</h3>
+      <h3 className="text-[11px] font-medium text-(--text-tertiary)">Appearance</h3>
 
-      <div className="flex flex-col gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent p-3">
+      <div className="flex flex-col gap-3 rounded-[var(--ui-radius-sm)] border border-(--border-subtle) bg-transparent p-3">
         <div className="flex items-center gap-3 py-1">
           <input
             type="color"
             aria-label="Field color"
             value={object.color}
             onChange={(event) => updateObjectColor(object.id, event.target.value)}
-            className="h-8 w-8 cursor-pointer rounded-[var(--radius-sm)] border border-[var(--border-strong)] bg-[var(--surface-raised)] p-0.5"
+            className="h-8 w-8 cursor-pointer rounded-[var(--ui-radius-sm)] border border-(--border-strong) bg-(--surface-raised) p-0.5"
           />
           <div className="min-w-0">
-            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Color</p>
-            <p className="font-mono text-[11px] text-[var(--text-tertiary)]">{object.color}</p>
+            <p className="text-[12px] font-semibold text-(--text-primary)">Color</p>
+            <p className="font-mono text-[11px] text-(--text-tertiary)">{object.color}</p>
           </div>
         </div>
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-[11px] font-semibold text-[var(--text-secondary)]">
+            <p className="text-[11px] font-semibold text-(--text-secondary)">
               Arrow scale ({MIN_VECTOR_FIELD_SCALE}-{MAX_VECTOR_FIELD_SCALE})
             </p>
-            <span className="font-mono text-[11px] font-semibold text-[var(--accent-ink)]">{object.scale}</span>
+            <span className="font-mono text-[11px] font-semibold text-(--accent-ink)">{object.scale}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex flex-1 items-center overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-transparent">
+            <div className="flex flex-1 items-center overflow-hidden rounded-[var(--ui-radius-sm)] border border-(--border-subtle) bg-transparent">
               <button
                 type="button"
                 onClick={() => stepScale(-0.1)}
                 aria-label="Decrease arrow scale"
-                className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                className="h-8 px-2 text-(--text-tertiary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
               >
                 <ChevronLeftIcon />
               </button>
@@ -95,27 +95,27 @@ export default function VectorFieldAppearanceSection({ object }: VectorFieldAppe
                 aria-label="Arrow scale"
                 onChange={(e) => setScaleDraft(e.target.value)}
                 onBlur={commitScaleDraft}
-                className="h-8 w-full bg-transparent px-2 text-center text-[13px] text-[var(--text-primary)] outline-none"
+                className="h-8 w-full bg-transparent px-2 text-center text-[13px] text-(--text-primary) outline-hidden"
               />
               <button
                 type="button"
                 onClick={() => stepScale(0.1)}
                 aria-label="Increase arrow scale"
-                className="h-8 px-2 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                className="h-8 px-2 text-(--text-tertiary) transition-colors hover:bg-(--surface-muted) hover:text-(--text-primary)"
               >
                 <ChevronRightIcon />
               </button>
             </div>
           </div>
-          <p className="mt-1.5 text-[11px] leading-snug text-[var(--text-tertiary)]">
+          <p className="mt-1.5 text-[11px] leading-snug text-(--text-tertiary)">
             Render-only: resizes glyphs without resampling the field.
           </p>
         </div>
 
         <div className="flex items-center justify-between py-1">
           <div>
-            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Normalize vectors</p>
-            <p className="text-[11px] text-[var(--text-tertiary)]">
+            <p className="text-[12px] font-semibold text-(--text-primary)">Normalize vectors</p>
+            <p className="text-[11px] text-(--text-tertiary)">
               {object.normalize
                 ? "On: all nonzero arrows share one length"
                 : "Off: length represents relative magnitude"}

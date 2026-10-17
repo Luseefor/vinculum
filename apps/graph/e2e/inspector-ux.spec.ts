@@ -31,7 +31,8 @@ for (const width of [1440, 320]) {
 
     await fillInput(inspector.getByLabel("Surface expression z = f(x,y)", { exact: true }), "6*cos^2(x^2)");
     await inspector.getByRole("tab", { name: "Analyze", exact: true }).click();
-    await expect(inspector.getByText("Gradient, Laplacian, field colors and integrals.", { exact: true })).toBeVisible();
+    await expect(inspector.getByRole("heading", { name: "Scalar Visualization", exact: true })).toBeVisible();
+    await expect(inspector.getByRole("switch", { name: "Show heat map", exact: true })).toBeVisible();
     await inspector.getByRole("tab", { name: "Edit", exact: true }).click();
     await expectInputValue(inspector.getByLabel("Surface expression z = f(x,y)", { exact: true }), "6*(cos(x^2))^2");
     await inspector.getByText("How to type math", { exact: true }).click();
@@ -49,7 +50,7 @@ for (const width of [1440, 320]) {
 
     await inspector.getByRole("tab", { name: "Settings", exact: true }).click();
     await expect(inspector.getByLabel("Surface color", { exact: true })).toBeVisible();
-    await expect(inspector.getByText("Object links", { exact: true })).toHaveCount(0);
+    await expect(inspector.getByText("Object operations", { exact: true })).toHaveCount(0);
     await expect(inspector.getByText("Selected object JSON", { exact: true })).toHaveCount(0);
     await inspector.getByText("Object data", { exact: true }).click();
     await expect(inspector.getByRole("button", { name: "Copy JSON", exact: true })).toBeVisible();
@@ -72,7 +73,8 @@ test("object links remain available when a second object exists", async ({ page 
   await addObject(page, "Surface");
   const inspector = page.getByRole("complementary", { name: "Inspector", exact: true });
   await inspector.getByRole("tab", { name: "Settings", exact: true }).click();
-  await inspector.getByText("Object links", { exact: true }).click();
-  await expect(inspector.getByLabel("Target object", { exact: true })).toBeEnabled();
-  await expect(inspector.getByLabel("Target object", { exact: true }).locator("option")).toHaveCount(1);
+  await inspector.getByText("Object operations", { exact: true }).click();
+  await expect(inspector.getByLabel("Second object for operation", { exact: true })).toBeEnabled();
+  await expect(inspector.getByLabel("Second object for operation", { exact: true }).locator("option")).toHaveCount(1);
+  for (const name of ["Union", "Intersection", "Subtract"]) await expect(inspector.getByRole("button", { name, exact: true })).toBeEnabled();
 });

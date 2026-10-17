@@ -16,6 +16,7 @@ import {
   exportSceneJson,
   triggerSceneExportDownload
 } from "@/lib/export/sceneExport";
+import { sceneHasContent } from "@/lib/scene/sceneSchema";
 import { buildShareSceneUrl } from "@/lib/share/shareSceneLink";
 import {
   applySceneExampleToEditor
@@ -25,6 +26,7 @@ import {
   getSceneExampleById,
   SCENE_EXAMPLES
 } from "@/lib/templates/examplesRegistry";
+import { useResolvedTheme } from "@/lib/theme/useResolvedTheme";
 import { useGraphStore } from "@/store/graphStore";
 import type { Axis2DPair } from "@/types/graphUi";
 import { useEditorStore } from "@/lib/store/editorStore";
@@ -136,6 +138,8 @@ export default function TopToolbar({
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [copyPending, setCopyPending] = useState<"scene" | "current" | null>(null);
   const copyInFlight = useRef(false);
+  const [exportPending, setExportPending] = useState<"2d_png" | "3d_png" | null>(null);
+  const exportInFlight = useRef(false);
   const [manualCopy, setManualCopy] = useState<{ label: string; url: string } | null>(null);
   const manualCopyRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -167,9 +171,11 @@ export default function TopToolbar({
   }, [openSolverSignal]);
 
    const [is3dCanvasAvailable, setIs3dCanvasAvailable] = useState(false);
+   const [is2dCanvasAvailable, setIs2dCanvasAvailable] = useState(false);
 
    const scene = useGraphStore((state) => state.scene);
   const objectCount = useGraphStore((state) => state.scene.objects.length);
+  const resolvedTheme = useResolvedTheme();
   const themeMode = useGraphStore((state) => state.ui.themeMode);
   const setThemeMode = useGraphStore((state) => state.setThemeMode);
   const accentPreset = useGraphStore((state) => state.ui.accentPreset);
@@ -209,6 +215,8 @@ export default function TopToolbar({
   }, [projectsVersion]);
 
   useEffect(() => {
+    setIs2dCanvasAvailable(Array.from(document.querySelectorAll<HTMLCanvasElement>('[data-graph2d-canvas="true"]'))
+      .some((canvas) => canvas.getClientRects().length > 0 && canvas.clientWidth > 0 && canvas.clientHeight > 0));
     setIs3dCanvasAvailable(Array.from(document.querySelectorAll<HTMLCanvasElement>('[data-graph3d-canvas="true"]'))
       .some((canvas) => canvas.getClientRects().length > 0 && canvas.clientWidth > 0 && canvas.clientHeight > 0));
   }, [graphMode, workspace, fileMenuOpen, shareDialogOpen, activeViewType, activeLayout, composition]);
@@ -219,7 +227,7 @@ export default function TopToolbar({
 
   const handleNewSceneMenuClick = () => {
     setPendingExampleId(null);
-    if (objectCount === 0) {
+    if (!sceneHasContent(scene)) {
       clearHistory();
       resetScene();
       setFileMenuOpen(false);
@@ -342,7 +350,7 @@ export default function TopToolbar({
   };
 
   const copyUrl = async (url: string, kind: "scene" | "current") => {
-    if (copyInFlight.current) return;
+    if (copyInFlight.current || exportInFlight.current) return;
     copyInFlight.current = true;
     setCopyPending(kind);
     setActionFeedback(null);
@@ -363,7 +371,7 @@ export default function TopToolbar({
   };
 
   const handleCopyShareLink = async () => {
-    if (copyInFlight.current) return;
+    if (copyInFlight.current || exportInFlight.current) return;
     const shareResult = buildShareSceneUrl({ scene, baseUrl: window.location.href });
     if (!shareResult.ok || !shareResult.url) {
       setManualCopy(null);
@@ -419,7 +427,7 @@ export default function TopToolbar({
   };
 
   const handleOpenExample = (exampleId: string) => {
-    const hasObjects = scene.objects.length > 0;
+    const hasObjects = sceneHasContent(scene);
     const hasNamedProject = Boolean(currentProjectId);
     const hasUnsavedAutosave =
       autosaveStatus === "dirty" || autosaveStatus === "saving" || autosaveStatus === "error";
@@ -440,6 +448,7 @@ export default function TopToolbar({
   };
 
   const handleExportJson = () => {
+    if (copyInFlight.current || exportInFlight.current) return;
     captureEvent("export_json_clicked", { object_count: scene.objects.length });
     const exported = exportSceneJson(scene);
     if (!exported.ok || !exported.file) {
@@ -460,9 +469,10 @@ export default function TopToolbar({
   };
 
   const handleExport2dPng = async () => {
+    if (copyInFlight.current || exportInFlight.current) return;
     captureEvent("export_2d_png_clicked", { object_count: scene.objects.length });
-    if (graphMode !== "2d") {
-      setActionFeedback("Switch to 2D mode to export 2D PNG.");
+    if (!is2dCanvasAvailable) {
+      setActionFeedback("Open a 2D view to export 2D PNG.");
       setFileMenuOpen(false);
       return;
     }
@@ -470,31 +480,43 @@ export default function TopToolbar({
     const canvas = document.querySelector<HTMLCanvasElement>(
       `[data-graph2d-canvas="true"][data-graph2d-variant="${variant}"]`
     );
-    const exported = await export2dPngFromCanvas({
-      canvas,
-      sceneName: scene.metadata.name
-    });
-    if (!exported.ok || !exported.file) {
-      setActionFeedback(exported.error ?? "2D PNG export failed.");
+    exportInFlight.current = true;
+    setExportPending("2d_png");
+    setActionFeedback(null);
+    try {
+      const exported = await export2dPngFromCanvas({
+        canvas,
+        sceneName: scene.metadata.name
+      });
+      if (!exported.ok || !exported.file) {
+        setActionFeedback(exported.error ?? "2D PNG export failed.");
+        setFileMenuOpen(false);
+        captureEvent("export_failed", { format: "2d_png", error_type: "capture" });
+        return;
+      }
+      const download = triggerSceneExportDownload(exported.file);
+      if (download.ok) {
+        captureEvent("export_succeeded", { format: "2d_png" });
+      } else {
+        captureEvent("export_failed", { format: "2d_png", error_type: "download" });
+      }
+      setActionFeedback(download.ok ? "Export 2D PNG downloaded." : download.error ?? "2D PNG download failed.");
       setFileMenuOpen(false);
+      setShareDialogOpen(false);
+    } catch {
+      setActionFeedback("2D PNG export failed. Try exporting again.");
       captureEvent("export_failed", { format: "2d_png", error_type: "capture" });
-      return;
+    } finally {
+      exportInFlight.current = false;
+      setExportPending(null);
     }
-    const download = triggerSceneExportDownload(exported.file);
-    if (download.ok) {
-      captureEvent("export_succeeded", { format: "2d_png" });
-    } else {
-      captureEvent("export_failed", { format: "2d_png", error_type: "download" });
-    }
-    setActionFeedback(download.ok ? "Export 2D PNG downloaded." : download.error ?? "2D PNG download failed.");
-    setFileMenuOpen(false);
-    setShareDialogOpen(false);
   };
 
   const handleExport2dSvg = () => {
+    if (copyInFlight.current || exportInFlight.current) return;
     captureEvent("export_2d_svg_clicked", { object_count: scene.objects.length });
-    if (graphMode !== "2d") {
-      setActionFeedback("Switch to 2D mode to export 2D SVG.");
+    if (!is2dCanvasAvailable) {
+      setActionFeedback("Open a 2D view to export 2D SVG.");
       setFileMenuOpen(false);
       return;
     }
@@ -502,6 +524,7 @@ export default function TopToolbar({
     const exported = export2dSvg({
       sceneName: scene.metadata.name,
       objects: scene.objects,
+      theme: resolvedTheme,
       axisPair: useQuadTop ? axis2dPairQuadTop : axis2dPair,
       viewport: useQuadTop ? viewport2dQuadTop : viewport2d,
       viewportFrame: useQuadTop ? viewport2dQuadTopFrame : viewport2dFrame
@@ -530,6 +553,7 @@ export default function TopToolbar({
   };
 
   const handleExport3dPng = async () => {
+    if (copyInFlight.current || exportInFlight.current) return;
     captureEvent("export_3d_png_clicked", { object_count: scene.objects.length });
     const canvas = Array.from(document.querySelectorAll<HTMLCanvasElement>(`[data-graph3d-canvas="true"]`))
       .find((candidate) => candidate.getClientRects().length > 0 && candidate.clientWidth > 0 && candidate.clientHeight > 0) ?? null;
@@ -539,25 +563,36 @@ export default function TopToolbar({
       captureEvent("export_failed", { format: "3d_png", error_type: "no_canvas" });
       return;
     }
-    const exported = await export3dPngFromCanvas({
-      canvas,
-      sceneName: scene.metadata.name
-    });
-    if (!exported.ok || !exported.file) {
-      setActionFeedback(exported.error ?? "3D PNG export failed.");
+    exportInFlight.current = true;
+    setExportPending("3d_png");
+    setActionFeedback(null);
+    try {
+      const exported = await export3dPngFromCanvas({
+        canvas,
+        sceneName: scene.metadata.name
+      });
+      if (!exported.ok || !exported.file) {
+        setActionFeedback(exported.error ?? "3D PNG export failed.");
+        setFileMenuOpen(false);
+        captureEvent("export_failed", { format: "3d_png", error_type: "capture" });
+        return;
+      }
+      const download = triggerSceneExportDownload(exported.file);
+      if (download.ok) {
+        captureEvent("export_succeeded", { format: "3d_png" });
+      } else {
+        captureEvent("export_failed", { format: "3d_png", error_type: "download" });
+      }
+      setActionFeedback(download.ok ? "Export 3D PNG downloaded." : download.error ?? "3D PNG download failed.");
       setFileMenuOpen(false);
+      setShareDialogOpen(false);
+    } catch {
+      setActionFeedback("3D PNG export failed. Try exporting again.");
       captureEvent("export_failed", { format: "3d_png", error_type: "capture" });
-      return;
+    } finally {
+      exportInFlight.current = false;
+      setExportPending(null);
     }
-    const download = triggerSceneExportDownload(exported.file);
-    if (download.ok) {
-      captureEvent("export_succeeded", { format: "3d_png" });
-    } else {
-      captureEvent("export_failed", { format: "3d_png", error_type: "download" });
-    }
-    setActionFeedback(download.ok ? "Export 3D PNG downloaded." : download.error ?? "3D PNG download failed.");
-    setFileMenuOpen(false);
-    setShareDialogOpen(false);
   };
 
 
@@ -578,6 +613,9 @@ export default function TopToolbar({
     const timeout = window.setTimeout(() => setActionFeedback(null), 6500);
     return () => window.clearTimeout(timeout);
   }, [actionFeedback, shareDialogOpen]);
+
+  const actionPending = copyPending !== null || exportPending !== null;
+  const pendingFeedback = exportPending ? `Preparing ${exportPending === "2d_png" ? "2D" : "3D"} PNG…` : copyPending ? "Copying link…" : null;
 
   return (
     <>
@@ -620,7 +658,7 @@ export default function TopToolbar({
       />
       <header
         className={cn(
-          "relative z-50 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] font-sans",
+          "relative z-50 shrink-0 border-b border-(--border-subtle) bg-(--editor-chrome) font-sans",
           compactBar
             ? composition === "compact"
               ? "flex flex-wrap items-center gap-1 px-2 py-1"
@@ -631,15 +669,15 @@ export default function TopToolbar({
       <div className={cn("flex min-w-0 items-center", compactBar ? composition === "compact" ? "w-full gap-1" : "gap-1" : "gap-1.5")}>
         {compactBar ? null : (
           <div className="mr-1.5 flex shrink-0 items-center gap-2">
-            <VinculumMark className="h-7 w-7 text-[var(--text-primary)]" />
-            <span className="text-[15px] font-semibold tracking-tight text-[var(--text-primary)]">Vinculum</span>
+            <VinculumMark className="h-7 w-7 text-(--text-primary)" />
+            <span className="text-[15px] font-semibold tracking-tight text-(--text-primary)">Vinculum</span>
           </div>
         )}
         {compactBar ? <WorkspaceSwitcher compact /> : null}
         {workspace === "math" ? <Button size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); setFieldSolverRequested(true); setFieldSolverOpen(true); }} aria-label="Open field solver" title="Solve a scalar, vector, polar, or complex field">Solve</Button> : null}
         {compactBar ? null : (
           <>
-            <div className="compact-hide-divider mx-1.5 h-5 w-px shrink-0 bg-[var(--border-subtle)]" />
+            <div className="compact-hide-divider mx-1.5 h-5 w-px shrink-0 bg-(--border-subtle)" />
             <DropdownMenu open={fileMenuOpen} onOpenChange={setFileMenuOpen}>
               <DropdownMenuTrigger>
                 {(props) => (
@@ -652,10 +690,10 @@ export default function TopToolbar({
                     onClick={props.onClick}
                     onKeyDown={props.onKeyDown}
                     className={cn(
-                      "flex h-8 items-center gap-1 rounded-[var(--radius-sm)] px-2.5 text-[13px] font-medium outline-none transition-colors duration-[var(--motion-fast)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
+                      "ui-control flex h-8 items-center gap-1 rounded-[var(--ui-radius-sm)] px-2.5 text-[13px] font-medium outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)",
                       fileMenuOpen
-                        ? "bg-[var(--surface-muted)] text-[var(--text-primary)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+                        ? "bg-(--surface-muted) text-(--text-primary)"
+                        : "text-(--text-secondary) hover:bg-(--surface-muted) hover:text-(--text-primary)"
                     )}
                   >
                     Scene
@@ -736,6 +774,7 @@ export default function TopToolbar({
         <>
           <div className={composition === "compact" ? "hidden" : "min-w-0 flex-1"} />
           <CompactChromeRightCluster
+            canFrame
             objectsOpen={objectsOpen}
             onToggleObjects={onToggleObjects}
             showObjectsToggle={showObjectsToggle}
@@ -792,7 +831,7 @@ export default function TopToolbar({
             onClick={(event) => { event.currentTarget.focus(); onToggleObjects(); }}
             aria-pressed={objectsOpen}
             variant="ghost"
-          className={objectsOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
+          className={objectsOpen ? "bg-(--accent-soft) text-(--accent-ink)" : undefined}
             size="sm"
           >
             Objects
@@ -801,7 +840,7 @@ export default function TopToolbar({
 
         <Button type="button" size="sm" variant="ghost" onClick={(event) => { event.currentTarget.focus(); onToggleInspector(); }}
           aria-pressed={inspectorOpen}
-          className={inspectorOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}>
+          className={inspectorOpen ? "bg-(--accent-soft) text-(--accent-ink)" : undefined}>
           Inspector
         </Button>
 
@@ -821,8 +860,8 @@ export default function TopToolbar({
                 onKeyDown={props.onKeyDown}
                 title={`Theme: ${themeMode}`}
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-                  themeMenuOpen && "bg-[var(--surface-muted)] text-[var(--text-primary)]"
+                  "ui-control flex h-8 w-8 items-center justify-center rounded-[var(--ui-radius-sm)] text-(--text-secondary) outline-hidden hover:bg-(--surface-muted) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-(--accent)",
+                  themeMenuOpen && "bg-(--surface-muted) text-(--text-primary)"
                 )}
               >
                 <SunIcon aria-hidden="true" className="theme-light-only h-4 w-4" />
@@ -845,40 +884,40 @@ export default function TopToolbar({
         </DialogHeader>
         <div className="space-y-5 px-5 py-4">
           <section className="space-y-2">
-            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Share</p>
+            <p className="text-[12px] font-semibold text-(--text-primary)">Share</p>
             <div className="grid grid-cols-1 gap-2">
-              <Button type="button" variant="secondary" size="sm" disabled={copyPending !== null} aria-busy={copyPending === "scene"} onClick={handleCopyShareLink}>
+              <Button type="button" variant="secondary" size="sm" disabled={actionPending} aria-busy={copyPending === "scene"} onClick={handleCopyShareLink}>
                 {copyPending === "scene" ? "Copying…" : "Copy share link"}
               </Button>
-              <Button type="button" variant="secondary" size="sm" disabled={copyPending !== null} aria-busy={copyPending === "current"} onClick={handleCopyCurrentUrl}>
+              <Button type="button" variant="secondary" size="sm" disabled={actionPending} aria-busy={copyPending === "current"} onClick={handleCopyCurrentUrl}>
                 {copyPending === "current" ? "Copying…" : "Copy current URL"}
               </Button>
             </div>
           </section>
           <Separator />
           <section className="space-y-2">
-            <p className="text-[12px] font-semibold text-[var(--text-primary)]">Export</p>
+            <p className="text-[12px] font-semibold text-(--text-primary)">Export</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={handleExportJson}>
+              <Button type="button" variant="secondary" size="sm" disabled={actionPending} onClick={handleExportJson}>
                 JSON
               </Button>
-              <Button type="button" variant="secondary" size="sm" disabled={graphMode !== "2d"} title={graphMode !== "2d" ? "Switch to 2D to export SVG" : undefined} onClick={handleExport2dSvg}>
+              <Button type="button" variant="secondary" size="sm" disabled={actionPending || !is2dCanvasAvailable} title={!is2dCanvasAvailable ? "Open a 2D view to export SVG" : undefined} onClick={handleExport2dSvg}>
                 2D SVG
               </Button>
-              <Button type="button" variant="secondary" size="sm" disabled={graphMode !== "2d"} title={graphMode !== "2d" ? "Switch to 2D to export PNG" : undefined} onClick={handleExport2dPng}>
-                2D PNG
+              <Button type="button" variant="secondary" size="sm" aria-label="2D PNG" disabled={actionPending || !is2dCanvasAvailable} aria-busy={exportPending === "2d_png"} title={!is2dCanvasAvailable ? "Open a 2D view to export PNG" : undefined} onClick={handleExport2dPng}>
+                {exportPending === "2d_png" ? "Preparing…" : "2D PNG"}
               </Button>
-              <Button type="button" variant="secondary" size="sm" disabled={!is3dCanvasAvailable} title={!is3dCanvasAvailable ? "Open a 3D view to export PNG" : undefined} onClick={handleExport3dPng}>
-                3D PNG
+              <Button type="button" variant="secondary" size="sm" aria-label="3D PNG" disabled={actionPending || !is3dCanvasAvailable} aria-busy={exportPending === "3d_png"} title={!is3dCanvasAvailable ? "Open a 3D view to export PNG" : undefined} onClick={handleExport3dPng}>
+                {exportPending === "3d_png" ? "Preparing…" : "3D PNG"}
               </Button>
             </div>
           </section>
-          {actionFeedback ? (
-            <div role="status" aria-atomic="true" className="action-feedback rounded-[var(--radius-md)] bg-[var(--surface-muted)] px-3 py-2 text-[12px] text-[var(--text-secondary)]">
-              {actionFeedback}
+          {actionFeedback || pendingFeedback ? (
+            <div role="status" aria-atomic="true" className="action-feedback rounded-[var(--ui-radius-md)] bg-(--surface-muted) px-3 py-2 text-[12px] text-(--text-secondary)">
+              {pendingFeedback ?? actionFeedback}
             </div>
           ) : null}
-          {manualCopy ? <label className="block space-y-2 text-[12px] text-[var(--text-secondary)]">{manualCopy.label}
+          {manualCopy ? <label className="block space-y-2 text-[12px] text-(--text-secondary)">{manualCopy.label}
             <input ref={manualCopyRef} className="input" readOnly value={manualCopy.url} onFocus={(event) => event.currentTarget.select()} aria-label={`Copy ${manualCopy.label.toLowerCase()} manually`} />
           </label> : null}
         </div>
@@ -890,12 +929,12 @@ export default function TopToolbar({
         </DialogContent>
       </Dialog>
     </header>
-      {!shareDialogOpen && (actionFeedback || copyPending) ? <div role="status" aria-atomic="true" className="action-toast action-feedback">
-        <span>{copyPending ? "Copying link…" : actionFeedback}</span>
-        {!copyPending ? <button type="button" aria-label="Dismiss action feedback" onClick={() => setActionFeedback(null)}>×</button> : null}
+      {!shareDialogOpen && (actionFeedback || pendingFeedback) ? <div role="status" aria-atomic="true" className="action-toast action-feedback">
+        <span>{pendingFeedback ?? actionFeedback}</span>
+        {!actionPending ? <button type="button" aria-label="Dismiss action feedback" onClick={() => setActionFeedback(null)}>×</button> : null}
       </div> : null}
       {compactBar ? (
-        <div className="flex shrink-0 items-center overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--editor-chrome)] px-2 py-1.5">
+        <div className="flex shrink-0 items-center overflow-x-auto border-b border-(--border-subtle) bg-(--editor-chrome) px-2 py-1.5">
           <ViewControls
             activeViewType={activeViewType}
             onViewTypeChange={onViewTypeChange}
@@ -920,6 +959,7 @@ export default function TopToolbar({
 // theme) live in the overflow. Autosave errors surface as a dot on the
 // overflow trigger so critical status is never lost (PART 134).
 function CompactChromeRightCluster({
+  canFrame,
   objectsOpen,
   onToggleObjects,
   showObjectsToggle,
@@ -944,6 +984,7 @@ function CompactChromeRightCluster({
   onFrameSelected,
   onFitScene
 }: {
+  canFrame: boolean;
   objectsOpen: boolean;
   onToggleObjects: () => void;
   showObjectsToggle: boolean;
@@ -971,20 +1012,24 @@ function CompactChromeRightCluster({
   const [moreOpen, setMoreOpen] = useState(false);
   return (
     <div className="chrome-panel-actions flex min-w-0 shrink-0 items-center justify-end gap-1 py-0.5">
+      <span role="status" className="sr-only">
+        Autosave: {AUTOSAVE_LABEL[autosaveStatus] ?? "Not saved yet"}
+        {autosaveError ? ` — ${autosaveError}` : ""}
+      </span>
       {showObjectsToggle ? (
         <Button
           type="button"
           onClick={(event) => { event.currentTarget.focus(); onToggleObjects(); }}
           aria-pressed={objectsOpen}
           variant="ghost"
-          className={objectsOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
+          className={objectsOpen ? "bg-(--accent-soft) text-(--accent-ink)" : undefined}
           size="sm"
         >
           Objects
           <span
             data-testid="compact-object-count"
             aria-hidden="true"
-            className="ml-1 rounded bg-[var(--surface-muted)] px-1 font-mono text-[11px]"
+            className="ml-1 rounded-sm bg-(--surface-muted) px-1 font-mono text-[11px]"
           >
             {objectCount}
           </span>
@@ -995,7 +1040,7 @@ function CompactChromeRightCluster({
         onClick={(event) => { event.currentTarget.focus(); onToggleInspector(); }}
         variant="ghost"
         aria-pressed={inspectorOpen}
-        className={inspectorOpen ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]" : undefined}
+        className={inspectorOpen ? "bg-(--accent-soft) text-(--accent-ink)" : undefined}
         size="sm"
       >
         Inspector
@@ -1014,10 +1059,10 @@ function CompactChromeRightCluster({
               onClick={props.onClick}
               onKeyDown={props.onKeyDown}
               className={cn(
-                "relative flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors",
+                "ui-control relative flex h-8 w-8 items-center justify-center rounded-[var(--ui-radius-sm)] outline-hidden focus-visible:ring-2 focus-visible:ring-(--accent)",
                 moreOpen
-                  ? "bg-[var(--accent-soft)] text-[var(--accent-ink)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
+                  ? "bg-(--accent-soft) text-(--accent-ink)"
+                  : "text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--surface-muted)"
               )}
             >
               <MoreHorizontalIcon className="h-3.5 w-3.5" />
@@ -1051,12 +1096,14 @@ function CompactChromeRightCluster({
               <DropdownMenuItem onSelect={onCopyShareLink}>Copy share link</DropdownMenuItem>
               <DropdownMenuItem onSelect={onOpenShare}>Share &amp; export...</DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>View</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={onFrameSelected}>Frame selected</DropdownMenuItem>
-              <DropdownMenuItem onSelect={onFitScene}>Fit scene</DropdownMenuItem>
-            </DropdownMenuGroup>
+            {canFrame ? <>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>View</DropdownMenuLabel>
+                <DropdownMenuItem onSelect={onFrameSelected}>Frame selected</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onFitScene}>Fit scene</DropdownMenuItem>
+              </DropdownMenuGroup>
+            </> : null}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>History</DropdownMenuLabel>
@@ -1065,7 +1112,7 @@ function CompactChromeRightCluster({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Status</DropdownMenuLabel>
-              <p role="status" className="px-2.5 py-1.5 text-xs text-[var(--text-tertiary)]">
+              <p className="px-2.5 py-1.5 text-xs text-(--text-tertiary)">
                 {AUTOSAVE_LABEL[autosaveStatus] ?? "Not saved yet"}
                 {autosaveError ? ` — ${autosaveError}` : ""}
               </p>
@@ -1078,7 +1125,7 @@ function CompactChromeRightCluster({
   );
 }
 
-function ToolbarAction({ onClick, disabled, icon, title }: any) {
+function ToolbarAction({ onClick, disabled, icon, title }: { onClick?: () => void; disabled?: boolean; icon: ReactNode; title: string }) {
   return (
     <button
       type="button"
@@ -1086,7 +1133,7 @@ function ToolbarAction({ onClick, disabled, icon, title }: any) {
       disabled={disabled}
       title={title}
       aria-label={title}
-      className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+      className="ui-control flex h-8 w-8 items-center justify-center rounded-[var(--ui-radius-sm)] text-(--text-secondary) outline-hidden hover:bg-(--surface-muted) enabled:hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-(--accent) disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {icon}
     </button>
@@ -1094,7 +1141,7 @@ function ToolbarAction({ onClick, disabled, icon, title }: any) {
 }
 
 const HEADER_ACTION_CLASS =
-  "flex h-8 items-center gap-1.5 rounded-[var(--radius-sm)] px-2.5 text-[13px] font-medium text-[var(--text-secondary)] outline-none transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]";
+  "flex h-8 items-center gap-1.5 rounded-[var(--ui-radius-sm)] px-2.5 text-[13px] font-medium text-(--text-secondary) outline-hidden transition-colors duration-(--motion-fast) hover:bg-(--surface-muted) hover:text-(--text-primary) focus-visible:ring-2 focus-visible:ring-(--accent)";
 
 function HeaderAction({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
   return (
@@ -1123,7 +1170,7 @@ function AutosaveIndicator({ status, error }: { status: string; error: string | 
       title={error ?? `Autosave: ${label}`}
       className={cn(
         "mr-1 hidden items-center gap-1.5 whitespace-nowrap px-1 text-[12px] xl:flex",
-        status === "error" ? "text-[var(--status-error-fg)]" : "text-[var(--text-tertiary)]"
+        status === "error" ? "text-(--status-error-fg)" : "text-(--text-tertiary)"
       )}
     >
       <span
@@ -1131,11 +1178,11 @@ function AutosaveIndicator({ status, error }: { status: string; error: string | 
         className={cn(
           "h-1.5 w-1.5 rounded-full",
           status === "error"
-            ? "bg-[var(--status-error-fg)]"
+            ? "bg-(--status-error-fg)"
             : status === "saving"
               ? "animate-pulse bg-amber-500 motion-reduce:animate-none"
               : status === "dirty"
-                ? "bg-[var(--text-tertiary)]"
+                ? "bg-(--text-tertiary)"
                 : "bg-emerald-500"
         )}
       />
