@@ -1,7 +1,7 @@
 import type { GraphObject } from "@vinculum/scene/types";
 
 export const SCENE_DOCUMENT_VERSION = "1.0";
-export const CURRENT_SCENE_SCHEMA_VERSION = 1;
+export const CURRENT_SCENE_SCHEMA_VERSION = 4;
 export const DEFAULT_SCENE_NAME = "Untitled Scene";
 
 export interface SceneMeasurementPoint {
@@ -37,12 +37,25 @@ export interface SceneMetadata {
   updatedAt: string;
 }
 
+export interface SceneParameter {
+  id: string;
+  value: number;
+  min: number;
+  max: number;
+  defined?: boolean;
+}
+
 export interface SceneDocument {
   schemaVersion: number;
   version: string;
   metadata: SceneMetadata;
   objects: GraphObject[];
   measurements: SceneMeasurement[];
+  parameters: SceneParameter[];
+}
+
+export function sceneHasContent(scene: Pick<SceneDocument, "objects" | "measurements" | "parameters">): boolean {
+  return scene.objects.length > 0 || (scene.measurements?.length ?? 0) > 0 || (scene.parameters?.length ?? 0) > 0;
 }
 
 interface CreateSceneDocumentOptions {
@@ -50,6 +63,7 @@ interface CreateSceneDocumentOptions {
   metadata?: Partial<SceneMetadata>;
   objects?: GraphObject[];
   measurements?: SceneMeasurement[];
+  parameters?: SceneParameter[];
   now?: string;
 }
 
@@ -62,7 +76,8 @@ export function createSceneDocument(options: CreateSceneDocumentOptions = {}): S
     version: normalizeVersion(options.version),
     metadata,
     objects: (options.objects ?? []).map(cloneGraphObject),
-    measurements: (options.measurements ?? []).map(cloneSceneMeasurement)
+    measurements: (options.measurements ?? []).map(cloneSceneMeasurement),
+    parameters: (options.parameters ?? []).map(parameter => ({ ...parameter }))
   };
 }
 
@@ -87,12 +102,19 @@ export function cloneSceneDocument(scene: SceneDocument): SceneDocument {
       updatedAt: scene.metadata.updatedAt
     },
     objects: scene.objects,
-    measurements: scene.measurements
+    measurements: scene.measurements,
+    parameters: scene.parameters
   });
 }
 
 export function cloneGraphObject(object: GraphObject): GraphObject {
-  if (object.kind === "implicitCurve") return { ...object };
+  const cloned = cloneGraphObjectDefinition(object);
+  if (object.combination) cloned.combination = { ...object.combination, operands: [...object.combination.operands] };
+  return cloned;
+}
+
+function cloneGraphObjectDefinition(object: GraphObject): GraphObject {
+  if (object.kind === "implicitCurve") return { ...object, ...(object.extensionRange ? { extensionRange: { ...object.extensionRange } } : {}) };
   if (object.kind === "surface") {
     return {
       ...object,

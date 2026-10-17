@@ -1,3 +1,6 @@
+import { useEditorStore } from "@/lib/store/editorStore";
+import { captureSceneParameters } from "@/lib/scene/sceneParameters";
+import { isRestoringSceneParameters, restoreSceneParameters } from "@/lib/store/sceneParameterSync";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { mergePersistedGraphStore } from "./graphStoreMerge";
@@ -30,6 +33,34 @@ export {
 } from "./graphStoreGuards";
 
 const initialScene = createInitialSceneDocument();
+let hydratingParameters = false;
+
+function createGraphSessionStorage() {
+  const storage = createJSONStorage<Pick<GraphStoreState, "scene" | "ui">>(() => sessionStorage);
+  if (!storage) return undefined;
+  let warned = false;
+  const warn = () => {
+    if (warned) return;
+    warned = true;
+    console.warn("Session storage is unavailable or invalid; continuing with the in-memory scene.");
+  };
+  // Web Storage is synchronous. Catch reads and JSON parsing here so Zustand
+  // completes hydration and releases the shell's recovery/autosave startup gate.
+  return {
+    getItem: (name: string) => {
+      try { return storage.getItem(name); }
+      catch { warn(); return null; }
+    },
+    setItem: (...args: Parameters<typeof storage.setItem>) => {
+      try { return storage.setItem(...args); }
+      catch { warn(); }
+    },
+    removeItem: (name: string) => {
+      try { return storage.removeItem(name); }
+      catch { warn(); }
+    }
+  };
+}
 
 export const useGraphStore = create<GraphStoreState>()(
   persist(
@@ -57,7 +88,12 @@ export const useGraphStore = create<GraphStoreState>()(
     }),
     {
       name: "vinculum-graph-session",
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createGraphSessionStorage(),
+      onRehydrateStorage: () => (state) => {
+        // Failed reads/JSON parsing do not fire onFinishHydration. Resume
+        // portable parameter snapshots for the in-memory editor as well.
+        if (!state) hydratingParameters = false;
+      },
       partialize: (state) => ({
         scene: state.scene,
         ui: {
@@ -101,3 +137,25 @@ export const useGraphStore = create<GraphStoreState>()(
     }
   )
 );
+
+// Runtime values remain editor-owned; the scene carries their portable snapshot.
+const captureParameters = () => {
+  if (hydratingParameters || isRestoringSceneParameters()) return;
+  const graph = useGraphStore.getState();
+  graph.setSceneParameters(captureSceneParameters(graph.scene.objects, useEditorStore.getState().parameters));
+};
+useEditorStore.subscribe((state, previous) => {
+  if (state.parameters !== previous.parameters) captureParameters();
+});
+useGraphStore.subscribe((state, previous) => {
+  if (state.scene.objects !== previous.scene.objects) captureParameters();
+});
+// Zustand omits the persistence API when Web Storage cannot be obtained.
+// Scene/parameter subscriptions must still work for the in-memory editor.
+useGraphStore.persist?.onHydrate(() => { hydratingParameters = true; });
+useGraphStore.persist?.onFinishHydration(state => {
+  // A fresh editor has no saved scope to restore; retain its existing
+  // defaults. A recovered session replaces those defaults with its snapshot.
+  if (state.scene !== initialScene) restoreSceneParameters(state.scene.parameters, () => {});
+  hydratingParameters = false;
+});

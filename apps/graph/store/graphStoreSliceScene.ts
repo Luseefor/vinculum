@@ -1,3 +1,4 @@
+import { restoreSceneParameters } from "@/lib/store/sceneParameterSync";
 import { applySceneCommand } from "@/lib/scene/applyCommand";
 import { createInitialSceneDocument } from "./graphStoreObjectFactory";
 import { resolveSelectedObjectId } from "./graphStoreSelection";
@@ -12,16 +13,22 @@ import { createDefaultViewport2D } from "./graphStoreViewportInit";
 
 export function buildSceneSlice(set: GraphStoreSet): Pick<
   GraphStoreState,
-  "replaceSceneDocument" | "resetScene"
+  "replaceSceneDocument" | "resetScene" | "setSceneParameters"
 > {
   return {
+    setSceneParameters: (parameters) => {
+      set(state => {
+        if (JSON.stringify(state.scene.parameters) === JSON.stringify(parameters)) return state;
+        return { scene: { ...state.scene, parameters, metadata: { ...state.scene.metadata, updatedAt: new Date().toISOString() } } };
+      });
+    },
     replaceSceneDocument: (sceneDocument) => {
       // S23: scene replacement drops every cached scalar grid.
       // S24: same for cached streamlines. S25: same for integral results.
       useScalarVizResultsStore.getState().clearAll();
       useStreamlineResultsStore.getState().clearAll();
       useIntegralResultsStore.getState().clearAll();
-      set((state) => {
+      restoreSceneParameters(sceneDocument.parameters, () => set((state) => {
         const nextScene = applySceneCommand(state.scene, {
           type: "REPLACE_SCENE",
           payload: {
@@ -55,7 +62,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
             }
           }
         };
-      });
+      }));
     },
 
     resetScene: () => {
@@ -66,7 +73,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
       useStreamlineResultsStore.getState().clearAll();
       useIntegralResultsStore.getState().clearAll();
 
-      set((state) => ({
+      restoreSceneParameters(defaultScene.parameters, () => set((state) => ({
         scene: applySceneCommand(state.scene, {
           type: "REPLACE_SCENE",
           payload: {
@@ -114,7 +121,7 @@ export function buildSceneSlice(set: GraphStoreSet): Pick<
           }
         },
         cameraResetVersion: state.cameraResetVersion + 1
-      }));
+      })));
     }
   };
 }

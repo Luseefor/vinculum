@@ -37,15 +37,28 @@ import { compilePlaneEquation } from "@/lib/math/surfaces/samplePlane";
 import { getEffectiveSurfaceOrientation } from "@/lib/math/expressions/compileExpression";
 import { getEquationParameterNames, getEditorParameterScope } from "@/lib/store/editorParameters";
 
-export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
-  const parsed = parseGraphObjectDefinition(rawObject, objectIndex, errors);
-  if (!parsed || !isRecord(rawObject) || rawObject.autoExpression === undefined) return parsed;
+export function parseGraphObject(rawObject: unknown, objectIndex: number, errors: string[], parameterScope: Record<string, number> = getEditorParameterScope()): GraphObject | null {
+  let parsed = parseGraphObjectDefinition(rawObject, objectIndex, errors, parameterScope);
+  if (!parsed || !isRecord(rawObject)) return parsed;
+  if (rawObject.combination !== undefined) {
+    const combination = rawObject.combination;
+    if (!isRecord(combination) || !["union", "intersection", "subtract"].includes(String(combination.operation)) ||
+      !Array.isArray(combination.operands) || combination.operands.length !== 2 ||
+      !combination.operands.every(id => typeof id === "string" && id.length > 0) ||
+      combination.operands[0] === combination.operands[1] ||
+      (parsed.kind !== "implicitCurve" && parsed.kind !== "implicitSurface")) {
+      errors.push(`objects[${objectIndex}].combination requires a valid operation and two different source IDs on an implicit result.`);
+      return null;
+    }
+    parsed = { ...parsed, combination: { operation: combination.operation as "union" | "intersection" | "subtract", operands: [combination.operands[0], combination.operands[1]] } };
+  }
+  if (rawObject.autoExpression === undefined) return parsed;
   if (typeof rawObject.autoExpression !== "boolean" || !("equation" in parsed) || parsed.kind === "plane") {
     errors.push(`objects[${objectIndex}].autoExpression must be a boolean on an equation graph.`);
     return null;
   }
   if (rawObject.autoExpression && parsed.equation.trim()) {
-    const inferred = inferGraphEquation(parsed.equation, getEditorParameterScope());
+    const inferred = inferGraphEquation(parsed.equation, parameterScope);
     if (!inferred.ok || inferred.kind !== parsed.kind || (parsed.kind === "surface" && inferred.orientation !== (parsed.orientation ?? "z"))) {
       errors.push(`objects[${objectIndex}] does not match its automatically detected equation type.`);
       return null;
@@ -54,7 +67,7 @@ export function parseGraphObject(rawObject: unknown, objectIndex: number, errors
   return { ...parsed, autoExpression: rawObject.autoExpression };
 }
 
-function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, errors: string[]): GraphObject | null {
+function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, errors: string[], parameterScope: Record<string, number>): GraphObject | null {
   if (!isRecord(rawObject)) {
     errors.push(`objects[${objectIndex}] must be an object.`);
     return null;
@@ -73,7 +86,7 @@ function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, err
     const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
     if (equation === null) return null;
     if (equation.trim()) {
-      const inferred = inferGraphEquation(equation, getEditorParameterScope());
+      const inferred = inferGraphEquation(equation, parameterScope);
       if (!inferred.ok || inferred.dimension !== "2d") {
         errors.push(`objects[${objectIndex}].equation: ${inferred.ok ? "Use a 2D equation in x and y." : inferred.error}`);
         return null;
@@ -83,7 +96,14 @@ function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, err
       errors.push(`objects[${objectIndex}].extendTo3D must be a boolean.`);
       return null;
     }
-    return { id, kind, color, visible, equation, ...(rawObject.extendTo3D !== undefined ? { extendTo3D: rawObject.extendTo3D as boolean } : {}) };
+    const range = rawObject.extensionRange;
+    if (range !== undefined && (!isRecord(range) || typeof range.zMin !== "number" || typeof range.zMax !== "number" ||
+      !Number.isFinite(range.zMin) || !Number.isFinite(range.zMax) || range.zMin >= range.zMax || Math.abs(range.zMin) > 1e6 || Math.abs(range.zMax) > 1e6)) {
+      errors.push(`objects[${objectIndex}].extensionRange requires finite z min < z max within ±1000000.`);
+      return null;
+    }
+    return { id, kind, color, visible, equation, ...(rawObject.extendTo3D !== undefined ? { extendTo3D: rawObject.extendTo3D as boolean } : {}),
+      ...(isRecord(range) ? { extensionRange: { zMin: range.zMin as number, zMax: range.zMax as number } } : {}) };
   }
 
   if (kind === "surface") {
@@ -99,26 +119,30 @@ function parseGraphObjectDefinition(rawObject: unknown, objectIndex: number, err
   }
 
   if (kind === "implicitSurface") {
-    return parseImplicitSurfaceObject(rawObject, objectIndex, id, color, visible, errors);
+    return parseImplicitSurfaceObject(rawObject, objectIndex, id, color, visible, errors, parameterScope);
   }
 
   if (kind === "vectorField") {
-    return parseVectorFieldObject(rawObject, objectIndex, id, color, visible, errors);
+    return parseVectorFieldObject(rawObject, objectIndex, id, color, visible, errors, parameterScope);
   }
 
   if (kind === "vector" || kind === "line" || kind === "ray" || kind === "segment") {
-    return parseGeometryPrimitiveObject(rawObject, objectIndex, id, kind, color, visible, errors);
+    return parseGeometryPrimitiveObject(rawObject, objectIndex, id, kind, color, visible, errors, parameterScope);
   }
 
   if (kind === "point") {
-    return parsePointObject(rawObject, objectIndex, id, color, visible, errors);
+    return parsePointObject(rawObject, objectIndex, id, color, visible, errors, parameterScope);
   }
 
   if (kind === "linearTransform") {
-    return parseLinearTransformObject(rawObject, objectIndex, id, color, visible, errors);
+    return parseLinearTransformObject(rawObject, objectIndex, id, color, visible, errors, parameterScope);
   }
 
-  return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors);
+  if (kind === "plane") {
+    return parsePlaneGraphObject(rawObject, objectIndex, id, color, visible, errors, parameterScope);
+  }
+  const unhandled: never = kind;
+  throw new Error(`Unsupported graph object kind: ${unhandled}`);
 }
 
 function parseSurfaceGraphObject(
@@ -233,6 +257,29 @@ function parseSurfaceGraphObject(
   };
 }
 
+// Version 4 adds optional authoring dimension; old objects remain 3D.
+function parseParametricDimension(raw: Record<string, unknown>, index: number, errors: string[]):
+  { dimension?: "2d" | "3d"; spatialZExpr?: string } | null {
+  const initialErrorCount = errors.length;
+  const dimension = raw.dimension;
+  if (dimension !== undefined && dimension !== "2d" && dimension !== "3d") {
+    errors.push(`objects[${index}].dimension must be one of: 2d, 3d.`);
+    return null;
+  }
+  if (dimension === "2d" && raw.zExpr !== "0") errors.push(`objects[${index}].zExpr must be "0" for a 2D parametric object.`);
+  let spatialZExpr: string | undefined;
+  if (raw.spatialZExpr !== undefined) {
+    const value = requireString(raw.spatialZExpr, `objects[${index}].spatialZExpr`, errors);
+    if (value !== null) {
+      const safety = validateExpressionSafety(value, { operation: "validate-parametric-expression", expressionLabel: "Saved Z expression" });
+      if (!safety.ok) errors.push(`objects[${index}].spatialZExpr: ${safety.violation.message}`);
+      else spatialZExpr = value;
+    }
+  }
+  if (errors.length > initialErrorCount) return null;
+  return { ...(dimension === undefined ? {} : { dimension }), ...(spatialZExpr === undefined ? {} : { spatialZExpr }) };
+}
+
 function parseParametricCurveObject(
   rawObject: Record<string, unknown>,
   objectIndex: number,
@@ -241,6 +288,8 @@ function parseParametricCurveObject(
   visible: boolean,
   errors: string[]
 ): ParametricCurveObject | null {
+  const authoring = parseParametricDimension(rawObject, objectIndex, errors);
+  if (!authoring) return null;
   const xExpr = requireString(rawObject.xExpr, `objects[${objectIndex}].xExpr`, errors);
   const yExpr = requireString(rawObject.yExpr, `objects[${objectIndex}].yExpr`, errors);
   const zExpr = requireString(rawObject.zExpr, `objects[${objectIndex}].zExpr`, errors);
@@ -293,6 +342,7 @@ function parseParametricCurveObject(
   return {
     id,
     kind: "parametricCurve",
+    ...authoring,
     xExpr,
     yExpr,
     zExpr,
@@ -312,6 +362,8 @@ function parseParametricSurfaceObject(
   visible: boolean,
   errors: string[]
 ): ParametricSurfaceObject | null {
+  const authoring = parseParametricDimension(rawObject, objectIndex, errors);
+  if (!authoring) return null;
   const xExpr = requireString(rawObject.xExpr, `objects[${objectIndex}].xExpr`, errors);
   const yExpr = requireString(rawObject.yExpr, `objects[${objectIndex}].yExpr`, errors);
   const zExpr = requireString(rawObject.zExpr, `objects[${objectIndex}].zExpr`, errors);
@@ -372,6 +424,7 @@ function parseParametricSurfaceObject(
   return {
     id,
     kind: "parametricSurface",
+    ...authoring,
     xExpr,
     yExpr,
     zExpr,
@@ -396,7 +449,8 @@ function parseImplicitSurfaceObject(
   id: string,
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): ImplicitSurfaceObject | null {
   const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
 
@@ -453,7 +507,7 @@ function parseImplicitSurfaceObject(
     return null;
   }
   if (equation.trim()) {
-    const params = rawObject.autoExpression === true ? { ...Object.fromEntries(getEquationParameterNames(equation).map(name => [name, 1])), ...getEditorParameterScope() } : getEditorParameterScope();
+    const params = rawObject.autoExpression === true ? { ...Object.fromEntries(getEquationParameterNames(equation).map(name => [name, 1])), ...parameterScope } : parameterScope;
     const fieldCompiled = compileImplicitSurfaceExpression(equation, params);
     if (fieldCompiled.error) {
       errors.push(`objects[${objectIndex}].equation: ${fieldCompiled.error}`);
@@ -493,7 +547,8 @@ function parseVectorFieldObject(
   id: string,
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): VectorFieldObject | null {
   const dimensionPath = `objects[${objectIndex}].dimension`;
   const dimensionRaw = rawObject.dimension;
@@ -616,7 +671,7 @@ function parseVectorFieldObject(
     pExpr,
     qExpr,
     rExpr,
-    getEditorParameterScope()
+    parameterScope
   );
   if (fieldCompiled.error) {
     errors.push(`objects[${objectIndex}]: ${fieldCompiled.error}`);
@@ -660,7 +715,8 @@ function parsePlaneGraphObject(  rawObject: Record<string, unknown>,  objectInde
   id: string,
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): PlaneGraphObject | null {
   const equation = requireString(rawObject.equation, `objects[${objectIndex}].equation`, errors);
   const size = parseInteger(rawObject.size, `objects[${objectIndex}].size`, errors, 1);
@@ -690,7 +746,7 @@ function parsePlaneGraphObject(  rawObject: Record<string, unknown>,  objectInde
     errors.push(`objects[${objectIndex}].equation: Equation must contain exactly one '='.`);
     return null;
   }
-  const planeCompiled = compilePlaneEquation(equation);
+  const planeCompiled = compilePlaneEquation(equation, parameterScope);
   if (planeCompiled.error) {
     errors.push(`objects[${objectIndex}].equation: ${planeCompiled.error}`);
     return null;
@@ -753,11 +809,12 @@ function parsePointObject(
   id: string,
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): PointObject | null {
   // S27: canonical point shares the S26 coordinate path (same field
   // table, same compiler, same raw-text preservation).
-  const parsed = parseGeometryPrimitiveFields(rawObject, objectIndex, id, "point", errors);
+  const parsed = parseGeometryPrimitiveFields(rawObject, objectIndex, id, "point", errors, parameterScope);
   if (!parsed) {
     return null;
   }
@@ -769,11 +826,12 @@ function parseGeometryPrimitiveFields(
   objectIndex: number,
   id: string,
   kind: keyof typeof GEOMETRY_PRIMITIVE_COORDINATE_FIELDS,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): Record<string, string> | null {
   const fields = GEOMETRY_PRIMITIVE_COORDINATE_FIELDS[kind];
   const values: Record<string, string> = {};
-  const scope = getEditorParameterScope();
+  const scope = parameterScope;
   for (const field of fields) {
     const expr = requireString(rawObject[field], `objects[${objectIndex}].${field}`, errors);
     if (expr === null) {
@@ -800,9 +858,10 @@ function parseGeometryPrimitiveObject(
   kind: "vector" | "line" | "ray" | "segment",
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): VectorObject | LineObject | RayObject | SegmentObject | null {
-  const values = parseGeometryPrimitiveFields(rawObject, objectIndex, id, kind, errors);
+  const values = parseGeometryPrimitiveFields(rawObject, objectIndex, id, kind, errors, parameterScope);
   if (!values) {
     return null;
   }
@@ -827,7 +886,8 @@ function parseLinearTransformObject(
   id: string,
   color: string,
   visible: boolean,
-  errors: string[]
+  errors: string[],
+  parameterScope: Record<string, number>
 ): LinearTransformObject | null {
   const dimensionPath = `objects[${objectIndex}].dimension`;
   const dimensionRaw = rawObject.dimension;
@@ -838,7 +898,7 @@ function parseLinearTransformObject(
   const dimension = dimensionRaw;
   const fields = LINEAR_TRANSFORM_ENTRY_FIELDS[dimension];
   const values: Record<string, string> = {};
-  const scope = getEditorParameterScope();
+  const scope = parameterScope;
   for (const field of fields) {
     const expr = requireString(rawObject[field], `objects[${objectIndex}].${field}`, errors);
     if (expr === null) {

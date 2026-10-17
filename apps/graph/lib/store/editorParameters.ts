@@ -34,8 +34,8 @@ export function isParameterName(name: string): boolean {
 /** Discover scalar symbols only after structural/function validation; never evaluate drafts. */
 export function getEquationParameterNames(source: string): string[] {
   const equality = splitSingleMathEquality(source);
-  if (source.includes("=") && !equality) return [];
-  const functionDefinition = equality && /^[A-Za-z]\(\s*[xyz](?:\s*,\s*[xyz])*\s*\)$/.test(equality.lhs);
+  if (source.includes("=") && !equality && !source.includes("?")) return [];
+  const functionDefinition = equality && /^[A-Za-z]\(\s*(?:t|[xyz](?:\s*,\s*[xyz])*)\s*\)$/.test(equality.lhs);
   const expressions = equality ? functionDefinition ? [equality.rhs] : [equality.lhs, equality.rhs] : [source];
   const names = new Set<string>();
   for (const expression of expressions) {

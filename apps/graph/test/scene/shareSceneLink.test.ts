@@ -104,7 +104,7 @@ describe("share scene links", () => {
 
   it("guards oversized URLs with JSON export fallback guidance", () => {
     const largeScene = createSceneDocument({
-      objects: [createSurfaceGraph({ equation: "x".repeat(8000) })]
+      objects: [createSurfaceGraph({ equation: "x^2+y^2" })]
     });
     const built = buildShareSceneUrl({
       scene: largeScene,

@@ -1,3 +1,6 @@
+import { migrateSceneDocumentEnvelope, parseSceneParameters } from "@/lib/scene/validateScene";
+import { completeSceneParameters, getSceneParameterNames } from "@/lib/scene/sceneParameters";
+import { useEditorStore } from "@/lib/store/editorStore";
 import type { SceneDocument } from "@/lib/scene/sceneSchema";
 import type { GraphUiState } from "@/types/graphUi";
 import { createDefaultViewport2D } from "./graphStoreViewportInit";
@@ -12,12 +15,29 @@ export function mergePersistedGraphStore(
     return current;
   }
   const { scene, ui } = persisted as { scene: SceneDocument; ui?: GraphUiState };
-  if (!scene?.objects) {
+  if (!scene || !Array.isArray(scene.objects)) {
     return current;
+  }
+  // Session state can contain unfinished expression drafts. Migrate the
+  // envelope and validate the portable scope without discarding those drafts.
+  // External files/projects/share links still use full scene validation.
+  const migrated = migrateSceneDocumentEnvelope({ ...scene });
+  if (!migrated.ok) return current;
+  const errors: string[] = [];
+  let parameters = completeSceneParameters(scene.objects, parseSceneParameters(migrated.document.parameters, errors));
+  if (errors.length) return current;
+  if (scene.schemaVersion < 2 || scene.schemaVersion === undefined) {
+    const names = new Set(getSceneParameterNames(scene.objects));
+    const previous = useEditorStore.getState().parameters.filter(parameter => parameter.defined || names.has(parameter.id));
+    const saved = new Map(parameters.map(parameter => [parameter.id, parameter]));
+    for (const parameter of previous) saved.set(parameter.id, { ...parameter });
+    parameters = [...saved.values()];
   }
   const normalizedScene: SceneDocument = {
     ...scene,
-    measurements: Array.isArray(scene.measurements) ? scene.measurements : []
+    schemaVersion: migrated.document.schemaVersion as number,
+    measurements: Array.isArray(scene.measurements) ? scene.measurements : [],
+    parameters
   };
   const mergedUi = ui ?? current.ui;
   return {

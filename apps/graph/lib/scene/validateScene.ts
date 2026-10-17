@@ -4,6 +4,7 @@ import {
   createSceneDocument,
   CURRENT_SCENE_SCHEMA_VERSION,
   SCENE_DOCUMENT_VERSION,
+  type SceneParameter,
   type SceneMeasurement,
   type SceneDocument
 } from "./sceneSchema";
@@ -19,8 +20,14 @@ import {
   MAX_SCENE_CONSTRAINT_COUNT,
   MAX_SCENE_GROUP_COUNT,
   MAX_SCENE_MEASUREMENT_COUNT,
-  MAX_SCENE_OBJECT_COUNT
+  MAX_SCENE_OBJECT_COUNT,
+  MAX_SCENE_PARAMETER_COUNT,
+  MAX_SCENE_PARAMETER_NAME_LENGTH
 } from "./importPayloadLimits";
+
+import { completeSceneParameters, getSceneParameterNames } from "./sceneParameters";
+import { isParameterName, parametersToScope } from "@/lib/store/editorParameters";
+import { resolveObjectCombinations } from "@/lib/math/geometry/objectOperations";
 
 export interface SceneValidationResult {
   valid: boolean;
@@ -73,11 +80,21 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
     };
   }
 
+  const parameters = completeSceneParameters(migratedInput.objects, parseSceneParameters(migratedInput.parameters, errors));
+  if (parameters.length > MAX_SCENE_PARAMETER_COUNT) errors.push(`parameters cannot exceed ${MAX_SCENE_PARAMETER_COUNT}.`);
+  const parameterScope = parametersToScope(parameters);
   const normalizedObjects: GraphObject[] = [];
   const seenObjectIds = new Set<string>();
 
   migratedInput.objects.forEach((rawObject, objectIndex) => {
-    const parsedObject = parseGraphObject(rawObject, objectIndex, errors);
+    const previousErrorCount = errors.length;
+    const parsedObject = parseGraphObject(rawObject, objectIndex, errors, parameterScope);
+    if (!parsedObject || (parsedObject.kind === "implicitCurve" && !parsedObject.equation.trim())) {
+      if (errors.length === previousErrorCount) {
+        errors.push(`objects[${objectIndex}] has an incomplete definition. Finish it or remove the object before saving, exporting, or sharing.`);
+      }
+      return;
+    }
     if (parsedObject) {
       // S29-R7: duplicate object IDs alias scene nodes (selection, worker
       // generations keyed by ID, overlay namespaces). Reject fail-closed
@@ -92,6 +109,7 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
   });
 
   const normalizedMeasurements = parseSceneMeasurements(migratedInput.measurements, errors);
+  const resolvedObjects = resolveObjectCombinations(normalizedObjects, parameterScope, errors, true);
 
   if (errors.length > 0) {
     return {
@@ -107,8 +125,9 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
       // createSceneDocument normalizes to current schema version.
       version,
       metadata,
-      objects: normalizedObjects,
-      measurements: normalizedMeasurements
+      objects: resolvedObjects,
+      measurements: normalizedMeasurements,
+      parameters
     })
   };
 }
@@ -116,10 +135,13 @@ export function validateSceneDocument(input: unknown): SceneValidationResult {
 type MigrationStep = (document: Record<string, unknown>) => Record<string, unknown>;
 
 const SCENE_DOCUMENT_MIGRATIONS: Record<number, MigrationStep> = {
-  0: migrateSceneDocumentV0ToV1
+  0: migrateSceneDocumentV0ToV1,
+  1: migrateSceneDocumentV1ToV2,
+  2: document => ({ ...document, schemaVersion: 3 }),
+  3: document => ({ ...document, schemaVersion: 4 })
 };
 
-function migrateSceneDocumentEnvelope(input: Record<string, unknown>):
+export function migrateSceneDocumentEnvelope(input: Record<string, unknown>):
   | { ok: true; document: Record<string, unknown> }
   | { ok: false; errors: string[] } {
   const errors: string[] = [];
@@ -191,6 +213,55 @@ function migrateSceneDocumentV0ToV1(document: Record<string, unknown>): Record<s
     version: nextVersion,
     measurements: Array.isArray(document.measurements) ? document.measurements : []
   };
+}
+
+function migrateSceneDocumentV1ToV2(document: Record<string, unknown>): Record<string, unknown> {
+  // Older documents stored symbols but no scalar scope. Missing values have
+  // a deterministic default; local session upgrades can recover editor values.
+  const objects = Array.isArray(document.objects) ? document.objects : [];
+  const parameters = document.parameters === undefined
+    ? getSceneParameterNames(objects).map(id => ({ id, value: 1, min: -10, max: 10 }))
+    : document.parameters;
+  return { ...document, schemaVersion: 2, parameters };
+}
+
+export function parseSceneParameters(value: unknown, errors: string[]): SceneParameter[] {
+  if (!Array.isArray(value)) {
+    errors.push("parameters must be an array.");
+    return [];
+  }
+  if (value.length > MAX_SCENE_PARAMETER_COUNT) {
+    errors.push(`parameters cannot exceed ${MAX_SCENE_PARAMETER_COUNT}.`);
+    return [];
+  }
+  const entries: SceneParameter[] = [];
+  const ids = new Set<string>();
+  value.forEach((raw, index) => {
+    const path = `parameters[${index}]`;
+    if (!isRecord(raw)) { errors.push(`${path} must be an object.`); return; }
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    if (!isParameterName(id) || id.length > MAX_SCENE_PARAMETER_NAME_LENGTH) {
+      errors.push(`${path}.id must be a scalar parameter name of at most ${MAX_SCENE_PARAMETER_NAME_LENGTH} characters.`);
+      return;
+    }
+    if (ids.has(id)) { errors.push(`${path}.id must be unique.`); return; }
+    ids.add(id);
+    if (![raw.value, raw.min, raw.max].every(number => typeof number === "number" && Number.isFinite(number))) {
+      errors.push(`${path} value, min and max must be finite numbers.`);
+      return;
+    }
+    const { value, min, max } = raw as { value: number; min: number; max: number };
+    if (min >= max || value < min || value > max) {
+      errors.push(`${path} requires min < max and a value inside those bounds.`);
+      return;
+    }
+    if (raw.defined !== undefined && typeof raw.defined !== "boolean") {
+      errors.push(`${path}.defined must be a boolean.`);
+      return;
+    }
+    entries.push({ id, value, min, max, ...(raw.defined !== undefined ? { defined: raw.defined as boolean } : {}) });
+  });
+  return entries;
 }
 
 function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurement[] {
@@ -295,7 +366,7 @@ function parseSceneMeasurements(value: unknown, errors: string[]): SceneMeasurem
 }
 
 function rejectUnsupportedTopLevelKeys(document: Record<string, unknown>, errors: string[]): void {
-  const allowedKeys = new Set(["schemaVersion", "version", "metadata", "objects", "measurements"]);
+  const allowedKeys = new Set(["schemaVersion", "version", "metadata", "objects", "measurements", "parameters"]);
 
   if ("groups" in document) {
     const groups = document.groups;
