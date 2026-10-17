@@ -19,5 +19,6 @@
     "video:dev": "bun run --filter @vinculum/video dev",
     "video:build": "bun run --filter @vinculum/video build",
     "video:build:vertical": "bun run --filter @vinculum/video build:vertical"
-  }
+  },
+  "license": "MIT"
 }

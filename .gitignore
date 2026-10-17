@@ -25,6 +25,17 @@ coverage/
 .idea/
 .env.local
 .claude/
+.agents/
+.local/
+
+# Optional Remotion bundle
+apps/video/build/
+
+# Browser test output and raw capture sessions
+test-results/
+playwright-report/
+blob-report/
+apps/video/public/recorded/page@*.webm
 
 # Generated from the installed math editor dependency
 apps/graph/public/mathlive/
