@@ -197,6 +197,13 @@
       "copyright": "2026 Luseefor",
       "license": "MIT",
       "origin": "Project editor recordings; owner confirmed redistribution rights."
+    },
+    {
+      "path": "docs/media/editor.png",
+      "sha256": "e37b0619612ce52dce76eaf3cabf3ba16cf12239ee7e3b0fa33986db2af5f209",
+      "copyright": "2026 Luseefor",
+      "license": "MIT",
+      "origin": "Unmodified browser screenshot of the public project editor, captured 2026-10-19 with z = sin(x)*cos(y). Project-owned UI and graphics; existing MIT media redistribution terms apply."
     }
   ]
 }
