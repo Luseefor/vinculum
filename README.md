@@ -4,6 +4,14 @@ Vinculum is a local-first mathematical visualization and sketching editor.
 Author equations, curves, surfaces, fields, and geometric objects, then explore
 them in 2D and 3D in one workspace.
 
+[Open the editor](https://vinculum.rijan.sh/editor) · [Try examples](https://vinculum.rijan.sh/editor?examples=1) · [Read the guide](https://vinculum.rijan.sh/documentations)
+
+![Vinculum editor showing a mathematical surface and its expression](docs/media/editor.png)
+
+No account is required. Projects are saved in your browser; shared scene links
+encode the scene in the URL. See [limits](docs/user/limits.md) before using a
+numerical result in your work.
+
 ## Core features
 
 - Interactive 3D mathematical visualization (Three.js)
@@ -98,6 +106,7 @@ existing mathematical results and scene format.
 - [Repository and math folder layout](docs/development/repository-layout.md)
 - [Adding graph and object types](docs/development/object-types.md)
 - [Core engine architecture](docs/architecture/core-engine.md)
+- [Engineering note: the Rust/WASM computation boundary](docs/architecture/rust-wasm-boundary.md)
 - [Public-release review and remaining gaps](docs/reports/public-release-review.md)
 
 The main app is `apps/graph`; shared domain types are in `packages/scene`.
